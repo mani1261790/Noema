@@ -1173,10 +1173,82 @@ function normalizeMarkdownText(value: string): string {
 
 function normalizeCodeText(value: string): string {
   if (value.includes("\n")) return value;
-  return value
-    .replace(/(?<!\\)\\r\\n/g, "\n")
-    .replace(/(?<!\\)\\n/g, "\n")
-    .replace(/(?<!\\)\\t/g, "\t");
+
+  let out = "";
+  let i = 0;
+  let quote: "'" | '"' | null = null;
+  let triple = false;
+
+  while (i < value.length) {
+    const ch = value[i];
+
+    if (!quote) {
+      if (ch === "'" || ch === '"') {
+        const isTriple = value[i + 1] === ch && value[i + 2] === ch;
+        quote = ch;
+        triple = isTriple;
+        if (isTriple) {
+          out += ch.repeat(3);
+          i += 3;
+          continue;
+        }
+        out += ch;
+        i += 1;
+        continue;
+      }
+
+      if (ch === "\\" && value[i + 1] === "r" && value[i + 2] === "\\" && value[i + 3] === "n") {
+        out += "\n";
+        i += 4;
+        continue;
+      }
+      if (ch === "\\" && value[i + 1] === "n") {
+        out += "\n";
+        i += 2;
+        continue;
+      }
+      if (ch === "\\" && value[i + 1] === "t") {
+        out += "\t";
+        i += 2;
+        continue;
+      }
+
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === "\\") {
+      out += ch;
+      if (i + 1 < value.length) {
+        out += value[i + 1];
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+
+    if (triple && ch === quote && value[i + 1] === quote && value[i + 2] === quote) {
+      out += ch.repeat(3);
+      quote = null;
+      triple = false;
+      i += 3;
+      continue;
+    }
+
+    if (!triple && ch === quote) {
+      out += ch;
+      quote = null;
+      i += 1;
+      continue;
+    }
+
+    out += ch;
+    i += 1;
+  }
+
+  return out;
 }
 
 function sourceToText(source: NotebookCell["source"]): string {
