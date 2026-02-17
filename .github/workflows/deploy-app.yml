@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload notebook html assets
         run: |
-          aws s3 sync ./public/notebooks s3://${NOTEBOOK_BUCKET} --delete
+          aws s3 sync ./public/notebooks s3://${NOTEBOOK_BUCKET}/notebooks --delete
 
       - name: Sync notebook metadata/chunks to DynamoDB
         run: |
