@@ -159,6 +159,7 @@ jobs:
           normalize_bedrock_model() {
             local model
             model="$(trim "$1")"
+            model="${model%% *}"
             case "${model}" in
               "")
                 printf ''
