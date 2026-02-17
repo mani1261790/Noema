@@ -29,7 +29,7 @@ export CDK_DEFAULT_REGION=ap-northeast-3
 ## Bootstrap and deploy infra
 
 ```bash
-cd /Users/mani/Developer/Noema/infra
+cd infra
 npm install
 npx cdk bootstrap aws://437089831576/ap-northeast-3
 npm run deploy -- --require-approval never -c frontendUrl=https://your-frontend-domain

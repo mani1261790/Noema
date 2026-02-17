@@ -60,10 +60,10 @@ npm run worker
 
 ## AWS インフラ (CDK)
 
-`/Users/mani/Developer/Noema/infra` に本番インフラ定義があります。
+`infra/` に本番インフラ定義があります。
 
 ```bash
-cd /Users/mani/Developer/Noema/infra
+cd infra
 npm install
 
 export AWS_PROFILE=noema-prod
