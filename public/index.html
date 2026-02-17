@@ -162,38 +162,70 @@
 
     .chapter-toggle {
       width: 100%;
-      border: 0;
-      background: transparent;
+      border: 1px solid transparent;
+      background: color-mix(in oklab, var(--panel-soft) 52%, transparent);
       color: var(--text);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
+      padding: 10px 10px 10px 12px;
       font-weight: 650;
       cursor: pointer;
       font-size: 13px;
       text-align: left;
+      border-radius: 11px;
+      transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .chapter-toggle:hover {
+      background: color-mix(in oklab, var(--panel-strong) 85%, transparent);
+      border-color: color-mix(in oklab, var(--accent) 28%, var(--border));
+    }
+
+    .chapter-toggle:focus-visible {
+      outline: none;
+      border-color: color-mix(in oklab, var(--accent) 65%, white);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .chapter-toggle[aria-expanded="true"] {
+      background: color-mix(in oklab, var(--panel-strong) 96%, transparent);
+      border-color: color-mix(in oklab, var(--accent) 26%, var(--border));
+    }
+
+    .chapter-title {
+      font-weight: 700;
+      letter-spacing: .01em;
     }
 
     .chapter-arrow {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--border));
+      width: 20px;
+      height: 20px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--border));
       background:
-        radial-gradient(circle at 30% 28%, color-mix(in oklab, var(--panel-strong) 84%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 85%, transparent);
+        radial-gradient(circle at 30% 28%, color-mix(in oklab, var(--panel-strong) 78%, transparent), transparent 64%),
+        color-mix(in oklab, var(--panel-soft) 68%, transparent);
       color: color-mix(in oklab, var(--accent) 62%, var(--text));
-      font-size: 13px;
-      font-weight: 800;
       transition:
         transform 180ms ease,
         color 180ms ease,
         background 180ms ease,
         border-color 180ms ease;
+    }
+
+    .chapter-arrow svg {
+      width: 11px;
+      height: 11px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .chapter-arrow.expanded {
@@ -793,9 +825,13 @@
 
             return `
               <section class="chapter glass-soft">
-                <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button">
-                  <span>${chapter.title}</span>
-                  <span class="chapter-arrow ${expanded ? "expanded" : ""}">&gt;</span>
+                <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button" aria-expanded="${expanded ? "true" : "false"}">
+                  <span class="chapter-title">${chapter.title}</span>
+                  <span class="chapter-arrow ${expanded ? "expanded" : ""}" aria-hidden="true">
+                    <svg viewBox="0 0 12 12" focusable="false">
+                      <path d="M4 2.25 L7.75 6 L4 9.75"></path>
+                    </svg>
+                  </span>
                 </button>
                 ${items}
               </section>
