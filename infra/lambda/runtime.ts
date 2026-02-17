@@ -156,6 +156,8 @@ const ADMIN_EMAILS = new Set(
 );
 
 const INLINE_QA = (process.env.NOEMA_INLINE_QA || "false").toLowerCase() === "true";
+const QA_RATE_LIMIT_MAX = Math.max(1, Number(process.env.QA_RATE_LIMIT_MAX || 6));
+const QA_RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.QA_RATE_LIMIT_WINDOW_MINUTES || 1));
 
 let openAiApiKeyPromise: Promise<string | null> | null = null;
 
@@ -302,6 +304,27 @@ async function putAccessLog(userId: string, notebookId: string, action: string) 
       })
     )
     .catch(() => undefined);
+}
+
+async function ensureQuestionRateLimit(userId: string) {
+  const from = new Date(Date.now() - QA_RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+  const response = await ddb.send(
+    new QueryCommand({
+      TableName: QUESTIONS_TABLE,
+      IndexName: "user-createdAt-index",
+      KeyConditionExpression: "userId = :userId AND createdAt >= :from",
+      ExpressionAttributeValues: {
+        ":userId": userId,
+        ":from": from
+      },
+      Select: "COUNT",
+      Limit: QA_RATE_LIMIT_MAX
+    })
+  );
+
+  if ((response.Count ?? 0) >= QA_RATE_LIMIT_MAX) {
+    throw new Error("Rate limit exceeded. Please wait and retry.");
+  }
 }
 
 async function getNotebook(notebookId: string): Promise<NotebookRecord | null> {
@@ -613,6 +636,7 @@ export async function askQuestion(input: AskQuestionInput, user: AuthUser): Prom
   if (!notebook) {
     throw new Error("Notebook not found.");
   }
+  await ensureQuestionRateLimit(user.userId);
 
   await putAccessLog(user.userId, input.notebookId, "ASK_QUESTION");
 

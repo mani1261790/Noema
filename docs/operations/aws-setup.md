@@ -130,7 +130,9 @@ npm run deploy -- --require-approval never \
   -c openAiModelSmall=gpt-5-nano \
   -c openAiApiKeySsmParameter=/noema/prod/openai-api-key \
   -c adminEmails=admin@example.com \
-  -c noemaInlineQa=false
+  -c noemaInlineQa=false \
+  -c qaRateLimitMax=6 \
+  -c qaRateLimitWindowMinutes=1
 cd ..
 ```
 

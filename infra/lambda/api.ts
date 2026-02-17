@@ -57,7 +57,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return json(202, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const statusCode = message === "Notebook not found." ? 404 : 500;
+      const statusCode =
+        message === "Notebook not found."
+          ? 404
+          : message.startsWith("Rate limit exceeded")
+            ? 429
+            : 500;
       return json(statusCode, { error: message });
     }
   }

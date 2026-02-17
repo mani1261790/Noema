@@ -62,6 +62,14 @@ on:
         description: Run inline QA in API (true/false)
         required: false
         default: "false"
+      qa_rate_limit_max:
+        description: Max question submissions per user in the time window
+        required: false
+        default: "6"
+      qa_rate_limit_window_minutes:
+        description: Rate-limit time window in minutes
+        required: false
+        default: "1"
 
 permissions:
   id-token: write
@@ -126,6 +134,7 @@ jobs:
             EXTRA_CTX="$EXTRA_CTX -c adminEmails=${{ inputs.admin_emails }}"
           fi
           EXTRA_CTX="$EXTRA_CTX -c noemaInlineQa=${{ inputs.noema_inline_qa }}"
+          EXTRA_CTX="$EXTRA_CTX -c qaRateLimitMax=${{ inputs.qa_rate_limit_max }} -c qaRateLimitWindowMinutes=${{ inputs.qa_rate_limit_window_minutes }}"
 
           npm run deploy -- --require-approval never \
             -c stage=${{ inputs.stack_stage }} \

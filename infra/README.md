@@ -69,7 +69,9 @@ npm run deploy -- --require-approval never \
   -c qaModelProvider=openai \
   -c openAiModelSmall=gpt-5-nano \
   -c openAiApiKeySsmParameter=/noema/prod/openai-api-key \
-  -c adminEmails=admin@example.com
+  -c adminEmails=admin@example.com \
+  -c qaRateLimitMax=6 \
+  -c qaRateLimitWindowMinutes=1
 ```
 
 ## Useful outputs

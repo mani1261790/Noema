@@ -47,6 +47,8 @@ export class NoemaStack extends Stack {
     const openAiModelLarge = String(this.node.tryGetContext("openAiModelLarge") ?? "");
     const openAiMaxOutputTokens = String(this.node.tryGetContext("openAiMaxOutputTokens") ?? "800");
     const openAiTemperature = String(this.node.tryGetContext("openAiTemperature") ?? "0.2");
+    const qaRateLimitMax = String(this.node.tryGetContext("qaRateLimitMax") ?? "6");
+    const qaRateLimitWindowMinutes = String(this.node.tryGetContext("qaRateLimitWindowMinutes") ?? "1");
     const bedrockRegion = String(this.node.tryGetContext("bedrockRegion") ?? "us-east-1");
     const bedrockModelSmall = String(this.node.tryGetContext("bedrockModelSmall") ?? "");
     const bedrockModelMid = String(this.node.tryGetContext("bedrockModelMid") ?? "");
@@ -244,6 +246,8 @@ export class NoemaStack extends Stack {
         OPENAI_MODEL_LARGE: openAiModelLarge,
         OPENAI_MAX_OUTPUT_TOKENS: openAiMaxOutputTokens,
         OPENAI_TEMPERATURE: openAiTemperature,
+        QA_RATE_LIMIT_MAX: qaRateLimitMax,
+        QA_RATE_LIMIT_WINDOW_MINUTES: qaRateLimitWindowMinutes,
         BEDROCK_REGION: bedrockRegion,
         BEDROCK_MODEL_SMALL: bedrockModelSmall,
         BEDROCK_MODEL_MID: bedrockModelMid,
@@ -285,6 +289,8 @@ export class NoemaStack extends Stack {
         OPENAI_MODEL_LARGE: openAiModelLarge,
         OPENAI_MAX_OUTPUT_TOKENS: openAiMaxOutputTokens,
         OPENAI_TEMPERATURE: openAiTemperature,
+        QA_RATE_LIMIT_MAX: qaRateLimitMax,
+        QA_RATE_LIMIT_WINDOW_MINUTES: qaRateLimitWindowMinutes,
         BEDROCK_REGION: bedrockRegion,
         BEDROCK_MODEL_SMALL: bedrockModelSmall,
         BEDROCK_MODEL_MID: bedrockModelMid,
@@ -349,7 +355,7 @@ export class NoemaStack extends Stack {
           apigwv2.CorsHttpMethod.PATCH,
           apigwv2.CorsHttpMethod.OPTIONS
         ],
-        allowOrigins: ["*"]
+        allowOrigins: ["http://localhost:3000", frontendUrl]
       }
     });
 
@@ -526,7 +532,18 @@ export class NoemaStack extends Stack {
             "sqs:*",
             "sns:*",
             "cognito-idp:*",
-            "iam:*",
+            "iam:CreateRole",
+            "iam:DeleteRole",
+            "iam:GetRole",
+            "iam:UpdateRole",
+            "iam:PassRole",
+            "iam:TagRole",
+            "iam:UntagRole",
+            "iam:AttachRolePolicy",
+            "iam:DetachRolePolicy",
+            "iam:PutRolePolicy",
+            "iam:DeleteRolePolicy",
+            "iam:UpdateAssumeRolePolicy",
             "ssm:GetParameter",
             "ssm:GetParameters"
           ],

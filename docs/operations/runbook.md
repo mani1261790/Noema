@@ -37,6 +37,8 @@
 - `openai_api_key_ssm_parameter` (optional): SSM SecureString name for OpenAI key
 - `admin_emails` (optional): comma-separated admin emails
 - `noema_inline_qa` (optional): `true` to process synchronously in API
+- `qa_rate_limit_max` (optional): max asks per user in window (default `6`)
+- `qa_rate_limit_window_minutes` (optional): rate-limit window minutes (default `1`)
 
 ### Static asset workflow inputs (`Deploy Static Assets`)
 
