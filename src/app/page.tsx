@@ -1,22 +1,64 @@
-import Link from "next/link";
+import { NotebookWorkspace } from "@/components/notebook-workspace";
+import { getCurrentSession } from "@/lib/auth";
+import { getCatalog, getNotebookById, getNotebookHtml } from "@/lib/notebooks";
+import { prisma } from "@/lib/prisma";
 
-export default function HomePage() {
+type HomePageProps = {
+  searchParams?: {
+    notebookId?: string | string[];
+  };
+};
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const [catalog, session] = await Promise.all([getCatalog(), getCurrentSession()]);
+
+  const firstNotebook = catalog.chapters
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .flatMap((chapter) => chapter.notebooks.slice().sort((a, b) => a.order - b.order))[0];
+
+  const requestedNotebookId = Array.isArray(searchParams?.notebookId)
+    ? searchParams?.notebookId[0]
+    : searchParams?.notebookId;
+  const selectedNotebook = requestedNotebookId ? await getNotebookById(requestedNotebookId) : null;
+  const activeNotebook = selectedNotebook ?? firstNotebook;
+
+  if (!activeNotebook) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-12">
+        <h1 className="font-display text-3xl font-semibold">教材がまだありません</h1>
+        <p className="text-muted mt-3">管理者が教材を追加すると、ここに学習ワークスペースが表示されます。</p>
+      </main>
+    );
+  }
+
+  const [html, chunks] = await Promise.all([
+    getNotebookHtml(activeNotebook.htmlPath),
+    prisma.notebookChunk
+      .findMany({
+        where: { notebookId: activeNotebook.id },
+        orderBy: { position: "asc" },
+        select: { sectionId: true }
+      })
+      .catch(() => [])
+  ]);
+  const sectionIds = Array.from(new Set(chunks.map((chunk) => chunk.sectionId))).filter(Boolean);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
-      <p className="font-mono text-sm uppercase tracking-widest text-[var(--accent)]">Noema</p>
-      <h1 className="mt-3 font-display text-5xl font-semibold leading-tight">LLMと機械学習を段階的に学ぶ教材サイト</h1>
-      <p className="text-muted mt-6 max-w-2xl text-lg">
-        ipynb教材をHTMLで読みながら、Colab実行とRAG質問応答を組み合わせて学習できるプラットフォームです。
-      </p>
-
-      <div className="mt-8 flex gap-3">
-        <Link className="glass-button rounded-lg px-5 py-3 text-white" href="/login">
-          ログイン
-        </Link>
-        <Link className="glass-button-ghost rounded-lg px-5 py-3" href="/learn">
-          教材を開く
-        </Link>
-      </div>
-    </main>
+    <NotebookWorkspace
+      chapters={catalog.chapters}
+      initialHtml={html}
+      initialNotebook={activeNotebook}
+      initialSectionIds={sectionIds}
+      user={
+        session?.user
+          ? {
+              id: session.user.id,
+              name: session.user.name,
+              role: session.user.role
+            }
+          : null
+      }
+    />
   );
 }

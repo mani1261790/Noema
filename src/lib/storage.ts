@@ -80,6 +80,23 @@ export async function loadNotebookHtml(htmlPath: string): Promise<string> {
   return fs.readFile(localPath, "utf8");
 }
 
+export async function loadNotebookIpynb(notebookId: string): Promise<string> {
+  const ipynbKey = `notebooks/${notebookId}.ipynb`;
+
+  if (s3Client && s3Bucket) {
+    const response = await s3Client.send(
+      new GetObjectCommand({
+        Bucket: s3Bucket,
+        Key: ipynbKey
+      })
+    );
+    return streamToString(response.Body);
+  }
+
+  const localPath = path.join(process.cwd(), "content", "notebooks", `${notebookId}.ipynb`);
+  return fs.readFile(localPath, "utf8");
+}
+
 export function isS3Enabled() {
   return Boolean(s3Client && s3Bucket);
 }
