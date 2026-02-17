@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Noema</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
   <style>
     :root {
@@ -20,6 +23,7 @@
       --accent-strong: #0f6e93;
       --input-bg: rgba(255,255,255,.58);
       --shadow: 0 24px 54px rgba(10, 26, 54, 0.18), inset 0 1px 0 rgba(255,255,255,.62);
+      --brand-font: "Space Grotesk", "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
       --assistant-width: 400px;
       color-scheme: light;
     }
@@ -121,9 +125,29 @@
     }
 
     .sidebar h1 {
-      font-size: 27px;
+      font-family: var(--brand-font);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
       margin: 8px 8px 4px;
       line-height: 1.15;
+      color: var(--text);
+      text-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+      .sidebar h1 {
+        background: linear-gradient(
+          135deg,
+          color-mix(in oklab, var(--accent) 78%, white) 0%,
+          color-mix(in oklab, var(--text) 72%, var(--accent)) 60%,
+          color-mix(in oklab, var(--accent-strong) 66%, var(--text)) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
     }
 
     .search {
