@@ -31,6 +31,7 @@
 - `create_github_deploy_role` (recommended): `true` when using `noema-<stage>-github-deploy`
 - `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
 - `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/main` or `refs/heads/*`
+- `github_environment_name` (optional): GitHub Environment trust name, default `production`
 - `qa_model_provider` (optional): `auto` / `openai` / `bedrock` / `mock`
 - `bedrock_region` (optional): `us-east-1` / `us-west-2` / `ap-northeast-1` / `ap-northeast-3`
 - `bedrock_model_small` (required when `qa_model_provider=bedrock`): `amazon.nova-micro-v1:0` or `amazon.nova-lite-v1:0`

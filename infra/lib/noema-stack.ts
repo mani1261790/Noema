@@ -51,6 +51,7 @@ export class NoemaStack extends Stack {
     const alarmEmail = String(this.node.tryGetContext("alarmEmail") ?? "");
     const githubRepo = String(this.node.tryGetContext("githubRepo") ?? "");
     const githubRefPattern = String(this.node.tryGetContext("githubRefPattern") ?? "refs/heads/main");
+    const githubEnvironmentName = String(this.node.tryGetContext("githubEnvironmentName") ?? "production");
     const createGithubDeployRole = String(this.node.tryGetContext("createGithubDeployRole") ?? "false") === "true";
     const cdkBootstrapQualifier = String(this.node.tryGetContext("cdkBootstrapQualifier") ?? "hnb659fds");
     const qaModelProvider = String(this.node.tryGetContext("qaModelProvider") ?? "auto");
@@ -558,7 +559,10 @@ export class NoemaStack extends Stack {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
           },
           StringLike: {
-            "token.actions.githubusercontent.com:sub": `repo:${githubRepo}:ref:${githubRefPattern}`
+            "token.actions.githubusercontent.com:sub": [
+              `repo:${githubRepo}:ref:${githubRefPattern}`,
+              `repo:${githubRepo}:environment:${githubEnvironmentName}`
+            ]
           }
         }),
         description: "GitHub Actions OIDC role for Noema deployments"

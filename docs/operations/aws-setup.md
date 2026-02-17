@@ -97,7 +97,8 @@ npm run deploy -- --require-approval never \
   -c cognitoDomainPrefix=noema-prod-auth \
   -c createGithubDeployRole=true \
   -c githubRepo=mani1261790/Noema \
-  -c githubRefPattern=refs/heads/main
+  -c githubRefPattern=refs/heads/main \
+  -c githubEnvironmentName=production
 cd ..
 ```
 
@@ -106,6 +107,7 @@ Notes:
 - Replace `https://your-frontend-domain` with your actual CloudFront/app domain.
 - `alarmEmail` is optional but strongly recommended.
 - When GitHub Actions uses stack-managed deploy role (`noema-<stage>-github-deploy`), keep `createGithubDeployRole=true` in infra deploy to avoid role deletion.
+- Keep `githubEnvironmentName` aligned with the workflow environment name (default: `production`).
 
 ## 5.1 AWS-only QA (Bedrock, recommended)
 
