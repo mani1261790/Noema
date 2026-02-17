@@ -17,6 +17,7 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
   <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
   <style>
     :root {
       --bg-0: #f3f8fb;
@@ -80,6 +81,13 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
       color: var(--text);
       margin: .7rem 0;
     }
+    .prose-noema ul, .prose-noema ol {
+      margin: .7rem 0;
+      padding-left: 1.4rem;
+    }
+    .prose-noema ul { list-style: disc; }
+    .prose-noema ol { list-style: decimal; }
+    .prose-noema li { margin: .28rem 0; line-height: 1.72; }
     .prose-noema a { color: inherit; text-underline-offset: 2px; }
     .prose-noema pre {
       background: var(--code-bg);

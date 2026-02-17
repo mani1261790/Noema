@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import "katex/dist/katex.min.css";
 
 :root {
   --bg-0: #f3f8fb;
@@ -192,6 +193,50 @@ a {
   margin-bottom: 0.75rem;
 }
 
+.prose-noema p {
+  margin: 0.7rem 0;
+  line-height: 1.85;
+}
+
+.prose-noema ul,
+.prose-noema ol {
+  margin: 0.75rem 0;
+  padding-left: 1.4rem;
+}
+
+.prose-noema ul {
+  list-style: disc;
+}
+
+.prose-noema ol {
+  list-style: decimal;
+}
+
+.prose-noema li {
+  margin: 0.3rem 0;
+  line-height: 1.75;
+}
+
+.prose-noema blockquote {
+  margin: 0.9rem 0;
+  border-left: 3px solid color-mix(in oklab, var(--accent) 45%, white);
+  padding-left: 0.9rem;
+  color: var(--muted);
+}
+
+.prose-noema table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+}
+
+.prose-noema th,
+.prose-noema td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+}
+
 .prose-noema pre {
   overflow-x: auto;
   padding: 1rem;
@@ -202,4 +247,10 @@ a {
 
 .prose-noema code {
   font-family: "IBM Plex Mono", monospace;
+}
+
+.prose-noema .katex-display {
+  margin: 0.9rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }

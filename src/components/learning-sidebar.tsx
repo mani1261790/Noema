@@ -18,15 +18,15 @@ export function LearningSidebar({ chapters, activeNotebookId }: Props) {
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
 
   return (
-    <aside className="glass-panel h-full rounded-2xl p-3">
+    <aside className="glass-panel flex h-full flex-col rounded-2xl p-3">
       <p className="px-2 pb-2 pt-1 font-display text-lg font-semibold">教材一覧</p>
-      <div className="space-y-2">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {sortedChapters.map((chapter) => {
           const expanded = Boolean(openMap[chapter.id]);
           const panelId = `chapter-panel-${chapter.id}`;
 
           return (
-            <div key={chapter.id} className="glass-subpanel rounded-xl">
+            <div key={chapter.id} className="glass-subpanel overflow-hidden rounded-xl">
               <button
                 aria-controls={panelId}
                 aria-expanded={expanded}
@@ -38,7 +38,7 @@ export function LearningSidebar({ chapters, activeNotebookId }: Props) {
                 <span>{expanded ? "−" : "+"}</span>
               </button>
               {expanded ? (
-                <ul className="space-y-1 border-t border-[var(--border)] p-2 text-sm" id={panelId}>
+                <ul className="max-h-[38vh] space-y-1 overflow-y-auto border-t border-[var(--border)] p-2 text-sm" id={panelId}>
                   {chapter.notebooks
                     .slice()
                     .sort((a, b) => a.order - b.order)

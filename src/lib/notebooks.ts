@@ -100,12 +100,47 @@ export async function getNotebookHtml(htmlPath: string): Promise<string> {
   const candidate =
     articleStart >= 0 && articleEnd > articleStart ? raw.slice(articleStart, articleEnd + "</article>".length) : raw;
 
+  const mathTags = [
+    "math",
+    "semantics",
+    "annotation",
+    "mrow",
+    "mi",
+    "mo",
+    "mn",
+    "mfrac",
+    "msup",
+    "msub",
+    "msubsup",
+    "mover",
+    "munder",
+    "munderover",
+    "msqrt",
+    "mroot",
+    "mstyle",
+    "mspace",
+    "mtext",
+    "mtable",
+    "mtr",
+    "mtd",
+    "mphantom",
+    "mpadded"
+  ];
+
   return sanitizeHtml(candidate, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["article", "h1", "h2", "h3", "pre", "code", "span"]),
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["article", ...mathTags]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
-      "*": ["class"],
-      a: ["href", "target", "rel"]
+      "*": ["class", "id"],
+      a: ["href", "target", "rel"],
+      div: ["class", "id", "style", "aria-hidden"],
+      span: ["class", "id", "style", "aria-hidden"],
+      math: ["xmlns", "display"],
+      annotation: ["encoding"],
+      mspace: ["width"],
+      mpadded: ["height", "depth", "lspace", "voffset"],
+      mo: ["stretchy"],
+      mstyle: ["scriptlevel", "displaystyle"]
     },
     allowedSchemes: ["http", "https", "mailto"]
   });

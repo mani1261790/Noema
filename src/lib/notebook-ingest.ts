@@ -1,3 +1,6 @@
+import MarkdownIt from "markdown-it";
+import markdownItKatex from "markdown-it-katex";
+
 export type NotebookCell = {
   cell_type: "markdown" | "code";
   source?: string[] | string;
@@ -28,10 +31,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-function escapeHtmlWithLineBreaks(value: string): string {
-  return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
 function normalizeMarkdownText(value: string): string {
@@ -162,24 +161,32 @@ export function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?:
   };
 }
 
-function markdownToHtml(markdown: string): string {
-  if (markdown.startsWith("# ") || markdown.startsWith("## ") || markdown.startsWith("### ")) {
-    const level = markdown.startsWith("### ") ? 3 : markdown.startsWith("## ") ? 2 : 1;
-    const markerLength = level + 1;
-    const lines = markdown
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const headingLine = (lines.shift() ?? "").slice(markerLength).trim();
-    const tag = `h${level}`;
-    const heading = `<${tag} id="${slugify(headingLine)}">${escapeHtml(headingLine)}</${tag}>`;
-    if (lines.length === 0) {
-      return heading;
+const markdownRenderer = (() => {
+  const md = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: false,
+    breaks: true
+  });
+
+  md.use(markdownItKatex);
+
+  const fallbackHeadingOpen = md.renderer.rules.heading_open;
+  md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+    const inlineToken = tokens[idx + 1];
+    const headingText = inlineToken && inlineToken.type === "inline" ? inlineToken.content : "";
+    const id = slugify(headingText);
+    if (id) {
+      tokens[idx].attrSet("id", id);
     }
-    return `${heading}\n<p>${escapeHtmlWithLineBreaks(lines.join("\n"))}</p>`;
-  }
-  return `<p>${escapeHtmlWithLineBreaks(markdown)}</p>`;
-}
+    if (fallbackHeadingOpen) {
+      return fallbackHeadingOpen(tokens, idx, options, env, self);
+    }
+    return self.renderToken(tokens, idx, options);
+  };
+
+  return md;
+})();
 
 export function notebookToHtml(input: NotebookFile): string {
   const pieces: string[] = ["<article class=\"prose-noema\">"];
@@ -189,9 +196,7 @@ export function notebookToHtml(input: NotebookFile): string {
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
-      for (const line of text.split("\n\n")) {
-        pieces.push(markdownToHtml(line.trim()));
-      }
+      pieces.push(markdownRenderer.render(text));
       continue;
     }
 
