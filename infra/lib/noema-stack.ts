@@ -312,7 +312,6 @@ export class NoemaStack extends Stack {
       handler: "handler.lambda_handler",
       memorySize: 1024,
       timeout: Duration.seconds(30),
-      reservedConcurrentExecutions: 5,
       logGroup: pythonRunnerLogGroup,
       code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/python-runner"), {
         bundling: {
