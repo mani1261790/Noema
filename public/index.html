@@ -999,18 +999,6 @@
         `;
       }
 
-      function resolvePythonPackage(moduleName) {
-        const base = (moduleName || "").split(".")[0];
-        const map = {
-          sklearn: "scikit-learn",
-          PIL: "pillow",
-          cv2: "opencv-python",
-          yaml: "pyyaml",
-          bs4: "beautifulsoup4"
-        };
-        return map[base] || base;
-      }
-
       function extractImportedModulesFromSource(source) {
         const modules = new Set();
         const normalized = normalizeRunnableSource(source || "");
@@ -1056,8 +1044,8 @@
       function normalizeModuleHints(moduleNames) {
         const hints = new Set();
         moduleNames.forEach((moduleName) => {
-          const normalized = resolvePythonPackage((moduleName || "").split(".")[0].trim());
-          if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(normalized)) return;
+          const normalized = (moduleName || "").split(".")[0].trim();
+          if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(normalized)) return;
           hints.add(normalized);
         });
         return Array.from(hints).slice(0, 24);
@@ -1088,6 +1076,7 @@
             })
           });
         } catch (error) {
+          preloadedNotebookPackages.delete(preloadKey);
           console.warn("Runtime preload failed", notebookId, error);
         }
       }
