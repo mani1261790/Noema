@@ -35,7 +35,7 @@
     }
 
     .shell {
-      max-width: 1420px;
+      max-width: 1500px;
       margin: 0 auto;
       border-radius: 26px;
       border: 1px solid var(--border);
@@ -162,7 +162,7 @@
       color: var(--muted);
     }
 
-    input, textarea {
+    input {
       border: 1px solid var(--border);
       background: rgba(16, 32, 52, .62);
       color: var(--text);
@@ -173,7 +173,7 @@
       width: 100%;
     }
 
-    input:focus, textarea:focus {
+    input:focus {
       border-color: color-mix(in oklab, var(--accent) 70%, white);
       box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
     }
@@ -189,12 +189,13 @@
       transition: opacity 140ms ease, transform 140ms ease, max-height 160ms ease, padding 140ms ease;
       line-height: 1.55;
       font-size: 13px;
+      white-space: pre-wrap;
     }
 
     .status[data-visible="true"] {
       opacity: 1;
       transform: translateY(0);
-      max-height: 160px;
+      max-height: 220px;
       padding: 10px 12px;
     }
 
@@ -221,17 +222,26 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
-    .list {
+    .head-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .chapters {
       min-height: 0;
       overflow: auto;
       display: grid;
-      gap: 8px;
+      gap: 10px;
       padding-right: 2px;
+      align-content: start;
     }
 
-    .item {
+    .chapter-card {
       border-radius: 14px;
       border: 1px solid var(--border);
       background: rgba(16, 32, 52, .52);
@@ -240,25 +250,84 @@
       gap: 8px;
     }
 
-    .item-top {
+    .chapter-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chapter-title-input {
+      font-weight: 600;
+    }
+
+    .dropzone {
+      min-height: 68px;
+      border: 1px dashed color-mix(in oklab, var(--border) 85%, transparent);
+      border-radius: 12px;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+      background: rgba(7, 17, 30, .2);
+    }
+
+    .dropzone.is-over {
+      border-color: color-mix(in oklab, var(--accent) 68%, white);
+      background: rgba(22, 49, 76, .34);
+    }
+
+    .empty-drop {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 8px 4px;
+    }
+
+    .nb-card {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(14, 29, 47, .76);
+      padding: 9px;
+      display: grid;
+      gap: 8px;
+      cursor: grab;
+    }
+
+    .nb-card.dragging {
+      opacity: .45;
+    }
+
+    .nb-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      font-size: 12px;
       color: var(--muted);
+      font-size: 11px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     }
 
-    .item-grid {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: 1fr 1fr;
+    .drag-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 10px;
+      color: var(--muted);
+      background: rgba(18, 35, 56, .56);
     }
 
-    .item-grid .full { grid-column: 1 / -1; }
+    .nb-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
 
-    .item-actions {
+    .nb-grid .full { grid-column: 1 / -1; }
+
+    .nb-actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
@@ -273,9 +342,10 @@
       font-size: 13px;
     }
 
-    @media (max-width: 1080px) {
+    @media (max-width: 1180px) {
       .main-grid { grid-template-columns: 1fr; min-height: auto; }
-      .form-grid, .item-grid { grid-template-columns: 1fr; }
+      .form-grid, .nb-grid { grid-template-columns: 1fr; }
+      .chapter-head { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -286,7 +356,7 @@
         <a class="back" href="/" aria-label="トップへ戻る">‹</a>
         <div>
           <h1>Noema Admin</h1>
-          <div class="meta">教材（ipynb）管理: 追加 / 編集 / 削除</div>
+          <div class="meta">教材（ipynb）管理: セクション編集 / 並び替え / 追加 / 削除</div>
         </div>
       </div>
       <button class="button-ghost" id="logout-btn" type="button">ログアウト</button>
@@ -325,13 +395,16 @@
       <section class="panel">
         <div class="list-head">
           <h2>教材一覧</h2>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <span class="meta" id="count-label">0 items</span>
+          <div class="head-actions">
+            <span class="meta" id="count-label">0 sections / 0 notebooks</span>
+            <button class="button-ghost" id="add-section-btn" type="button">セクション追加</button>
+            <button class="button" id="save-layout-btn" type="button">並び順・セクション保存</button>
             <button class="button-ghost" id="refresh-btn" type="button">再読込</button>
           </div>
         </div>
+        <div class="meta">ドラッグ&ドロップでノートを並び替え/セクション移動できます。空セクションはノートを入れて保存したときのみ永続反映されます。</div>
         <div class="status" id="list-status" data-visible="false" data-kind="info"></div>
-        <div class="list" id="notebook-list"></div>
+        <div class="chapters" id="chapters"></div>
       </section>
     </div>
   </main>
@@ -340,14 +413,28 @@
     (function () {
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
-      const listEl = document.getElementById("notebook-list");
-      const countLabelEl = document.getElementById("count-label");
+
       const uploadStatusEl = document.getElementById("upload-status");
       const listStatusEl = document.getElementById("list-status");
       const uploadForm = document.getElementById("upload-form");
       const uploadBtn = document.getElementById("upload-btn");
       const refreshBtn = document.getElementById("refresh-btn");
       const logoutBtn = document.getElementById("logout-btn");
+      const countLabelEl = document.getElementById("count-label");
+      const addSectionBtn = document.getElementById("add-section-btn");
+      const saveLayoutBtn = document.getElementById("save-layout-btn");
+      const chaptersEl = document.getElementById("chapters");
+
+      const state = {
+        sections: [],
+        notebooksById: {},
+        draggingNotebookId: "",
+        dirtyLayout: false
+      };
+
+      function uid(prefix) {
+        return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+      }
 
       function setStatus(target, kind, message) {
         if (!message) {
@@ -429,142 +516,468 @@
         return payload;
       }
 
-      function rowPayload(itemElement) {
-        const notebookId = itemElement.getAttribute("data-id") || "";
-        const title = itemElement.querySelector("[data-field='title']").value.trim();
-        const chapter = itemElement.querySelector("[data-field='chapter']").value.trim();
-        const sortOrder = Number(itemElement.querySelector("[data-field='sortOrder']").value || 1);
-        const tags = itemElement.querySelector("[data-field='tags']").value
+      function markDirty(flag) {
+        state.dirtyLayout = Boolean(flag);
+        saveLayoutBtn.textContent = state.dirtyLayout ? "並び順・セクション保存 *" : "並び順・セクション保存";
+      }
+
+      function buildStateFromItems(items) {
+        state.notebooksById = {};
+        state.sections = [];
+
+        const sectionMap = new Map();
+
+        (items || []).forEach((item) => {
+          const sectionTitle = String(item.chapter || "未分類").trim() || "未分類";
+          let section = sectionMap.get(sectionTitle);
+          if (!section) {
+            section = { id: uid("section"), title: sectionTitle, notebookIds: [] };
+            sectionMap.set(sectionTitle, section);
+            state.sections.push(section);
+          }
+
+          const notebook = {
+            notebookId: String(item.notebookId || "").trim(),
+            title: String(item.title || ""),
+            tags: Array.isArray(item.tags) ? item.tags.map((v) => String(v).trim()).filter(Boolean) : [],
+            colabUrl: String(item.colabUrl || ""),
+            videoUrl: String(item.videoUrl || ""),
+            htmlPath: String(item.htmlPath || ""),
+            sortOrder: Number(item.sortOrder || 1)
+          };
+
+          if (!notebook.notebookId) return;
+          state.notebooksById[notebook.notebookId] = notebook;
+          section.notebookIds.push(notebook.notebookId);
+        });
+
+        state.sections.forEach((section) => {
+          section.notebookIds.sort((a, b) => {
+            const aa = state.notebooksById[a];
+            const bb = state.notebooksById[b];
+            return (aa?.sortOrder || 1) - (bb?.sortOrder || 1);
+          });
+        });
+
+        markDirty(false);
+      }
+
+      function sectionById(sectionId) {
+        return state.sections.find((section) => section.id === sectionId) || null;
+      }
+
+      function notebookById(notebookId) {
+        return state.notebooksById[notebookId] || null;
+      }
+
+      function removeNotebookFromSections(notebookId) {
+        state.sections.forEach((section) => {
+          section.notebookIds = section.notebookIds.filter((id) => id !== notebookId);
+        });
+      }
+
+      function updateCounts() {
+        const notebookCount = Object.keys(state.notebooksById).length;
+        countLabelEl.textContent = `${state.sections.length} sections / ${notebookCount} notebooks`;
+      }
+
+      function cardTemplate(notebookId, sectionId, indexInSection) {
+        const nb = notebookById(notebookId);
+        if (!nb) return "";
+
+        return `
+          <article class="nb-card" draggable="true" data-notebook-id="${escapeHtml(nb.notebookId)}" data-section-id="${escapeHtml(sectionId)}">
+            <div class="nb-head">
+              <span>${escapeHtml(nb.notebookId)}</span>
+              <span class="drag-chip">drag</span>
+            </div>
+            <div class="nb-grid">
+              <label>タイトル
+                <input data-field="title" value="${escapeHtml(nb.title)}" />
+              </label>
+              <label>タグ（カンマ区切り）
+                <input data-field="tags" value="${escapeHtml((nb.tags || []).join(", "))}" />
+              </label>
+              <label class="full">Colab URL
+                <input data-field="colabUrl" value="${escapeHtml(nb.colabUrl || "")}" />
+              </label>
+              <label class="full">動画 URL
+                <input data-field="videoUrl" value="${escapeHtml(nb.videoUrl || "")}" />
+              </label>
+              <div class="meta full">順序: ${indexInSection + 1} / HTML: ${escapeHtml(nb.htmlPath || "")}</div>
+            </div>
+            <div class="nb-actions">
+              <button class="button-ghost" data-action="save-notebook" type="button">保存</button>
+              <button class="button-danger" data-action="delete-notebook" type="button">削除</button>
+            </div>
+          </article>
+        `;
+      }
+
+      function chapterTemplate(section) {
+        const cards = section.notebookIds
+          .map((notebookId, index) => cardTemplate(notebookId, section.id, index))
+          .join("");
+
+        return `
+          <section class="chapter-card" data-section-id="${escapeHtml(section.id)}">
+            <div class="chapter-head">
+              <input class="chapter-title-input" data-role="section-title" value="${escapeHtml(section.title)}" />
+              <button class="button-ghost" data-action="rename-section" type="button">名称反映</button>
+              <button class="button-danger" data-action="delete-section" type="button">セクション削除</button>
+            </div>
+            <div class="dropzone" data-role="dropzone" data-section-id="${escapeHtml(section.id)}">
+              ${cards || '<div class="empty-drop">ここにノートをドロップ</div>'}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderChapters() {
+        updateCounts();
+
+        if (state.sections.length === 0) {
+          chaptersEl.innerHTML = '<div class="empty">教材がありません。左のフォームから ipynb を登録してください。</div>';
+          return;
+        }
+
+        chaptersEl.innerHTML = state.sections.map(chapterTemplate).join("");
+        bindEventsAfterRender();
+      }
+
+      function sectionTitleOfCard(cardElement) {
+        const sectionElement = cardElement.closest("[data-section-id]");
+        if (!sectionElement) return "未分類";
+        const input = sectionElement.querySelector("[data-role='section-title']");
+        return String(input ? input.value : "未分類").trim() || "未分類";
+      }
+
+      function notebookPayloadFromCard(cardElement) {
+        const notebookId = cardElement.getAttribute("data-notebook-id") || "";
+        const sectionId = cardElement.getAttribute("data-section-id") || "";
+        const section = sectionById(sectionId);
+        const sectionTitle = section ? section.title.trim() : sectionTitleOfCard(cardElement);
+
+        const title = String(cardElement.querySelector("[data-field='title']")?.value || "").trim();
+        const colabUrl = String(cardElement.querySelector("[data-field='colabUrl']")?.value || "").trim();
+        const videoUrl = String(cardElement.querySelector("[data-field='videoUrl']")?.value || "").trim();
+        const tags = String(cardElement.querySelector("[data-field='tags']")?.value || "")
           .split(",")
           .map((value) => value.trim())
           .filter(Boolean);
-        const colabUrl = itemElement.querySelector("[data-field='colabUrl']").value.trim();
-        const videoUrl = itemElement.querySelector("[data-field='videoUrl']").value.trim();
+
+        const sectionCards = Array.from(cardElement.parentElement?.querySelectorAll(".nb-card") || []);
+        const sortOrder = sectionCards.findIndex((node) => node === cardElement) + 1;
 
         return {
           notebookId,
           title,
-          chapter,
-          sortOrder: Number.isFinite(sortOrder) ? Math.max(1, Math.floor(sortOrder)) : 1,
+          chapter: sectionTitle,
+          sortOrder: sortOrder > 0 ? sortOrder : 1,
           tags,
           colabUrl,
           videoUrl
         };
       }
 
-      function bindRowActions() {
-        listEl.querySelectorAll("[data-action='save']").forEach((button) => {
-          button.addEventListener("click", async function () {
-            const itemElement = button.closest(".item");
-            if (!itemElement) return;
+      function persistCardValuesToState(cardElement) {
+        const payload = notebookPayloadFromCard(cardElement);
+        const nb = notebookById(payload.notebookId);
+        if (!nb) return;
 
-            const payload = rowPayload(itemElement);
-            if (!payload.notebookId || !payload.title || !payload.chapter || !payload.colabUrl) {
-              setStatus(listStatusEl, "error", "タイトル / 章 / Colab URL は必須です。");
-              return;
-            }
-
-            button.disabled = true;
-            setStatus(listStatusEl, "info", `保存中... (${payload.notebookId})`);
-
-            try {
-              await api("/api/admin/notebooks", {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify(payload)
-              });
-              setStatus(listStatusEl, "success", `保存しました: ${payload.notebookId}`);
-            } catch (error) {
-              setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
-            } finally {
-              button.disabled = false;
-            }
-          });
-        });
-
-        listEl.querySelectorAll("[data-action='delete']").forEach((button) => {
-          button.addEventListener("click", async function () {
-            const itemElement = button.closest(".item");
-            if (!itemElement) return;
-            const notebookId = itemElement.getAttribute("data-id") || "";
-            if (!notebookId) return;
-
-            const ok = window.confirm(`教材 ${notebookId} を削除します。元に戻せません。`);
-            if (!ok) return;
-
-            button.disabled = true;
-            setStatus(listStatusEl, "info", `削除中... (${notebookId})`);
-
-            try {
-              await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, {
-                method: "DELETE"
-              });
-              setStatus(listStatusEl, "success", `削除しました: ${notebookId}`);
-              await loadNotebooks();
-            } catch (error) {
-              setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
-            } finally {
-              button.disabled = false;
-            }
-          });
-        });
+        nb.title = payload.title;
+        nb.tags = payload.tags;
+        nb.colabUrl = payload.colabUrl;
+        nb.videoUrl = payload.videoUrl;
       }
 
-      function renderList(items) {
-        countLabelEl.textContent = `${items.length} items`;
+      function getDropIndex(dropzone, y) {
+        const cards = Array.from(dropzone.querySelectorAll(".nb-card:not(.dragging)"));
+        for (let i = 0; i < cards.length; i += 1) {
+          const rect = cards[i].getBoundingClientRect();
+          if (y < rect.top + rect.height / 2) {
+            return i;
+          }
+        }
+        return cards.length;
+      }
 
-        if (!items.length) {
-          listEl.innerHTML = '<div class="empty">教材がありません。左のフォームから ipynb を登録してください。</div>';
+      function moveNotebook(notebookId, targetSectionId, targetIndex) {
+        if (!notebookId || !targetSectionId) return;
+
+        const target = sectionById(targetSectionId);
+        if (!target) return;
+
+        let currentSection = null;
+        state.sections.forEach((section) => {
+          if (section.notebookIds.includes(notebookId)) {
+            currentSection = section;
+          }
+        });
+        if (!currentSection) return;
+
+        currentSection.notebookIds = currentSection.notebookIds.filter((id) => id !== notebookId);
+
+        const clamped = Math.max(0, Math.min(targetIndex, target.notebookIds.length));
+        target.notebookIds.splice(clamped, 0, notebookId);
+
+        markDirty(true);
+        renderChapters();
+      }
+
+      async function saveSingleNotebook(cardElement, button) {
+        const payload = notebookPayloadFromCard(cardElement);
+        if (!payload.notebookId || !payload.title || !payload.chapter || !payload.colabUrl) {
+          setStatus(listStatusEl, "error", "タイトル / セクション名 / Colab URL は必須です。");
           return;
         }
 
-        listEl.innerHTML = items
-          .map((item) => `
-            <article class="item" data-id="${escapeHtml(item.notebookId)}">
-              <div class="item-top">
-                <span>${escapeHtml(item.notebookId)}</span>
-                <span>${escapeHtml(item.htmlPath || "")}</span>
-              </div>
-              <div class="item-grid">
-                <label>タイトル
-                  <input data-field="title" value="${escapeHtml(item.title)}" />
-                </label>
-                <label>章タイトル
-                  <input data-field="chapter" value="${escapeHtml(item.chapter)}" />
-                </label>
-                <label>順序
-                  <input data-field="sortOrder" type="number" min="1" value="${escapeHtml(String(item.sortOrder || 1))}" />
-                </label>
-                <label>タグ（カンマ区切り）
-                  <input data-field="tags" value="${escapeHtml((item.tags || []).join(", "))}" />
-                </label>
-                <label class="full">Colab URL
-                  <input data-field="colabUrl" value="${escapeHtml(item.colabUrl || "")}" />
-                </label>
-                <label class="full">動画 URL
-                  <input data-field="videoUrl" value="${escapeHtml(item.videoUrl || "")}" />
-                </label>
-              </div>
-              <div class="item-actions">
-                <button class="button-ghost" data-action="save" type="button">保存</button>
-                <button class="button-danger" data-action="delete" type="button">削除</button>
-              </div>
-            </article>
-          `)
-          .join("");
+        button.disabled = true;
+        setStatus(listStatusEl, "info", `保存中... (${payload.notebookId})`);
 
-        bindRowActions();
+        try {
+          await api("/api/admin/notebooks", {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          persistCardValuesToState(cardElement);
+          const section = sectionById(cardElement.getAttribute("data-section-id") || "");
+          if (section) {
+            section.title = payload.chapter;
+          }
+          setStatus(listStatusEl, "success", `保存しました: ${payload.notebookId}`);
+        } catch (error) {
+          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+        } finally {
+          button.disabled = false;
+          renderChapters();
+        }
+      }
+
+      async function deleteNotebook(notebookId, button) {
+        if (!notebookId) return;
+        const ok = window.confirm(`教材 ${notebookId} を削除します。元に戻せません。`);
+        if (!ok) return;
+
+        button.disabled = true;
+        setStatus(listStatusEl, "info", `削除中... (${notebookId})`);
+
+        try {
+          await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, {
+            method: "DELETE"
+          });
+
+          removeNotebookFromSections(notebookId);
+          delete state.notebooksById[notebookId];
+          state.sections = state.sections.filter((section) => section.notebookIds.length > 0 || section.title.trim());
+          setStatus(listStatusEl, "success", `削除しました: ${notebookId}`);
+          renderChapters();
+        } catch (error) {
+          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function deleteSection(sectionId, button) {
+        const section = sectionById(sectionId);
+        if (!section) return;
+
+        if (section.notebookIds.length === 0) {
+          state.sections = state.sections.filter((item) => item.id !== sectionId);
+          setStatus(listStatusEl, "success", `空セクションを削除しました: ${section.title || "(無題)"}`);
+          markDirty(true);
+          renderChapters();
+          return;
+        }
+
+        const ok = window.confirm(
+          `セクション「${section.title}」配下の ${section.notebookIds.length} 件をすべて削除します。元に戻せません。`
+        );
+        if (!ok) return;
+
+        button.disabled = true;
+        setStatus(listStatusEl, "info", `セクション削除中... (${section.title})`);
+
+        try {
+          for (const notebookId of section.notebookIds) {
+            await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, { method: "DELETE" });
+            delete state.notebooksById[notebookId];
+          }
+          state.sections = state.sections.filter((item) => item.id !== sectionId);
+          setStatus(listStatusEl, "success", `セクションを削除しました: ${section.title}`);
+          renderChapters();
+        } catch (error) {
+          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function saveLayout() {
+        const allNotebooks = Object.keys(state.notebooksById);
+        if (!allNotebooks.length) {
+          setStatus(listStatusEl, "info", "保存対象のノートがありません。");
+          return;
+        }
+
+        for (const section of state.sections) {
+          if (section.notebookIds.length > 0 && !section.title.trim()) {
+            setStatus(listStatusEl, "error", "ノートを含むセクションの名前は空にできません。");
+            return;
+          }
+        }
+
+        setStatus(listStatusEl, "info", "並び順とセクションを保存中...");
+        saveLayoutBtn.disabled = true;
+
+        try {
+          for (const section of state.sections) {
+            const chapter = section.title.trim() || "未分類";
+            for (let i = 0; i < section.notebookIds.length; i += 1) {
+              const notebookId = section.notebookIds[i];
+              const notebook = notebookById(notebookId);
+              if (!notebook) continue;
+
+              await api("/api/admin/notebooks", {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  notebookId,
+                  title: notebook.title,
+                  tags: notebook.tags,
+                  colabUrl: notebook.colabUrl,
+                  videoUrl: notebook.videoUrl,
+                  chapter,
+                  sortOrder: i + 1
+                })
+              });
+
+              notebook.sortOrder = i + 1;
+            }
+          }
+
+          markDirty(false);
+          setStatus(listStatusEl, "success", "並び順とセクションを保存しました。");
+          await loadNotebooks();
+        } catch (error) {
+          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+        } finally {
+          saveLayoutBtn.disabled = false;
+        }
+      }
+
+      function bindEventsAfterRender() {
+        chaptersEl.querySelectorAll("[data-role='section-title']").forEach((input) => {
+          input.addEventListener("input", function () {
+            const sectionElement = input.closest("[data-section-id]");
+            if (!sectionElement) return;
+            const sectionId = sectionElement.getAttribute("data-section-id") || "";
+            const section = sectionById(sectionId);
+            if (!section) return;
+            section.title = String(input.value || "");
+            markDirty(true);
+          });
+        });
+
+        chaptersEl.querySelectorAll("[data-action='rename-section']").forEach((button) => {
+          button.addEventListener("click", function () {
+            const sectionElement = button.closest("[data-section-id]");
+            if (!sectionElement) return;
+            const sectionId = sectionElement.getAttribute("data-section-id") || "";
+            const section = sectionById(sectionId);
+            if (!section) return;
+            section.title = String(sectionElement.querySelector("[data-role='section-title']")?.value || "").trim();
+            if (!section.title) {
+              setStatus(listStatusEl, "error", "セクション名を入力してください。");
+              return;
+            }
+            setStatus(listStatusEl, "success", `セクション名を変更しました。保存ボタンで反映してください: ${section.title}`);
+            markDirty(true);
+            renderChapters();
+          });
+        });
+
+        chaptersEl.querySelectorAll("[data-action='delete-section']").forEach((button) => {
+          button.addEventListener("click", function () {
+            const sectionElement = button.closest("[data-section-id]");
+            if (!sectionElement) return;
+            const sectionId = sectionElement.getAttribute("data-section-id") || "";
+            void deleteSection(sectionId, button);
+          });
+        });
+
+        chaptersEl.querySelectorAll(".nb-card").forEach((card) => {
+          card.addEventListener("dragstart", function (event) {
+            state.draggingNotebookId = card.getAttribute("data-notebook-id") || "";
+            card.classList.add("dragging");
+            if (event.dataTransfer) {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", state.draggingNotebookId);
+            }
+          });
+
+          card.addEventListener("dragend", function () {
+            card.classList.remove("dragging");
+            state.draggingNotebookId = "";
+            chaptersEl.querySelectorAll(".dropzone").forEach((zone) => zone.classList.remove("is-over"));
+          });
+
+          card.querySelectorAll("[data-field]").forEach((input) => {
+            input.addEventListener("input", function () {
+              persistCardValuesToState(card);
+              markDirty(true);
+            });
+          });
+
+          card.querySelector("[data-action='save-notebook']")?.addEventListener("click", function () {
+            void saveSingleNotebook(card, this);
+          });
+
+          card.querySelector("[data-action='delete-notebook']")?.addEventListener("click", function () {
+            const notebookId = card.getAttribute("data-notebook-id") || "";
+            void deleteNotebook(notebookId, this);
+          });
+        });
+
+        chaptersEl.querySelectorAll(".dropzone").forEach((dropzone) => {
+          dropzone.addEventListener("dragover", function (event) {
+            event.preventDefault();
+            dropzone.classList.add("is-over");
+          });
+
+          dropzone.addEventListener("dragleave", function () {
+            dropzone.classList.remove("is-over");
+          });
+
+          dropzone.addEventListener("drop", function (event) {
+            event.preventDefault();
+            dropzone.classList.remove("is-over");
+
+            const notebookId = state.draggingNotebookId || (event.dataTransfer ? event.dataTransfer.getData("text/plain") : "");
+            if (!notebookId) return;
+
+            const sectionId = dropzone.getAttribute("data-section-id") || "";
+            const dropIndex = getDropIndex(dropzone, event.clientY);
+            moveNotebook(notebookId, sectionId, dropIndex);
+          });
+        });
       }
 
       async function loadNotebooks() {
         setStatus(listStatusEl, "info", "教材一覧を読み込み中...");
         try {
           const payload = await api("/api/admin/notebooks", { method: "GET" });
-          renderList(Array.isArray(payload.items) ? payload.items : []);
+          const items = Array.isArray(payload.items) ? payload.items : [];
+          buildStateFromItems(items);
+          renderChapters();
           setStatus(listStatusEl, "success", "教材一覧を更新しました。");
         } catch (error) {
-          renderList([]);
+          chaptersEl.innerHTML = '<div class="empty">教材一覧の取得に失敗しました。</div>';
           setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+          markDirty(false);
+          updateCounts();
         }
       }
 
@@ -597,6 +1010,21 @@
         } finally {
           uploadBtn.disabled = false;
         }
+      });
+
+      addSectionBtn.addEventListener("click", function () {
+        state.sections.push({
+          id: uid("section"),
+          title: "新しいセクション",
+          notebookIds: []
+        });
+        markDirty(true);
+        renderChapters();
+        setStatus(listStatusEl, "info", "セクションを追加しました。ノートを移動して保存すると反映されます。");
+      });
+
+      saveLayoutBtn.addEventListener("click", function () {
+        void saveLayout();
       });
 
       refreshBtn.addEventListener("click", function () {
