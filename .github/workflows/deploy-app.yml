@@ -52,10 +52,6 @@ jobs:
       - name: Build app
         run: npm run build
 
-      - name: Sync notebook metadata/chunks to DynamoDB
-        run: |
-          npm run sync:notebooks:aws -- --table "${{ inputs.notebooks_table }}"
-
       - name: Upload site static files
         run: |
           aws s3 sync ./public s3://${{ inputs.site_bucket }} --delete
@@ -63,6 +59,10 @@ jobs:
       - name: Upload notebook html assets
         run: |
           aws s3 sync ./public/notebooks s3://${{ inputs.notebook_bucket }} --delete
+
+      - name: Sync notebook metadata/chunks to DynamoDB
+        run: |
+          npm run sync:notebooks:aws -- --table "${{ inputs.notebooks_table }}"
 
       - name: Invalidate CloudFront cache
         run: |

@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { marshall } from "@aws-sdk/util-dynamodb";
 import { extractChunks, type NotebookFile } from "@/lib/notebook-ingest";
 
 type Catalog = {
@@ -23,7 +24,6 @@ type Catalog = {
 
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
 const MAX_CHUNK_CHARACTERS = 1_200;
-const MAX_CHUNKS = 180;
 
 function getArg(flag: string): string | null {
   const index = process.argv.findIndex((arg) => arg === flag);
@@ -50,13 +50,14 @@ async function loadNotebookFile(notebookId: string): Promise<NotebookFile | null
 }
 
 function estimateBytes(value: unknown): number {
-  return Buffer.byteLength(JSON.stringify(value), "utf8");
+  const marshalled = marshall(value as Record<string, unknown>, {
+    removeUndefinedValues: true
+  });
+  return Buffer.byteLength(JSON.stringify(marshalled), "utf8");
 }
 
 function compactChunksForDynamo(baseItem: Record<string, unknown>, chunks: ReturnType<typeof extractChunks>) {
-  let compacted = chunks
-    .slice(0, MAX_CHUNKS)
-    .map((chunk) => ({
+  let compacted = chunks.map((chunk) => ({
       sectionId: chunk.sectionId,
       position: chunk.position,
       content: chunk.content.slice(0, MAX_CHUNK_CHARACTERS)

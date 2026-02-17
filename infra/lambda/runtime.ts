@@ -13,6 +13,7 @@ import {
   ScanCommand,
   UpdateCommand
 } from "@aws-sdk/lib-dynamodb";
+import { marshall } from "@aws-sdk/util-dynamodb";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
@@ -87,7 +88,6 @@ type NotebookRecord = {
 
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
 const MAX_CHUNK_CHARACTERS = 1_200;
-const MAX_CHUNKS = 180;
 
 type ModelProvider = "openai" | "bedrock" | "mock";
 
@@ -1192,13 +1192,14 @@ function parseMultipart(event: APIGatewayProxyEventV2) {
 }
 
 function estimateBytes(value: unknown): number {
-  return Buffer.byteLength(JSON.stringify(value), "utf8");
+  const marshalled = marshall(value as Record<string, unknown>, {
+    removeUndefinedValues: true
+  });
+  return Buffer.byteLength(JSON.stringify(marshalled), "utf8");
 }
 
 function compactChunksForDynamo(baseItem: Omit<NotebookRecord, "chunks">, chunks: NotebookChunk[]): NotebookChunk[] {
-  let compacted = chunks
-    .slice(0, MAX_CHUNKS)
-    .map((chunk) => ({
+  let compacted = chunks.map((chunk) => ({
       sectionId: chunk.sectionId,
       position: chunk.position,
       content: chunk.content.slice(0, MAX_CHUNK_CHARACTERS)
@@ -1257,6 +1258,11 @@ async function upsertNotebook(item: NotebookRecord) {
     updatedAt: nowIso()
   };
   const compactedChunks = compactChunksForDynamo(baseItem, item.chunks ?? []);
+  if ((item.chunks?.length ?? 0) > compactedChunks.length) {
+    console.warn(
+      `Notebook chunks truncated for ${item.notebookId}: ${(item.chunks?.length ?? 0).toString()} -> ${compactedChunks.length.toString()}`
+    );
+  }
 
   await ddb.send(
     new PutCommand({
