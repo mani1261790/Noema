@@ -136,6 +136,19 @@
       text-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 24%, transparent);
     }
 
+    .brand-link {
+      display: inline-block;
+      text-decoration: none;
+      color: inherit;
+      border-radius: 10px;
+      padding: 2px 4px;
+      outline: none;
+    }
+
+    .brand-link:focus-visible {
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
     @supports ((background-clip: text) or (-webkit-background-clip: text)) {
       .sidebar h1 {
         background: linear-gradient(
@@ -310,15 +323,20 @@
 
     .header-top {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr minmax(0, auto) 1fr;
       align-items: center;
       gap: 12px;
+    }
+
+    .header-spacer {
+      min-width: 0;
     }
 
     .header-title {
       font-size: 16px;
       font-weight: 700;
       margin: 0;
+      text-align: center;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -650,6 +668,7 @@
       .assistant { display: none; }
       .mobile-controls { display: flex; }
       .header-top { grid-template-columns: 1fr; }
+      .header-spacer { display: none; }
       .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
       .home-grid { grid-template-columns: 1fr; }
@@ -660,7 +679,7 @@
   <main class="layout">
     <div class="shell" id="shell">
       <aside class="sidebar glass-strong" id="sidebar-desktop">
-        <h1>Noema</h1>
+        <h1><a class="brand-link" id="brand-home" href="/">Noema</a></h1>
         <label class="search">
           <span style="color:var(--muted)">⌕</span>
           <input id="sidebar-search" placeholder="教材を検索" />
@@ -679,6 +698,7 @@
 
         <header class="header">
           <div class="header-top">
+            <div class="header-spacer" aria-hidden="true"></div>
             <h2 class="header-title" id="header-title">読み込み中...</h2>
             <div class="header-actions">
               <a class="button-ghost" id="download-btn" href="#">Download</a>
@@ -795,6 +815,7 @@
         selectionText: document.getElementById("selection-text"),
         clearSelection: document.getElementById("clear-selection"),
         pickSelection: document.getElementById("pick-selection"),
+        brandHome: document.getElementById("brand-home"),
         loginLink: document.getElementById("login-link"),
         newChat: document.getElementById("new-chat"),
         sidebarOverlay: document.getElementById("sidebar-overlay"),
@@ -1516,6 +1537,22 @@
         return q.get("notebookId") || "";
       }
 
+      function showHomeDashboard() {
+        state.activeNotebook = null;
+        state.sectionIds = [];
+        state.activeSection = "intro";
+        state.selectedText = "";
+        state.selectedSection = "";
+        renderSidebar();
+        renderHeader();
+        renderSections();
+        renderSelectionCard();
+        renderHomeDashboard();
+        const url = new URL(window.location.href);
+        url.searchParams.delete("notebookId");
+        window.history.replaceState(null, "", url.toString());
+      }
+
       async function init() {
         updateAuthState();
         renderMessages();
@@ -1542,18 +1579,18 @@
         if (requestedNotebook) {
           await selectNotebook(requestedNotebook.id);
         } else {
-          state.activeNotebook = null;
-          state.sectionIds = [];
-          state.activeSection = "intro";
-          renderHeader();
-          renderSections();
-          renderHomeDashboard();
+          showHomeDashboard();
         }
       }
 
       el.sidebarSearch.addEventListener("input", function (event) {
         state.query = event.target.value || "";
         renderSidebar();
+      });
+
+      el.brandHome.addEventListener("click", function (event) {
+        event.preventDefault();
+        showHomeDashboard();
       });
 
       el.sectionSelect.addEventListener("change", function () {

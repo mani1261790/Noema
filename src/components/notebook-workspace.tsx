@@ -259,7 +259,9 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   const sidebarContent = (
     <>
       <div className="mb-3 px-2 pt-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[var(--accent)]">Noema</p>
+        <Link className="inline-flex rounded-lg px-2 py-1 font-mono text-xs uppercase tracking-[0.2em] text-[var(--accent)]" href="/">
+          Noema
+        </Link>
         <h2 className="mt-1 font-display text-2xl font-semibold">機械学習ノート</h2>
       </div>
 
@@ -453,13 +455,8 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
                 </div>
 
                 <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[color:var(--panel-strong)]/95 px-3 py-2 backdrop-blur-xl md:px-5 md:py-3">
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <div className="flex items-center gap-2 text-xs md:text-sm">
-                      <button className="glass-button-ghost rounded-md px-2 py-1" onClick={() => setChatOpen((v) => !v)} type="button">
-                        ☰
-                      </button>
-                      <span className="text-muted truncate">{loadingNotebook ? "読み込み中..." : `ID: ${activeNotebook.id}`}</span>
-                    </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                    <div aria-hidden="true" className="min-w-0" />
 
                     <h1 className="truncate px-2 text-center font-display text-base font-semibold md:text-2xl">{activeNotebook.title}</h1>
 
