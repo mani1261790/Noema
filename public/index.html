@@ -687,7 +687,7 @@
       const state = {
         catalog: null,
         activeNotebook: null,
-        openChapter: null,
+        openChapters: {},
         query: "",
         sectionIds: [],
         activeSection: "intro",
@@ -805,8 +805,9 @@
           .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
           .filter((chapter) => chapter.notebooks.length > 0);
 
-        if (!state.openChapter && chapters[0]) {
-          state.openChapter = chapters[0].id;
+        const hasOpenChapter = chapters.some((chapter) => Boolean(state.openChapters[chapter.id]));
+        if (!hasOpenChapter && chapters[0]) {
+          state.openChapters[chapters[0].id] = true;
         }
 
         if (chapters.length === 0) {
@@ -815,7 +816,7 @@
 
         return chapters
           .map((chapter) => {
-            const expanded = chapter.id === state.openChapter;
+            const expanded = Boolean(state.openChapters[chapter.id]);
             const items = expanded
               ? `<div class="chapter-items">${chapter.notebooks
                   .map((nb) => {
@@ -846,7 +847,7 @@
         Array.from(container.querySelectorAll(".chapter-toggle")).forEach((button) => {
           button.addEventListener("click", function () {
             const id = button.getAttribute("data-chapter-id") || "";
-            state.openChapter = state.openChapter === id ? "" : id;
+            state.openChapters[id] = !state.openChapters[id];
             renderSidebar();
           });
         });
@@ -1090,7 +1091,9 @@
         if (!target) return;
 
         state.activeNotebook = target;
-        state.openChapter = chapterId || state.openChapter;
+        if (chapterId) {
+          state.openChapters[chapterId] = true;
+        }
         state.selectedText = "";
         state.selectedSection = "";
         state.sectionIds = ["intro"];
@@ -1351,10 +1354,11 @@
         const requested = findInitialNotebookId();
         const requestedNotebook = notebooks.find((nb) => nb.id === requested) || null;
 
-        state.openChapter =
+        const initialChapterId =
           chapters.find((ch) => ch.notebooks.some((nb) => nb.id === (requestedNotebook?.id || notebooks[0].id)))?.id ||
           chapters[0]?.id ||
           "";
+        state.openChapters = initialChapterId ? { [initialChapterId]: true } : {};
         renderSidebar();
         if (requestedNotebook) {
           await selectNotebook(requestedNotebook.id);

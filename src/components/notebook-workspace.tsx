@@ -85,9 +85,10 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   const [notebookHtml, setNotebookHtml] = useState(initialHtml);
   const [sectionIds, setSectionIds] = useState(initialSectionIds);
   const [activeSectionId, setActiveSectionId] = useState(initialSectionIds[0] ?? "intro");
-  const [openChapterId, setOpenChapterId] = useState(() => {
+  const [openChapterIds, setOpenChapterIds] = useState<Record<string, boolean>>(() => {
     const chapter = sortedChapters.find((item) => item.notebooks.some((notebook) => notebook.id === initialNotebook.id));
-    return chapter?.id ?? sortedChapters[0]?.id ?? "";
+    const defaultId = chapter?.id ?? sortedChapters[0]?.id ?? "";
+    return defaultId ? { [defaultId]: true } : {};
   });
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [loadingNotebook, setLoadingNotebook] = useState(false);
@@ -117,7 +118,7 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   useEffect(() => {
     const chapter = sortedChapters.find((item) => item.notebooks.some((notebook) => notebook.id === activeNotebook.id));
     if (chapter) {
-      setOpenChapterId(chapter.id);
+      setOpenChapterIds((prev) => ({ ...prev, [chapter.id]: true }));
     }
   }, [activeNotebook.id, sortedChapters]);
 
@@ -288,12 +289,12 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {filteredChapters.length === 0 ? <p className="text-muted px-3 text-sm">一致する教材がありません。</p> : null}
         {filteredChapters.map((chapter) => {
-          const expanded = openChapterId === chapter.id;
+          const expanded = Boolean(openChapterIds[chapter.id]);
           return (
             <section key={chapter.id} className="glass-subpanel rounded-xl">
               <button
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold"
-                onClick={() => setOpenChapterId(expanded ? "" : chapter.id)}
+                onClick={() => setOpenChapterIds((prev) => ({ ...prev, [chapter.id]: !prev[chapter.id] }))}
                 type="button"
               >
                 <span>{chapter.title}</span>

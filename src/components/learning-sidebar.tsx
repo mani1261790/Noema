@@ -28,10 +28,10 @@ export function LearningSidebar({ chapters, activeNotebookId }: Props) {
     return sortedChapters[0]?.id ?? "";
   }, [activeNotebookId, sortedChapters]);
 
-  const [open, setOpen] = useState<string>(defaultOpen);
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>(defaultOpen ? { [defaultOpen]: true } : {});
 
   useEffect(() => {
-    setOpen(defaultOpen);
+    setOpenMap((prev) => (defaultOpen ? { ...prev, [defaultOpen]: true } : prev));
   }, [defaultOpen]);
 
   return (
@@ -39,7 +39,7 @@ export function LearningSidebar({ chapters, activeNotebookId }: Props) {
       <p className="px-2 pb-2 pt-1 font-display text-lg font-semibold">教材一覧</p>
       <div className="space-y-2">
         {sortedChapters.map((chapter) => {
-          const expanded = open === chapter.id;
+          const expanded = Boolean(openMap[chapter.id]);
           const panelId = `chapter-panel-${chapter.id}`;
 
           return (
@@ -48,7 +48,7 @@ export function LearningSidebar({ chapters, activeNotebookId }: Props) {
                 aria-controls={panelId}
                 aria-expanded={expanded}
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-[var(--text)]"
-                onClick={() => setOpen(expanded ? "" : chapter.id)}
+                onClick={() => setOpenMap((prev) => ({ ...prev, [chapter.id]: !prev[chapter.id] }))}
                 type="button"
               >
                 <span>{chapter.title}</span>
