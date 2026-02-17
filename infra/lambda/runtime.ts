@@ -20,6 +20,8 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import MarkdownIt from "markdown-it";
+import markdownItKatex from "markdown-it-katex";
 
 type QuestionStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
 
@@ -1615,21 +1617,40 @@ function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?: unknow
   };
 }
 
-function markdownToHtml(markdown: string): string {
-  if (markdown.startsWith("# ")) {
-    const title = markdown.slice(2);
-    return `<h1 id="${slugify(title)}">${escapeHtml(title)}</h1>`;
-  }
-  if (markdown.startsWith("## ")) {
-    const title = markdown.slice(3);
-    return `<h2 id="${slugify(title)}">${escapeHtml(title)}</h2>`;
-  }
-  if (markdown.startsWith("### ")) {
-    const title = markdown.slice(4);
-    return `<h3 id="${slugify(title)}">${escapeHtml(title)}</h3>`;
-  }
-  return `<p>${escapeHtmlWithLineBreaks(markdown)}</p>`;
+function normalizeMathDelimiters(value: string): string {
+  return value
+    .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`)
+    .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`);
 }
+
+const markdownRenderer = (() => {
+  const md = new MarkdownIt({
+    html: false,
+    linkify: true,
+    typographer: false,
+    breaks: true
+  });
+
+  md.use(markdownItKatex);
+
+  const fallbackHeadingOpen = md.renderer.rules.heading_open;
+  type HeadingOpenRule = NonNullable<typeof fallbackHeadingOpen>;
+  const headingOpenRule: HeadingOpenRule = (tokens, idx, options, env, self) => {
+    const inlineToken = tokens[idx + 1];
+    const headingText = inlineToken && inlineToken.type === "inline" ? inlineToken.content : "";
+    const id = slugify(headingText);
+    if (id) {
+      tokens[idx].attrSet("id", id);
+    }
+    if (fallbackHeadingOpen) {
+      return fallbackHeadingOpen(tokens, idx, options, env, self);
+    }
+    return self.renderToken(tokens, idx, options);
+  };
+  md.renderer.rules.heading_open = headingOpenRule;
+
+  return md;
+})();
 
 function notebookToHtml(input: NotebookFile): string {
   const pieces: string[] = ["<article class=\"prose-noema\">"];
@@ -1639,13 +1660,11 @@ function notebookToHtml(input: NotebookFile): string {
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
-      for (const line of text.split("\n\n")) {
-        pieces.push(markdownToHtml(line.trim()));
-      }
+      pieces.push(markdownRenderer.render(normalizeMathDelimiters(text)));
       continue;
     }
 
-    pieces.push(`<pre><code>${escapeHtml(text)}</code></pre>`);
+    pieces.push(`<pre><code class="language-python">${escapeHtml(text)}</code></pre>`);
   }
 
   pieces.push("</article>");

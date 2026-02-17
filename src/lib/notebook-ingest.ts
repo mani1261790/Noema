@@ -39,6 +39,12 @@ function normalizeMarkdownText(value: string): string {
   return value.replace(/(?<!\\)\\r\\n/g, "\n").replace(/(?<!\\)\\n/g, "\n");
 }
 
+function normalizeMathDelimiters(value: string): string {
+  return value
+    .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`)
+    .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`);
+}
+
 function normalizeCodeText(value: string): string {
   const hasRealNewline = value.includes("\n");
   if (hasRealNewline) return value;
@@ -198,7 +204,7 @@ export function notebookToHtml(input: NotebookFile): string {
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
-      pieces.push(markdownRenderer.render(text));
+      pieces.push(markdownRenderer.render(normalizeMathDelimiters(text)));
       continue;
     }
 
