@@ -277,12 +277,12 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
         </label>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-scroll pr-1">
         {filteredChapters.length === 0 ? <p className="text-muted px-3 text-sm">一致する教材がありません。</p> : null}
         {filteredChapters.map((chapter) => {
           const expanded = Boolean(openChapterIds[chapter.id]);
           return (
-            <section key={chapter.id} className="glass-subpanel overflow-hidden rounded-xl">
+            <section key={chapter.id} className="glass-subpanel rounded-xl">
               <button
                 className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold"
                 onClick={() => setOpenChapterIds((prev) => ({ ...prev, [chapter.id]: !prev[chapter.id] }))}
@@ -293,7 +293,7 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
               </button>
 
               {expanded ? (
-                <ul className="max-h-[38vh] space-y-1 overflow-y-auto border-t border-[var(--border)] p-2 text-sm">
+                <ul className="space-y-1 border-t border-[var(--border)] p-2 text-sm">
                   {chapter.notebooks.map((notebook) => {
                     const active = notebook.id === activeNotebook.id;
                     return (
