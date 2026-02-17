@@ -1,0 +1,6 @@
+{
+  "app": "npx ts-node --project tsconfig.json bin/noema-infra.ts",
+  "context": {
+    "projectName": "noema"
+  }
+}

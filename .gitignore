@@ -1,0 +1,11 @@
+node_modules
+.next
+.env
+.env.local
+prisma/dev.db
+prisma/dev.db-journal
+coverage
+.DS_Store
+tsconfig.tsbuildinfo
+infra/cdk.out
+infra/dist

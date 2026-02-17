@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum QuestionStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  passwordHash String?
+  role         Role       @default(MEMBER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  questions    Question[]
+  accessLogs   AccessLog[]
+}
+
+model Notebook {
+  id         String        @id
+  title      String
+  chapter    String
+  sortOrder  Int
+  tags       Json
+  htmlPath   String
+  colabUrl   String
+  videoUrl   String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  chunks     NotebookChunk[]
+  questions  Question[]
+}
+
+model NotebookChunk {
+  id         String   @id @default(cuid())
+  notebookId String
+  sectionId  String
+  content    String
+  position   Int
+  createdAt  DateTime @default(now())
+
+  notebook Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+
+  @@index([notebookId, sectionId])
+}
+
+model Question {
+  id           String         @id @default(cuid())
+  userId       String
+  notebookId   String
+  sectionId    String
+  questionText String
+  questionHash String
+  status       QuestionStatus @default(QUEUED)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notebook Notebook  @relation(fields: [notebookId], references: [id])
+  answer   Answer?
+  job      ProcessingJob?
+
+  @@index([userId, createdAt])
+  @@index([notebookId, createdAt])
+  @@index([questionHash])
+}
+
+model Answer {
+  id               String   @id @default(cuid())
+  questionId       String   @unique
+  answerText       String
+  sourceReferences Json
+  tokensPrompt     Int      @default(0)
+  tokensCompletion Int      @default(0)
+  modelId          String
+  latencyMs        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuestionCache {
+  id             String   @id @default(cuid())
+  questionHash   String
+  notebookId     String
+  sectionId      String
+  answerSnapshot Json
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@unique([questionHash, notebookId, sectionId])
+}
+
+model ProcessingJob {
+  id         String    @id @default(cuid())
+  questionId String    @unique
+  status     JobStatus @default(QUEUED)
+  attempts   Int       @default(0)
+  runAfter   DateTime  @default(now())
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAfter])
+}
+
+model AccessLog {
+  id         String   @id @default(cuid())
+  userId      String
+  notebookId  String
+  action      String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([notebookId, createdAt])
+}

@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: Noema API
+  version: 0.2.0
+  description: API contract for Noema learning platform.
+servers:
+  - url: https://api.noema.example.com
+security:
+  - bearerAuth: []
+paths:
+  /api/auth/token:
+    post:
+      summary: Issue API bearer token from logged-in session
+      tags: [Auth]
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expiresInSeconds]
+                properties:
+                  token:
+                    type: string
+                  expiresInSeconds:
+                    type: integer
+        '401':
+          description: Unauthorized
+  /api/questions:
+    post:
+      summary: Submit a question for a notebook section
+      tags: [Questions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionAccepted'
+        '400':
+          description: Invalid payload
+        '401':
+          description: Unauthorized
+        '404':
+          description: Notebook not found
+  /api/questions/{questionId}/answer:
+    get:
+      summary: Get generated answer
+      tags: [Questions]
+      parameters:
+        - in: path
+          name: questionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerResponse'
+        '202':
+          description: Still processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerPending'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/questions/history:
+    get:
+      summary: Get recent completed answers for notebook
+      tags: [Questions]
+      parameters:
+        - in: query
+          name: notebookId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List
+        '400':
+          description: notebookId missing
+        '401':
+          description: Unauthorized
+  /api/admin/notebooks:
+    post:
+      summary: Upload notebook and metadata
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, title, chapter, order, colabUrl]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                id:
+                  type: string
+                title:
+                  type: string
+                chapter:
+                  type: string
+                order:
+                  type: integer
+                tags:
+                  type: string
+                  description: comma separated tags
+                colabUrl:
+                  type: string
+                videoUrl:
+                  type: string
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin only
+  /api/admin/questions:
+    get:
+      summary: List Q&A logs
+      tags: [Admin]
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin only
+    patch:
+      summary: Edit answer
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionId, answerText]
+              properties:
+                questionId:
+                  type: string
+                answerText:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin only
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    QuestionRequest:
+      type: object
+      required: [notebookId, sectionId, questionText]
+      properties:
+        notebookId:
+          type: string
+        sectionId:
+          type: string
+        questionText:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    QuestionAccepted:
+      type: object
+      required: [questionId, status, cached]
+      properties:
+        questionId:
+          type: string
+        status:
+          type: string
+          enum: [QUEUED, COMPLETED]
+        cached:
+          type: boolean
+    AnswerPending:
+      type: object
+      required: [questionId, status]
+      properties:
+        questionId:
+          type: string
+        status:
+          type: string
+          enum: [QUEUED, PROCESSING, FAILED]
+    AnswerResponse:
+      type: object
+      required: [questionId, status, answerText, sourceReferences, tokensUsed, timestamp]
+      properties:
+        questionId:
+          type: string
+        status:
+          type: string
+          enum: [COMPLETED]
+        answerText:
+          type: string
+        sourceReferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceReference'
+        tokensUsed:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+    SourceReference:
+      type: object
+      required: [notebookId, location]
+      properties:
+        notebookId:
+          type: string
+        location:
+          type: string
