@@ -24,7 +24,7 @@ Done criteria:
 - Cognito 認証統合（OAuth2 + email/password）
 - 質問投稿 API / 回答取得 API
 - 非同期ジョブ（SQS + Worker Lambda）
-- Bedrock 最小RAG実装（top-k retrieval + answer generation）
+- OpenAI/Bedrock 最小RAG実装（top-k retrieval + answer generation）
 
 Done criteria:
 

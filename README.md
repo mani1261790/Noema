@@ -16,7 +16,7 @@
 - Static Contents: Jupyter Book または nbconvert で生成し S3 配信
 - Auth: Amazon Cognito（OAuth2 + Email/Password）
 - API: API Gateway + AWS Lambda
-- LLM: Amazon Bedrock（モデルルータ付き）
+- LLM: OpenAI API（`gpt-5-nano` デフォルト）/ Amazon Bedrock（任意）
 - Data: DynamoDB（質問/回答/キャッシュ/メタデータ）
 - Retrieval: OpenSearch または pgvector
 - CDN: CloudFront
@@ -28,7 +28,7 @@
 1. 認証付き Web アプリ基盤（ログイン必須）
 2. 教材一覧サイドバー + HTML教材表示 + Colabリンク
 3. 質問投稿・回答取得 API
-4. RAGパイプライン（検索→Bedrock→保存）
+4. RAGパイプライン（検索→LLM→保存）
 5. 管理者画面（質問ログ閲覧、教材メタ管理）
 
 ## リポジトリ構成（初期）
@@ -57,6 +57,18 @@ npm run worker
 ```
 
 本番で永続アップロードを使う場合は `.env` に `S3_BUCKET_NAME` と `S3_REGION` を設定すると、管理画面の教材アップロードは S3 に保存されます。
+
+コスト最小で開始する場合の推奨 LLM 設定:
+
+```bash
+QA_MODEL_PROVIDER=openai
+OPENAI_API_KEY=<your-key>
+OPENAI_MODEL_SMALL=gpt-5-nano
+OPENAI_MODEL_MID=
+OPENAI_MODEL_LARGE=
+```
+
+`gpt-oss-20b` を試す場合は `OPENAI_MODEL_SMALL=gpt-oss-20b` に変更してください。
 
 ## AWS インフラ (CDK)
 

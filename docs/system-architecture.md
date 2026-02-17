@@ -8,7 +8,7 @@
   └─ API Gateway ── Lambda (AuthZ / Q&A / Admin)
                       ├─ DynamoDB (Q&A, cache, metadata)
                       ├─ OpenSearch or pgvector (retrieval index)
-                      └─ Amazon Bedrock (LLM inference)
+                      └─ OpenAI API / Amazon Bedrock (LLM inference)
 
 [Cognito]
   └─ JWT発行（OAuth2, Email/Password）
@@ -39,7 +39,7 @@
 - RAG Pipeline
 - クエリ正規化
 - インデックスから関連チャンク抽出
-- コンテキスト圧縮後に Bedrock へ推論依頼
+- コンテキスト圧縮後に LLM 推論依頼（OpenAI または Bedrock）
 - 根拠リンク付きで回答を保存
 
 ## 3. 主要シーケンス
@@ -57,7 +57,7 @@
 2. APIが質問ハッシュを作成しキャッシュ照会
 3. ヒット時は既存回答を返却
 4. ミス時はジョブ登録（SQS想定）
-5. ワーカーLambdaがRAG + Bedrock実行
+5. ワーカーLambdaがRAG + LLM実行
 6. 回答と出典を保存
 7. フロントがポーリングして回答表示
 
@@ -65,7 +65,7 @@
 
 - APIは Cognito JWT 検証必須
 - 管理APIは `role=admin` のみ許可
-- Bedrock 呼び出しは IAM role を最小権限化
+- LLM APIキー/権限は最小権限化
 - すべて HTTPS
 - 入力バリデーション（長さ、禁止タグ、レート制限）
 - XSS/CSRF対策（CSP, SameSite, CSRF token）

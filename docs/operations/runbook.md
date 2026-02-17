@@ -6,7 +6,7 @@
 2. Check CloudWatch error rate for API and worker Lambdas.
 3. Check SQS backlog (`ApproximateNumberOfMessagesVisible`).
 4. Check DynamoDB throttling metrics.
-5. Check Bedrock usage/cost spikes.
+5. Check LLM usage/cost spikes (OpenAI or Bedrock).
 6. Check CloudWatch dashboard `CloudWatchDashboardName`.
 7. Confirm SNS alarm emails are received (if `alarmEmail` is configured).
 

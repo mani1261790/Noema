@@ -26,6 +26,19 @@ type CachedAnswerSnapshot = {
   timestamp: string;
 };
 
+type ModelProvider = "openai" | "bedrock" | "mock";
+
+type ModelSelection = {
+  provider: ModelProvider;
+  modelId: string;
+};
+
+type ModelResponse = {
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+};
+
 function normalizeQuestion(input: string): string {
   return input.replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -70,18 +83,141 @@ async function retrieveRelevantChunks(notebookId: string, sectionId: string, que
   return ranked;
 }
 
-function routeModel(questionText: string, contextChars: number): string | null {
-  const small = process.env.BEDROCK_MODEL_SMALL;
-  const mid = process.env.BEDROCK_MODEL_MID;
-  const large = process.env.BEDROCK_MODEL_LARGE;
+function resolveProvider(): ModelProvider {
+  const explicit = (process.env.QA_MODEL_PROVIDER ?? "").trim().toLowerCase();
+  if (explicit === "openai" || explicit === "bedrock" || explicit === "mock") {
+    return explicit;
+  }
 
-  if (questionText.length < 120 && small) return small;
-  if (contextChars > 2800 && large) return large;
-  if (mid) return mid;
-  return small ?? large ?? null;
+  if (process.env.OPENAI_API_KEY) {
+    return "openai";
+  }
+
+  if (process.env.BEDROCK_MODEL_SMALL || process.env.BEDROCK_MODEL_MID || process.env.BEDROCK_MODEL_LARGE) {
+    return "bedrock";
+  }
+
+  return "mock";
 }
 
-async function callBedrock(prompt: string, modelId: string) {
+function modelCandidates(provider: ModelProvider) {
+  if (provider === "openai") {
+    const small = process.env.OPENAI_MODEL_SMALL?.trim() || "gpt-5-nano";
+    const mid = process.env.OPENAI_MODEL_MID?.trim() || small;
+    const large = process.env.OPENAI_MODEL_LARGE?.trim() || mid;
+    return { small, mid, large };
+  }
+
+  if (provider === "bedrock") {
+    const small = process.env.BEDROCK_MODEL_SMALL?.trim() || "";
+    const mid = process.env.BEDROCK_MODEL_MID?.trim() || "";
+    const large = process.env.BEDROCK_MODEL_LARGE?.trim() || "";
+    return { small, mid, large };
+  }
+
+  return { small: "", mid: "", large: "" };
+}
+
+function routeModel(questionText: string, contextChars: number): ModelSelection {
+  const provider = resolveProvider();
+  if (provider === "mock") {
+    return { provider: "mock", modelId: "mock" };
+  }
+
+  const { small, mid, large } = modelCandidates(provider);
+  const pickSmall = questionText.length < 120 && small;
+  const pickLarge = contextChars > 2800 && large;
+  const chosen = pickSmall || pickLarge || mid || small || large;
+
+  if (!chosen) {
+    return { provider: "mock", modelId: "mock" };
+  }
+
+  return { provider, modelId: chosen };
+}
+
+function parseNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function extractOpenAIText(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const data = payload as Record<string, unknown>;
+
+  if (typeof data.output_text === "string") {
+    return data.output_text.trim();
+  }
+
+  if (Array.isArray(data.output)) {
+    const chunks: string[] = [];
+    for (const item of data.output) {
+      if (!item || typeof item !== "object") continue;
+      const message = item as Record<string, unknown>;
+      if (!Array.isArray(message.content)) continue;
+      for (const contentItem of message.content) {
+        if (!contentItem || typeof contentItem !== "object") continue;
+        const content = contentItem as Record<string, unknown>;
+        if (typeof content.text === "string" && content.text.trim()) {
+          chunks.push(content.text.trim());
+        }
+      }
+    }
+    if (chunks.length > 0) {
+      return chunks.join("\n");
+    }
+  }
+
+  if (Array.isArray(data.choices)) {
+    const first = data.choices[0] as
+      | { message?: { content?: string }; text?: string }
+      | undefined;
+    if (first?.message?.content) return first.message.content.trim();
+    if (first?.text) return first.text.trim();
+  }
+
+  return "";
+}
+
+async function callOpenAI(prompt: string, modelId: string): Promise<ModelResponse> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured.");
+  }
+
+  const baseUrl = (process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
+  const maxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS ?? process.env.BEDROCK_MAX_TOKENS ?? 800);
+  const temperature = Number(process.env.OPENAI_TEMPERATURE ?? 0.2);
+
+  const response = await fetch(`${baseUrl}/responses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: modelId,
+      input: prompt,
+      max_output_tokens: maxOutputTokens,
+      temperature
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`OpenAI request failed (${response.status}): ${body.slice(0, 300)}`);
+  }
+
+  const payload = (await response.json()) as Record<string, unknown>;
+  const usage = (payload.usage as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    text: extractOpenAIText(payload),
+    inputTokens: parseNumber(usage.input_tokens ?? usage.prompt_tokens),
+    outputTokens: parseNumber(usage.output_tokens ?? usage.completion_tokens)
+  };
+}
+
+async function callBedrock(prompt: string, modelId: string): Promise<ModelResponse> {
   if (!bedrockClient) {
     throw new Error("BEDROCK_REGION is not configured.");
   }
@@ -112,7 +248,7 @@ async function callBedrock(prompt: string, modelId: string) {
 
 function fallbackAnswer(questionText: string, contexts: string[]) {
   return [
-    "開発モード回答です。Bedrock未設定のため教材文脈から要点を返します。",
+    "開発モード回答です。LLMが未設定のため教材文脈から要点を返します。",
     `質問: ${questionText}`,
     "関連コンテキスト:",
     ...contexts.map((text, index) => `${index + 1}. ${text.slice(0, 220)}`),
@@ -259,14 +395,20 @@ export async function processQuestionById(questionId: string): Promise<void> {
     }));
 
     const prompt = buildPrompt(question.questionText, contexts);
-    const modelId = routeModel(question.questionText, contexts.reduce((acc, item) => acc + item.content.length, 0)) ?? "mock";
+    const selectedModel = routeModel(question.questionText, contexts.reduce((acc, item) => acc + item.content.length, 0));
+    const modelId = selectedModel.provider === "mock" ? "mock" : `${selectedModel.provider}:${selectedModel.modelId}`;
 
     let answerText = "";
     let inputTokens = 0;
     let outputTokens = 0;
 
-    if (modelId !== "mock") {
-      const result = await callBedrock(prompt, modelId);
+    if (selectedModel.provider === "openai") {
+      const result = await callOpenAI(prompt, selectedModel.modelId);
+      answerText = result.text;
+      inputTokens = result.inputTokens;
+      outputTokens = result.outputTokens;
+    } else if (selectedModel.provider === "bedrock") {
+      const result = await callBedrock(prompt, selectedModel.modelId);
       answerText = result.text;
       inputTokens = result.inputTokens;
       outputTokens = result.outputTokens;
