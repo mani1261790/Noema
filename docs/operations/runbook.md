@@ -7,6 +7,8 @@
 3. Check SQS backlog (`ApproximateNumberOfMessagesVisible`).
 4. Check DynamoDB throttling metrics.
 5. Check Bedrock usage/cost spikes.
+6. Check CloudWatch dashboard `CloudWatchDashboardName`.
+7. Confirm SNS alarm emails are received (if `alarmEmail` is configured).
 
 ## Deployment checklist
 
@@ -24,6 +26,10 @@
 - `aws_region`: usually `ap-northeast-3`
 - `stack_stage`: usually `prod`
 - `frontend_url`: public frontend URL (for Cognito callback/logout), example `https://noema.example.com`
+- `alarm_email` (optional): email for SNS alarm notifications
+- `cognito_domain_prefix` (optional): custom Cognito domain prefix
+- `create_github_deploy_role` (optional): `true` to create OIDC role
+- `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
 
 ### Static asset workflow inputs (`Deploy Static Assets`)
 
@@ -38,12 +44,14 @@
 2. Inspect worker Lambda logs.
 3. If retries exhausted, inspect DLQ messages.
 4. Requeue failed messages after fix.
+5. Check alarm state for `*-qa-queue-backlog` and `*-qa-dlq-messages`.
 
 ## Incident: login failures
 
 1. Check Cognito user pool health.
 2. Verify callback URLs and app client settings.
 3. Verify JWT audience/issuer in API Gateway authorizer.
+4. Confirm Cognito domain output `CognitoDomain` is active.
 
 ## Incident: static content missing
 
@@ -56,3 +64,16 @@
 1. Re-deploy previous known-good commit.
 2. Re-run app deploy workflow for previous artifact.
 3. If infra broke, run `cdk deploy` from previous infra commit.
+
+## Key stack outputs
+
+- `CloudFrontDomainName`
+- `CloudFrontDistributionId`
+- `HttpApiUrl`
+- `CognitoUserPoolId`
+- `CognitoUserPoolClientId`
+- `SiteBucketName`
+- `NotebookBucketName`
+- `AlarmTopicArn`
+- `CloudWatchDashboardName`
+- `GitHubDeployRoleArn` (optional)

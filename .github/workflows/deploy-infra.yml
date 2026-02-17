@@ -14,6 +14,22 @@ on:
       frontend_url:
         description: Frontend URL for Cognito callback/logout
         required: true
+      alarm_email:
+        description: Optional alarm notification email
+        required: false
+        default: ""
+      cognito_domain_prefix:
+        description: Optional custom Cognito domain prefix
+        required: false
+        default: ""
+      create_github_deploy_role:
+        description: Create GitHub OIDC deploy role (true/false)
+        required: false
+        default: "false"
+      github_repo:
+        description: Repo slug for OIDC role trust (owner/repo)
+        required: false
+        default: ""
 
 permissions:
   id-token: write
@@ -49,4 +65,23 @@ jobs:
         run: npx cdk bootstrap
 
       - name: CDK deploy
-        run: npm run deploy -- --require-approval never -c stage=${{ inputs.stack_stage }} -c frontendUrl=${{ inputs.frontend_url }}
+        run: |
+          EXTRA_CTX=""
+          if [ -n "${{ inputs.alarm_email }}" ]; then
+            EXTRA_CTX="$EXTRA_CTX -c alarmEmail=${{ inputs.alarm_email }}"
+          fi
+          if [ -n "${{ inputs.cognito_domain_prefix }}" ]; then
+            EXTRA_CTX="$EXTRA_CTX -c cognitoDomainPrefix=${{ inputs.cognito_domain_prefix }}"
+          fi
+          if [ "${{ inputs.create_github_deploy_role }}" = "true" ]; then
+            if [ -z "${{ inputs.github_repo }}" ]; then
+              echo "github_repo is required when create_github_deploy_role=true"
+              exit 1
+            fi
+            EXTRA_CTX="$EXTRA_CTX -c createGithubDeployRole=true -c githubRepo=${{ inputs.github_repo }}"
+          fi
+
+          npm run deploy -- --require-approval never \
+            -c stage=${{ inputs.stack_stage }} \
+            -c frontendUrl=${{ inputs.frontend_url }} \
+            $EXTRA_CTX

@@ -5,14 +5,19 @@ import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as snsSubscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 
@@ -27,6 +32,9 @@ export class NoemaStack extends Stack {
 
     const prefix = `${props.projectName}-${props.stage}`;
     const frontendUrl = String(this.node.tryGetContext("frontendUrl") ?? "https://example.com").replace(/\/$/, "");
+    const alarmEmail = String(this.node.tryGetContext("alarmEmail") ?? "");
+    const githubRepo = String(this.node.tryGetContext("githubRepo") ?? "");
+    const createGithubDeployRole = String(this.node.tryGetContext("createGithubDeployRole") ?? "false") === "true";
 
     const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${prefix}-user-pool`,
@@ -178,6 +186,19 @@ export class NoemaStack extends Stack {
       encryption: sqs.QueueEncryption.SQS_MANAGED
     });
 
+    const alarmTopic = new sns.Topic(this, "AlarmTopic", {
+      topicName: `${prefix}-alarms`
+    });
+    if (alarmEmail) {
+      alarmTopic.addSubscription(new snsSubscriptions.EmailSubscription(alarmEmail));
+    }
+
+    const apiLogGroup = new logs.LogGroup(this, "ApiLogGroup", {
+      logGroupName: `/aws/lambda/${prefix}-api`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.RETAIN
+    });
+
     const apiFunction = new lambdaNodejs.NodejsFunction(this, "ApiFunction", {
       functionName: `${prefix}-api`,
       entry: path.join(__dirname, "../lambda/api.ts"),
@@ -186,6 +207,7 @@ export class NoemaStack extends Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
       timeout: Duration.seconds(20),
+      logGroup: apiLogGroup,
       environment: {
         QUESTIONS_TABLE: questionsTable.tableName,
         ANSWERS_TABLE: answersTable.tableName,
@@ -197,6 +219,12 @@ export class NoemaStack extends Stack {
       }
     });
 
+    const workerLogGroup = new logs.LogGroup(this, "WorkerLogGroup", {
+      logGroupName: `/aws/lambda/${prefix}-qa-worker`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.RETAIN
+    });
+
     const workerFunction = new lambdaNodejs.NodejsFunction(this, "WorkerFunction", {
       functionName: `${prefix}-qa-worker`,
       entry: path.join(__dirname, "../lambda/worker.ts"),
@@ -205,6 +233,7 @@ export class NoemaStack extends Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 1024,
       timeout: Duration.seconds(120),
+      logGroup: workerLogGroup,
       environment: {
         QUESTIONS_TABLE: questionsTable.tableName,
         ANSWERS_TABLE: answersTable.tableName,
@@ -300,8 +329,131 @@ export class NoemaStack extends Stack {
       authorizer: jwtAuthorizer
     });
 
+    const apiErrorsAlarm = new cloudwatch.Alarm(this, "ApiErrorsAlarm", {
+      alarmName: `${prefix}-api-errors`,
+      metric: apiFunction.metricErrors({
+        period: Duration.minutes(5),
+        statistic: "sum"
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+    });
+    apiErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const workerErrorsAlarm = new cloudwatch.Alarm(this, "WorkerErrorsAlarm", {
+      alarmName: `${prefix}-worker-errors`,
+      metric: workerFunction.metricErrors({
+        period: Duration.minutes(5),
+        statistic: "sum"
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+    });
+    workerErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const workerThrottlesAlarm = new cloudwatch.Alarm(this, "WorkerThrottlesAlarm", {
+      alarmName: `${prefix}-worker-throttles`,
+      metric: workerFunction.metricThrottles({
+        period: Duration.minutes(5),
+        statistic: "sum"
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+    });
+    workerThrottlesAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const qaQueueBacklogAlarm = new cloudwatch.Alarm(this, "QaQueueBacklogAlarm", {
+      alarmName: `${prefix}-qa-queue-backlog`,
+      metric: qaQueue.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+        statistic: "max"
+      }),
+      threshold: 20,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+    });
+    qaQueueBacklogAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const qaDlqAlarm = new cloudwatch.Alarm(this, "QaDeadLetterQueueAlarm", {
+      alarmName: `${prefix}-qa-dlq-messages`,
+      metric: deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+        statistic: "max"
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+    });
+    qaDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const dashboard = new cloudwatch.Dashboard(this, "OperationsDashboard", {
+      dashboardName: `${prefix}-operations`
+    });
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Lambda Errors",
+        width: 12,
+        left: [apiFunction.metricErrors(), workerFunction.metricErrors()]
+      }),
+      new cloudwatch.GraphWidget({
+        title: "SQS Queue Depth",
+        width: 12,
+        left: [qaQueue.metricApproximateNumberOfMessagesVisible(), deadLetterQueue.metricApproximateNumberOfMessagesVisible()]
+      }),
+      new cloudwatch.GraphWidget({
+        title: "Lambda Duration",
+        width: 12,
+        left: [apiFunction.metricDuration(), workerFunction.metricDuration()]
+      }),
+      new cloudwatch.GraphWidget({
+        title: "DynamoDB Throttles",
+        width: 12,
+        left: [
+          questionsTable.metricThrottledRequestsForOperation("PutItem"),
+          answersTable.metricThrottledRequestsForOperation("PutItem"),
+          notebooksTable.metricThrottledRequestsForOperation("PutItem")
+        ]
+      })
+    );
+
+    if (createGithubDeployRole && githubRepo) {
+      const githubOidcProvider = new iam.OpenIdConnectProvider(this, "GitHubOidcProvider", {
+        url: "https://token.actions.githubusercontent.com",
+        clientIds: ["sts.amazonaws.com"]
+      });
+
+      const githubDeployRole = new iam.Role(this, "GitHubDeployRole", {
+        roleName: `${prefix}-github-deploy`,
+        assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
+          StringEquals: {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+          },
+          StringLike: {
+            "token.actions.githubusercontent.com:sub": `repo:${githubRepo}:ref:refs/heads/main`
+          }
+        }),
+        description: "GitHub Actions OIDC role for Noema deployments"
+      });
+      githubDeployRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"));
+
+      new cdk.CfnOutput(this, "GitHubDeployRoleArn", {
+        value: githubDeployRole.roleArn
+      });
+    }
+
     new cdk.CfnOutput(this, "CloudFrontDomainName", {
       value: distribution.distributionDomainName
+    });
+    new cdk.CfnOutput(this, "CloudFrontDistributionId", {
+      value: distribution.distributionId
     });
 
     new cdk.CfnOutput(this, "SiteBucketName", {
@@ -330,6 +482,15 @@ export class NoemaStack extends Stack {
 
     new cdk.CfnOutput(this, "QaQueueUrl", {
       value: qaQueue.queueUrl
+    });
+    new cdk.CfnOutput(this, "QaDeadLetterQueueUrl", {
+      value: deadLetterQueue.queueUrl
+    });
+    new cdk.CfnOutput(this, "AlarmTopicArn", {
+      value: alarmTopic.topicArn
+    });
+    new cdk.CfnOutput(this, "CloudWatchDashboardName", {
+      value: dashboard.dashboardName
     });
   }
 }

@@ -35,10 +35,22 @@ npx cdk bootstrap aws://437089831576/ap-northeast-3
 npm run deploy -- --require-approval never -c frontendUrl=https://your-frontend-domain
 ```
 
+## Deploy with monitoring + GitHub OIDC role (recommended)
+
+```bash
+npm run deploy -- --require-approval never \
+  -c frontendUrl=https://your-frontend-domain \
+  -c alarmEmail=you@example.com \
+  -c createGithubDeployRole=true \
+  -c githubRepo=mani1261790/Noema
+```
+
 ## Required GitHub secret
 
 For GitHub Actions deploy workflows, add repository secret:
 
 - `AWS_DEPLOY_ROLE_ARN`
+
+Set this to stack output `GitHubDeployRoleArn` (if you enabled `createGithubDeployRole=true`).
 
 This role must trust GitHub OIDC and have permissions for CDK deploy + app artifact publish.

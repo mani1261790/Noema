@@ -8,6 +8,9 @@ This directory provisions production AWS infrastructure for Noema:
 - DynamoDB tables
 - S3 buckets (site + notebooks)
 - CloudFront distribution
+- CloudWatch alarms + operations dashboard
+- SNS alarm topic (optional email subscription)
+- Optional GitHub OIDC deploy role
 
 ## Prerequisites
 
@@ -40,12 +43,26 @@ If Cognito domain prefix conflicts, deploy with:
 npm run deploy -- --require-approval never -c cognitoDomainPrefix=noema-mani-auth
 ```
 
+Enable alarm notification email and GitHub OIDC role (optional):
+
+```bash
+npm run deploy -- --require-approval never \
+  -c frontendUrl=https://your-frontend-domain \
+  -c alarmEmail=you@example.com \
+  -c createGithubDeployRole=true \
+  -c githubRepo=mani1261790/Noema
+```
+
 ## Useful outputs
 
 After deploy, note these stack outputs:
 
 - `CloudFrontDomainName`
+- `CloudFrontDistributionId`
 - `HttpApiUrl`
 - `CognitoUserPoolId`
 - `CognitoUserPoolClientId`
 - `NotebookBucketName`
+- `AlarmTopicArn`
+- `CloudWatchDashboardName`
+- `GitHubDeployRoleArn` (when `createGithubDeployRole=true`)
