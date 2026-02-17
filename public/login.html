@@ -214,7 +214,7 @@
 
     <button class="button" id="login-btn" type="button">ログイン</button>
     <button class="button-ghost" id="signup-btn" type="button">新規登録</button>
-    <a class="button-ghost" id="verify-entry-link" href="/verify.html">認証コード入力はこちら</a>
+    <a class="button-ghost" id="verify-entry-link" href="/verify.html">認証・再設定はこちら</a>
 
     <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
       <div class="status-head" id="status-head"></div>
@@ -379,7 +379,7 @@
             "success",
             "登録を受け付けました。メールに届いた確認コードを入力して認証を完了してください。",
             "登録完了",
-            { label: "認証コード入力はこちら", href: buildVerifyUrl(email, "confirm") }
+            { label: "認証・再設定はこちら", href: buildVerifyUrl(email, "confirm") }
           );
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -394,9 +394,9 @@
               handled = true;
               setStatus(
                 "success",
-                "このメールアドレスは既に登録済みです。確認コードを再送しました。認証コード入力ページで認証を完了してください。",
+                "このメールアドレスは既に登録済みです。確認コードを再送しました。認証・再設定ページで認証を完了してください。",
                 "登録受付済み",
-                { label: "認証コード入力はこちら", href: buildVerifyUrl(email, "confirm") }
+                { label: "認証・再設定はこちら", href: buildVerifyUrl(email, "confirm") }
               );
             } catch {}
 
@@ -409,9 +409,9 @@
                 handled = true;
                 setStatus(
                   "success",
-                  "このメールアドレスは既に存在するため、パスワード再設定コードを送信しました。認証コード入力ページで新しいパスワードを設定してください。",
+                  "このメールアドレスは既に存在するため、パスワード再設定コードを送信しました。認証・再設定ページで新しいパスワードを設定してください。",
                   "再設定コード送信済み",
-                  { label: "認証コード入力はこちら", href: buildVerifyUrl(email, "reset") }
+                  { label: "認証・再設定はこちら", href: buildVerifyUrl(email, "reset") }
                 );
               } catch {}
             }
