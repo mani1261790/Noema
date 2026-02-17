@@ -1,6 +1,6 @@
 import path from "path";
 import * as cdk from "aws-cdk-lib";
-import { Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, Size, Stack, StackProps } from "aws-cdk-lib";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
@@ -304,8 +304,9 @@ export class NoemaStack extends Stack {
       runtime: lambda.Runtime.PYTHON_3_12,
       architecture: lambda.Architecture.X86_64,
       handler: "handler.lambda_handler",
-      memorySize: 1024,
-      timeout: Duration.seconds(30),
+      memorySize: 2048,
+      timeout: Duration.seconds(120),
+      ephemeralStorageSize: Size.mebibytes(2048),
       code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/python-runner"), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
@@ -315,7 +316,11 @@ export class NoemaStack extends Stack {
             "set -euo pipefail && pip install --disable-pip-version-check -r requirements.txt -t /asset-output && cp -au . /asset-output"
           ]
         }
-      })
+      }),
+      environment: {
+        NOEMA_BASE_MODULES: "numpy,pandas,scipy,matplotlib,sklearn,seaborn,sympy,statsmodels,networkx",
+        NOEMA_PIP_TIMEOUT_SECONDS: "120"
+      }
     });
 
     apiFunction.addEnvironment("PYTHON_RUNNER_FUNCTION_NAME", pythonRunnerFunction.functionName);

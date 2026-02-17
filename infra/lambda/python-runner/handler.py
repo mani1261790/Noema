@@ -12,8 +12,11 @@ from typing import Any
 MAX_CODE_CHARS = 20000
 MAX_EXPECTED_MODULES = 24
 EXEC_TIMEOUT_SECONDS = 12
-PIP_TIMEOUT_SECONDS = 90
 TMP_SITE_PACKAGES = "/tmp/noema-site-packages"
+BASE_MODULES_RAW = os.environ.get(
+    "NOEMA_BASE_MODULES",
+    "numpy,pandas,scipy,matplotlib,sklearn,seaborn,sympy,statsmodels,networkx",
+)
 
 PACKAGE_MAP = {
     "sklearn": "scikit-learn",
@@ -21,6 +24,8 @@ PACKAGE_MAP = {
     "cv2": "opencv-python-headless",
     "yaml": "pyyaml",
     "bs4": "beautifulsoup4",
+    "skimage": "scikit-image",
+    "xgboost": "xgboost",
 }
 
 MODULE_RE = re.compile(r"No module named ['\"]([^'\"]+)['\"]")
@@ -65,7 +70,22 @@ print(
 '''
 
 installed_packages: set[str] = set()
+failed_packages: set[str] = set()
 install_lock = threading.Lock()
+base_preload_lock = threading.Lock()
+base_preload_done = False
+
+
+def _safe_int_env(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = os.environ.get(name, str(default))
+    try:
+        parsed = int(raw)
+    except Exception:
+        parsed = default
+    return max(minimum, min(maximum, parsed))
+
+
+PIP_TIMEOUT_SECONDS = _safe_int_env("NOEMA_PIP_TIMEOUT_SECONDS", 120, 30, 600)
 
 
 def _coerce_modules(raw: Any) -> list[str]:
@@ -90,6 +110,15 @@ def _coerce_modules(raw: Any) -> list[str]:
     return modules
 
 
+def _coerce_modules_from_csv(raw: str) -> list[str]:
+    if not raw:
+        return []
+    return _coerce_modules([value.strip() for value in raw.split(",") if value.strip()])
+
+
+BASE_MODULES = _coerce_modules_from_csv(BASE_MODULES_RAW)
+
+
 def _module_to_package(module_name: str) -> str:
     return PACKAGE_MAP.get(module_name, module_name)
 
@@ -105,6 +134,8 @@ def _install_package(module_name: str) -> tuple[bool, str]:
     package_name = _module_to_package(module_name)
     if package_name in installed_packages:
         return True, package_name
+    if package_name in failed_packages:
+        return False, package_name
 
     os.makedirs(TMP_SITE_PACKAGES, exist_ok=True)
 
@@ -142,10 +173,24 @@ def _install_package(module_name: str) -> tuple[bool, str]:
             return False, package_name
 
         if result.returncode != 0:
+            failed_packages.add(package_name)
             return False, package_name
 
         installed_packages.add(package_name)
+        failed_packages.discard(package_name)
         return True, package_name
+
+
+def _ensure_base_modules() -> tuple[list[str], list[str]]:
+    global base_preload_done
+    if base_preload_done:
+        return [], []
+
+    with base_preload_lock:
+        if base_preload_done:
+            return [], []
+        base_preload_done = True
+        return _preload_modules(BASE_MODULES)
 
 
 def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
@@ -253,13 +298,14 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     try:
         action = str(event.get("action", "execute")).strip().lower()
         modules_hint = _coerce_modules(event.get("expectedModules"))
+        base_installed, base_failed = _ensure_base_modules()
 
         if action == "preload":
             installed, failed = _preload_modules(modules_hint)
             return {
                 "ok": True,
-                "installedPackages": installed,
-                "failedModules": failed,
+                "installedPackages": list(dict.fromkeys(base_installed + installed)),
+                "failedModules": list(dict.fromkeys(base_failed + failed)),
             }
 
         code = str(event.get("code") or "")
@@ -285,7 +331,10 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 "failedModules": [],
             }
 
-        return _execute_with_auto_install(code, modules_hint)
+        result = _execute_with_auto_install(code, modules_hint)
+        result["installedPackages"] = list(dict.fromkeys(base_installed + list(result.get("installedPackages", []))))
+        result["failedModules"] = list(dict.fromkeys(base_failed + list(result.get("failedModules", []))))
+        return result
     except Exception:
         return {
             "stdout": "",

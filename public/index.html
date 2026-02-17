@@ -1113,8 +1113,6 @@
         if (!token) return;
 
         const modules = normalizeModuleHints(collectNotebookImportedModules(container));
-        if (!modules.length) return;
-
         const preloadKey = `${notebookId}:${modules.join(",")}`;
         if (preloadedNotebookPackages.has(preloadKey)) return;
 
