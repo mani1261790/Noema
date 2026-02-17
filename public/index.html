@@ -1055,6 +1055,62 @@
         return Boolean(exists);
       }
 
+      function extractImportedModulesFromSource(source) {
+        const modules = new Set();
+        const normalized = normalizeRunnableSource(source || "");
+        const lines = normalized.split(/\r?\n/);
+
+        lines.forEach((line) => {
+          const trimmed = line.replace(/#.*/, "").trim();
+          if (!trimmed) return;
+
+          const importMatch = trimmed.match(/^import\s+(.+)$/);
+          if (importMatch && importMatch[1]) {
+            importMatch[1]
+              .split(",")
+              .map((part) => part.trim())
+              .forEach((part) => {
+                if (!part) return;
+                const moduleName = part.split(/\s+as\s+/i)[0].trim().split(".")[0];
+                if (moduleName) modules.add(moduleName);
+              });
+            return;
+          }
+
+          const fromMatch = trimmed.match(/^from\s+([A-Za-z0-9_.]+)\s+import\s+/);
+          if (fromMatch && fromMatch[1]) {
+            const moduleName = fromMatch[1].split(".")[0];
+            if (moduleName) modules.add(moduleName);
+          }
+        });
+
+        return Array.from(modules);
+      }
+
+      function collectNotebookImportedModules(container) {
+        const modules = new Set();
+        container.querySelectorAll("pre > code").forEach((code) => {
+          extractImportedModulesFromSource(code.textContent || "").forEach((moduleName) => {
+            modules.add(moduleName);
+          });
+        });
+        return Array.from(modules);
+      }
+
+      async function preloadNotebookPackages(container, notebookId) {
+        const modules = collectNotebookImportedModules(container);
+        if (!modules.length) return;
+
+        try {
+          const py = await ensurePythonRuntime();
+          for (const moduleName of modules) {
+            await installPythonModule(py, moduleName, null);
+          }
+        } catch (error) {
+          console.warn("Notebook package preload failed", notebookId, error);
+        }
+      }
+
       async function installPythonModule(py, moduleName, output) {
         const packageName = resolvePythonPackage(moduleName);
         if (loadedPythonPackages.has(packageName)) return true;
@@ -1068,7 +1124,10 @@
             return true;
           }
 
-          output.textContent = `Missing module '${moduleName}'. Installing '${packageName}'...`;
+          if (output) {
+            output.classList.add("visible");
+            output.textContent = `Missing module '${moduleName}'. Installing '${packageName}'...`;
+          }
 
           try {
             await py.loadPackage(packageName);
@@ -1273,6 +1332,7 @@
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
           renderSections();
+          void preloadNotebookPackages(el.notebookContent, target.id);
           await applySyntaxHighlight(el.notebookContent);
           enhanceCodeBlocks();
 
