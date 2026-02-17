@@ -969,6 +969,18 @@
         return pyodidePromise;
       }
 
+      function normalizeRunnableSource(rawSource) {
+        if (!rawSource) return "";
+        // nbconvertの出力によっては改行が "\n" の2文字で入るため、実行前に正規化する。
+        if (!rawSource.includes("\n") && /\\[nrt]/.test(rawSource)) {
+          return rawSource
+            .replace(/\\r/g, "\r")
+            .replace(/\\n/g, "\n")
+            .replace(/\\t/g, "\t");
+        }
+        return rawSource;
+      }
+
       function enhanceCodeBlocks() {
         const blocks = el.notebookContent.querySelectorAll("pre > code");
 
@@ -996,7 +1008,7 @@
           wrapper.appendChild(output);
 
           button.addEventListener("click", async () => {
-            const source = code.textContent || "";
+            const source = normalizeRunnableSource(code.textContent || "");
             if (!source.trim()) return;
 
             button.disabled = true;
