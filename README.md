@@ -81,9 +81,9 @@ npm run deploy -- --require-approval never
 
 運用ドキュメント:
 
-- `/Users/mani/Developer/Noema/docs/operations/aws-setup.md`
-- `/Users/mani/Developer/Noema/docs/operations/dev-loop.md`
-- `/Users/mani/Developer/Noema/docs/operations/runbook.md`
+- `docs/operations/aws-setup.md`
+- `docs/operations/dev-loop.md`
+- `docs/operations/runbook.md`
 
 ## KPI
 

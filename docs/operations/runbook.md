@@ -19,6 +19,19 @@
    - question submit / answer fetch
    - admin Q&A edit
 
+### Infra workflow inputs (`Deploy Infra`)
+
+- `aws_region`: usually `ap-northeast-3`
+- `stack_stage`: usually `prod`
+- `frontend_url`: public frontend URL (for Cognito callback/logout), example `https://noema.example.com`
+
+### Static asset workflow inputs (`Deploy Static Assets`)
+
+- `aws_region`: usually `ap-northeast-3`
+- `site_bucket`: stack output `SiteBucketName`
+- `notebook_bucket`: stack output `NotebookBucketName`
+- `cloudfront_distribution_id`: CloudFront distribution ID from AWS Console (Distribution detail page)
+
 ## Incident: Q&A delayed
 
 1. Verify SQS backlog.
