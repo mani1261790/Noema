@@ -67,17 +67,13 @@ type NarrativeProfile = {
   openingTagline: string;
   moduleHeadingPrefix: string;
   formulaHeading: string;
-  modulePrompt: string;
   closingHeading: string;
-  closingCue: string;
-  shortfallCue: string;
 };
 
 const catalogPath = path.join(process.cwd(), "content", "catalog.json");
 const notebooksDir = path.join(process.cwd(), "content", "notebooks");
 const reportsDir = path.join(process.cwd(), "content", "review-reports");
 
-const QUALITY_MIN_MARKDOWN_LENGTH = 1400;
 const QUALITY_MIN_CODE_CELLS = 5;
 const QUALITY_MAX_ROUNDS = 6;
 
@@ -126,37 +122,7 @@ function profileFor(notebookId: string): NarrativeProfile {
     openingTagline: pickByHash(notebookId, ["導入", "問題設定", "最初の見取り図", "この章で掴むこと"], 1),
     moduleHeadingPrefix: pickByHash(notebookId, ["実験", "観察", "検証", "手を動かす"], 2),
     formulaHeading: pickByHash(notebookId, ["数式メモ", "式と実装の往復", "計算の対応表", "定義の確認"], 3),
-    modulePrompt: pickByHash(
-      notebookId,
-      [
-        "入力を1つ変え、どの変数から先に変わるかを説明してみてください。",
-        "同じコードを別条件で再実行し、差分の理由を1段落でまとめてください。",
-        "出力が変わる原因を『入力・中間値・最終値』の順に追跡してください。",
-        "境界値を1つ作り、なぜその結果になるかを言葉で確認してください。"
-      ],
-      4
-    ),
-    closingHeading: pickByHash(notebookId, ["理解の確認", "まとめと次の一手", "最後のチェック", "振り返り"], 5),
-    closingCue: pickByHash(
-      notebookId,
-      [
-        "実装した処理を別データに移し替えて、壊れる点を先に探してください。",
-        "今回のコードを2行だけ書き換えて、説明可能性が下がる箇所を特定してください。",
-        "最も理解が浅い部分を1つ選び、再実行しながらノートに言語化してください。",
-        "同じ問題を別の実装で解き、何が本質かを比較してください。"
-      ],
-      6
-    ),
-    shortfallCue: pickByHash(
-      notebookId,
-      [
-        "短くまとまりすぎているため、実務で使う場面を1つ追加で掘り下げてください。",
-        "説明密度が不足しているため、失敗例と再現手順を追記してください。",
-        "理解の橋渡しが薄いため、前提知識との接続を1段落補ってください。",
-        "抽象度が高いため、具体的な入出力例を1つ追加してください。"
-      ],
-      7
-    )
+    closingHeading: pickByHash(notebookId, ["要点整理", "まとめ", "この節の要点", "振り返り"], 5)
   };
 }
 
@@ -1058,18 +1024,20 @@ function moduleBeforeText(index: number, module: CodeModule, profile: NarrativeP
 
 function moduleAfterText(module: CodeModule, pack: TopicPack, profile: NarrativeProfile): string {
   const pivot = pack.keyTerms[0] ?? "変数";
-  return [module.after, "", `${pivot} を1つ変更して、${profile.modulePrompt}`].join("\n");
+  return [
+    module.after,
+    "",
+    `この節では、${pivot} が入出力のどこを決めるかを中心に読める状態になれば十分です。`
+  ].join("\n");
 }
 
 function closingBlock(notebookTitle: string, nextTitle: string | null, pack: TopicPack, profile: NarrativeProfile): string {
   const lines = [
     `## ${profile.closingHeading}`,
     "",
+    "今回のノートで押さえておくべき誤解しやすい点を整理します。",
+    "",
     ...pack.pitfalls.map((item, idx) => `${idx + 1}. ${item}`),
-    "",
-    `思考実験: ${pack.thoughtExperiment}`,
-    "",
-    profile.closingCue,
     ""
   ];
   if (nextTitle) {
@@ -1125,10 +1093,6 @@ function markdownText(nb: NotebookFile): string {
     .filter((cell) => cell.cell_type === "markdown")
     .map((cell) => cell.source.join("\n"))
     .join("\n\n");
-}
-
-function markdownLength(nb: NotebookFile): number {
-  return markdownText(nb).replace(/\s+/g, "").length;
 }
 
 function codeCellIndexes(nb: NotebookFile): number[] {
@@ -1233,26 +1197,11 @@ function runExpertCodexReview(
   if (missingTerms.length > 0) {
     nb.cells.push(
       md(
-        `用語補足\n\n不足語彙: ${missingTerms.join("、")}\n\n${profile.modulePrompt}`
+        `用語補足\n\n不足語彙: ${missingTerms.join("、")}\n\n不足語彙が、どの変数や処理に対応しているかを読み取りながら本文へ戻ってください。`
       )
     );
     changed = true;
     findings.push("主要語彙の不足を補強");
-  }
-
-  if (markdownLength(nb) < QUALITY_MIN_MARKDOWN_LENGTH) {
-    nb.cells.push(
-      md(
-        [
-          `追加補足: ${chapterTitle}`,
-          "",
-          profile.shortfallCue,
-          "説明だけで終わらず、既存コードの入力値を2パターン変えて比較し、差分を記録すると理解が定着します。"
-        ].join("\n")
-      )
-    );
-    changed = true;
-    findings.push("本文が短いため、追加メモを1ブロック補強");
   }
 
   const metaWords = ["システムプロンプト", "AUTHORING_SYSTEM_PROMPT", "生成してください"];
@@ -1279,7 +1228,6 @@ function runExpertCodexReview(
 function runBeginnerCodexReview(nb: NotebookFile): { findings: string[]; changed: boolean } {
   const findings: string[] = [];
   let changed = false;
-  const text = markdownText(nb);
 
   const codeIndexes = codeCellIndexes(nb);
   for (const idx of codeIndexes) {
@@ -1290,12 +1238,6 @@ function runBeginnerCodexReview(nb: NotebookFile): { findings: string[]; changed
       findings.push("コード前説明の不足を補強");
       break;
     }
-  }
-
-  if (!text.includes("思考実験")) {
-    nb.cells.push(md("思考実験\n\n入力条件を1つだけ変えたとき、どの中間値が先に変化するかを予測してから実行してください。"));
-    changed = true;
-    findings.push("思考実験導線を追加");
   }
 
   return { findings, changed };
