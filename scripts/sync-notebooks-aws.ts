@@ -21,6 +21,10 @@ type Catalog = {
   }>;
 };
 
+const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
+const MAX_CHUNK_CHARACTERS = 1_200;
+const MAX_CHUNKS = 180;
+
 function getArg(flag: string): string | null {
   const index = process.argv.findIndex((arg) => arg === flag);
   if (index < 0) return null;
@@ -43,6 +47,26 @@ async function loadNotebookFile(notebookId: string): Promise<NotebookFile | null
   }
 
   return null;
+}
+
+function estimateBytes(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
+
+function compactChunksForDynamo(baseItem: Record<string, unknown>, chunks: ReturnType<typeof extractChunks>) {
+  let compacted = chunks
+    .slice(0, MAX_CHUNKS)
+    .map((chunk) => ({
+      sectionId: chunk.sectionId,
+      position: chunk.position,
+      content: chunk.content.slice(0, MAX_CHUNK_CHARACTERS)
+    }));
+
+  while (compacted.length > 0 && estimateBytes({ ...baseItem, chunks: compacted }) > DYNAMODB_ITEM_SOFT_LIMIT_BYTES) {
+    compacted = compacted.slice(0, compacted.length - 1);
+  }
+
+  return compacted;
 }
 
 async function main() {
@@ -78,27 +102,38 @@ async function main() {
       );
 
       const now = new Date().toISOString();
+      const baseItem = {
+        notebookId: notebook.id,
+        title: notebook.title,
+        chapter: chapter.title,
+        sortOrder: notebook.order,
+        tags: notebook.tags,
+        htmlPath: notebook.htmlPath,
+        colabUrl: notebook.colabUrl,
+        videoUrl: notebook.videoUrl,
+        createdAt: (existing.Item as { createdAt?: string } | undefined)?.createdAt ?? now,
+        updatedAt: now
+      };
+      const compactedChunks = compactChunksForDynamo(baseItem, chunks);
+
       await ddb.send(
         new PutCommand({
           TableName: tableName,
           Item: {
-            notebookId: notebook.id,
-            title: notebook.title,
-            chapter: chapter.title,
-            sortOrder: notebook.order,
-            tags: notebook.tags,
-            htmlPath: notebook.htmlPath,
-            colabUrl: notebook.colabUrl,
-            videoUrl: notebook.videoUrl,
-            chunks,
-            createdAt: (existing.Item as { createdAt?: string } | undefined)?.createdAt ?? now,
-            updatedAt: now
+            ...baseItem,
+            chunks: compactedChunks
           }
         })
       );
 
       synced += 1;
-      console.log(`Synced notebook: ${notebook.id} (chunks=${chunks.length})`);
+      if (compactedChunks.length < chunks.length) {
+        console.warn(
+          `Synced notebook: ${notebook.id} (chunks ${chunks.length} -> ${compactedChunks.length} to fit DynamoDB limit)`
+        );
+      } else {
+        console.log(`Synced notebook: ${notebook.id} (chunks=${compactedChunks.length})`);
+      }
     }
   }
 

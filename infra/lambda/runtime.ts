@@ -85,6 +85,10 @@ type NotebookRecord = {
   updatedAt?: string;
 };
 
+const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
+const MAX_CHUNK_CHARACTERS = 1_200;
+const MAX_CHUNKS = 180;
+
 type ModelProvider = "openai" | "bedrock" | "mock";
 
 type ModelSelection = {
@@ -1187,6 +1191,26 @@ function parseMultipart(event: APIGatewayProxyEventV2) {
   return { fields, fileContent };
 }
 
+function estimateBytes(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
+
+function compactChunksForDynamo(baseItem: Omit<NotebookRecord, "chunks">, chunks: NotebookChunk[]): NotebookChunk[] {
+  let compacted = chunks
+    .slice(0, MAX_CHUNKS)
+    .map((chunk) => ({
+      sectionId: chunk.sectionId,
+      position: chunk.position,
+      content: chunk.content.slice(0, MAX_CHUNK_CHARACTERS)
+    }));
+
+  while (compacted.length > 0 && estimateBytes({ ...baseItem, chunks: compacted }) > DYNAMODB_ITEM_SOFT_LIMIT_BYTES) {
+    compacted = compacted.slice(0, compacted.length - 1);
+  }
+
+  return compacted;
+}
+
 async function saveNotebookArtifacts(notebookId: string, html: string, ipynbRaw: string) {
   if (!NOTEBOOK_BUCKET) {
     return { htmlPath: `/notebooks/${notebookId}.html` };
@@ -1220,13 +1244,26 @@ async function saveNotebookArtifacts(notebookId: string, html: string, ipynbRaw:
 
 async function upsertNotebook(item: NotebookRecord) {
   const existing = await getNotebook(item.notebookId);
+  const baseItem: Omit<NotebookRecord, "chunks"> = {
+    notebookId: item.notebookId,
+    title: item.title,
+    chapter: item.chapter,
+    sortOrder: item.sortOrder,
+    tags: item.tags,
+    htmlPath: item.htmlPath,
+    colabUrl: item.colabUrl,
+    videoUrl: item.videoUrl,
+    createdAt: existing?.createdAt || nowIso(),
+    updatedAt: nowIso()
+  };
+  const compactedChunks = compactChunksForDynamo(baseItem, item.chunks ?? []);
+
   await ddb.send(
     new PutCommand({
       TableName: NOTEBOOKS_TABLE,
       Item: {
-        ...item,
-        createdAt: existing?.createdAt || nowIso(),
-        updatedAt: nowIso()
+        ...baseItem,
+        chunks: compactedChunks
       }
     })
   );
