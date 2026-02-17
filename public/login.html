@@ -42,10 +42,29 @@
       -webkit-backdrop-filter: blur(18px);
       box-shadow: 0 24px 56px rgba(3,7,16,.52), inset 0 1px 0 rgba(169,208,255,.15);
       padding: 20px;
+      position: relative;
+    }
+
+    .back {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      border: 1px solid var(--border);
+      background: rgba(17, 34, 54, .5);
+      color: var(--text);
+      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      text-decoration: none;
+      line-height: 1;
     }
 
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 8px 44px;
       font-size: 30px;
       line-height: 1.15;
     }
@@ -131,14 +150,13 @@
       padding: 10px;
       font-size: 13px;
       white-space: pre-wrap;
-      display: none;
+      min-height: 44px;
     }
-
-    .status.visible { display: block; }
   </style>
 </head>
 <body>
   <main class="card">
+    <a class="back" id="back-btn" href="/" aria-label="前のページへ戻る">‹</a>
     <h1>ログイン</h1>
     <p>ログイン済みユーザーのみ、LLM質問機能を利用できます。</p>
 
@@ -154,8 +172,6 @@
 
     <button class="button" id="login-btn" type="button">ログイン</button>
     <button class="button-ghost" id="signup-btn" type="button">新規登録</button>
-
-    <a class="button-ghost" href="/">トップへ戻る</a>
 
     <div class="status" id="status"></div>
   </main>
@@ -173,8 +189,7 @@
       const statusEl = document.getElementById("status");
 
       function setStatus(message) {
-        statusEl.textContent = message;
-        statusEl.classList.toggle("visible", Boolean(message));
+        statusEl.textContent = message || "";
       }
 
       async function cognitoCall(target, payload) {
@@ -223,11 +238,13 @@
 
       async function loginWithGoogle() {
         try {
-          setStatus("Googleログインへ遷移します...");
+          setStatus("");
           const verifier = randomString(96);
           const challenge = await createChallenge(verifier);
           const state = randomString(40);
           const redirectUri = `${window.location.origin}/api/auth/callback/cognito`;
+          const button = document.getElementById("google-login-btn");
+          button.disabled = true;
 
           sessionStorage.setItem("noema_pkce_verifier", verifier);
           sessionStorage.setItem("noema_pkce_state", state);
@@ -237,14 +254,15 @@
             client_id: CLIENT_ID,
             redirect_uri: redirectUri,
             scope: "openid email profile",
+            identity_provider: "Google",
             state,
             code_challenge_method: "S256",
-            code_challenge: challenge,
-            identity_provider: "Google"
+            code_challenge: challenge
           });
 
           window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
         } catch (error) {
+          document.getElementById("google-login-btn").disabled = false;
           setStatus(`Googleログインの開始に失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
@@ -320,9 +338,19 @@
         void signup();
       });
 
+      document.getElementById("back-btn").addEventListener("click", function (event) {
+        const referrer = document.referrer || "";
+        if (referrer.startsWith(window.location.origin) && window.history.length > 1) {
+          event.preventDefault();
+          window.history.back();
+        }
+      });
+
       const existing = localStorage.getItem(TOKEN_KEY);
       if (existing) {
         setStatus("既にログイン済みです。再ログインする場合のみ入力してください。");
+      } else {
+        setStatus("");
       }
     })();
   </script>

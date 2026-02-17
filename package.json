@@ -11,7 +11,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "build:notebooks": "tsx scripts/build-notebooks.ts",
-    "build:jupyterlite": "bash scripts/build-jupyterlite.sh",
+    "build:pyodide": "bash scripts/build-pyodide-runtime.sh",
     "sync:notebooks": "tsx scripts/sync-notebooks.ts",
     "sync:notebooks:aws": "tsx scripts/sync-notebooks-aws.ts",
     "worker": "tsx src/worker.ts"

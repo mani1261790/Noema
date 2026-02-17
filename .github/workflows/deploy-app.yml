@@ -60,11 +60,6 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -87,8 +82,8 @@ jobs:
       - name: Build notebooks
         run: npm run build:notebooks
 
-      - name: Build JupyterLite
-        run: npm run build:jupyterlite
+      - name: Build pyodide runtime
+        run: npm run build:pyodide
 
       - name: Build app
         run: npm run build

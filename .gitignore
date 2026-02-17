@@ -9,3 +9,5 @@ coverage
 tsconfig.tsbuildinfo
 infra/cdk.out
 infra/dist
+.tmp
+public/pyodide
