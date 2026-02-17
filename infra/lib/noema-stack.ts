@@ -299,12 +299,6 @@ export class NoemaStack extends Stack {
       }
     });
 
-    const pythonRunnerLogGroup = new logs.LogGroup(this, "PythonRunnerLogGroup", {
-      logGroupName: `/aws/lambda/${prefix}-python-runner`,
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.RETAIN
-    });
-
     const pythonRunnerFunction = new lambda.Function(this, "PythonRunnerFunction", {
       functionName: `${prefix}-python-runner`,
       runtime: lambda.Runtime.PYTHON_3_12,
@@ -312,7 +306,6 @@ export class NoemaStack extends Stack {
       handler: "handler.lambda_handler",
       memorySize: 1024,
       timeout: Duration.seconds(30),
-      logGroup: pythonRunnerLogGroup,
       code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/python-runner"), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
