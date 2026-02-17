@@ -71,6 +71,12 @@ function createMessage(role: Message["role"], text: string, meta?: Message["meta
   };
 }
 
+function includesQuery(notebook: NotebookSummary, query: string) {
+  if (!query) return true;
+  const hay = `${notebook.title} ${notebook.id} ${notebook.tags.join(" ")}`.toLowerCase();
+  return hay.includes(query);
+}
+
 export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, initialSectionIds, user }: Props) {
   const sortedChapters = useMemo(() => sortChapters(chapters), [chapters]);
   const notebookRef = useRef<HTMLDivElement | null>(null);
@@ -83,6 +89,7 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
     const chapter = sortedChapters.find((item) => item.notebooks.some((notebook) => notebook.id === initialNotebook.id));
     return chapter?.id ?? sortedChapters[0]?.id ?? "";
   });
+  const [sidebarQuery, setSidebarQuery] = useState("");
   const [loadingNotebook, setLoadingNotebook] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatBusy, setChatBusy] = useState(false);
@@ -91,9 +98,28 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   const [selectionContext, setSelectionContext] = useState<SelectionContext | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const filteredChapters = useMemo(() => {
+    const query = sidebarQuery.trim().toLowerCase();
+    if (!query) return sortedChapters;
+
+    return sortedChapters
+      .map((chapter) => ({
+        ...chapter,
+        notebooks: chapter.notebooks.filter((notebook) => includesQuery(notebook, query))
+      }))
+      .filter((chapter) => chapter.notebooks.length > 0);
+  }, [sortedChapters, sidebarQuery]);
+
   useEffect(() => {
     setActiveSectionId(sectionIds[0] ?? "intro");
   }, [sectionIds, activeNotebook.id]);
+
+  useEffect(() => {
+    const chapter = sortedChapters.find((item) => item.notebooks.some((notebook) => notebook.id === activeNotebook.id));
+    if (chapter) {
+      setOpenChapterId(chapter.id);
+    }
+  }, [activeNotebook.id, sortedChapters]);
 
   const findSelectionInNotebook = (): SelectionContext | null => {
     const selection = window.getSelection();
@@ -177,8 +203,7 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
         throw new Error(payload?.error ?? "回答の取得に失敗しました");
       }
 
-      const answer = (await response.json()) as AnswerPayload;
-      return answer;
+      return (await response.json()) as AnswerPayload;
     }
 
     throw new Error("回答待機がタイムアウトしました");
@@ -244,12 +269,25 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   const sidebarContent = (
     <>
       <div className="mb-3 px-2 pt-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[var(--accent)]">Noema Learn</p>
-        <h2 className="mt-1 font-display text-xl font-semibold">教材一覧</h2>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-[var(--accent)]">Noema</p>
+        <h2 className="mt-1 font-display text-2xl font-semibold">機械学習ノート</h2>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        {sortedChapters.map((chapter) => {
+      <div className="px-2 pb-3">
+        <label className="glass-input flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
+          <span className="text-muted">⌕</span>
+          <input
+            className="w-full bg-transparent text-sm outline-none"
+            onChange={(event) => setSidebarQuery(event.target.value)}
+            placeholder="教材を検索"
+            value={sidebarQuery}
+          />
+        </label>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        {filteredChapters.length === 0 ? <p className="text-muted px-3 text-sm">一致する教材がありません。</p> : null}
+        {filteredChapters.map((chapter) => {
           const expanded = openChapterId === chapter.id;
           return (
             <section key={chapter.id} className="glass-subpanel rounded-xl">
@@ -277,7 +315,7 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
                           onClick={() => void loadNotebook(notebook.id)}
                           type="button"
                         >
-                          {notebook.title}
+                          <p className="truncate">{notebook.title}</p>
                         </button>
                       </li>
                     );
@@ -298,160 +336,222 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
     </>
   );
 
-  return (
-    <main className="mx-auto h-[100dvh] w-full max-w-[1700px] p-3 md:p-4">
-      <div className="flex h-full gap-3">
-        <aside className="glass-panel-strong hidden h-full w-[320px] rounded-3xl p-3 md:flex md:flex-col">{sidebarContent}</aside>
+  const assistantPane = (
+    <aside className="glass-panel-strong flex h-full w-full max-w-[420px] flex-col rounded-3xl p-3">
+      <div className="mb-2 border-b border-[var(--border)] pb-2">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-display text-lg font-semibold">Assistant</h2>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="glass-chip rounded-full px-2 py-1">RAG</span>
+            <button className="glass-button-ghost rounded-lg px-2 py-1" onClick={() => setMessages([])} type="button">
+              New
+            </button>
+            <button className="glass-button-ghost rounded-lg px-2 py-1 md:hidden" onClick={() => setChatOpen(false)} type="button">
+              Close
+            </button>
+          </div>
+        </div>
 
-        <section className="min-w-0 flex-1">
-          <div className="flex h-full min-w-0 gap-3">
-            <div className="glass-panel-strong relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
-              <div className="border-b border-[var(--border)] px-3 py-2 md:hidden">
-                <button className="glass-button-ghost rounded-lg px-3 py-1.5 text-sm" onClick={() => setSidebarOpen(true)} type="button">
-                  教材メニュー
-                </button>
-              </div>
-
-              <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[color:var(--panel-strong)]/95 px-4 py-3 backdrop-blur-xl">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                  <p className="text-muted truncate text-xs font-medium md:text-sm">
-                    {loadingNotebook ? "読み込み中..." : `Notebook ID: ${activeNotebook.id}`}
-                  </p>
-                  <h1 className="truncate px-2 text-center font-display text-base font-semibold md:text-xl">{activeNotebook.title}</h1>
-                  <div className="flex items-center justify-end gap-2">
-                    <a
-                      className="glass-button-ghost rounded-lg px-3 py-1.5 text-xs font-medium md:text-sm"
-                      href={`/api/notebooks/${encodeURIComponent(activeNotebook.id)}/download`}
-                    >
-                      Download
-                    </a>
-                    <a
-                      className="glass-button rounded-lg px-3 py-1.5 text-xs font-semibold text-white md:text-sm"
-                      href={activeNotebook.colabUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Colab
-                    </a>
-                  </div>
-                </div>
-              </header>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-4 md:px-6">
-                {selectionContext ? (
-                  <div className="glass-subpanel mb-3 flex items-start justify-between gap-3 rounded-xl p-3 text-xs md:text-sm">
-                    <div>
-                      <p className="font-semibold">選択中のテキストを質問に添付します</p>
-                      <p className="text-muted mt-1 line-clamp-2 whitespace-pre-wrap">{selectionContext.text}</p>
-                    </div>
-                    <button
-                      className="glass-button-ghost shrink-0 rounded-md px-2 py-1 text-xs"
-                      onClick={() => setSelectionContext(null)}
-                      type="button"
-                    >
-                      解除
-                    </button>
-                  </div>
-                ) : null}
-
-                <div
-                  ref={notebookRef}
-                  className="prose-noema max-w-none"
-                  dangerouslySetInnerHTML={{ __html: notebookHtml }}
-                />
-              </div>
-
-              <button
-                aria-label={chatOpen ? "LLMチャットを閉じる" : "LLMに質問する"}
-                className="glass-button fixed bottom-5 right-5 z-30 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-2xl"
-                onClick={() => setChatOpen((prev) => !prev)}
-                type="button"
-              >
-                {chatOpen ? "チャットを閉じる" : "LLMに質問"}
-              </button>
+        {messages.length === 0 ? (
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="glass-subpanel rounded-xl p-3">
+              <p className="font-semibold">Highlight & Ask</p>
+              <p className="text-muted mt-1 text-xs">ノート本文を選択して質問すると、選択範囲を優先して解説します。</p>
             </div>
+            <div className="glass-subpanel rounded-xl p-3">
+              <p className="font-semibold">Add Context</p>
+              <p className="text-muted mt-1 text-xs">章・セクションID指定で関連チャンクを絞り込みます。</p>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
-            {chatOpen ? (
-              <aside className="glass-panel-strong flex h-full w-full max-w-[420px] flex-col rounded-3xl p-3">
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <h2 className="font-display text-lg font-semibold">Notebook Assistant</h2>
-                  <span className="glass-chip rounded-full px-2 py-1 text-xs">RAG</span>
-                </div>
+      <div className="glass-subpanel min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl p-3">
+        {messages.length === 0 ? (
+          <p className="text-muted text-sm">右下ボタンまたはここから質問を始めてください。</p>
+        ) : null}
 
-                <div className="glass-subpanel min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl p-3">
-                  {messages.length === 0 ? (
-                    <p className="text-muted text-sm">
-                      ノート本文を選択してから質問すると、その選択内容を優先して回答します。
-                    </p>
-                  ) : null}
-                  {messages.map((message) => (
-                    <article
-                      key={message.id}
-                      className={`rounded-xl px-3 py-2 text-sm ${
-                        message.role === "user"
-                          ? "ml-6 bg-[color:var(--accent)]/20"
-                          : message.role === "assistant"
-                            ? "mr-6 bg-[color:var(--panel-strong)]"
-                            : "border border-amber-300/50 bg-amber-100/25 text-amber-900 dark:text-amber-100"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap leading-6">{message.text}</p>
-                      {message.meta?.sourceReferences?.length ? (
-                        <p className="text-muted mt-2 text-xs">
-                          参照:{" "}
-                          {message.meta.sourceReferences.map((source) => `${source.notebookId}${source.location}`).join(", ")}
-                        </p>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
+        {messages.map((message) => (
+          <article
+            key={message.id}
+            className={`rounded-xl px-3 py-2 text-sm ${
+              message.role === "user"
+                ? "ml-6 bg-[color:var(--accent)]/25"
+                : message.role === "assistant"
+                  ? "mr-6 bg-[color:var(--panel-strong)]"
+                  : "border border-[var(--border)] bg-[color:var(--panel-soft)]"
+            }`}
+          >
+            <p className="whitespace-pre-wrap leading-6">{message.text}</p>
+            {message.meta?.sourceReferences?.length ? (
+              <p className="text-muted mt-2 text-xs">
+                参照: {message.meta.sourceReferences.map((source) => `${source.notebookId}${source.location}`).join(", ")}
+              </p>
+            ) : null}
+          </article>
+        ))}
+      </div>
 
-                <div className="mt-3 space-y-2">
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <select
-                      className="glass-input rounded-lg px-3 py-2 text-sm"
-                      onChange={(event) => setActiveSectionId(event.target.value)}
-                      value={activeSectionId}
-                    >
-                      {sectionIds.length > 0 ? (
-                        sectionIds.map((sectionId) => (
-                          <option key={sectionId} value={sectionId}>
-                            {sectionId}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="intro">intro</option>
-                      )}
-                    </select>
-                    <button
-                      className="glass-button-ghost rounded-lg px-3 py-2 text-sm"
-                      onClick={() => setSelectionContext(findSelectionInNotebook())}
-                      type="button"
-                    >
-                      selection
-                    </button>
-                  </div>
+      <div className="mt-3 space-y-2">
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <select
+            className="glass-input rounded-lg px-3 py-2 text-sm"
+            onChange={(event) => setActiveSectionId(event.target.value)}
+            value={activeSectionId}
+          >
+            {sectionIds.length > 0 ? (
+              sectionIds.map((sectionId) => (
+                <option key={sectionId} value={sectionId}>
+                  {sectionId}
+                </option>
+              ))
+            ) : (
+              <option value="intro">intro</option>
+            )}
+          </select>
+          <button
+            className="glass-button-ghost rounded-lg px-3 py-2 text-sm"
+            onClick={() => setSelectionContext(findSelectionInNotebook())}
+            type="button"
+          >
+            selection
+          </button>
+        </div>
 
-                  <textarea
-                    className="glass-input min-h-24 w-full rounded-xl px-3 py-2 text-sm"
-                    onChange={(event) => setChatInput(event.target.value)}
-                    placeholder="ノート内容について質問する..."
-                    value={chatInput}
-                  />
+        <textarea
+          className="glass-input min-h-24 w-full rounded-xl px-3 py-2 text-sm"
+          onChange={(event) => setChatInput(event.target.value)}
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+              event.preventDefault();
+              void submitQuestion();
+            }
+          }}
+          placeholder="ノート内容について質問する..."
+          value={chatInput}
+        />
 
+        <button
+          className="glass-button w-full rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={chatBusy}
+          onClick={() => void submitQuestion()}
+          type="button"
+        >
+          {chatBusy ? "回答生成中..." : "送信"}
+        </button>
+      </div>
+    </aside>
+  );
+
+  return (
+    <main className="mx-auto h-[100dvh] w-full max-w-[1900px] p-2 md:p-3">
+      <div className="glass-panel h-full rounded-[28px] p-2 md:p-3">
+        <div className="flex h-full gap-2 md:gap-3">
+          <aside className="glass-panel-strong hidden h-full w-[300px] rounded-3xl p-3 md:flex md:flex-col">{sidebarContent}</aside>
+
+          <section className="min-w-0 flex-1">
+            <div className="flex h-full min-w-0 gap-2 md:gap-3">
+              <div className="glass-panel-strong relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl">
+                <div className="border-b border-[var(--border)] px-3 py-2 md:hidden">
                   <button
-                    className="glass-button w-full rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={chatBusy}
-                    onClick={() => void submitQuestion()}
+                    className="glass-button-ghost rounded-lg px-3 py-1.5 text-sm"
+                    onClick={() => setSidebarOpen(true)}
                     type="button"
                   >
-                    {chatBusy ? "回答生成中..." : "送信"}
+                    教材メニュー
                   </button>
                 </div>
-              </aside>
-            ) : null}
-          </div>
-        </section>
+
+                <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[color:var(--panel-strong)]/95 px-3 py-2 backdrop-blur-xl md:px-5 md:py-3">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <div className="flex items-center gap-2 text-xs md:text-sm">
+                      <button className="glass-button-ghost rounded-md px-2 py-1" onClick={() => setChatOpen((v) => !v)} type="button">
+                        ☰
+                      </button>
+                      <span className="text-muted truncate">{loadingNotebook ? "読み込み中..." : `ID: ${activeNotebook.id}`}</span>
+                    </div>
+
+                    <h1 className="truncate px-2 text-center font-display text-base font-semibold md:text-2xl">{activeNotebook.title}</h1>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <a
+                        className="glass-button-ghost rounded-lg px-3 py-1.5 text-xs font-medium md:text-sm"
+                        href={`/api/notebooks/${encodeURIComponent(activeNotebook.id)}/download`}
+                      >
+                        Download
+                      </a>
+                      <a
+                        className="glass-button rounded-lg px-3 py-1.5 text-xs font-semibold text-white md:text-sm"
+                        href={activeNotebook.colabUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Open in Colab
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {activeNotebook.tags.map((tag) => (
+                      <span key={tag} className="glass-chip rounded-full px-2.5 py-1 text-xs">
+                        {tag}
+                      </span>
+                    ))}
+                    {sectionIds.slice(0, 5).map((sectionId) => (
+                      <button
+                        key={sectionId}
+                        className={`rounded-full px-2.5 py-1 text-xs transition ${
+                          activeSectionId === sectionId
+                            ? "glass-button text-white"
+                            : "glass-button-ghost"
+                        }`}
+                        onClick={() => setActiveSectionId(sectionId)}
+                        type="button"
+                      >
+                        {sectionId}
+                      </button>
+                    ))}
+                  </div>
+                </header>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3 md:px-6 md:pt-4">
+                  {selectionContext ? (
+                    <div className="glass-subpanel mb-3 flex items-start justify-between gap-3 rounded-xl p-3 text-xs md:text-sm">
+                      <div>
+                        <p className="font-semibold">選択中のテキストを質問に添付します</p>
+                        <p className="text-muted mt-1 max-h-12 overflow-hidden whitespace-pre-wrap">{selectionContext.text}</p>
+                      </div>
+                      <button
+                        className="glass-button-ghost shrink-0 rounded-md px-2 py-1 text-xs"
+                        onClick={() => setSelectionContext(null)}
+                        type="button"
+                      >
+                        解除
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="mx-auto max-w-[980px]">
+                    <div ref={notebookRef} className="prose-noema glass-subpanel max-w-none rounded-2xl px-4 py-4 md:px-6 md:py-5" dangerouslySetInnerHTML={{ __html: notebookHtml }} />
+                  </div>
+                </div>
+
+                {!chatOpen ? (
+                  <button
+                    aria-label="LLMに質問する"
+                    className="glass-button fixed bottom-5 right-5 z-30 rounded-full px-5 py-3 text-sm font-semibold text-white shadow-2xl"
+                    onClick={() => setChatOpen(true)}
+                    type="button"
+                  >
+                    LLMに質問
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="hidden md:block">{chatOpen ? assistantPane : null}</div>
+            </div>
+          </section>
+        </div>
       </div>
 
       {sidebarOpen ? (
@@ -464,6 +564,12 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
             </div>
             {sidebarContent}
           </aside>
+        </div>
+      ) : null}
+
+      {chatOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/35 p-3 md:hidden">
+          <div className="h-full">{assistantPane}</div>
         </div>
       ) : null}
     </main>
