@@ -31,6 +31,12 @@
 - `create_github_deploy_role` (optional): `true` to create OIDC role
 - `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
 - `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/main` or `refs/heads/*`
+- `qa_model_provider` (optional): `auto` / `openai` / `bedrock` / `mock`
+- `openai_model_small` (optional): default `gpt-5-nano`
+- `openai_model_mid`, `openai_model_large` (optional): fallback model IDs
+- `openai_api_key_ssm_parameter` (optional): SSM SecureString name for OpenAI key
+- `admin_emails` (optional): comma-separated admin emails
+- `noema_inline_qa` (optional): `true` to process synchronously in API
 
 ### Static asset workflow inputs (`Deploy Static Assets`)
 

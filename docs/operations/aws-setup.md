@@ -107,6 +107,33 @@ Notes:
 - `alarmEmail` is optional but strongly recommended.
 - `createGithubDeployRole=true` is only needed when creating the GitHub OIDC role.
 
+## 5.1 Configure OpenAI key in SSM (recommended)
+
+Store your OpenAI key as SSM SecureString (avoid plaintext in deploy args):
+
+```bash
+aws ssm put-parameter \
+  --name /noema/prod/openai-api-key \
+  --type SecureString \
+  --overwrite \
+  --value '<OPENAI_API_KEY>'
+```
+
+Then deploy with QA model context:
+
+```bash
+cd infra
+npm run deploy -- --require-approval never \
+  -c stage=prod \
+  -c frontendUrl=https://your-frontend-domain \
+  -c qaModelProvider=openai \
+  -c openAiModelSmall=gpt-5-nano \
+  -c openAiApiKeySsmParameter=/noema/prod/openai-api-key \
+  -c adminEmails=admin@example.com \
+  -c noemaInlineQa=false
+cd ..
+```
+
 ## 6. Read stack outputs you need for app deploy
 
 ```bash

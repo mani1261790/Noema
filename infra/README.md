@@ -54,6 +54,24 @@ npm run deploy -- --require-approval never \
   -c githubRefPattern=refs/heads/main
 ```
 
+Enable OpenAI-based QA worker (recommended low-cost setup):
+
+```bash
+# store key once (SecureString)
+aws ssm put-parameter \
+  --name /noema/prod/openai-api-key \
+  --type SecureString \
+  --overwrite \
+  --value '<OPENAI_API_KEY>'
+
+npm run deploy -- --require-approval never \
+  -c frontendUrl=https://your-frontend-domain \
+  -c qaModelProvider=openai \
+  -c openAiModelSmall=gpt-5-nano \
+  -c openAiApiKeySsmParameter=/noema/prod/openai-api-key \
+  -c adminEmails=admin@example.com
+```
+
 ## Useful outputs
 
 After deploy, note these stack outputs:

@@ -36,6 +36,22 @@ export class NoemaStack extends Stack {
     const githubRepo = String(this.node.tryGetContext("githubRepo") ?? "");
     const githubRefPattern = String(this.node.tryGetContext("githubRefPattern") ?? "refs/heads/main");
     const createGithubDeployRole = String(this.node.tryGetContext("createGithubDeployRole") ?? "false") === "true";
+    const qaModelProvider = String(this.node.tryGetContext("qaModelProvider") ?? "auto");
+    const noemaInlineQa = String(this.node.tryGetContext("noemaInlineQa") ?? "false");
+    const adminEmails = String(this.node.tryGetContext("adminEmails") ?? "");
+    const openAiApiKey = String(this.node.tryGetContext("openAiApiKey") ?? "");
+    const openAiApiKeySsmParameter = String(this.node.tryGetContext("openAiApiKeySsmParameter") ?? "");
+    const openAiBaseUrl = String(this.node.tryGetContext("openAiBaseUrl") ?? "https://api.openai.com/v1");
+    const openAiModelSmall = String(this.node.tryGetContext("openAiModelSmall") ?? "gpt-5-nano");
+    const openAiModelMid = String(this.node.tryGetContext("openAiModelMid") ?? "");
+    const openAiModelLarge = String(this.node.tryGetContext("openAiModelLarge") ?? "");
+    const openAiMaxOutputTokens = String(this.node.tryGetContext("openAiMaxOutputTokens") ?? "800");
+    const openAiTemperature = String(this.node.tryGetContext("openAiTemperature") ?? "0.2");
+    const bedrockRegion = String(this.node.tryGetContext("bedrockRegion") ?? "us-east-1");
+    const bedrockModelSmall = String(this.node.tryGetContext("bedrockModelSmall") ?? "");
+    const bedrockModelMid = String(this.node.tryGetContext("bedrockModelMid") ?? "");
+    const bedrockModelLarge = String(this.node.tryGetContext("bedrockModelLarge") ?? "");
+    const bedrockMaxTokens = String(this.node.tryGetContext("bedrockMaxTokens") ?? "800");
 
     const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${prefix}-user-pool`,
@@ -216,7 +232,23 @@ export class NoemaStack extends Stack {
         NOTEBOOKS_TABLE: notebooksTable.tableName,
         ACCESS_LOGS_TABLE: accessLogsTable.tableName,
         QA_QUEUE_URL: qaQueue.queueUrl,
-        NOTEBOOK_BUCKET: notebookBucket.bucketName
+        NOTEBOOK_BUCKET: notebookBucket.bucketName,
+        QA_MODEL_PROVIDER: qaModelProvider,
+        NOEMA_INLINE_QA: noemaInlineQa,
+        ADMIN_EMAILS: adminEmails,
+        OPENAI_API_KEY: openAiApiKey,
+        OPENAI_API_KEY_SSM_PARAMETER: openAiApiKeySsmParameter,
+        OPENAI_BASE_URL: openAiBaseUrl,
+        OPENAI_MODEL_SMALL: openAiModelSmall,
+        OPENAI_MODEL_MID: openAiModelMid,
+        OPENAI_MODEL_LARGE: openAiModelLarge,
+        OPENAI_MAX_OUTPUT_TOKENS: openAiMaxOutputTokens,
+        OPENAI_TEMPERATURE: openAiTemperature,
+        BEDROCK_REGION: bedrockRegion,
+        BEDROCK_MODEL_SMALL: bedrockModelSmall,
+        BEDROCK_MODEL_MID: bedrockModelMid,
+        BEDROCK_MODEL_LARGE: bedrockModelLarge,
+        BEDROCK_MAX_TOKENS: bedrockMaxTokens
       }
     });
 
@@ -241,14 +273,31 @@ export class NoemaStack extends Stack {
         CACHE_TABLE: cacheTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
         ACCESS_LOGS_TABLE: accessLogsTable.tableName,
-        NOTEBOOK_BUCKET: notebookBucket.bucketName
+        NOTEBOOK_BUCKET: notebookBucket.bucketName,
+        QA_MODEL_PROVIDER: qaModelProvider,
+        NOEMA_INLINE_QA: noemaInlineQa,
+        ADMIN_EMAILS: adminEmails,
+        OPENAI_API_KEY: openAiApiKey,
+        OPENAI_API_KEY_SSM_PARAMETER: openAiApiKeySsmParameter,
+        OPENAI_BASE_URL: openAiBaseUrl,
+        OPENAI_MODEL_SMALL: openAiModelSmall,
+        OPENAI_MODEL_MID: openAiModelMid,
+        OPENAI_MODEL_LARGE: openAiModelLarge,
+        OPENAI_MAX_OUTPUT_TOKENS: openAiMaxOutputTokens,
+        OPENAI_TEMPERATURE: openAiTemperature,
+        BEDROCK_REGION: bedrockRegion,
+        BEDROCK_MODEL_SMALL: bedrockModelSmall,
+        BEDROCK_MODEL_MID: bedrockModelMid,
+        BEDROCK_MODEL_LARGE: bedrockModelLarge,
+        BEDROCK_MAX_TOKENS: bedrockMaxTokens
       }
     });
 
     workerFunction.addEventSource(
       new lambdaEventSources.SqsEventSource(qaQueue, {
         batchSize: 5,
-        maxBatchingWindow: Duration.seconds(5)
+        maxBatchingWindow: Duration.seconds(5),
+        reportBatchItemFailures: true
       })
     );
 
@@ -275,6 +324,20 @@ export class NoemaStack extends Stack {
     });
     apiFunction.addToRolePolicy(bedrockPolicy);
     workerFunction.addToRolePolicy(bedrockPolicy);
+
+    if (openAiApiKeySsmParameter) {
+      const parameterPath = openAiApiKeySsmParameter.startsWith("/")
+        ? openAiApiKeySsmParameter
+        : `/${openAiApiKeySsmParameter}`;
+      const parameterArn = `arn:${cdk.Aws.PARTITION}:ssm:${this.region}:${this.account}:parameter${parameterPath}`;
+      const ssmReadPolicy = new iam.PolicyStatement({
+        sid: "AllowReadOpenAiKeyParameter",
+        actions: ["ssm:GetParameter"],
+        resources: [parameterArn]
+      });
+      apiFunction.addToRolePolicy(ssmReadPolicy);
+      workerFunction.addToRolePolicy(ssmReadPolicy);
+    }
 
     const api = new apigwv2.HttpApi(this, "HttpApi", {
       apiName: `${prefix}-http-api`,
@@ -311,6 +374,12 @@ export class NoemaStack extends Stack {
 
     api.addRoutes({
       path: "/api/questions/{questionId}/answer",
+      methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+    api.addRoutes({
+      path: "/api/questions/history",
       methods: [apigwv2.HttpMethod.GET],
       integration: apiIntegration,
       authorizer: jwtAuthorizer

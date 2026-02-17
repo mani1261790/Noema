@@ -34,6 +34,34 @@ on:
         description: Git ref pattern for OIDC trust (ex refs/heads/main or refs/heads/*)
         required: false
         default: refs/heads/main
+      qa_model_provider:
+        description: QA model provider (auto/openai/bedrock/mock)
+        required: false
+        default: openai
+      openai_model_small:
+        description: OpenAI small model id
+        required: false
+        default: gpt-5-nano
+      openai_model_mid:
+        description: Optional OpenAI mid model id
+        required: false
+        default: ""
+      openai_model_large:
+        description: Optional OpenAI large model id
+        required: false
+        default: ""
+      openai_api_key_ssm_parameter:
+        description: Optional SSM SecureString parameter name for OPENAI_API_KEY
+        required: false
+        default: ""
+      admin_emails:
+        description: Optional comma-separated admin emails
+        required: false
+        default: ""
+      noema_inline_qa:
+        description: Run inline QA in API (true/false)
+        required: false
+        default: "false"
 
 permissions:
   id-token: write
@@ -84,6 +112,20 @@ jobs:
             fi
             EXTRA_CTX="$EXTRA_CTX -c createGithubDeployRole=true -c githubRepo=${{ inputs.github_repo }} -c githubRefPattern=${{ inputs.github_ref_pattern }}"
           fi
+          EXTRA_CTX="$EXTRA_CTX -c qaModelProvider=${{ inputs.qa_model_provider }} -c openAiModelSmall=${{ inputs.openai_model_small }}"
+          if [ -n "${{ inputs.openai_model_mid }}" ]; then
+            EXTRA_CTX="$EXTRA_CTX -c openAiModelMid=${{ inputs.openai_model_mid }}"
+          fi
+          if [ -n "${{ inputs.openai_model_large }}" ]; then
+            EXTRA_CTX="$EXTRA_CTX -c openAiModelLarge=${{ inputs.openai_model_large }}"
+          fi
+          if [ -n "${{ inputs.openai_api_key_ssm_parameter }}" ]; then
+            EXTRA_CTX="$EXTRA_CTX -c openAiApiKeySsmParameter=${{ inputs.openai_api_key_ssm_parameter }}"
+          fi
+          if [ -n "${{ inputs.admin_emails }}" ]; then
+            EXTRA_CTX="$EXTRA_CTX -c adminEmails=${{ inputs.admin_emails }}"
+          fi
+          EXTRA_CTX="$EXTRA_CTX -c noemaInlineQa=${{ inputs.noema_inline_qa }}"
 
           npm run deploy -- --require-approval never \
             -c stage=${{ inputs.stack_stage }} \
