@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { notebookToHtml, type NotebookFile } from "../src/lib/notebook-ingest";
+import { canonicalizeNotebookFile, notebookToHtml, type NotebookFile } from "../src/lib/notebook-ingest";
 
 const NOTEBOOK_SOURCE_DIR = path.join(process.cwd(), "content", "notebooks");
 const OUTPUT_DIR = path.join(process.cwd(), "public", "notebooks");
@@ -140,7 +140,9 @@ async function main() {
     const sourcePath = path.join(NOTEBOOK_SOURCE_DIR, file);
     const raw = await fs.readFile(sourcePath, "utf8");
     const notebook = JSON.parse(raw) as NotebookFile;
-    const htmlFragment = notebookToHtml(notebook);
+    const canonicalNotebook = canonicalizeNotebookFile(notebook);
+    const canonicalRaw = `${JSON.stringify(canonicalNotebook, null, 2)}\n`;
+    const htmlFragment = notebookToHtml(canonicalNotebook);
     const title = path.parse(file).name;
     const html = wrapNotebookHtml(title, htmlFragment);
     const outputName = `${path.parse(file).name}.html`;
@@ -149,7 +151,7 @@ async function main() {
     console.log(`Built: ${outputPath}`);
 
     const ipynbOutputPath = path.join(OUTPUT_DIR, file);
-    await fs.writeFile(ipynbOutputPath, raw, "utf8");
+    await fs.writeFile(ipynbOutputPath, canonicalRaw, "utf8");
     console.log(`Copied: ${ipynbOutputPath}`);
   }
 

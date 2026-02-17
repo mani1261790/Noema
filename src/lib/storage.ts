@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { canonicalizeNotebookFile } from "@/lib/notebook-ingest";
 
 const s3Region = process.env.S3_REGION ?? process.env.AWS_REGION ?? process.env.BEDROCK_REGION;
 const s3Bucket = process.env.S3_BUCKET_NAME;
@@ -82,6 +83,7 @@ export async function loadNotebookHtml(htmlPath: string): Promise<string> {
 
 export async function loadNotebookIpynb(notebookId: string): Promise<string> {
   const ipynbKey = `notebooks/${notebookId}.ipynb`;
+  let raw = "";
 
   if (s3Client && s3Bucket) {
     const response = await s3Client.send(
@@ -90,11 +92,19 @@ export async function loadNotebookIpynb(notebookId: string): Promise<string> {
         Key: ipynbKey
       })
     );
-    return streamToString(response.Body);
+    raw = await streamToString(response.Body);
+  } else {
+    const localPath = path.join(process.cwd(), "content", "notebooks", `${notebookId}.ipynb`);
+    raw = await fs.readFile(localPath, "utf8");
   }
 
-  const localPath = path.join(process.cwd(), "content", "notebooks", `${notebookId}.ipynb`);
-  return fs.readFile(localPath, "utf8");
+  try {
+    const parsed = JSON.parse(raw) as { cells?: Array<{ cell_type?: unknown; source?: unknown }> };
+    const canonical = canonicalizeNotebookFile(parsed);
+    return `${JSON.stringify(canonical, null, 2)}\n`;
+  } catch {
+    return raw;
+  }
 }
 
 export function isS3Enabled() {

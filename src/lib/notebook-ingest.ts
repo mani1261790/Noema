@@ -1,6 +1,6 @@
 export type NotebookCell = {
   cell_type: "markdown" | "code";
-  source?: string[];
+  source?: string[] | string;
 };
 
 export type NotebookFile = {
@@ -30,16 +30,64 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function escapeHtmlWithLineBreaks(value: string): string {
+  return escapeHtml(value).replace(/\n/g, "<br>");
+}
+
 function normalizeMarkdownText(value: string): string {
   const hasRealNewline = value.includes("\n");
   if (hasRealNewline) return value;
-  return value.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+  return value.replace(/(?<!\\)\\r\\n/g, "\n").replace(/(?<!\\)\\n/g, "\n");
 }
 
 function normalizeCodeText(value: string): string {
   const hasRealNewline = value.includes("\n");
   if (hasRealNewline) return value;
-  return value.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+  return value
+    .replace(/(?<!\\)\\r\\n/g, "\n")
+    .replace(/(?<!\\)\\n/g, "\n")
+    .replace(/(?<!\\)\\t/g, "\t");
+}
+
+function sourceToText(source: NotebookCell["source"]): string {
+  if (Array.isArray(source)) {
+    return source.map((line) => String(line)).join("");
+  }
+  if (typeof source === "string") {
+    return source;
+  }
+  return "";
+}
+
+function normalizeCellSource(cell: NotebookCell): string {
+  const text = sourceToText(cell.source);
+  if (cell.cell_type === "markdown") {
+    return normalizeMarkdownText(text);
+  }
+  return normalizeCodeText(text);
+}
+
+export function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?: unknown; source?: unknown }> }>(input: T): T {
+  if (!Array.isArray(input.cells)) {
+    return input;
+  }
+
+  const normalizedCells = input.cells.map((cellLike) => {
+    const cell = cellLike as NotebookCell;
+    if (!cell || (cell.cell_type !== "markdown" && cell.cell_type !== "code")) {
+      return cellLike;
+    }
+    const normalizedSource = normalizeCellSource(cell);
+    return {
+      ...cellLike,
+      source: [normalizedSource]
+    };
+  });
+
+  return {
+    ...input,
+    cells: normalizedCells
+  };
 }
 
 function markdownToHtml(markdown: string): string {
@@ -56,18 +104,16 @@ function markdownToHtml(markdown: string): string {
     if (lines.length === 0) {
       return heading;
     }
-    return `${heading}\n<p>${escapeHtml(lines.join(" "))}</p>`;
+    return `${heading}\n<p>${escapeHtmlWithLineBreaks(lines.join("\n"))}</p>`;
   }
-  return `<p>${escapeHtml(markdown)}</p>`;
+  return `<p>${escapeHtmlWithLineBreaks(markdown)}</p>`;
 }
 
 export function notebookToHtml(input: NotebookFile): string {
   const pieces: string[] = ["<article class=\"prose-noema\">"];
 
   for (const cell of input.cells ?? []) {
-    const rawText = (cell.source ?? []).join("");
-    const text =
-      cell.cell_type === "markdown" ? normalizeMarkdownText(rawText).trim() : normalizeCodeText(rawText).trim();
+    const text = normalizeCellSource(cell).trim();
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
@@ -90,8 +136,7 @@ export function extractChunks(input: NotebookFile) {
   let position = 0;
 
   for (const cell of input.cells ?? []) {
-    const sourceText = (cell.source ?? []).join("");
-    const raw = (cell.cell_type === "markdown" ? normalizeMarkdownText(sourceText) : sourceText).trim();
+    const raw = normalizeCellSource(cell).trim();
     if (!raw) continue;
 
     if (cell.cell_type === "markdown") {

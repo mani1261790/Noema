@@ -1153,14 +1153,72 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function escapeHtmlWithLineBreaks(value: string): string {
+  return escapeHtml(value).replace(/\n/g, "<br>");
+}
+
 type NotebookCell = {
   cell_type: "markdown" | "code";
-  source?: string[];
+  source?: string[] | string;
 };
 
 type NotebookFile = {
   cells?: NotebookCell[];
 };
+
+function normalizeMarkdownText(value: string): string {
+  if (value.includes("\n")) return value;
+  return value.replace(/(?<!\\)\\r\\n/g, "\n").replace(/(?<!\\)\\n/g, "\n");
+}
+
+function normalizeCodeText(value: string): string {
+  if (value.includes("\n")) return value;
+  return value
+    .replace(/(?<!\\)\\r\\n/g, "\n")
+    .replace(/(?<!\\)\\n/g, "\n")
+    .replace(/(?<!\\)\\t/g, "\t");
+}
+
+function sourceToText(source: NotebookCell["source"]): string {
+  if (Array.isArray(source)) {
+    return source.map((line) => String(line)).join("");
+  }
+  if (typeof source === "string") {
+    return source;
+  }
+  return "";
+}
+
+function normalizeCellSource(cell: NotebookCell): string {
+  const text = sourceToText(cell.source);
+  if (cell.cell_type === "markdown") {
+    return normalizeMarkdownText(text);
+  }
+  return normalizeCodeText(text);
+}
+
+function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?: unknown; source?: unknown }> }>(input: T): T {
+  if (!Array.isArray(input.cells)) {
+    return input;
+  }
+
+  const normalizedCells = input.cells.map((cellLike) => {
+    const cell = cellLike as NotebookCell;
+    if (!cell || (cell.cell_type !== "markdown" && cell.cell_type !== "code")) {
+      return cellLike;
+    }
+
+    return {
+      ...cellLike,
+      source: [normalizeCellSource(cell)]
+    };
+  });
+
+  return {
+    ...input,
+    cells: normalizedCells
+  };
+}
 
 function markdownToHtml(markdown: string): string {
   if (markdown.startsWith("# ")) {
@@ -1175,14 +1233,14 @@ function markdownToHtml(markdown: string): string {
     const title = markdown.slice(4);
     return `<h3 id="${slugify(title)}">${escapeHtml(title)}</h3>`;
   }
-  return `<p>${escapeHtml(markdown)}</p>`;
+  return `<p>${escapeHtmlWithLineBreaks(markdown)}</p>`;
 }
 
 function notebookToHtml(input: NotebookFile): string {
   const pieces: string[] = ["<article class=\"prose-noema\">"];
 
   for (const cell of input.cells ?? []) {
-    const text = (cell.source ?? []).join("").trim();
+    const text = normalizeCellSource(cell).trim();
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
@@ -1205,7 +1263,7 @@ function extractChunks(input: NotebookFile): NotebookChunk[] {
   let position = 0;
 
   for (const cell of input.cells ?? []) {
-    const raw = (cell.source ?? []).join("").trim();
+    const raw = normalizeCellSource(cell).trim();
     if (!raw) continue;
 
     if (cell.cell_type === "markdown") {
@@ -1389,9 +1447,11 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
       throw new Error("Invalid ipynb format");
     }
 
-    const html = notebookToHtml(notebookJson);
-    const chunks = extractChunks(notebookJson);
-    const stored = await saveNotebookArtifacts(notebookId, html, parsed.fileContent);
+    const canonicalNotebook = canonicalizeNotebookFile(notebookJson);
+    const canonicalRaw = `${JSON.stringify(canonicalNotebook, null, 2)}\n`;
+    const html = notebookToHtml(canonicalNotebook);
+    const chunks = extractChunks(canonicalNotebook);
+    const stored = await saveNotebookArtifacts(notebookId, html, canonicalRaw);
 
     await upsertNotebook({
       notebookId,
@@ -1427,7 +1487,7 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
         .map((chunk, idx) => {
           if (!chunk || typeof chunk !== "object") return null;
           const item = chunk as Record<string, unknown>;
-          const content = asString(item.content).trim();
+          const content = normalizeMarkdownText(asString(item.content)).trim();
           if (!content) return null;
           return {
             sectionId: asString(item.sectionId).trim() || "intro",
@@ -1447,16 +1507,16 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
     providedHtml ||
     [
       '<article class="prose-noema">',
-      ...chunks.map((chunk) => `<p id="${escapeHtml(chunk.sectionId)}">${escapeHtml(chunk.content)}</p>`),
+      ...chunks.map((chunk) => `<p id="${escapeHtml(chunk.sectionId)}">${escapeHtmlWithLineBreaks(chunk.content)}</p>`),
       "</article>"
     ].join("\n");
 
-  const ipynbRaw = JSON.stringify({
+  const ipynbRaw = `${JSON.stringify({
     cells: chunks.map((chunk) => ({
       cell_type: "markdown",
       source: [chunk.content]
     }))
-  });
+  }, null, 2)}\n`;
 
   const stored = await saveNotebookArtifacts(notebookId, html, ipynbRaw);
 

@@ -1,7 +1,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { extractChunks, notebookToHtml, slugify, type NotebookFile } from "@/lib/notebook-ingest";
+import {
+  canonicalizeNotebookFile,
+  extractChunks,
+  notebookToHtml,
+  slugify,
+  type NotebookFile
+} from "@/lib/notebook-ingest";
 import { prisma } from "@/lib/prisma";
 import { getRequestUser, isAdmin } from "@/lib/request-auth";
 import { isS3Enabled, saveNotebookArtifacts } from "@/lib/storage";
@@ -108,12 +114,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid ipynb format" }, { status: 400 });
   }
 
-  const html = notebookToHtml(notebookJson);
-  const chunks = extractChunks(notebookJson);
+  const canonicalNotebook = canonicalizeNotebookFile(notebookJson);
+  const canonicalRaw = `${JSON.stringify(canonicalNotebook, null, 2)}\n`;
+
+  const html = notebookToHtml(canonicalNotebook);
+  const chunks = extractChunks(canonicalNotebook);
 
   const stored = await saveNotebookArtifacts({
     notebookId,
-    ipynbRaw: raw,
+    ipynbRaw: canonicalRaw,
     html
   });
 
