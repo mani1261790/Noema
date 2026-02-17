@@ -127,13 +127,53 @@
 
     .status {
       margin-top: 10px;
-      border: 1px solid var(--border);
-      background: rgba(20, 36, 57, .5);
-      border-radius: 12px;
-      padding: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      border-radius: 14px;
+      padding: 0;
+      line-height: 1.65;
+      opacity: 0;
+      transform: translateY(-2px);
+      max-height: 0;
+      overflow: hidden;
+      transition: opacity 160ms ease, transform 160ms ease, max-height 180ms ease, padding 160ms ease;
+    }
+
+    .status[data-state="visible"] {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: 220px;
+      padding: 10px 12px;
+    }
+
+    .status[data-kind="info"] {
+      border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+      background: rgba(20, 40, 64, .56);
+      color: color-mix(in oklab, var(--text) 86%, white);
+    }
+
+    .status[data-kind="success"] {
+      border-color: rgba(96, 214, 180, .52);
+      background: rgba(16, 52, 45, .58);
+      color: #d6ffef;
+    }
+
+    .status[data-kind="error"] {
+      border-color: rgba(245, 122, 138, .64);
+      background: rgba(69, 22, 35, .6);
+      color: #ffdbe2;
+    }
+
+    .status-head {
+      font-size: 12px;
+      letter-spacing: .02em;
+      opacity: .88;
+      margin-bottom: 2px;
+    }
+
+    .status-body {
       font-size: 13px;
       white-space: pre-wrap;
-      min-height: 44px;
     }
   </style>
 </head>
@@ -152,7 +192,10 @@
     <button class="button" id="login-btn" type="button">ログイン</button>
     <button class="button-ghost" id="signup-btn" type="button">新規登録</button>
 
-    <div class="status" id="status"></div>
+    <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
+      <div class="status-head" id="status-head"></div>
+      <div class="status-body" id="status-body"></div>
+    </div>
   </main>
 
   <script>
@@ -161,13 +204,53 @@
       const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
       const TOKEN_KEY = "noema_id_token";
+      const statusTitles = {
+        info: "Information",
+        success: "Success",
+        error: "Error"
+      };
 
       const emailEl = document.getElementById("email");
       const passwordEl = document.getElementById("password");
       const statusEl = document.getElementById("status");
+      const statusHeadEl = document.getElementById("status-head");
+      const statusBodyEl = document.getElementById("status-body");
 
-      function setStatus(message) {
-        statusEl.textContent = message || "";
+      function setStatus(kind, message, title) {
+        if (!message) {
+          statusEl.dataset.state = "hidden";
+          statusEl.dataset.kind = "";
+          statusHeadEl.textContent = "";
+          statusBodyEl.textContent = "";
+          return;
+        }
+
+        statusEl.dataset.state = "visible";
+        statusEl.dataset.kind = kind || "info";
+        statusHeadEl.textContent = title || statusTitles[kind] || statusTitles.info;
+        statusBodyEl.textContent = message;
+      }
+
+      function normalizeCognitoErrorMessage(rawMessage) {
+        const message = String(rawMessage || "");
+        if (!message) return "認証に失敗しました。時間をおいて再試行してください。";
+
+        if (message.includes("NotAuthorizedException")) {
+          return "メールアドレスまたはパスワードが正しくありません。";
+        }
+        if (message.includes("UserNotConfirmedException")) {
+          return "メール確認が完了していません。受信メールの確認手続きを先に実行してください。";
+        }
+        if (message.includes("UsernameExistsException")) {
+          return "このメールアドレスは既に登録済みです。ログインをお試しください。";
+        }
+        if (message.includes("InvalidPasswordException")) {
+          return "パスワード要件を満たしていません。英字・数字を含む8文字以上で設定してください。";
+        }
+        if (message.includes("TooManyRequestsException")) {
+          return "試行回数が多いため一時的に制限されています。数分後に再試行してください。";
+        }
+        return message.replace(/^.*?:\s*/, "").trim() || "認証処理に失敗しました。";
       }
 
       async function cognitoCall(target, payload) {
@@ -193,11 +276,11 @@
         const email = emailEl.value.trim().toLowerCase();
         const password = passwordEl.value;
         if (!email || !password) {
-          setStatus("メールアドレスとパスワードを入力してください。");
+          setStatus("error", "メールアドレスとパスワードを入力してください。", "入力が必要です");
           return;
         }
 
-        setStatus("ログイン処理中...");
+        setStatus("info", "ログイン処理中です。少しお待ちください。", "サインイン中");
 
         try {
           const data = await cognitoCall("InitiateAuth", {
@@ -215,12 +298,13 @@
           }
 
           localStorage.setItem(TOKEN_KEY, idToken);
-          setStatus("ログイン成功。トップへ戻ります...");
+          setStatus("success", "ログインに成功しました。トップページへ移動します。", "完了");
           setTimeout(() => {
             window.location.href = "/";
           }, 450);
         } catch (error) {
-          setStatus(`ログイン失敗: ${error instanceof Error ? error.message : String(error)}`);
+          const message = error instanceof Error ? error.message : String(error);
+          setStatus("error", normalizeCognitoErrorMessage(message), "ログイン失敗");
         }
       }
 
@@ -228,11 +312,11 @@
         const email = emailEl.value.trim().toLowerCase();
         const password = passwordEl.value;
         if (!email || !password) {
-          setStatus("新規登録にはメールアドレスとパスワードを入力してください。");
+          setStatus("error", "新規登録にはメールアドレスとパスワードを入力してください。", "入力が必要です");
           return;
         }
 
-        setStatus("新規登録処理中...");
+        setStatus("info", "新規登録処理中です。少しお待ちください。", "アカウント作成中");
 
         try {
           await cognitoCall("SignUp", {
@@ -242,9 +326,14 @@
             UserAttributes: [{ Name: "email", Value: email }]
           });
 
-          setStatus("登録を受け付けました。メール認証が必要な場合は、メール確認後にログインしてください。");
+          setStatus(
+            "success",
+            "登録を受け付けました。確認メールが届いた場合は、認証完了後にログインしてください。",
+            "登録完了"
+          );
         } catch (error) {
-          setStatus(`新規登録失敗: ${error instanceof Error ? error.message : String(error)}`);
+          const message = error instanceof Error ? error.message : String(error);
+          setStatus("error", normalizeCognitoErrorMessage(message), "登録失敗");
         }
       }
 
@@ -266,9 +355,9 @@
 
       const existing = localStorage.getItem(TOKEN_KEY);
       if (existing) {
-        setStatus("既にログイン済みです。再ログインする場合のみ入力してください。");
+        setStatus("info", "既にログイン済みです。再ログインが必要な場合のみ入力してください。", "セッション有効");
       } else {
-        setStatus("");
+        setStatus("info", "", "");
       }
     })();
   </script>

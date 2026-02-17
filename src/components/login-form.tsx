@@ -22,7 +22,11 @@ export function LoginForm({ providers }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const hasOAuth = useMemo(() => providers.length > 0, [providers]);
+  const oauthProviders = useMemo(
+    () => providers.filter((provider): provider is ProviderId => Boolean(providerLabel[provider])),
+    [providers]
+  );
+  const hasOAuth = oauthProviders.length > 0;
 
   const submitCredentials = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -74,7 +78,15 @@ export function LoginForm({ providers }: Props) {
           />
         </div>
 
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        {error ? (
+          <div
+            className="rounded-xl border border-[rgba(245,122,138,.58)] bg-[rgba(88,18,36,.28)] px-3 py-2 text-sm text-[rgba(255,227,233,.98)]"
+            role="alert"
+          >
+            <p className="mb-0.5 text-[11px] tracking-wide text-[rgba(255,209,219,.85)]">Error</p>
+            <p>{error}</p>
+          </div>
+        ) : null}
 
         <button
           className="w-full glass-button rounded-lg px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -89,7 +101,7 @@ export function LoginForm({ providers }: Props) {
         <div className="mt-6 border-t border-[var(--border)] pt-5">
           <p className="mb-3 text-sm text-muted">OAuthログイン</p>
           <div className="space-y-2">
-            {providers.map((provider) => (
+            {oauthProviders.map((provider) => (
               <button
                 key={provider}
                 className="w-full glass-button-ghost rounded-lg px-4 py-2 text-sm font-medium"
