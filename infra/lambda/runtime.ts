@@ -265,12 +265,19 @@ function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function parseGroups(raw: string): string[] {
-  if (!raw.trim()) return [];
+function parseGroups(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => String(item || "").trim().toLowerCase())
+      .filter(Boolean);
+  }
 
-  if (raw.trim().startsWith("[")) {
+  const text = asString(raw).trim();
+  if (!text) return [];
+
+  if (text.startsWith("[")) {
     try {
-      const parsed = JSON.parse(raw) as unknown;
+      const parsed = JSON.parse(text) as unknown;
       if (Array.isArray(parsed)) {
         return parsed.map((item) => String(item).trim().toLowerCase()).filter(Boolean);
       }
@@ -279,7 +286,7 @@ function parseGroups(raw: string): string[] {
     }
   }
 
-  return raw
+  return text
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
@@ -305,8 +312,12 @@ export function getAuthUser(event: APIGatewayProxyEventV2): AuthUser | null {
   const userId = asString(claims.sub || claims.username);
   if (!userId) return null;
 
-  const email = asString(claims.email || "") || null;
-  const groups = parseGroups(asString(claims["cognito:groups"] || ""));
+  const email =
+    asString(claims.email || "") ||
+    asString(claims["cognito:username"] || "") ||
+    asString(claims.username || "") ||
+    null;
+  const groups = parseGroups(claims["cognito:groups"]);
 
   return { userId, email, groups };
 }
@@ -405,7 +416,7 @@ async function getNotebook(notebookId: string): Promise<NotebookRecord | null> {
     })
   );
 
-  return (response.Item as NotebookRecord | undefined) ?? null;
+  return normalizeNotebookRecord(response.Item);
 }
 
 async function getQuestion(questionId: string): Promise<QuestionItem | null> {
@@ -1103,7 +1114,10 @@ export async function listCatalog() {
     })
   );
 
-  const rows = ((response.Items as NotebookRecord[] | undefined) ?? []).slice();
+  const rows = ((response.Items as unknown[] | undefined) ?? [])
+    .map((item) => normalizeNotebookRecord(item))
+    .filter((item): item is NotebookRecord => Boolean(item))
+    .slice();
   const chapters = new Map<
     string,
     {
@@ -1180,6 +1194,63 @@ function normalizeNotebookTags(raw: unknown): string[] | undefined {
     .slice(0, 32);
 }
 
+function asFiniteNumber(raw: unknown, fallback: number): number {
+  const value = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+
+  const notebookId = asString(record.notebookId || record.id).trim();
+  if (!notebookId) return null;
+
+  const title = asString(record.title).trim() || notebookId;
+  const chapter = asString(record.chapter).trim() || "未分類";
+  const chapterOrderValue = asFiniteNumber(record.chapterOrder, Number.NaN);
+  const chapterOrder = Number.isFinite(chapterOrderValue) ? Math.max(1, Math.floor(chapterOrderValue)) : undefined;
+  const sortOrder = Math.max(1, Math.floor(asFiniteNumber(record.sortOrder ?? record.order, 1)));
+  const tags = normalizeNotebookTags(record.tags) ?? [];
+  const htmlPath = asString(record.htmlPath).trim() || `/notebooks/${notebookId}.html`;
+  const colabUrl = asString(record.colabUrl).trim();
+  const videoUrl = asString(record.videoUrl).trim() || undefined;
+  const createdAt = asString(record.createdAt).trim() || undefined;
+  const updatedAt = asString(record.updatedAt).trim() || undefined;
+
+  const chunksRaw = Array.isArray(record.chunks) ? record.chunks : [];
+  const chunks = chunksRaw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const chunk = item as Record<string, unknown>;
+      const sectionId = asString(chunk.sectionId).trim();
+      const content = asString(chunk.content).trim();
+      if (!sectionId || !content) return null;
+      return {
+        sectionId,
+        content,
+        position: Math.max(0, Math.floor(asFiniteNumber(chunk.position, 0)))
+      };
+    })
+    .filter((item): item is NotebookChunk => Boolean(item))
+    .sort((a, b) => a.position - b.position);
+
+  return {
+    notebookId,
+    title,
+    chapter,
+    chapterOrder,
+    sortOrder,
+    tags,
+    htmlPath,
+    colabUrl,
+    videoUrl,
+    chunks,
+    createdAt,
+    updatedAt
+  };
+}
+
 export async function listAdminNotebooks() {
   const response = await ddb.send(
     new ScanCommand({
@@ -1188,7 +1259,10 @@ export async function listAdminNotebooks() {
     })
   );
 
-  const notebooks = ((response.Items as NotebookRecord[] | undefined) ?? []).sort((a, b) => {
+  const notebooks = ((response.Items as unknown[] | undefined) ?? [])
+    .map((item) => normalizeNotebookRecord(item))
+    .filter((item): item is NotebookRecord => Boolean(item))
+    .sort((a, b) => {
     const orderA = Number.isFinite(a.chapterOrder) ? Number(a.chapterOrder) : Number.MAX_SAFE_INTEGER;
     const orderB = Number.isFinite(b.chapterOrder) ? Number(b.chapterOrder) : Number.MAX_SAFE_INTEGER;
     if (orderA !== orderB) return orderA - orderB;
