@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Noema Login</title>
+  <title>ログイン</title>
   <style>
     :root {
       --bg-0: #081222;
@@ -34,7 +34,7 @@
     }
 
     .card {
-      width: min(92vw, 560px);
+      width: min(92vw, 480px);
       border-radius: 24px;
       border: 1px solid var(--border);
       background: var(--panel);
@@ -44,49 +44,17 @@
       padding: 20px;
     }
 
-    .mono {
-      letter-spacing: .16em;
-      text-transform: uppercase;
-      color: var(--accent);
-      font-size: 11px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      margin: 2px 0;
-    }
-
     h1 {
-      margin: 2px 0 8px;
-      font-size: 34px;
+      margin: 0 0 8px;
+      font-size: 30px;
       line-height: 1.15;
     }
 
-    p { color: var(--muted); line-height: 1.75; margin: 0 0 12px; }
-
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .social {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .tab {
-      border: 1px solid var(--border);
-      background: rgba(19, 36, 55, .5);
-      color: var(--text);
-      border-radius: 999px;
-      padding: 7px 12px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    .tab.active {
-      border-color: color-mix(in oklab, var(--accent) 68%, white);
-      color: white;
-      background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%);
+    p {
+      color: var(--muted);
+      line-height: 1.75;
+      margin: 0 0 12px;
+      font-size: 14px;
     }
 
     label {
@@ -122,7 +90,7 @@
       font-weight: 700;
       cursor: pointer;
       width: 100%;
-      margin-top: 12px;
+      margin-top: 10px;
     }
 
     .button-ghost {
@@ -135,9 +103,25 @@
       font-size: 14px;
       cursor: pointer;
       width: 100%;
+      text-align: center;
     }
 
-    .actions { margin-top: 14px; }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
 
     .status {
       margin-top: 10px;
@@ -150,65 +134,28 @@
       display: none;
     }
 
-    .status.visible {
-      display: block;
-    }
-
-    .hidden { display: none; }
+    .status.visible { display: block; }
   </style>
 </head>
 <body>
   <main class="card">
-    <p class="mono">Noema Auth</p>
-    <h1>ログイン / 新規登録</h1>
+    <h1>ログイン</h1>
     <p>ログイン済みユーザーのみ、LLM質問機能を利用できます。</p>
 
-    <div class="social">
-      <button class="button-ghost" id="google-login-btn" type="button">Googleでログイン</button>
-    </div>
+    <button class="button-ghost" id="google-login-btn" type="button">Googleでログイン</button>
 
-    <div class="tabs">
-      <button class="tab active" id="tab-login" type="button">ログイン</button>
-      <button class="tab" id="tab-signup" type="button">新規登録</button>
-      <button class="tab" id="tab-confirm" type="button">確認コード</button>
-    </div>
+    <div class="divider">または</div>
 
-    <section id="panel-login">
-      <label for="login-email">メールアドレス</label>
-      <input id="login-email" type="email" autocomplete="email" />
+    <label for="email">メールアドレス</label>
+    <input id="email" type="email" autocomplete="email" />
 
-      <label for="login-password">パスワード</label>
-      <input id="login-password" type="password" autocomplete="current-password" />
+    <label for="password">パスワード</label>
+    <input id="password" type="password" autocomplete="current-password" />
 
-      <button class="button" id="login-btn" type="button">ログイン</button>
-      <button class="button-ghost" id="to-signup-btn" type="button">アカウントを作成する</button>
-    </section>
+    <button class="button" id="login-btn" type="button">ログイン</button>
+    <button class="button-ghost" id="signup-btn" type="button">新規登録</button>
 
-    <section id="panel-signup" class="hidden">
-      <label for="signup-email">メールアドレス</label>
-      <input id="signup-email" type="email" autocomplete="email" />
-
-      <label for="signup-password">パスワード（8文字以上）</label>
-      <input id="signup-password" type="password" autocomplete="new-password" />
-
-      <button class="button" id="signup-btn" type="button">新規登録</button>
-      <button class="button-ghost" id="resend-btn" type="button">確認コードを再送信</button>
-    </section>
-
-    <section id="panel-confirm" class="hidden">
-      <label for="confirm-email">メールアドレス</label>
-      <input id="confirm-email" type="email" autocomplete="email" />
-
-      <label for="confirm-code">確認コード</label>
-      <input id="confirm-code" type="text" inputmode="numeric" />
-
-      <button class="button" id="confirm-btn" type="button">確認して有効化</button>
-      <button class="button-ghost" id="to-login-btn" type="button">ログイン画面に戻る</button>
-    </section>
-
-    <div class="actions">
-      <a class="button-ghost" href="/">トップへ戻る</a>
-    </div>
+    <a class="button-ghost" href="/">トップへ戻る</a>
 
     <div class="status" id="status"></div>
   </main>
@@ -221,40 +168,13 @@
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
       const TOKEN_KEY = "noema_id_token";
 
-      const tabLogin = document.getElementById("tab-login");
-      const tabSignup = document.getElementById("tab-signup");
-      const tabConfirm = document.getElementById("tab-confirm");
-
-      const panelLogin = document.getElementById("panel-login");
-      const panelSignup = document.getElementById("panel-signup");
-      const panelConfirm = document.getElementById("panel-confirm");
-
-      const loginEmail = document.getElementById("login-email");
-      const loginPassword = document.getElementById("login-password");
-      const signupEmail = document.getElementById("signup-email");
-      const signupPassword = document.getElementById("signup-password");
-      const confirmEmail = document.getElementById("confirm-email");
-      const confirmCode = document.getElementById("confirm-code");
-
+      const emailEl = document.getElementById("email");
+      const passwordEl = document.getElementById("password");
       const statusEl = document.getElementById("status");
 
       function setStatus(message) {
         statusEl.textContent = message;
         statusEl.classList.toggle("visible", Boolean(message));
-      }
-
-      function setTab(name) {
-        const tabs = [
-          ["login", tabLogin, panelLogin],
-          ["signup", tabSignup, panelSignup],
-          ["confirm", tabConfirm, panelConfirm]
-        ];
-
-        tabs.forEach(([id, tab, panel]) => {
-          const active = id === name;
-          tab.classList.toggle("active", active);
-          panel.classList.toggle("hidden", !active);
-        });
       }
 
       async function cognitoCall(target, payload) {
@@ -302,32 +222,36 @@
       }
 
       async function loginWithGoogle() {
-        setStatus("Googleログインへ遷移します...");
-        const verifier = randomString(96);
-        const challenge = await createChallenge(verifier);
-        const state = randomString(40);
-        const redirectUri = `${window.location.origin}/api/auth/callback/cognito`;
+        try {
+          setStatus("Googleログインへ遷移します...");
+          const verifier = randomString(96);
+          const challenge = await createChallenge(verifier);
+          const state = randomString(40);
+          const redirectUri = `${window.location.origin}/api/auth/callback/cognito`;
 
-        sessionStorage.setItem("noema_pkce_verifier", verifier);
-        sessionStorage.setItem("noema_pkce_state", state);
+          sessionStorage.setItem("noema_pkce_verifier", verifier);
+          sessionStorage.setItem("noema_pkce_state", state);
 
-        const params = new URLSearchParams({
-          response_type: "code",
-          client_id: CLIENT_ID,
-          redirect_uri: redirectUri,
-          scope: "openid email profile",
-          state,
-          code_challenge_method: "S256",
-          code_challenge: challenge,
-          identity_provider: "Google"
-        });
+          const params = new URLSearchParams({
+            response_type: "code",
+            client_id: CLIENT_ID,
+            redirect_uri: redirectUri,
+            scope: "openid email profile",
+            state,
+            code_challenge_method: "S256",
+            code_challenge: challenge,
+            identity_provider: "Google"
+          });
 
-        window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
+          window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
+        } catch (error) {
+          setStatus(`Googleログインの開始に失敗: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
 
       async function login() {
-        const email = loginEmail.value.trim().toLowerCase();
-        const password = loginPassword.value;
+        const email = emailEl.value.trim().toLowerCase();
+        const password = passwordEl.value;
         if (!email || !password) {
           setStatus("メールアドレスとパスワードを入力してください。");
           return;
@@ -354,17 +278,17 @@
           setStatus("ログイン成功。トップへ戻ります...");
           setTimeout(() => {
             window.location.href = "/";
-          }, 500);
+          }, 450);
         } catch (error) {
           setStatus(`ログイン失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
       async function signup() {
-        const email = signupEmail.value.trim().toLowerCase();
-        const password = signupPassword.value;
+        const email = emailEl.value.trim().toLowerCase();
+        const password = passwordEl.value;
         if (!email || !password) {
-          setStatus("メールアドレスとパスワードを入力してください。");
+          setStatus("新規登録にはメールアドレスとパスワードを入力してください。");
           return;
         }
 
@@ -378,74 +302,27 @@
             UserAttributes: [{ Name: "email", Value: email }]
           });
 
-          confirmEmail.value = email;
-          setTab("confirm");
-          setStatus("確認コードをメール送信しました。確認コードタブで有効化してください。");
+          setStatus("登録を受け付けました。メール認証が必要な場合は、メール確認後にログインしてください。");
         } catch (error) {
           setStatus(`新規登録失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
-      async function confirm() {
-        const email = confirmEmail.value.trim().toLowerCase();
-        const code = confirmCode.value.trim();
-        if (!email || !code) {
-          setStatus("メールアドレスと確認コードを入力してください。");
-          return;
-        }
+      document.getElementById("google-login-btn").addEventListener("click", function () {
+        void loginWithGoogle();
+      });
 
-        setStatus("確認処理中...");
+      document.getElementById("login-btn").addEventListener("click", function () {
+        void login();
+      });
 
-        try {
-          await cognitoCall("ConfirmSignUp", {
-            ClientId: CLIENT_ID,
-            Username: email,
-            ConfirmationCode: code
-          });
-          setTab("login");
-          loginEmail.value = email;
-          setStatus("確認完了。ログインしてください。");
-        } catch (error) {
-          setStatus(`確認失敗: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      async function resendCode() {
-        const email = signupEmail.value.trim().toLowerCase();
-        if (!email) {
-          setStatus("確認コード再送信にはメールアドレスを入力してください。");
-          return;
-        }
-
-        setStatus("確認コード再送信中...");
-
-        try {
-          await cognitoCall("ResendConfirmationCode", {
-            ClientId: CLIENT_ID,
-            Username: email
-          });
-          setStatus("確認コードを再送信しました。");
-        } catch (error) {
-          setStatus(`再送信失敗: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-
-      tabLogin.addEventListener("click", function () { setTab("login"); });
-      tabSignup.addEventListener("click", function () { setTab("signup"); });
-      tabConfirm.addEventListener("click", function () { setTab("confirm"); });
-
-      document.getElementById("login-btn").addEventListener("click", function () { void login(); });
-      document.getElementById("signup-btn").addEventListener("click", function () { void signup(); });
-      document.getElementById("confirm-btn").addEventListener("click", function () { void confirm(); });
-      document.getElementById("resend-btn").addEventListener("click", function () { void resendCode(); });
-
-      document.getElementById("to-signup-btn").addEventListener("click", function () { setTab("signup"); });
-      document.getElementById("to-login-btn").addEventListener("click", function () { setTab("login"); });
-      document.getElementById("google-login-btn").addEventListener("click", function () { void loginWithGoogle(); });
+      document.getElementById("signup-btn").addEventListener("click", function () {
+        void signup();
+      });
 
       const existing = localStorage.getItem(TOKEN_KEY);
       if (existing) {
-        setStatus("現在ログイン済みのトークンがあります。再ログインする場合は入力して実行してください。");
+        setStatus("既にログイン済みです。再ログインする場合のみ入力してください。");
       }
     })();
   </script>

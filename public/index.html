@@ -119,18 +119,9 @@
       gap: 10px;
     }
 
-    .sidebar-title {
-      letter-spacing: .2em;
-      color: var(--accent);
-      text-transform: uppercase;
-      font-size: 11px;
-      margin: 4px 8px 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    }
-
     .sidebar h1 {
-      font-size: 32px;
-      margin: 2px 8px 4px;
+      font-size: 27px;
+      margin: 8px 8px 4px;
       line-height: 1.15;
     }
 
@@ -178,7 +169,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 12px;
-      font-weight: 700;
+      font-weight: 650;
       cursor: pointer;
       font-size: 13px;
       text-align: left;
@@ -188,13 +179,23 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 16px;
-      font-size: 14px;
-      transition: transform 160ms ease;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel-soft) 80%, transparent);
+      color: var(--muted);
+      font-size: 12px;
+      transition:
+        transform 180ms ease,
+        color 180ms ease,
+        background 180ms ease;
     }
 
     .chapter-arrow.expanded {
       transform: rotate(90deg);
+      color: var(--text);
+      background: color-mix(in oklab, var(--panel-strong) 90%, transparent);
     }
 
     .chapter-items {
@@ -203,6 +204,13 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+    }
+
+    .nb-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
     }
 
     .nb-item {
@@ -218,6 +226,24 @@
 
     .nb-item:hover { background: var(--panel-strong); color: var(--text); }
     .nb-item.active { color: #fff; background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%); }
+
+    .nb-run {
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel-soft) 84%, transparent);
+      color: var(--text);
+      border-radius: 9px;
+      width: 30px;
+      height: 30px;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .nb-run:hover {
+      background: color-mix(in oklab, var(--panel-strong) 92%, transparent);
+    }
 
     .sidebar-footer {
       border-top: 1px solid var(--border);
@@ -253,7 +279,7 @@
     }
 
     .header-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       margin: 0;
       white-space: nowrap;
@@ -272,35 +298,6 @@
       min-height: 0;
       overflow: auto;
       padding: 12px;
-    }
-
-    .lite-inline {
-      margin: 0 auto 10px;
-      max-width: 980px;
-      border-radius: 14px;
-      overflow: hidden;
-      display: none;
-    }
-
-    .lite-inline.visible {
-      display: block;
-    }
-
-    .lite-inline-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .lite-inline iframe {
-      width: 100%;
-      height: 64vh;
-      border: 0;
-      background: #fff;
     }
 
     .selection-card {
@@ -480,7 +477,7 @@
       .assistant { display: none; }
       .mobile-controls { display: flex; }
       .header-top { grid-template-columns: 1fr; }
-      .header-title { font-size: 18px; }
+      .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
     }
   </style>
@@ -489,7 +486,6 @@
   <main class="layout">
     <div class="shell" id="shell">
       <aside class="sidebar glass-strong" id="sidebar-desktop">
-        <p class="sidebar-title">Noema</p>
         <h1>Noema</h1>
         <label class="search">
           <span style="color:var(--muted)">⌕</span>
@@ -513,21 +509,11 @@
             <div class="header-actions">
               <a class="button-ghost" id="download-btn" href="#">Download</a>
               <a class="button" id="colab-btn" href="#" target="_blank" rel="noreferrer">Colabで実行</a>
-              <button class="button-ghost" id="jupyterlite-inline-btn" type="button">このページで実行</button>
-              <a class="button-ghost" id="jupyterlite-btn" href="#" target="_blank" rel="noreferrer">JupyterLite(別タブ)</a>
             </div>
           </div>
         </header>
 
         <div id="reader">
-          <div id="lite-inline" class="lite-inline glass-soft">
-            <div class="lite-inline-head">
-              <span>JupyterLite 実行パネル</span>
-              <button class="button-ghost" id="close-lite-inline" type="button" style="padding:6px 9px;font-size:12px;">閉じる</button>
-            </div>
-            <iframe id="lite-inline-frame" loading="lazy" referrerpolicy="no-referrer"></iframe>
-          </div>
-
           <div id="selection-card" class="selection-card glass-soft">
             <div>
               <div class="selection-title">選択中のテキストを質問に添付します</div>
@@ -624,11 +610,6 @@
         headerTitle: document.getElementById("header-title"),
         downloadBtn: document.getElementById("download-btn"),
         colabBtn: document.getElementById("colab-btn"),
-        jupyterliteBtn: document.getElementById("jupyterlite-btn"),
-        jupyterliteInlineBtn: document.getElementById("jupyterlite-inline-btn"),
-        closeLiteInline: document.getElementById("close-lite-inline"),
-        liteInline: document.getElementById("lite-inline"),
-        liteInlineFrame: document.getElementById("lite-inline-frame"),
         notebookContent: document.getElementById("notebook-content"),
         sectionSelect: document.getElementById("section-select"),
         chatLog: document.getElementById("chat-log"),
@@ -736,7 +717,12 @@
               ? `<div class="chapter-items">${chapter.notebooks
                   .map((nb) => {
                     const active = state.activeNotebook && state.activeNotebook.id === nb.id ? "active" : "";
-                    return `<button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${nb.title}</button>`;
+                    return `
+                      <div class="nb-row">
+                        <button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${nb.title}</button>
+                        <button class="nb-run" data-run-id="${nb.id}" title="このサイトで実行" type="button">▶</button>
+                      </div>
+                    `;
                   })
                   .join("")}</div>`
               : "";
@@ -770,6 +756,15 @@
               selectNotebook(id);
             }
             el.sidebarOverlay.classList.remove("visible");
+          });
+        });
+
+        Array.from(container.querySelectorAll(".nb-run")).forEach((button) => {
+          button.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const id = button.getAttribute("data-run-id") || "";
+            if (id) openNotebookRunner(id);
           });
         });
       }
@@ -812,24 +807,12 @@
         el.downloadBtn.href = `/notebooks/${nb.id}.ipynb`;
         el.downloadBtn.setAttribute("download", `${nb.id}.ipynb`);
         el.colabBtn.href = nb.colabUrl || "#";
-
-        const notebookUrl = `${window.location.origin}/notebooks/${nb.id}.ipynb`;
-        el.jupyterliteBtn.href = `https://jupyterlite.github.io/demo/lab/index.html?fromURL=${encodeURIComponent(notebookUrl)}`;
-        el.jupyterliteInlineBtn.textContent = el.liteInline.classList.contains("visible")
-          ? "実行パネルを閉じる"
-          : "このページで実行";
       }
 
-      function toggleInlineLite(open) {
-        const nextOpen = typeof open === "boolean" ? open : !el.liteInline.classList.contains("visible");
-        el.liteInline.classList.toggle("visible", nextOpen);
-        if (nextOpen && !el.liteInlineFrame.src) {
-          el.liteInlineFrame.src = el.jupyterliteBtn.href;
-        }
-        if (nextOpen && el.liteInlineFrame.src && el.liteInlineFrame.src !== el.jupyterliteBtn.href) {
-          el.liteInlineFrame.src = el.jupyterliteBtn.href;
-        }
-        renderHeader();
+      function openNotebookRunner(notebookId) {
+        const fromUrl = `${window.location.origin}/notebooks/${notebookId}.ipynb`;
+        const liteUrl = `/jupyterlite/lab/index.html?fromURL=${encodeURIComponent(fromUrl)}`;
+        window.location.href = liteUrl;
       }
 
       async function selectNotebook(notebookId) {
@@ -869,9 +852,6 @@
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
           renderSections();
-          if (el.liteInline.classList.contains("visible")) {
-            el.liteInlineFrame.src = el.jupyterliteBtn.href;
-          }
 
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
@@ -1153,14 +1133,6 @@
       el.newChat.addEventListener("click", function () {
         state.messages = [];
         renderMessages();
-      });
-
-      el.jupyterliteInlineBtn.addEventListener("click", function () {
-        toggleInlineLite();
-      });
-
-      el.closeLiteInline.addEventListener("click", function () {
-        toggleInlineLite(false);
       });
 
       el.chatFab.addEventListener("click", function () {
