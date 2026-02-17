@@ -395,6 +395,21 @@
       background: color-mix(in oklab, var(--panel-soft) 76%, transparent);
     }
 
+    .code-runner-shell {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .code-runner-rail {
+      border-right: 1px solid var(--border);
+      background: color-mix(in oklab, var(--panel-strong) 86%, transparent);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 8px;
+    }
+
     .code-runner pre {
       margin: 0;
       border-radius: 0;
@@ -402,23 +417,59 @@
       background: #081220;
     }
 
-    .code-runner-bar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      padding: 8px;
-      border-top: 1px solid var(--border);
-      background: color-mix(in oklab, var(--panel-strong) 85%, transparent);
+    .run-code {
+      width: 28px;
+      height: 28px;
+      border: 1px solid color-mix(in oklab, var(--accent) 28%, var(--border));
+      background: color-mix(in oklab, var(--panel-soft) 84%, transparent);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
     }
 
-    .run-code {
-      border: 1px solid var(--border);
-      background: color-mix(in oklab, var(--panel-soft) 82%, transparent);
-      color: var(--text);
-      border-radius: 8px;
-      padding: 6px 10px;
-      font-size: 12px;
-      cursor: pointer;
+    .run-code:hover {
+      background: color-mix(in oklab, var(--panel-strong) 94%, transparent);
+      border-color: color-mix(in oklab, var(--accent) 48%, var(--border));
+    }
+
+    .run-code:disabled {
+      cursor: wait;
+      opacity: .85;
+    }
+
+    .run-code .run-icon {
+      width: 12px;
+      height: 12px;
+      display: block;
+      fill: currentColor;
+      transform: translateX(1px);
+    }
+
+    .run-code.is-running .run-icon {
+      display: none;
+    }
+
+    .run-code .run-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid color-mix(in oklab, var(--accent) 35%, transparent);
+      border-top-color: currentColor;
+      border-radius: 999px;
+      display: none;
+      animation: spin .8s linear infinite;
+    }
+
+    .run-code.is-running .run-spinner {
+      display: block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .code-output {
@@ -1025,16 +1076,23 @@
           const wrapper = document.createElement("div");
           wrapper.className = "code-runner";
           pre.parentNode.insertBefore(wrapper, pre);
-          wrapper.appendChild(pre);
+          const shell = document.createElement("div");
+          shell.className = "code-runner-shell";
+          wrapper.appendChild(shell);
 
-          const bar = document.createElement("div");
-          bar.className = "code-runner-bar";
+          const rail = document.createElement("div");
+          rail.className = "code-runner-rail";
+          shell.appendChild(rail);
+
+          shell.appendChild(pre);
+
           const button = document.createElement("button");
           button.className = "run-code";
           button.type = "button";
-          button.textContent = "Run";
-          bar.appendChild(button);
-          wrapper.appendChild(bar);
+          button.setAttribute("aria-label", "Run code");
+          button.setAttribute("title", "Run");
+          button.innerHTML = '<svg class="run-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2.2L10 6 3 9.8V2.2Z"></path></svg><span class="run-spinner" aria-hidden="true"></span>';
+          rail.appendChild(button);
 
           const output = document.createElement("pre");
           output.className = "code-output";
@@ -1045,7 +1103,7 @@
             if (!source.trim()) return;
 
             button.disabled = true;
-            button.textContent = "Running...";
+            button.classList.add("is-running");
             output.classList.add("visible");
             output.textContent = "Python runtime loading...";
 
@@ -1068,7 +1126,7 @@
               output.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
             } finally {
               button.disabled = false;
-              button.textContent = "Run";
+              button.classList.remove("is-running");
             }
           });
         });
