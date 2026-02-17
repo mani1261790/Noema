@@ -72,8 +72,12 @@ export async function getNotebookById(notebookId: string): Promise<NotebookSumma
 
 export async function getNotebookHtml(htmlPath: string): Promise<string> {
   const raw = await loadNotebookHtml(htmlPath);
+  const articleStart = raw.indexOf("<article");
+  const articleEnd = raw.lastIndexOf("</article>");
+  const candidate =
+    articleStart >= 0 && articleEnd > articleStart ? raw.slice(articleStart, articleEnd + "</article>".length) : raw;
 
-  return sanitizeHtml(raw, {
+  return sanitizeHtml(candidate, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["article", "h1", "h2", "h3", "pre", "code", "span"]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,

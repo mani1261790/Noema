@@ -30,18 +30,27 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function normalizeMarkdownText(value: string): string {
+  const hasRealNewline = value.includes("\n");
+  if (hasRealNewline) return value;
+  return value.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+}
+
 function markdownToHtml(markdown: string): string {
-  if (markdown.startsWith("# ")) {
-    const title = markdown.slice(2);
-    return `<h1 id="${slugify(title)}">${escapeHtml(title)}</h1>`;
-  }
-  if (markdown.startsWith("## ")) {
-    const title = markdown.slice(3);
-    return `<h2 id="${slugify(title)}">${escapeHtml(title)}</h2>`;
-  }
-  if (markdown.startsWith("### ")) {
-    const title = markdown.slice(4);
-    return `<h3 id="${slugify(title)}">${escapeHtml(title)}</h3>`;
+  if (markdown.startsWith("# ") || markdown.startsWith("## ") || markdown.startsWith("### ")) {
+    const level = markdown.startsWith("### ") ? 3 : markdown.startsWith("## ") ? 2 : 1;
+    const markerLength = level + 1;
+    const lines = markdown
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const headingLine = (lines.shift() ?? "").slice(markerLength).trim();
+    const tag = `h${level}`;
+    const heading = `<${tag} id="${slugify(headingLine)}">${escapeHtml(headingLine)}</${tag}>`;
+    if (lines.length === 0) {
+      return heading;
+    }
+    return `${heading}\n<p>${escapeHtml(lines.join(" "))}</p>`;
   }
   return `<p>${escapeHtml(markdown)}</p>`;
 }
@@ -50,7 +59,8 @@ export function notebookToHtml(input: NotebookFile): string {
   const pieces: string[] = ["<article class=\"prose-noema\">"];
 
   for (const cell of input.cells ?? []) {
-    const text = (cell.source ?? []).join("").trim();
+    const rawText = (cell.source ?? []).join("");
+    const text = cell.cell_type === "markdown" ? normalizeMarkdownText(rawText).trim() : rawText.trim();
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
@@ -73,7 +83,8 @@ export function extractChunks(input: NotebookFile) {
   let position = 0;
 
   for (const cell of input.cells ?? []) {
-    const raw = (cell.source ?? []).join("").trim();
+    const sourceText = (cell.source ?? []).join("");
+    const raw = (cell.cell_type === "markdown" ? normalizeMarkdownText(sourceText) : sourceText).trim();
     if (!raw) continue;
 
     if (cell.cell_type === "markdown") {
