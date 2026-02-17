@@ -27,8 +27,24 @@ type Catalog = {
 
 const catalogPath = path.join(process.cwd(), "content", "catalog.json");
 
+async function readChapterOrderMap(): Promise<Map<string, number>> {
+  try {
+    const raw = await fs.readFile(catalogPath, "utf8");
+    const parsed = JSON.parse(raw) as Catalog;
+    const map = new Map<string, number>();
+    for (const chapter of parsed.chapters || []) {
+      if (!chapter?.title) continue;
+      map.set(String(chapter.title), Number(chapter.order) || map.size + 1);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 export async function getCatalog(): Promise<Catalog> {
   try {
+    const chapterOrderMap = await readChapterOrderMap();
     const rows = await prisma.notebook.findMany({ orderBy: [{ chapter: "asc" }, { sortOrder: "asc" }] });
     if (rows.length > 0) {
       const byChapter = new Map<string, ChapterSummary>();
@@ -37,7 +53,7 @@ export async function getCatalog(): Promise<Catalog> {
         const chapter = byChapter.get(chapterId) ?? {
           id: chapterId,
           title: row.chapter,
-          order: byChapter.size + 1,
+          order: chapterOrderMap.get(row.chapter) ?? byChapter.size + 1,
           notebooks: []
         };
         chapter.notebooks.push({
@@ -51,7 +67,14 @@ export async function getCatalog(): Promise<Catalog> {
         });
         byChapter.set(chapterId, chapter);
       }
-      return { chapters: [...byChapter.values()] };
+      return {
+        chapters: [...byChapter.values()]
+          .sort((a, b) => a.order - b.order)
+          .map((chapter) => ({
+            ...chapter,
+            notebooks: chapter.notebooks.slice().sort((a, b) => a.order - b.order)
+          }))
+      };
     }
   } catch {
     // Falls back to file catalog when db is not initialized.

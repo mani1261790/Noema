@@ -27,6 +27,22 @@ const notebookDir = path.join(process.cwd(), "content", "notebooks");
 async function main() {
   const raw = await fs.readFile(catalogPath, "utf8");
   const catalog = JSON.parse(raw) as Catalog;
+  const notebookIds = catalog.chapters.flatMap((chapter) => chapter.notebooks.map((notebook) => notebook.id));
+
+  await prisma.notebookChunk.deleteMany({
+    where: {
+      notebookId: {
+        notIn: notebookIds
+      }
+    }
+  });
+  await prisma.notebook.deleteMany({
+    where: {
+      id: {
+        notIn: notebookIds
+      }
+    }
+  });
 
   for (const chapter of catalog.chapters) {
     for (const notebook of chapter.notebooks) {

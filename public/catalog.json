@@ -1,43 +1,739 @@
 {
   "chapters": [
     {
-      "id": "ml-basics",
-      "title": "機械学習とLLMの基礎",
+      "id": "python",
+      "title": "Python",
       "order": 1,
       "notebooks": [
         {
-          "id": "intro-llm",
-          "title": "LLM入門: トークンと推論",
+          "id": "python-basic-operations",
+          "title": "基本的なPythonの操作",
           "order": 1,
-          "tags": ["llm", "token", "prompt"],
-          "htmlPath": "/notebooks/intro-llm.html",
-          "colabUrl": "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/colab-github-demo.ipynb",
-          "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+          "tags": [
+            "python",
+            "basics",
+            "syntax"
+          ],
+          "htmlPath": "/notebooks/python-basic-operations.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/python-basic-operations.ipynb"
         },
         {
-          "id": "ml-regression-basics",
-          "title": "線形回帰の基礎",
+          "id": "numpy-basics",
+          "title": "NumPyの使い方",
           "order": 2,
-          "tags": ["machine-learning", "regression"],
-          "htmlPath": "/notebooks/ml-regression-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/snippets/markdown.ipynb",
-          "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+          "tags": [
+            "python",
+            "numpy",
+            "array"
+          ],
+          "htmlPath": "/notebooks/numpy-basics.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/numpy-basics.ipynb"
+        },
+        {
+          "id": "pandas-basics",
+          "title": "Pandasの使い方",
+          "order": 3,
+          "tags": [
+            "python",
+            "pandas",
+            "dataframe"
+          ],
+          "htmlPath": "/notebooks/pandas-basics.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/pandas-basics.ipynb"
+        },
+        {
+          "id": "matplotlib-seaborn",
+          "title": "MatplotlibとSeabornの使い方",
+          "order": 4,
+          "tags": [
+            "python",
+            "matplotlib",
+            "seaborn",
+            "visualization"
+          ],
+          "htmlPath": "/notebooks/matplotlib-seaborn.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/matplotlib-seaborn.ipynb"
         }
       ]
     },
     {
-      "id": "rl-track",
-      "title": "強化学習と世界モデル",
+      "id": "machine-learning",
+      "title": "機械学習",
       "order": 2,
       "notebooks": [
         {
-          "id": "rl-world-model-intro",
-          "title": "強化学習と世界モデル入門",
+          "id": "simple-regression",
+          "title": "単回帰分析",
           "order": 1,
-          "tags": ["rl", "world-model"],
-          "htmlPath": "/notebooks/rl-world-model-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/snippets/images.ipynb",
-          "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+          "tags": [
+            "machine-learning",
+            "regression",
+            "linear"
+          ],
+          "htmlPath": "/notebooks/simple-regression.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/simple-regression.ipynb"
+        },
+        {
+          "id": "multiple-regression",
+          "title": "重回帰分析",
+          "order": 2,
+          "tags": [
+            "machine-learning",
+            "regression",
+            "multivariate"
+          ],
+          "htmlPath": "/notebooks/multiple-regression.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multiple-regression.ipynb"
+        },
+        {
+          "id": "sklearn-xgboost",
+          "title": "scikit-learnとXGBoostの使い方",
+          "order": 3,
+          "tags": [
+            "machine-learning",
+            "sklearn",
+            "xgboost"
+          ],
+          "htmlPath": "/notebooks/sklearn-xgboost.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sklearn-xgboost.ipynb"
+        },
+        {
+          "id": "feature-engineering",
+          "title": "特徴量エンジニアリング",
+          "order": 4,
+          "tags": [
+            "machine-learning",
+            "feature-engineering",
+            "preprocessing"
+          ],
+          "htmlPath": "/notebooks/feature-engineering.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/feature-engineering.ipynb"
+        },
+        {
+          "id": "supervised-unsupervised-learning",
+          "title": "教師あり学習と教師なし学習",
+          "order": 5,
+          "tags": [
+            "machine-learning",
+            "supervised",
+            "unsupervised"
+          ],
+          "htmlPath": "/notebooks/supervised-unsupervised-learning.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/supervised-unsupervised-learning.ipynb"
+        },
+        {
+          "id": "time-series-data",
+          "title": "時系列データの扱い",
+          "order": 6,
+          "tags": [
+            "machine-learning",
+            "time-series",
+            "forecasting"
+          ],
+          "htmlPath": "/notebooks/time-series-data.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/time-series-data.ipynb"
+        },
+        {
+          "id": "sql-for-ml",
+          "title": "機械学習のためのSQL",
+          "order": 7,
+          "tags": [
+            "machine-learning",
+            "sql",
+            "data-engineering"
+          ],
+          "htmlPath": "/notebooks/sql-for-ml.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sql-for-ml.ipynb"
+        }
+      ]
+    },
+    {
+      "id": "deep-learning",
+      "title": "ディープラーニング",
+      "order": 3,
+      "notebooks": [
+        {
+          "id": "neural-network-basics",
+          "title": "ニューラルネットワーク",
+          "order": 1,
+          "tags": [
+            "deep-learning",
+            "neural-network",
+            "mlp"
+          ],
+          "htmlPath": "/notebooks/neural-network-basics.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/neural-network-basics.ipynb"
+        },
+        {
+          "id": "loss-and-gradient-descent",
+          "title": "損失関数と勾配降下法",
+          "order": 2,
+          "tags": [
+            "deep-learning",
+            "loss",
+            "gradient-descent"
+          ],
+          "htmlPath": "/notebooks/loss-and-gradient-descent.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/loss-and-gradient-descent.ipynb"
+        },
+        {
+          "id": "optimization-regularization",
+          "title": "最適化と正則化",
+          "order": 3,
+          "tags": [
+            "deep-learning",
+            "optimization",
+            "regularization"
+          ],
+          "htmlPath": "/notebooks/optimization-regularization.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/optimization-regularization.ipynb"
+        },
+        {
+          "id": "convolution-basics",
+          "title": "畳み込みとCNN",
+          "order": 4,
+          "tags": [
+            "deep-learning",
+            "cnn",
+            "convolution"
+          ],
+          "htmlPath": "/notebooks/convolution-basics.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/convolution-basics.ipynb"
+        },
+        {
+          "id": "image-recognition-yolo",
+          "title": "画像認識（YOLOを含む）",
+          "order": 5,
+          "tags": [
+            "deep-learning",
+            "computer-vision",
+            "yolo"
+          ],
+          "htmlPath": "/notebooks/image-recognition-yolo.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/image-recognition-yolo.ipynb"
+        },
+        {
+          "id": "recurrent-neural-networks",
+          "title": "再帰型ニューラルネットワーク（RNN/LSTM/GRU）",
+          "order": 6,
+          "tags": [
+            "deep-learning",
+            "rnn",
+            "lstm",
+            "gru"
+          ],
+          "htmlPath": "/notebooks/recurrent-neural-networks.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/recurrent-neural-networks.ipynb"
+        },
+        {
+          "id": "transformer-basics",
+          "title": "Transformer",
+          "order": 7,
+          "tags": [
+            "deep-learning",
+            "transformer",
+            "attention"
+          ],
+          "htmlPath": "/notebooks/transformer-basics.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/transformer-basics.ipynb"
+        },
+        {
+          "id": "nlp-deep-learning",
+          "title": "自然言語処理",
+          "order": 8,
+          "tags": [
+            "deep-learning",
+            "nlp",
+            "language"
+          ],
+          "htmlPath": "/notebooks/nlp-deep-learning.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nlp-deep-learning.ipynb"
+        }
+      ]
+    },
+    {
+      "id": "reinforcement-learning",
+      "title": "強化学習",
+      "order": 4,
+      "notebooks": [
+        {
+          "id": "rl-foundation",
+          "title": "強化学習の考え方",
+          "order": 1,
+          "tags": [
+            "reinforcement-learning",
+            "mdp",
+            "foundation"
+          ],
+          "htmlPath": "/notebooks/rl-foundation.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/rl-foundation.ipynb"
+        },
+        {
+          "id": "value-function",
+          "title": "価値関数",
+          "order": 2,
+          "tags": [
+            "reinforcement-learning",
+            "value-function",
+            "mdp"
+          ],
+          "htmlPath": "/notebooks/value-function.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/value-function.ipynb"
+        },
+        {
+          "id": "bellman-equations",
+          "title": "ベルマン方程式（期待方程式・最適方程式）",
+          "order": 3,
+          "tags": [
+            "reinforcement-learning",
+            "bellman",
+            "dynamic-programming"
+          ],
+          "htmlPath": "/notebooks/bellman-equations.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/bellman-equations.ipynb"
+        },
+        {
+          "id": "policy-iteration",
+          "title": "方策反復法",
+          "order": 4,
+          "tags": [
+            "reinforcement-learning",
+            "dynamic-programming",
+            "policy"
+          ],
+          "htmlPath": "/notebooks/policy-iteration.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/policy-iteration.ipynb"
+        },
+        {
+          "id": "value-iteration",
+          "title": "価値反復法",
+          "order": 5,
+          "tags": [
+            "reinforcement-learning",
+            "dynamic-programming",
+            "value"
+          ],
+          "htmlPath": "/notebooks/value-iteration.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/value-iteration.ipynb"
+        },
+        {
+          "id": "td-learning",
+          "title": "TD法",
+          "order": 6,
+          "tags": [
+            "reinforcement-learning",
+            "temporal-difference",
+            "prediction"
+          ],
+          "htmlPath": "/notebooks/td-learning.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/td-learning.ipynb"
+        },
+        {
+          "id": "q-learning",
+          "title": "Q学習",
+          "order": 7,
+          "tags": [
+            "reinforcement-learning",
+            "q-learning",
+            "off-policy"
+          ],
+          "htmlPath": "/notebooks/q-learning.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/q-learning.ipynb"
+        },
+        {
+          "id": "sarsa",
+          "title": "SARSA",
+          "order": 8,
+          "tags": [
+            "reinforcement-learning",
+            "sarsa",
+            "on-policy"
+          ],
+          "htmlPath": "/notebooks/sarsa.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sarsa.ipynb"
+        },
+        {
+          "id": "n-step-td",
+          "title": "n-step TD法",
+          "order": 9,
+          "tags": [
+            "reinforcement-learning",
+            "n-step",
+            "temporal-difference"
+          ],
+          "htmlPath": "/notebooks/n-step-td.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/n-step-td.ipynb"
+        },
+        {
+          "id": "td-lambda",
+          "title": "TD(λ)",
+          "order": 10,
+          "tags": [
+            "reinforcement-learning",
+            "td-lambda",
+            "trace"
+          ],
+          "htmlPath": "/notebooks/td-lambda.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/td-lambda.ipynb"
+        },
+        {
+          "id": "eligibility-trace-td-lambda",
+          "title": "後方観測TD(λ)とEligibility Trace",
+          "order": 11,
+          "tags": [
+            "reinforcement-learning",
+            "eligibility-trace",
+            "td-lambda"
+          ],
+          "htmlPath": "/notebooks/eligibility-trace-td-lambda.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/eligibility-trace-td-lambda.ipynb"
+        },
+        {
+          "id": "deep-rl",
+          "title": "深層強化学習",
+          "order": 12,
+          "tags": [
+            "reinforcement-learning",
+            "deep-rl",
+            "function-approximation"
+          ],
+          "htmlPath": "/notebooks/deep-rl.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/deep-rl.ipynb"
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "title": "LLM",
+      "order": 5,
+      "notebooks": [
+        {
+          "id": "prompt-engineering",
+          "title": "プロンプトエンジニアリング",
+          "order": 1,
+          "tags": [
+            "llm",
+            "prompt",
+            "inference"
+          ],
+          "htmlPath": "/notebooks/prompt-engineering.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/prompt-engineering.ipynb"
+        },
+        {
+          "id": "llm-pretraining",
+          "title": "事前学習",
+          "order": 2,
+          "tags": [
+            "llm",
+            "pretraining",
+            "data"
+          ],
+          "htmlPath": "/notebooks/llm-pretraining.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-pretraining.ipynb"
+        },
+        {
+          "id": "scaling-laws",
+          "title": "スケーリング則",
+          "order": 3,
+          "tags": [
+            "llm",
+            "scaling-law",
+            "compute"
+          ],
+          "htmlPath": "/notebooks/scaling-laws.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/scaling-laws.ipynb"
+        },
+        {
+          "id": "fine-tuning",
+          "title": "ファインチューニング",
+          "order": 4,
+          "tags": [
+            "llm",
+            "fine-tuning",
+            "adaptation"
+          ],
+          "htmlPath": "/notebooks/fine-tuning.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/fine-tuning.ipynb"
+        },
+        {
+          "id": "hallucination-rlhf",
+          "title": "ハルシネーションとRLHF",
+          "order": 5,
+          "tags": [
+            "llm",
+            "hallucination",
+            "rlhf"
+          ],
+          "htmlPath": "/notebooks/hallucination-rlhf.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/hallucination-rlhf.ipynb"
+        },
+        {
+          "id": "tool-use-rag",
+          "title": "Tool UseとRAG",
+          "order": 6,
+          "tags": [
+            "llm",
+            "tool-use",
+            "rag"
+          ],
+          "htmlPath": "/notebooks/tool-use-rag.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/tool-use-rag.ipynb"
+        },
+        {
+          "id": "domain-specialization",
+          "title": "ドメイン特化",
+          "order": 7,
+          "tags": [
+            "llm",
+            "domain",
+            "specialization"
+          ],
+          "htmlPath": "/notebooks/domain-specialization.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/domain-specialization.ipynb"
+        },
+        {
+          "id": "llm-efficiency",
+          "title": "軽量化（圧縮・最適化・効率化）",
+          "order": 8,
+          "tags": [
+            "llm",
+            "quantization",
+            "distillation",
+            "inference"
+          ],
+          "htmlPath": "/notebooks/llm-efficiency.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-efficiency.ipynb"
+        }
+      ]
+    },
+    {
+      "id": "deep-generative-models",
+      "title": "深層生成モデル",
+      "order": 6,
+      "notebooks": [
+        {
+          "id": "generative-model-overview",
+          "title": "生成モデルの全体像",
+          "order": 1,
+          "tags": [
+            "generative-model",
+            "overview",
+            "probabilistic"
+          ],
+          "htmlPath": "/notebooks/generative-model-overview.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/generative-model-overview.ipynb"
+        },
+        {
+          "id": "latent-variable-mixture-models",
+          "title": "潜在変数モデルと混合モデル",
+          "order": 2,
+          "tags": [
+            "generative-model",
+            "latent-variable",
+            "mixture-model"
+          ],
+          "htmlPath": "/notebooks/latent-variable-mixture-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/latent-variable-mixture-models.ipynb"
+        },
+        {
+          "id": "vae",
+          "title": "VAE",
+          "order": 3,
+          "tags": [
+            "generative-model",
+            "vae",
+            "variational-inference"
+          ],
+          "htmlPath": "/notebooks/vae.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/vae.ipynb"
+        },
+        {
+          "id": "gan",
+          "title": "GAN",
+          "order": 4,
+          "tags": [
+            "generative-model",
+            "gan",
+            "adversarial"
+          ],
+          "htmlPath": "/notebooks/gan.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/gan.ipynb"
+        },
+        {
+          "id": "autoregressive-flow-models",
+          "title": "自己回帰モデルとフローベースモデル",
+          "order": 5,
+          "tags": [
+            "generative-model",
+            "autoregressive",
+            "normalizing-flow"
+          ],
+          "htmlPath": "/notebooks/autoregressive-flow-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/autoregressive-flow-models.ipynb"
+        },
+        {
+          "id": "energy-based-models",
+          "title": "エネルギーベースモデル",
+          "order": 6,
+          "tags": [
+            "generative-model",
+            "energy-based-model",
+            "ebm"
+          ],
+          "htmlPath": "/notebooks/energy-based-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/energy-based-models.ipynb"
+        },
+        {
+          "id": "score-diffusion-models",
+          "title": "スコアベースモデルと拡散モデル",
+          "order": 7,
+          "tags": [
+            "generative-model",
+            "score-based",
+            "diffusion"
+          ],
+          "htmlPath": "/notebooks/score-diffusion-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/score-diffusion-models.ipynb"
+        },
+        {
+          "id": "continuous-diffusion-flow-matching",
+          "title": "連続時間拡散モデルとフローマッチング理論",
+          "order": 8,
+          "tags": [
+            "generative-model",
+            "continuous-time",
+            "flow-matching"
+          ],
+          "htmlPath": "/notebooks/continuous-diffusion-flow-matching.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/continuous-diffusion-flow-matching.ipynb"
+        }
+      ]
+    },
+    {
+      "id": "world-models",
+      "title": "世界モデル",
+      "order": 7,
+      "notebooks": [
+        {
+          "id": "world-models-and-generative-models",
+          "title": "世界モデルと深層生成モデル",
+          "order": 1,
+          "tags": [
+            "world-model",
+            "generative-model",
+            "dynamics"
+          ],
+          "htmlPath": "/notebooks/world-models-and-generative-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/world-models-and-generative-models.ipynb"
+        },
+        {
+          "id": "control-model-and-mbrl",
+          "title": "制御モデルとモデルベース強化学習",
+          "order": 2,
+          "tags": [
+            "world-model",
+            "control",
+            "model-based-rl"
+          ],
+          "htmlPath": "/notebooks/control-model-and-mbrl.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/control-model-and-mbrl.ipynb"
+        },
+        {
+          "id": "state-space-models",
+          "title": "状態空間モデル",
+          "order": 3,
+          "tags": [
+            "world-model",
+            "state-space-model",
+            "ssm"
+          ],
+          "htmlPath": "/notebooks/state-space-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-space-models.ipynb"
+        },
+        {
+          "id": "state-representation-learning",
+          "title": "状態表現学習",
+          "order": 4,
+          "tags": [
+            "world-model",
+            "representation-learning",
+            "latent-state"
+          ],
+          "htmlPath": "/notebooks/state-representation-learning.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-representation-learning.ipynb"
+        },
+        {
+          "id": "state-prediction-models",
+          "title": "状態予測モデル",
+          "order": 5,
+          "tags": [
+            "world-model",
+            "prediction",
+            "dynamics"
+          ],
+          "htmlPath": "/notebooks/state-prediction-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-prediction-models.ipynb"
+        },
+        {
+          "id": "vae-diffusion-world-models",
+          "title": "VAEと拡散モデル",
+          "order": 6,
+          "tags": [
+            "world-model",
+            "vae",
+            "diffusion"
+          ],
+          "htmlPath": "/notebooks/vae-diffusion-world-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/vae-diffusion-world-models.ipynb"
+        },
+        {
+          "id": "simulation-and-cg",
+          "title": "シミュレーションとコンピュータグラフィックス",
+          "order": 7,
+          "tags": [
+            "world-model",
+            "simulation",
+            "computer-graphics"
+          ],
+          "htmlPath": "/notebooks/simulation-and-cg.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/simulation-and-cg.ipynb"
+        },
+        {
+          "id": "ssm-and-transformer",
+          "title": "状態空間モデルとTransformer",
+          "order": 8,
+          "tags": [
+            "world-model",
+            "state-space-model",
+            "transformer"
+          ],
+          "htmlPath": "/notebooks/ssm-and-transformer.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/ssm-and-transformer.ipynb"
+        },
+        {
+          "id": "observation-prediction-models",
+          "title": "観測予測モデル（自己回帰・マスク予測・拡散）",
+          "order": 9,
+          "tags": [
+            "world-model",
+            "autoregressive",
+            "masked-modeling",
+            "diffusion"
+          ],
+          "htmlPath": "/notebooks/observation-prediction-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/observation-prediction-models.ipynb"
+        },
+        {
+          "id": "multimodal-world-models",
+          "title": "マルチモーダルな世界モデル",
+          "order": 10,
+          "tags": [
+            "world-model",
+            "multimodal",
+            "vision-language-action"
+          ],
+          "htmlPath": "/notebooks/multimodal-world-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multimodal-world-models.ipynb"
         }
       ]
     }

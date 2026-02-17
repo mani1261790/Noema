@@ -78,6 +78,7 @@ type NotebookRecord = {
   notebookId: string;
   title: string;
   chapter: string;
+  chapterOrder?: number;
   sortOrder: number;
   tags: string[];
   htmlPath: string;
@@ -1122,6 +1123,9 @@ export async function listCatalog() {
   >();
 
   rows.sort((a, b) => {
+    const orderA = Number.isFinite(a.chapterOrder) ? Number(a.chapterOrder) : Number.MAX_SAFE_INTEGER;
+    const orderB = Number.isFinite(b.chapterOrder) ? Number(b.chapterOrder) : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
     const chapterCmp = a.chapter.localeCompare(b.chapter);
     if (chapterCmp !== 0) return chapterCmp;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
@@ -1133,7 +1137,7 @@ export async function listCatalog() {
     const chapter = chapters.get(chapterId) ?? {
       id: chapterId,
       title: row.chapter,
-      order: chapters.size + 1,
+      order: Number.isFinite(row.chapterOrder) ? Number(row.chapterOrder) : chapters.size + 1,
       notebooks: []
     };
 
@@ -1150,10 +1154,12 @@ export async function listCatalog() {
   }
 
   return {
-    chapters: Array.from(chapters.values()).map((chapter) => ({
-      ...chapter,
-      notebooks: chapter.notebooks.sort((a, b) => a.order - b.order)
-    }))
+    chapters: Array.from(chapters.values())
+      .sort((a, b) => a.order - b.order)
+      .map((chapter) => ({
+        ...chapter,
+        notebooks: chapter.notebooks.sort((a, b) => a.order - b.order)
+      }))
   };
 }
 
@@ -1183,6 +1189,9 @@ export async function listAdminNotebooks() {
   );
 
   const notebooks = ((response.Items as NotebookRecord[] | undefined) ?? []).sort((a, b) => {
+    const orderA = Number.isFinite(a.chapterOrder) ? Number(a.chapterOrder) : Number.MAX_SAFE_INTEGER;
+    const orderB = Number.isFinite(b.chapterOrder) ? Number(b.chapterOrder) : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
     const chapterCmp = a.chapter.localeCompare(b.chapter);
     if (chapterCmp !== 0) return chapterCmp;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
@@ -1221,6 +1230,7 @@ export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promis
     notebookId: existing.notebookId,
     title,
     chapter,
+    chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
     sortOrder,
     tags,
     htmlPath: existing.htmlPath,
@@ -1658,6 +1668,8 @@ async function upsertNotebook(item: NotebookRecord) {
     notebookId: item.notebookId,
     title: item.title,
     chapter: item.chapter,
+    chapterOrder:
+      Number.isFinite(item.chapterOrder) ? Number(item.chapterOrder) : Number.isFinite(existing?.chapterOrder) ? Number(existing?.chapterOrder) : undefined,
     sortOrder: item.sortOrder,
     tags: item.tags,
     htmlPath: item.htmlPath,

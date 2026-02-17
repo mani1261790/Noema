@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 import { extractChunks, type NotebookFile } from "@/lib/notebook-ingest";
 
@@ -84,10 +84,42 @@ async function main() {
 
   const rawCatalog = await fs.readFile(path.join(process.cwd(), "content", "catalog.json"), "utf8");
   const catalog = JSON.parse(rawCatalog) as Catalog;
+  const catalogNotebookIds = new Set(
+    catalog.chapters.flatMap((chapter) => chapter.notebooks.map((notebook) => notebook.id))
+  );
 
   const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
     marshallOptions: { removeUndefinedValues: true }
   });
+
+  let staleDeleted = 0;
+  let exclusiveStartKey: Record<string, unknown> | undefined;
+  do {
+    const response = await ddb.send(
+      new ScanCommand({
+        TableName: tableName,
+        ExclusiveStartKey: exclusiveStartKey,
+        ProjectionExpression: "notebookId"
+      })
+    );
+
+    const items = (response.Items ?? []) as Array<{ notebookId?: string }>;
+    for (const item of items) {
+      const notebookId = String(item.notebookId || "");
+      if (!notebookId) continue;
+      if (catalogNotebookIds.has(notebookId)) continue;
+      await ddb.send(
+        new DeleteCommand({
+          TableName: tableName,
+          Key: { notebookId }
+        })
+      );
+      staleDeleted += 1;
+      console.log(`Deleted stale notebook: ${notebookId}`);
+    }
+
+    exclusiveStartKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (exclusiveStartKey);
 
   let synced = 0;
   for (const chapter of catalog.chapters) {
@@ -107,6 +139,7 @@ async function main() {
         notebookId: notebook.id,
         title: notebook.title,
         chapter: chapter.title,
+        chapterOrder: chapter.order,
         sortOrder: notebook.order,
         tags: notebook.tags,
         htmlPath: notebook.htmlPath,
@@ -138,7 +171,7 @@ async function main() {
     }
   }
 
-  console.log(`Done. Synced ${synced} notebook records into ${tableName}.`);
+  console.log(`Done. Synced ${synced} notebooks into ${tableName}. Deleted stale: ${staleDeleted}.`);
 }
 
 main().catch((error) => {

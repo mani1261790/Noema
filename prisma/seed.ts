@@ -5,6 +5,23 @@ import { Role } from "@prisma/client";
 import { extractChunks, type NotebookFile } from "../src/lib/notebook-ingest";
 import { prisma } from "../src/lib/prisma";
 
+type Catalog = {
+  chapters: Array<{
+    id: string;
+    title: string;
+    order: number;
+    notebooks: Array<{
+      id: string;
+      title: string;
+      order: number;
+      tags: string[];
+      htmlPath: string;
+      colabUrl: string;
+      videoUrl?: string;
+    }>;
+  }>;
+};
+
 async function main() {
   const adminEmail = (process.env.ADMIN_EMAILS ?? "admin@example.com").split(",")[0]?.trim().toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "password1234";
@@ -25,39 +42,38 @@ async function main() {
     });
   }
 
-  const notebooks = [
-    {
-      id: "intro-llm",
-      title: "LLM入門: トークンと推論",
-      chapter: "機械学習とLLMの基礎",
-      sortOrder: 1,
-      tags: ["llm", "token", "prompt"],
-      htmlPath: "/notebooks/intro-llm.html",
-      colabUrl:
-        "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/colab-github-demo.ipynb",
-      videoUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    },
-    {
-      id: "ml-regression-basics",
-      title: "線形回帰の基礎",
-      chapter: "機械学習とLLMの基礎",
-      sortOrder: 2,
-      tags: ["machine-learning", "regression"],
-      htmlPath: "/notebooks/ml-regression-basics.html",
-      colabUrl: "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/snippets/markdown.ipynb",
-      videoUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-    },
-    {
-      id: "rl-world-model-intro",
-      title: "強化学習と世界モデル入門",
-      chapter: "強化学習と世界モデル",
-      sortOrder: 1,
-      tags: ["rl", "world-model"],
-      htmlPath: "/notebooks/rl-world-model-intro.html",
-      colabUrl: "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/snippets/images.ipynb",
-      videoUrl: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+  const catalogPath = path.join(process.cwd(), "content", "catalog.json");
+  const catalogRaw = await fs.readFile(catalogPath, "utf8");
+  const catalog = JSON.parse(catalogRaw) as Catalog;
+
+  const notebooks = catalog.chapters.flatMap((chapter) =>
+    chapter.notebooks.map((notebook) => ({
+      id: notebook.id,
+      title: notebook.title,
+      chapter: chapter.title,
+      sortOrder: notebook.order,
+      tags: notebook.tags,
+      htmlPath: notebook.htmlPath,
+      colabUrl: notebook.colabUrl,
+      videoUrl: notebook.videoUrl
+    }))
+  );
+
+  const notebookIds = notebooks.map((notebook) => notebook.id);
+  await prisma.notebookChunk.deleteMany({
+    where: {
+      notebookId: {
+        notIn: notebookIds
+      }
     }
-  ] as const;
+  });
+  await prisma.notebook.deleteMany({
+    where: {
+      id: {
+        notIn: notebookIds
+      }
+    }
+  });
 
   for (const notebook of notebooks) {
     await prisma.notebook.upsert({
