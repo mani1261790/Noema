@@ -171,6 +171,15 @@ export class NoemaStack extends Stack {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       removalPolicy: RemovalPolicy.RETAIN
     });
+    const rateLimitTable = new dynamodb.Table(this, "RateLimitTable", {
+      tableName: `${prefix}-rate-limits`,
+      partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "requestAt", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "expiresAt",
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: RemovalPolicy.RETAIN
+    });
 
     const notebooksTable = new dynamodb.Table(this, "NotebooksTable", {
       tableName: `${prefix}-notebooks`,
@@ -232,6 +241,7 @@ export class NoemaStack extends Stack {
         QUESTIONS_TABLE: questionsTable.tableName,
         ANSWERS_TABLE: answersTable.tableName,
         CACHE_TABLE: cacheTable.tableName,
+        RATE_LIMIT_TABLE: rateLimitTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
         ACCESS_LOGS_TABLE: accessLogsTable.tableName,
         QA_QUEUE_URL: qaQueue.queueUrl,
@@ -276,6 +286,7 @@ export class NoemaStack extends Stack {
         QUESTIONS_TABLE: questionsTable.tableName,
         ANSWERS_TABLE: answersTable.tableName,
         CACHE_TABLE: cacheTable.tableName,
+        RATE_LIMIT_TABLE: rateLimitTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
         ACCESS_LOGS_TABLE: accessLogsTable.tableName,
         NOTEBOOK_BUCKET: notebookBucket.bucketName,
@@ -311,6 +322,7 @@ export class NoemaStack extends Stack {
     questionsTable.grantReadWriteData(apiFunction);
     answersTable.grantReadWriteData(apiFunction);
     cacheTable.grantReadWriteData(apiFunction);
+    rateLimitTable.grantReadWriteData(apiFunction);
     notebooksTable.grantReadWriteData(apiFunction);
     accessLogsTable.grantReadWriteData(apiFunction);
     qaQueue.grantSendMessages(apiFunction);

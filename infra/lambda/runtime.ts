@@ -6,6 +6,7 @@ import {
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   BatchGetCommand,
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -143,6 +144,7 @@ const bedrockClient = bedrockRegion ? new BedrockRuntimeClient({ region: bedrock
 const QUESTIONS_TABLE = requiredEnv("QUESTIONS_TABLE");
 const ANSWERS_TABLE = requiredEnv("ANSWERS_TABLE");
 const CACHE_TABLE = requiredEnv("CACHE_TABLE");
+const RATE_LIMIT_TABLE = requiredEnv("RATE_LIMIT_TABLE");
 const NOTEBOOKS_TABLE = requiredEnv("NOTEBOOKS_TABLE");
 const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
@@ -313,75 +315,50 @@ async function putAccessLog(userId: string, notebookId: string, action: string) 
 }
 
 async function ensureQuestionRateLimit(userId: string) {
-  const now = Date.now();
+  const now = new Date();
   const windowMs = QA_RATE_LIMIT_WINDOW_MINUTES * 60_000;
-  const windowFloor = now - windowMs;
-  const rateLimitKey = `ratelimit:${userId}`;
-  const expiresAt = Math.floor((now + windowMs * 2) / 1000);
+  const from = new Date(now.getTime() - windowMs).toISOString();
+  const requestAt = `${now.toISOString()}#${crypto.randomUUID()}`;
+  const expiresAt = Math.floor((now.getTime() + windowMs * 2) / 1000);
 
-  try {
-    await ddb.send(
-      new UpdateCommand({
-        TableName: CACHE_TABLE,
-        Key: { cacheKey: rateLimitKey },
-        ConditionExpression: "attribute_exists(windowStartedAt) AND windowStartedAt > :windowFloor AND requestCount < :max",
-        UpdateExpression: "ADD requestCount :inc SET expiresAt = :expiresAt",
-        ExpressionAttributeValues: {
-          ":inc": 1,
-          ":max": QA_RATE_LIMIT_MAX,
-          ":expiresAt": expiresAt,
-          ":windowFloor": windowFloor
-        }
-      })
-    );
-    return;
-  } catch (error) {
-    const name = error instanceof Error ? error.name : "";
-    if (name !== "ConditionalCheckFailedException") throw error;
-  }
+  await ddb.send(
+    new PutCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Item: {
+        userId,
+        requestAt,
+        expiresAt
+      }
+    })
+  );
 
-  try {
-    await ddb.send(
-      new UpdateCommand({
-        TableName: CACHE_TABLE,
-        Key: { cacheKey: rateLimitKey },
-        ConditionExpression: "attribute_not_exists(windowStartedAt) OR windowStartedAt <= :windowFloor",
-        UpdateExpression: "SET windowStartedAt = :now, requestCount = :one, expiresAt = :expiresAt",
-        ExpressionAttributeValues: {
-          ":now": now,
-          ":one": 1,
-          ":windowFloor": windowFloor,
-          ":expiresAt": expiresAt
-        }
-      })
-    );
-    return;
-  } catch (error) {
-    const name = error instanceof Error ? error.name : "";
-    if (name !== "ConditionalCheckFailedException") throw error;
-  }
+  const response = await ddb.send(
+    new QueryCommand({
+      TableName: RATE_LIMIT_TABLE,
+      KeyConditionExpression: "userId = :userId AND requestAt >= :from",
+      ExpressionAttributeValues: {
+        ":userId": userId,
+        ":from": from
+      },
+      Select: "COUNT",
+      Limit: QA_RATE_LIMIT_MAX + 1,
+      ConsistentRead: true
+    })
+  );
 
-  try {
-    await ddb.send(
-      new UpdateCommand({
-        TableName: CACHE_TABLE,
-        Key: { cacheKey: rateLimitKey },
-        ConditionExpression: "windowStartedAt > :windowFloor AND requestCount < :max",
-        UpdateExpression: "ADD requestCount :inc SET expiresAt = :expiresAt",
-        ExpressionAttributeValues: {
-          ":inc": 1,
-          ":max": QA_RATE_LIMIT_MAX,
-          ":windowFloor": windowFloor,
-          ":expiresAt": expiresAt
-        }
-      })
-    );
-  } catch (error) {
-    const name = error instanceof Error ? error.name : "";
-    if (name === "ConditionalCheckFailedException") {
-      throw new Error("Rate limit exceeded. Please wait and retry.");
-    }
-    throw error;
+  if ((response.Count ?? 0) > QA_RATE_LIMIT_MAX) {
+    await ddb
+      .send(
+        new DeleteCommand({
+          TableName: RATE_LIMIT_TABLE,
+          Key: {
+            userId,
+            requestAt
+          }
+        })
+      )
+      .catch(() => undefined);
+    throw new Error("Rate limit exceeded. Please wait and retry.");
   }
 }
 
