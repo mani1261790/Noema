@@ -785,6 +785,8 @@
       let pyodideInstance = null;
       let pyodidePromise = null;
       let highlightPromise = null;
+      const loadedPythonPackages = new Set();
+      const loadingPythonPackages = new Map();
 
       function parseJwt(token) {
         try {
@@ -1023,6 +1025,82 @@
         return pyodidePromise;
       }
 
+      function resolvePythonPackage(moduleName) {
+        const base = (moduleName || "").split(".")[0];
+        const map = {
+          sklearn: "scikit-learn",
+          PIL: "pillow",
+          cv2: "opencv-python",
+          yaml: "pyyaml",
+          bs4: "beautifulsoup4"
+        };
+        return map[base] || base;
+      }
+
+      function extractMissingModuleName(error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const match = message.match(/No module named ['"]([^'"]+)['"]/);
+        return match && match[1] ? match[1].split(".")[0] : "";
+      }
+
+      function escapePythonString(value) {
+        return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      }
+
+      async function moduleExistsInRuntime(py, moduleName) {
+        const safeName = escapePythonString(moduleName);
+        const exists = await py.runPythonAsync(
+          `import importlib.util as _iu\n(_iu.find_spec('${safeName}') is not None)`
+        );
+        return Boolean(exists);
+      }
+
+      async function installPythonModule(py, moduleName, output) {
+        const packageName = resolvePythonPackage(moduleName);
+        if (loadedPythonPackages.has(packageName)) return true;
+        if (loadingPythonPackages.has(packageName)) {
+          return loadingPythonPackages.get(packageName);
+        }
+
+        const installPromise = (async () => {
+          if (await moduleExistsInRuntime(py, moduleName)) {
+            loadedPythonPackages.add(packageName);
+            return true;
+          }
+
+          output.textContent = `Missing module '${moduleName}'. Installing '${packageName}'...`;
+
+          try {
+            await py.loadPackage(packageName);
+            loadedPythonPackages.add(packageName);
+            return true;
+          } catch {
+            try {
+              await py.loadPackage("micropip");
+              const micropip = py.pyimport("micropip");
+              try {
+                await micropip.install(packageName);
+              } finally {
+                if (typeof micropip.destroy === "function") {
+                  micropip.destroy();
+                }
+              }
+              loadedPythonPackages.add(packageName);
+              return true;
+            } catch {
+              return false;
+            }
+          }
+        })();
+
+        loadingPythonPackages.set(packageName, installPromise);
+        try {
+          return await installPromise;
+        } finally {
+          loadingPythonPackages.delete(packageName);
+        }
+      }
+
       function ensureHighlightLibrary() {
         if (window.hljs) return Promise.resolve(window.hljs);
         if (!highlightPromise) {
@@ -1112,8 +1190,32 @@
               const logs = [];
               py.setStdout({ batched: (msg) => logs.push(msg) });
               py.setStderr({ batched: (msg) => logs.push(msg) });
+              let result;
+              let executed = false;
+              const attemptedMissingModules = new Set();
 
-              const result = await py.runPythonAsync(source);
+              for (let i = 0; i < 5; i += 1) {
+                try {
+                  result = await py.runPythonAsync(source);
+                  executed = true;
+                  break;
+                } catch (error) {
+                  const missingModule = extractMissingModuleName(error);
+                  if (!missingModule || attemptedMissingModules.has(missingModule)) {
+                    throw error;
+                  }
+
+                  attemptedMissingModules.add(missingModule);
+                  const installed = await installPythonModule(py, missingModule, output);
+                  if (!installed) {
+                    throw error;
+                  }
+                }
+              }
+
+              if (!executed) {
+                throw new Error("Python execution failed after dependency resolution retries.");
+              }
               let resultText = "";
               if (result !== undefined && result !== null) {
                 resultText = String(result);
