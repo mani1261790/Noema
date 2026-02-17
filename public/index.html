@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Noema</title>
+  <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
   <style>
     :root {
       --bg-0: #f3f8fb;
@@ -732,6 +733,7 @@
 
       let pyodideInstance = null;
       let pyodidePromise = null;
+      let highlightPromise = null;
 
       function parseJwt(token) {
         try {
@@ -969,6 +971,36 @@
         return pyodidePromise;
       }
 
+      function ensureHighlightLibrary() {
+        if (window.hljs) return Promise.resolve(window.hljs);
+        if (!highlightPromise) {
+          highlightPromise = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "/highlight/highlight.min.js";
+            script.async = true;
+            script.onload = () => resolve(window.hljs);
+            script.onerror = () => reject(new Error("Highlight.js load failed"));
+            document.head.appendChild(script);
+          });
+        }
+        return highlightPromise;
+      }
+
+      async function applySyntaxHighlight(container) {
+        const blocks = container.querySelectorAll("pre > code");
+        if (!blocks.length) return;
+        try {
+          const hljs = await ensureHighlightLibrary();
+          if (!hljs) return;
+          blocks.forEach((block) => {
+            if (!block.className.includes("language-")) {
+              block.classList.add("language-python");
+            }
+            hljs.highlightElement(block);
+          });
+        } catch {}
+      }
+
       function normalizeRunnableSource(rawSource) {
         if (!rawSource) return "";
         // nbconvertの出力によっては改行が "\n" の2文字で入るため、実行前に正規化する。
@@ -1078,6 +1110,7 @@
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
           renderSections();
+          await applySyntaxHighlight(el.notebookContent);
           enhanceCodeBlocks();
 
           const url = new URL(window.location.href);

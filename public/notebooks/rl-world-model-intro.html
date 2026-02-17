@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>rl-world-model-intro</title>
+  <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
   <style>
     :root {
       --bg-0: #f3f8fb;
@@ -93,8 +94,19 @@
 <p>世界モデルは環境の遷移を内部で近似し、計画的な行動選択を支援します。</p>
 <h2 id="モデルベース強化学習">モデルベース強化学習</h2>
 <p>モデルフリー手法と比べてサンプル効率が高くなる可能性があります。</p>
-<pre><code>states = [&#39;s0&#39;, &#39;s1&#39;]\nactions = [&#39;left&#39;, &#39;right&#39;]\nprint(states, actions)</code></pre>
+<pre><code class="language-python">states = [&#39;s0&#39;, &#39;s1&#39;]
+actions = [&#39;left&#39;, &#39;right&#39;]
+print(states, actions)</code></pre>
 </article>
   </main>
+  <script src="/highlight/highlight.min.js"></script>
+  <script>
+    (function () {
+      if (!window.hljs) return;
+      document.querySelectorAll("pre code").forEach(function (block) {
+        window.hljs.highlightElement(block);
+      });
+    })();
+  </script>
 </body>
 </html>

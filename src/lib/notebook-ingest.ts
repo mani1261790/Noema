@@ -36,6 +36,12 @@ function normalizeMarkdownText(value: string): string {
   return value.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
 }
 
+function normalizeCodeText(value: string): string {
+  const hasRealNewline = value.includes("\n");
+  if (hasRealNewline) return value;
+  return value.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+}
+
 function markdownToHtml(markdown: string): string {
   if (markdown.startsWith("# ") || markdown.startsWith("## ") || markdown.startsWith("### ")) {
     const level = markdown.startsWith("### ") ? 3 : markdown.startsWith("## ") ? 2 : 1;
@@ -60,7 +66,8 @@ export function notebookToHtml(input: NotebookFile): string {
 
   for (const cell of input.cells ?? []) {
     const rawText = (cell.source ?? []).join("");
-    const text = cell.cell_type === "markdown" ? normalizeMarkdownText(rawText).trim() : rawText.trim();
+    const text =
+      cell.cell_type === "markdown" ? normalizeMarkdownText(rawText).trim() : normalizeCodeText(rawText).trim();
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
@@ -70,7 +77,7 @@ export function notebookToHtml(input: NotebookFile): string {
       continue;
     }
 
-    pieces.push(`<pre><code>${escapeHtml(text)}</code></pre>`);
+    pieces.push(`<pre><code class="language-python">${escapeHtml(text)}</code></pre>`);
   }
 
   pieces.push("</article>");

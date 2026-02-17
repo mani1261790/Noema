@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>intro-llm</title>
+  <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
   <style>
     :root {
       --bg-0: #f3f8fb;
@@ -93,8 +94,18 @@
 <p>このノートではトークン化・プロンプト設計・推論パイプラインの基礎を学びます。</p>
 <h2 id="トークンの考え方">トークンの考え方</h2>
 <p>文章は単語そのものではなく、トークン系列に分割されます。</p>
-<pre><code>text = &quot;hello world&quot;\nprint(text.split())</code></pre>
+<pre><code class="language-python">text = &quot;hello world&quot;
+print(text.split())</code></pre>
 </article>
   </main>
+  <script src="/highlight/highlight.min.js"></script>
+  <script>
+    (function () {
+      if (!window.hljs) return;
+      document.querySelectorAll("pre code").forEach(function (block) {
+        window.hljs.highlightElement(block);
+      });
+    })();
+  </script>
 </body>
 </html>

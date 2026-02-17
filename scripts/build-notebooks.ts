@@ -4,6 +4,7 @@ import { notebookToHtml, type NotebookFile } from "../src/lib/notebook-ingest";
 
 const NOTEBOOK_SOURCE_DIR = path.join(process.cwd(), "content", "notebooks");
 const OUTPUT_DIR = path.join(process.cwd(), "public", "notebooks");
+const HIGHLIGHT_OUTPUT_DIR = path.join(process.cwd(), "public", "highlight");
 const CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
 const CATALOG_OUTPUT_PATH = path.join(process.cwd(), "public", "catalog.json");
 
@@ -15,6 +16,7 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
+  <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
   <style>
     :root {
       --bg-0: #f3f8fb;
@@ -101,12 +103,35 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
   <main>
 ${bodyHtml}
   </main>
+  <script src="/highlight/highlight.min.js"></script>
+  <script>
+    (function () {
+      if (!window.hljs) return;
+      document.querySelectorAll("pre code").forEach(function (block) {
+        window.hljs.highlightElement(block);
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
 
+async function copyHighlightAssets() {
+  const cssSource = path.join(process.cwd(), "node_modules", "@highlightjs", "cdn-assets", "styles", "atom-one-dark.min.css");
+  const jsSource = path.join(process.cwd(), "node_modules", "@highlightjs", "cdn-assets", "highlight.min.js");
+  const cssOutput = path.join(HIGHLIGHT_OUTPUT_DIR, "atom-one-dark.min.css");
+  const jsOutput = path.join(HIGHLIGHT_OUTPUT_DIR, "highlight.min.js");
+
+  await fs.mkdir(HIGHLIGHT_OUTPUT_DIR, { recursive: true });
+  await fs.copyFile(cssSource, cssOutput);
+  await fs.copyFile(jsSource, jsOutput);
+  console.log(`Copied: ${cssOutput}`);
+  console.log(`Copied: ${jsOutput}`);
+}
+
 async function main() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await copyHighlightAssets();
 
   const files = await fs.readdir(NOTEBOOK_SOURCE_DIR);
   const notebookFiles = files.filter((file) => file.endsWith(".ipynb"));
