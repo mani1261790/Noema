@@ -54,11 +54,6 @@ export class NoemaStack extends Stack {
     const githubEnvironmentName = String(this.node.tryGetContext("githubEnvironmentName") ?? "production");
     const createGithubDeployRole = String(this.node.tryGetContext("createGithubDeployRole") ?? "false") === "true";
     const cdkBootstrapQualifier = String(this.node.tryGetContext("cdkBootstrapQualifier") ?? "hnb659fds");
-    const googleClientId = String(this.node.tryGetContext("googleClientId") ?? "").trim();
-    const googleClientSecretSsmParameter = String(this.node.tryGetContext("googleClientSecretSsmParameter") ?? "").trim();
-    if ((googleClientId && !googleClientSecretSsmParameter) || (!googleClientId && googleClientSecretSsmParameter)) {
-      throw new Error("Set both googleClientId and googleClientSecretSsmParameter, or leave both empty.");
-    }
     const qaModelProvider = String(this.node.tryGetContext("qaModelProvider") ?? "auto");
     const noemaInlineQa = String(this.node.tryGetContext("noemaInlineQa") ?? "false");
     const adminEmails = String(this.node.tryGetContext("adminEmails") ?? "");
@@ -110,30 +105,11 @@ export class NoemaStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN
     });
 
-    let googleIdentityProvider: cognito.UserPoolIdentityProviderGoogle | undefined;
-    const supportedIdentityProviders: cognito.UserPoolClientIdentityProvider[] = [
-      cognito.UserPoolClientIdentityProvider.COGNITO
-    ];
-    if (googleClientId && googleClientSecretSsmParameter) {
-      googleIdentityProvider = new cognito.UserPoolIdentityProviderGoogle(this, "GoogleIdentityProvider", {
-        userPool,
-        clientId: googleClientId,
-        clientSecretValue: cdk.SecretValue.ssmSecure(googleClientSecretSsmParameter),
-        scopes: ["openid", "email", "profile"],
-        attributeMapping: {
-          email: cognito.ProviderAttribute.GOOGLE_EMAIL,
-          givenName: cognito.ProviderAttribute.GOOGLE_GIVEN_NAME,
-          familyName: cognito.ProviderAttribute.GOOGLE_FAMILY_NAME
-        }
-      });
-      supportedIdentityProviders.push(cognito.UserPoolClientIdentityProvider.GOOGLE);
-    }
-
     const userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
       userPool,
       userPoolClientName: `${prefix}-web-client`,
       generateSecret: false,
-      supportedIdentityProviders,
+      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
       authFlows: {
         userPassword: true,
         userSrp: true
@@ -150,9 +126,6 @@ export class NoemaStack extends Stack {
         logoutUrls: ["http://localhost:3000", `${frontendUrl}`]
       }
     });
-    if (googleIdentityProvider) {
-      userPoolClient.node.addDependency(googleIdentityProvider);
-    }
 
     const cognitoDomainPrefix = (
       this.node.tryGetContext("cognitoDomainPrefix") ?? `${prefix}-auth`

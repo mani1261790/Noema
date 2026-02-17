@@ -38,14 +38,6 @@ on:
         description: GitHub Environment name allowed for OIDC trust
         required: false
         default: production
-      google_client_id:
-        description: Optional Google OAuth client ID for Cognito social login
-        required: false
-        default: ""
-      google_client_secret_ssm_parameter:
-        description: Optional SSM SecureString parameter name for Google OAuth client secret
-        required: false
-        default: ""
       qa_model_provider:
         description: QA model provider (auto/openai/bedrock/mock)
         required: false
@@ -147,8 +139,6 @@ jobs:
           INPUT_GITHUB_REPO: ${{ inputs.github_repo }}
           INPUT_GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern }}
           INPUT_GITHUB_ENVIRONMENT_NAME: ${{ inputs.github_environment_name }}
-          INPUT_GOOGLE_CLIENT_ID: ${{ inputs.google_client_id }}
-          INPUT_GOOGLE_CLIENT_SECRET_SSM_PARAMETER: ${{ inputs.google_client_secret_ssm_parameter }}
           INPUT_QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider }}
           INPUT_BEDROCK_REGION: ${{ inputs.bedrock_region }}
           INPUT_BEDROCK_MODEL_SMALL: ${{ inputs.bedrock_model_small }}
@@ -247,8 +237,6 @@ jobs:
           }
           FRONTEND_URL_NORM="$(trim "${INPUT_FRONTEND_URL}")"
           FRONTEND_URL_NORM="${FRONTEND_URL_NORM%/}"
-          GOOGLE_CLIENT_ID_NORM="$(trim "${INPUT_GOOGLE_CLIENT_ID}")"
-          GOOGLE_CLIENT_SECRET_SSM_PARAMETER_NORM="$(trim "${INPUT_GOOGLE_CLIENT_SECRET_SSM_PARAMETER}")"
           BEDROCK_REGION_NORM="$(trim "${INPUT_BEDROCK_REGION}")"
           BEDROCK_MODEL_SMALL_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}")"
           BEDROCK_MODEL_MID_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_MID}")"
@@ -268,14 +256,6 @@ jobs:
               exit 1
             fi
           fi
-          if [[ -n "${GOOGLE_CLIENT_ID_NORM}" && -z "${GOOGLE_CLIENT_SECRET_SSM_PARAMETER_NORM}" ]]; then
-            echo "google_client_secret_ssm_parameter is required when google_client_id is set"
-            exit 1
-          fi
-          if [[ -z "${GOOGLE_CLIENT_ID_NORM}" && -n "${GOOGLE_CLIENT_SECRET_SSM_PARAMETER_NORM}" ]]; then
-            echo "google_client_id is required when google_client_secret_ssm_parameter is set"
-            exit 1
-          fi
           MANAGED_DEPLOY_ROLE="noema-${INPUT_STACK_STAGE}-github-deploy"
           if [[ "${INPUT_CREATE_GITHUB_DEPLOY_ROLE}" != "true" ]] && [[ "${DEPLOY_ROLE_ARN}" == *":role/${MANAGED_DEPLOY_ROLE}" ]]; then
             echo "create_github_deploy_role must be true when using stack-managed ${MANAGED_DEPLOY_ROLE}."
@@ -293,12 +273,6 @@ jobs:
           fi
           if [[ -n "${INPUT_COGNITO_DOMAIN_PREFIX}" ]]; then
             ctx_args+=(-c "cognitoDomainPrefix=${INPUT_COGNITO_DOMAIN_PREFIX}")
-          fi
-          if [[ -n "${GOOGLE_CLIENT_ID_NORM}" ]]; then
-            ctx_args+=(
-              -c "googleClientId=${GOOGLE_CLIENT_ID_NORM}"
-              -c "googleClientSecretSsmParameter=${GOOGLE_CLIENT_SECRET_SSM_PARAMETER_NORM}"
-            )
           fi
           if [[ "${INPUT_CREATE_GITHUB_DEPLOY_ROLE}" == "true" ]]; then
             if [[ -z "${INPUT_GITHUB_REPO}" ]]; then

@@ -125,23 +125,6 @@
       text-align: center;
     }
 
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 12px 0;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .divider::before,
-    .divider::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-
     .status {
       margin-top: 10px;
       border: 1px solid var(--border);
@@ -160,10 +143,6 @@
     <h1>ログイン</h1>
     <p>ログイン済みユーザーのみ、LLM質問機能を利用できます。</p>
 
-    <button class="button-ghost" id="google-login-btn" type="button">Googleでログイン</button>
-
-    <div class="divider">または</div>
-
     <label for="email">メールアドレス</label>
     <input id="email" type="email" autocomplete="email" />
 
@@ -180,7 +159,6 @@
     (function () {
       const REGION = "ap-northeast-3";
       const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
-      const COGNITO_DOMAIN = "https://noema-437089831576-auth.auth.ap-northeast-3.amazoncognito.com";
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
       const TOKEN_KEY = "noema_id_token";
 
@@ -209,62 +187,6 @@
         }
 
         return data;
-      }
-
-      function randomString(length) {
-        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
-        const values = crypto.getRandomValues(new Uint8Array(length));
-        let result = "";
-        values.forEach((value) => {
-          result += chars[value % chars.length];
-        });
-        return result;
-      }
-
-      function base64UrlEncode(arrayBuffer) {
-        const bytes = new Uint8Array(arrayBuffer);
-        let str = "";
-        bytes.forEach((byte) => {
-          str += String.fromCharCode(byte);
-        });
-        return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      }
-
-      async function createChallenge(verifier) {
-        const data = new TextEncoder().encode(verifier);
-        const digest = await crypto.subtle.digest("SHA-256", data);
-        return base64UrlEncode(digest);
-      }
-
-      async function loginWithGoogle() {
-        try {
-          setStatus("");
-          const verifier = randomString(96);
-          const challenge = await createChallenge(verifier);
-          const state = randomString(40);
-          const redirectUri = `${window.location.origin}/api/auth/callback/cognito`;
-          const button = document.getElementById("google-login-btn");
-          button.disabled = true;
-
-          sessionStorage.setItem("noema_pkce_verifier", verifier);
-          sessionStorage.setItem("noema_pkce_state", state);
-
-          const params = new URLSearchParams({
-            response_type: "code",
-            client_id: CLIENT_ID,
-            redirect_uri: redirectUri,
-            scope: "openid email profile",
-            identity_provider: "Google",
-            state,
-            code_challenge_method: "S256",
-            code_challenge: challenge
-          });
-
-          window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
-        } catch (error) {
-          document.getElementById("google-login-btn").disabled = false;
-          setStatus(`Googleログインの開始に失敗: ${error instanceof Error ? error.message : String(error)}`);
-        }
       }
 
       async function login() {
@@ -325,10 +247,6 @@
           setStatus(`新規登録失敗: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-
-      document.getElementById("google-login-btn").addEventListener("click", function () {
-        void loginWithGoogle();
-      });
 
       document.getElementById("login-btn").addEventListener("click", function () {
         void login();

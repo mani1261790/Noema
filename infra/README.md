@@ -87,22 +87,6 @@ npm run deploy -- --require-approval never \
   -c qaRateLimitWindowMinutes=1
 ```
 
-Enable Google login via Cognito Hosted UI (optional):
-
-```bash
-# store Google OAuth client secret in SSM (SecureString)
-aws ssm put-parameter \
-  --name /noema/prod/google-client-secret \
-  --type SecureString \
-  --overwrite \
-  --value '<GOOGLE_CLIENT_SECRET>'
-
-npm run deploy -- --require-approval never \
-  -c frontendUrl=https://your-frontend-domain \
-  -c googleClientId='<GOOGLE_CLIENT_ID>' \
-  -c googleClientSecretSsmParameter=/noema/prod/google-client-secret
-```
-
 ## Useful outputs
 
 After deploy, note these stack outputs:
