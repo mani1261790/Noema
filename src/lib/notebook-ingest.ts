@@ -172,7 +172,8 @@ const markdownRenderer = (() => {
   md.use(markdownItKatex);
 
   const fallbackHeadingOpen = md.renderer.rules.heading_open;
-  md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+  type HeadingOpenRule = NonNullable<typeof fallbackHeadingOpen>;
+  const headingOpenRule: HeadingOpenRule = (tokens, idx, options, env, self) => {
     const inlineToken = tokens[idx + 1];
     const headingText = inlineToken && inlineToken.type === "inline" ? inlineToken.content : "";
     const id = slugify(headingText);
@@ -184,6 +185,7 @@ const markdownRenderer = (() => {
     }
     return self.renderToken(tokens, idx, options);
   };
+  md.renderer.rules.heading_open = headingOpenRule;
 
   return md;
 })();
