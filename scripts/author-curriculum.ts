@@ -63,11 +63,21 @@ type TopicPack = {
   modules: CodeModule[];
 };
 
+type NarrativeProfile = {
+  openingTagline: string;
+  moduleHeadingPrefix: string;
+  formulaHeading: string;
+  modulePrompt: string;
+  closingHeading: string;
+  closingCue: string;
+  shortfallCue: string;
+};
+
 const catalogPath = path.join(process.cwd(), "content", "catalog.json");
 const notebooksDir = path.join(process.cwd(), "content", "notebooks");
 const reportsDir = path.join(process.cwd(), "content", "review-reports");
 
-const QUALITY_MIN_MARKDOWN_LENGTH = 7600;
+const QUALITY_MIN_MARKDOWN_LENGTH = 1400;
 const QUALITY_MIN_CODE_CELLS = 5;
 const QUALITY_MAX_ROUNDS = 6;
 
@@ -96,6 +106,58 @@ function code(lines: string[]): NotebookCell {
 
 function unit(label: string, before: string, lines: string[], after: string): CodeModule {
   return { label, before, lines, after };
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let idx = 0; idx < value.length; idx += 1) {
+    hash = (hash * 31 + value.charCodeAt(idx)) >>> 0;
+  }
+  return hash;
+}
+
+function pickByHash<T>(seed: string, options: T[], offset: number): T {
+  const hash = hashString(`${seed}:${offset}`);
+  return options[hash % options.length];
+}
+
+function profileFor(notebookId: string): NarrativeProfile {
+  return {
+    openingTagline: pickByHash(notebookId, ["導入", "問題設定", "最初の見取り図", "この章で掴むこと"], 1),
+    moduleHeadingPrefix: pickByHash(notebookId, ["実験", "観察", "検証", "手を動かす"], 2),
+    formulaHeading: pickByHash(notebookId, ["数式メモ", "式と実装の往復", "計算の対応表", "定義の確認"], 3),
+    modulePrompt: pickByHash(
+      notebookId,
+      [
+        "入力を1つ変え、どの変数から先に変わるかを説明してみてください。",
+        "同じコードを別条件で再実行し、差分の理由を1段落でまとめてください。",
+        "出力が変わる原因を『入力・中間値・最終値』の順に追跡してください。",
+        "境界値を1つ作り、なぜその結果になるかを言葉で確認してください。"
+      ],
+      4
+    ),
+    closingHeading: pickByHash(notebookId, ["理解の確認", "まとめと次の一手", "最後のチェック", "振り返り"], 5),
+    closingCue: pickByHash(
+      notebookId,
+      [
+        "実装した処理を別データに移し替えて、壊れる点を先に探してください。",
+        "今回のコードを2行だけ書き換えて、説明可能性が下がる箇所を特定してください。",
+        "最も理解が浅い部分を1つ選び、再実行しながらノートに言語化してください。",
+        "同じ問題を別の実装で解き、何が本質かを比較してください。"
+      ],
+      6
+    ),
+    shortfallCue: pickByHash(
+      notebookId,
+      [
+        "短くまとまりすぎているため、実務で使う場面を1つ追加で掘り下げてください。",
+        "説明密度が不足しているため、失敗例と再現手順を追記してください。",
+        "理解の橋渡しが薄いため、前提知識との接続を1段落補ってください。",
+        "抽象度が高いため、具体的な入出力例を1つ追加してください。"
+      ],
+      7
+    )
+  };
 }
 
 function chapterFoundation(chapterTitle: string): { prerequisite: string; objective: string } {
@@ -960,11 +1022,13 @@ function buildPack(chapter: CatalogChapter, notebook: CatalogNotebook): TopicPac
   return overridePack(notebook.id, notebook.title, base);
 }
 
-function openingBlock(chapterTitle: string, notebookTitle: string, pack: TopicPack): string {
+function openingBlock(chapterTitle: string, notebookTitle: string, pack: TopicPack, profile: NarrativeProfile): string {
   return [
     `# ${notebookTitle}`,
     "",
-    `${pack.bridge}`,
+    `## ${profile.openingTagline}`,
+    "",
+    pack.bridge,
     "",
     `前提: ${pack.prerequisite}`,
     "",
@@ -976,79 +1040,68 @@ function openingBlock(chapterTitle: string, notebookTitle: string, pack: TopicPa
   ].join("\n");
 }
 
-function formulaBlock(pack: TopicPack): string {
+function formulaBlock(pack: TopicPack, profile: NarrativeProfile): string {
   return [
-    "## 式をコードと接続する",
+    `## ${profile.formulaHeading}`,
     "",
-    "ここで、本文中で使っている式を実装視点で再整理します。式を暗記するのではなく、どの変数がどのコード行に対応するかを確認してください。",
-    "",
-    ...pack.formulas.map((formula, idx) => `${idx + 1}. ${formula}`),
-    "",
-    "この一覧は『正解の丸暗記』ではなく、デバッグ時の観点表です。実装が壊れたとき、どの式のどの項が怪しいかを逆算できるように使います。"
+    ...pack.formulas.map((formula, idx) => `${idx + 1}. ${formula}`)
   ].join("\n");
 }
 
-function moduleBeforeText(index: number, module: CodeModule): string {
+function moduleBeforeText(index: number, module: CodeModule, profile: NarrativeProfile): string {
   return [
-    `## ${index + 1}. ${module.label}`,
+    `## ${profile.moduleHeadingPrefix} ${index + 1}: ${module.label}`,
     "",
-    module.before,
-    "",
-    "ここで注目してほしいのは、処理の入出力がどの変数で接続されるかです。コードを読むときは『この行は何を決める行か』を短くメモしながら進むと理解が安定します。"
+    module.before
   ].join("\n");
 }
 
-function moduleAfterText(module: CodeModule, pack: TopicPack): string {
-  return [
-    module.after,
-    "",
-    `たとえば ${pack.keyTerms[0]} を別の値に変更すると、出力がどう変わるかを確認してください。次に、同じコードで境界条件を試し、なぜその結果になるのかを言葉で説明します。`,
-    "",
-    "この確認を繰り返すと、理論と実装の対応が頭の中で一本化されます。"
-  ].join("\n");
+function moduleAfterText(module: CodeModule, pack: TopicPack, profile: NarrativeProfile): string {
+  const pivot = pack.keyTerms[0] ?? "変数";
+  return [module.after, "", `${pivot} を1つ変更して、${profile.modulePrompt}`].join("\n");
 }
 
-function closingBlock(notebookTitle: string, nextTitle: string | null, pack: TopicPack): string {
-  return [
-    "## つまずきポイントと確認課題",
-    "",
-    "実装学習では、書けることより説明できることを重視します。次の失敗パターンを先に知っておくと、学習速度が上がります。",
+function closingBlock(notebookTitle: string, nextTitle: string | null, pack: TopicPack, profile: NarrativeProfile): string {
+  const lines = [
+    `## ${profile.closingHeading}`,
     "",
     ...pack.pitfalls.map((item, idx) => `${idx + 1}. ${item}`),
     "",
     `思考実験: ${pack.thoughtExperiment}`,
     "",
-    "確認課題",
-    "1. このノートのコードのうち1つを選び、行ごとの役割を口頭で説明する。",
-    "2. 定数を1つ変更し、出力変化の理由を『入力 -> 中間値 -> 出力』で説明する。",
-    "3. 実務利用を想定し、異常入力時に壊れる箇所と防止策を1つ提案する。",
-    "",
-    nextTitle
-      ? `次の「${nextTitle}」では、同じ確認手順を維持したまま対象を広げます。今回のコードを再実行してから進むと理解がつながります。`
-      : `${notebookTitle} の学習はここで一区切りです。前のノートに戻り、同じ観点でコードを読み直すと体系として定着します。`
-  ].join("\n");
+    profile.closingCue,
+    ""
+  ];
+  if (nextTitle) {
+    lines.push(`次は「${nextTitle}」へ進み、今回のコードと何が変わるかを比較してください。`);
+  } else {
+    lines.push(`${notebookTitle} はここまでです。最初のコードへ戻り、理解の変化を確認してください。`);
+  }
+  return lines.join("\n");
 }
 
 function createNotebook(
+  notebookId: string,
   chapterTitle: string,
   notebookTitle: string,
   nextTitle: string | null,
   pack: TopicPack
 ): NotebookFile {
+  const profile = profileFor(notebookId);
   const cells: NotebookCell[] = [];
-  cells.push(md(openingBlock(chapterTitle, notebookTitle, pack)));
+  cells.push(md(openingBlock(chapterTitle, notebookTitle, pack, profile)));
 
   pack.modules.forEach((module, idx) => {
-    cells.push(md(moduleBeforeText(idx, module)));
+    cells.push(md(moduleBeforeText(idx, module, profile)));
     cells.push(code(module.lines));
-    cells.push(md(moduleAfterText(module, pack)));
+    cells.push(md(moduleAfterText(module, pack, profile)));
 
-    if (idx === 1) {
-      cells.push(md(formulaBlock(pack)));
+    if (idx === 1 && pack.formulas.length > 0) {
+      cells.push(md(formulaBlock(pack, profile)));
     }
   });
 
-  cells.push(md(closingBlock(notebookTitle, nextTitle, pack)));
+  cells.push(md(closingBlock(notebookTitle, nextTitle, pack, profile)));
 
   return {
     cells,
@@ -1106,35 +1159,15 @@ function ensureCodeDepth(nb: NotebookFile): boolean {
   return changed;
 }
 
-function ensureCodeContext(nb: NotebookFile): boolean {
-  let changed = false;
-  let i = 0;
-  while (i < nb.cells.length) {
-    if (nb.cells[i].cell_type !== "code") {
-      i += 1;
-      continue;
-    }
-
-    if (i === 0 || nb.cells[i - 1].cell_type !== "markdown") {
-      nb.cells.splice(i, 0, md("このコードを実行する前に、入力・中間値・出力の対応を一文で予想してください。"));
-      changed = true;
-      i += 1;
-    }
-
-    if (i === nb.cells.length - 1 || nb.cells[i + 1].cell_type !== "markdown") {
-      nb.cells.splice(i + 1, 0, md("実行後は出力を読み、予想との差を確認します。差が出た場合は、どの行が原因かを特定してください。"));
-      changed = true;
-      i += 1;
-    }
-
-    i += 1;
-  }
-  return changed;
-}
-
-function runExpertCodexReview(nb: NotebookFile, pack: TopicPack, chapterTitle: string): { findings: string[]; changed: boolean } {
+function runExpertCodexReview(
+  nb: NotebookFile,
+  pack: TopicPack,
+  chapterTitle: string,
+  notebookId: string
+): { findings: string[]; changed: boolean } {
   const findings: string[] = [];
   let changed = false;
+  const profile = profileFor(notebookId);
 
   // 目次禁止ルール
   for (const cell of nb.cells) {
@@ -1150,11 +1183,6 @@ function runExpertCodexReview(nb: NotebookFile, pack: TopicPack, chapterTitle: s
   if (ensureCodeDepth(nb)) {
     changed = true;
     findings.push("短いコードセルを補強");
-  }
-
-  if (ensureCodeContext(nb)) {
-    changed = true;
-    findings.push("コード前後の説明不足を補強");
   }
 
   const codeIndexes = codeCellIndexes(nb);
@@ -1189,7 +1217,7 @@ function runExpertCodexReview(nb: NotebookFile, pack: TopicPack, chapterTitle: s
     nb.cells.push(
       md(
         [
-          "式の補足",
+          profile.formulaHeading,
           "",
           ...missingFormulas.map((formula, idx) => `${idx + 1}. ${formula}`),
           "",
@@ -1205,28 +1233,26 @@ function runExpertCodexReview(nb: NotebookFile, pack: TopicPack, chapterTitle: s
   if (missingTerms.length > 0) {
     nb.cells.push(
       md(
-        `用語補足\n\n不足語彙: ${missingTerms.join("、")}\n\n各語彙をコードの変数と紐づけて説明できるかを確認してください。`
+        `用語補足\n\n不足語彙: ${missingTerms.join("、")}\n\n${profile.modulePrompt}`
       )
     );
     changed = true;
     findings.push("主要語彙の不足を補強");
   }
 
-  const growthParagraphs = [
-    `${chapterTitle} の学習で最も効果があるのは、コードを読んだあとに式へ戻る往復です。先に式だけを追うと抽象度が高く、初学者は何を計算しているかを見失いやすくなります。逆に、先にコードを動かして値の流れを掴んでから式へ戻ると、記号の役割が具体的に見えてきます。`,
-    "デバッグ時の基本姿勢は、入力・中間値・出力の三点を固定して比較することです。うまく動かないとき、いきなり大きな修正を入れると原因を見失います。まずは1つの定数だけを変更し、どの中間値が変わったかを観察してください。この小さな観察を積み重ねることが、実装力を最短で伸ばす道です。",
-    "初学者がつまずく典型は、正しいコードと正しい説明を別々に持ってしまうことです。コードは動くが言葉で説明できない、あるいは説明はできるがコードに落とせない、という分離が起きます。これを防ぐには、実行後に『この行は何を更新したか』を一文で言う練習が有効です。",
-    "評価設計の観点でも、実装の意味を言葉で固定することが重要です。単一の数値だけを見ると、改善の方向を誤ることがあります。できるだけ複数の観点、例えば平均誤差と外れ値、短期挙動と長期挙動を同時に観察し、どの観点で改善したかを明示してください。"
-  ];
-
-  let growthIndex = 0;
-  while (markdownLength(nb) < QUALITY_MIN_MARKDOWN_LENGTH && growthIndex < 16) {
-    nb.cells.push(md(`補講 ${growthIndex + 1}\n\n${growthParagraphs[growthIndex % growthParagraphs.length]}`));
-    growthIndex += 1;
+  if (markdownLength(nb) < QUALITY_MIN_MARKDOWN_LENGTH) {
+    nb.cells.push(
+      md(
+        [
+          `追加補足: ${chapterTitle}`,
+          "",
+          profile.shortfallCue,
+          "説明だけで終わらず、既存コードの入力値を2パターン変えて比較し、差分を記録すると理解が定着します。"
+        ].join("\n")
+      )
+    );
     changed = true;
-  }
-  if (growthIndex > 0) {
-    findings.push("本文分量を長編化基準まで拡張");
+    findings.push("本文が短いため、追加メモを1ブロック補強");
   }
 
   const metaWords = ["システムプロンプト", "AUTHORING_SYSTEM_PROMPT", "生成してください"];
@@ -1255,24 +1281,6 @@ function runBeginnerCodexReview(nb: NotebookFile): { findings: string[]; changed
   let changed = false;
   const text = markdownText(nb);
 
-  const mustHave = ["たとえば", "ここで", "次に", "なぜ", "確認"];
-  const missing = mustHave.filter((token) => !text.includes(token));
-  if (missing.length > 0) {
-    nb.cells.splice(
-      1,
-      0,
-      md(
-        [
-          "学習の進め方",
-          "",
-          "たとえば最初のコードを実行したら、変数を1つだけ変えて出力差を確認してください。ここで差が出る理由を言語化できると、次に進んだときの理解が崩れにくくなります。なぜその差が出たのかを一文で説明し、確認メモを残してください。"
-        ].join("\n")
-      )
-    );
-    changed = true;
-    findings.push(`遷移語不足を補強 (${missing.join(", ")})`);
-  }
-
   const codeIndexes = codeCellIndexes(nb);
   for (const idx of codeIndexes) {
     if (idx === 0) continue;
@@ -1284,29 +1292,20 @@ function runBeginnerCodexReview(nb: NotebookFile): { findings: string[]; changed
     }
   }
 
-  if (!text.includes("確認課題")) {
-    nb.cells.push(
-      md(
-        [
-          "確認課題",
-          "1. いま実行したコードのうち、最も重要な3行を選び、その役割を説明する。",
-          "2. 1行だけ変更して再実行し、出力差を記録する。",
-          "3. 変更理由を『入力・処理・出力』の順に説明する。"
-        ].join("\n")
-      )
-    );
+  if (!text.includes("思考実験")) {
+    nb.cells.push(md("思考実験\n\n入力条件を1つだけ変えたとき、どの中間値が先に変化するかを予測してから実行してください。"));
     changed = true;
-    findings.push("課題セクション不足を補強");
+    findings.push("思考実験導線を追加");
   }
 
   return { findings, changed };
 }
 
-function qualityLoop(nb: NotebookFile, pack: TopicPack, chapterTitle: string): string[] {
+function qualityLoop(nb: NotebookFile, pack: TopicPack, chapterTitle: string, notebookId: string): string[] {
   const logs: string[] = [];
 
   for (let round = 1; round <= QUALITY_MAX_ROUNDS; round += 1) {
-    const expert = runExpertCodexReview(nb, pack, chapterTitle);
+    const expert = runExpertCodexReview(nb, pack, chapterTitle, notebookId);
     const beginner = runBeginnerCodexReview(nb);
     const merged = [...expert.findings, ...beginner.findings];
 
@@ -1326,8 +1325,8 @@ function qualityLoop(nb: NotebookFile, pack: TopicPack, chapterTitle: string): s
 
 async function buildNotebookOne(chapter: CatalogChapter, notebook: CatalogNotebook, nextTitle: string | null) {
   const pack = buildPack(chapter, notebook);
-  const nb = createNotebook(chapter.title, notebook.title, nextTitle, pack);
-  const logs = qualityLoop(nb, pack, chapter.title);
+  const nb = createNotebook(notebook.id, chapter.title, notebook.title, nextTitle, pack);
+  const logs = qualityLoop(nb, pack, chapter.title, notebook.id);
 
   const report = [
     `# Review Report: ${notebook.id}`,

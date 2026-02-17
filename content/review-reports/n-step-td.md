@@ -7,7 +7,5 @@
 初学者（高校〜学部初年相当）を想定し、可能な限り長く、体系的に書く。
 
 ## Review Loop Logs
-- round 1: 本文分量を長編化基準まで拡張
-- round 2: 本文分量を長編化基準まで拡張
-- round 3: 本文分量を長編化基準まで拡張
-- round 4: no findings
+- round 1: 本文が短いため、追加メモを1ブロック補強
+- round 2: no findings
