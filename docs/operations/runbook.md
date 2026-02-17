@@ -39,6 +39,7 @@
 - `noema_inline_qa` (optional): `true` to process synchronously in API
 - `qa_rate_limit_max` (optional): max asks per user in window (default `6`)
 - `qa_rate_limit_window_minutes` (optional): rate-limit window minutes (default `1`)
+- `run_cdk_bootstrap` (optional): `true` only for first-time bootstrap (default `false`)
 
 ### Static asset workflow inputs (`Deploy Static Assets`)
 

@@ -70,6 +70,10 @@ on:
         description: Rate-limit time window in minutes
         required: false
         default: "1"
+      run_cdk_bootstrap:
+        description: Run `cdk bootstrap` in this workflow (only for initial setup)
+        required: false
+        default: "false"
 
 permissions:
   id-token: write
@@ -102,41 +106,68 @@ jobs:
         run: npm ci
 
       - name: CDK bootstrap
+        if: ${{ inputs.run_cdk_bootstrap == 'true' }}
         run: npx cdk bootstrap
 
       - name: CDK deploy
+        env:
+          INPUT_STACK_STAGE: ${{ inputs.stack_stage }}
+          INPUT_FRONTEND_URL: ${{ inputs.frontend_url }}
+          INPUT_ALARM_EMAIL: ${{ inputs.alarm_email }}
+          INPUT_COGNITO_DOMAIN_PREFIX: ${{ inputs.cognito_domain_prefix }}
+          INPUT_CREATE_GITHUB_DEPLOY_ROLE: ${{ inputs.create_github_deploy_role }}
+          INPUT_GITHUB_REPO: ${{ inputs.github_repo }}
+          INPUT_GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern }}
+          INPUT_QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider }}
+          INPUT_OPENAI_MODEL_SMALL: ${{ inputs.openai_model_small }}
+          INPUT_OPENAI_MODEL_MID: ${{ inputs.openai_model_mid }}
+          INPUT_OPENAI_MODEL_LARGE: ${{ inputs.openai_model_large }}
+          INPUT_OPENAI_API_KEY_SSM_PARAMETER: ${{ inputs.openai_api_key_ssm_parameter }}
+          INPUT_ADMIN_EMAILS: ${{ inputs.admin_emails }}
+          INPUT_NOEMA_INLINE_QA: ${{ inputs.noema_inline_qa }}
+          INPUT_QA_RATE_LIMIT_MAX: ${{ inputs.qa_rate_limit_max }}
+          INPUT_QA_RATE_LIMIT_WINDOW_MINUTES: ${{ inputs.qa_rate_limit_window_minutes }}
         run: |
-          EXTRA_CTX=""
-          if [ -n "${{ inputs.alarm_email }}" ]; then
-            EXTRA_CTX="$EXTRA_CTX -c alarmEmail=${{ inputs.alarm_email }}"
+          set -euo pipefail
+
+          ctx_args=()
+          if [[ -n "${INPUT_ALARM_EMAIL}" ]]; then
+            ctx_args+=(-c "alarmEmail=${INPUT_ALARM_EMAIL}")
           fi
-          if [ -n "${{ inputs.cognito_domain_prefix }}" ]; then
-            EXTRA_CTX="$EXTRA_CTX -c cognitoDomainPrefix=${{ inputs.cognito_domain_prefix }}"
+          if [[ -n "${INPUT_COGNITO_DOMAIN_PREFIX}" ]]; then
+            ctx_args+=(-c "cognitoDomainPrefix=${INPUT_COGNITO_DOMAIN_PREFIX}")
           fi
-          if [ "${{ inputs.create_github_deploy_role }}" = "true" ]; then
-            if [ -z "${{ inputs.github_repo }}" ]; then
+          if [[ "${INPUT_CREATE_GITHUB_DEPLOY_ROLE}" == "true" ]]; then
+            if [[ -z "${INPUT_GITHUB_REPO}" ]]; then
               echo "github_repo is required when create_github_deploy_role=true"
               exit 1
             fi
-            EXTRA_CTX="$EXTRA_CTX -c createGithubDeployRole=true -c githubRepo=${{ inputs.github_repo }} -c githubRefPattern=${{ inputs.github_ref_pattern }}"
+            ctx_args+=(
+              -c "createGithubDeployRole=true"
+              -c "githubRepo=${INPUT_GITHUB_REPO}"
+              -c "githubRefPattern=${INPUT_GITHUB_REF_PATTERN}"
+            )
           fi
-          EXTRA_CTX="$EXTRA_CTX -c qaModelProvider=${{ inputs.qa_model_provider }} -c openAiModelSmall=${{ inputs.openai_model_small }}"
-          if [ -n "${{ inputs.openai_model_mid }}" ]; then
-            EXTRA_CTX="$EXTRA_CTX -c openAiModelMid=${{ inputs.openai_model_mid }}"
+          ctx_args+=(-c "qaModelProvider=${INPUT_QA_MODEL_PROVIDER}" -c "openAiModelSmall=${INPUT_OPENAI_MODEL_SMALL}")
+          if [[ -n "${INPUT_OPENAI_MODEL_MID}" ]]; then
+            ctx_args+=(-c "openAiModelMid=${INPUT_OPENAI_MODEL_MID}")
           fi
-          if [ -n "${{ inputs.openai_model_large }}" ]; then
-            EXTRA_CTX="$EXTRA_CTX -c openAiModelLarge=${{ inputs.openai_model_large }}"
+          if [[ -n "${INPUT_OPENAI_MODEL_LARGE}" ]]; then
+            ctx_args+=(-c "openAiModelLarge=${INPUT_OPENAI_MODEL_LARGE}")
           fi
-          if [ -n "${{ inputs.openai_api_key_ssm_parameter }}" ]; then
-            EXTRA_CTX="$EXTRA_CTX -c openAiApiKeySsmParameter=${{ inputs.openai_api_key_ssm_parameter }}"
+          if [[ -n "${INPUT_OPENAI_API_KEY_SSM_PARAMETER}" ]]; then
+            ctx_args+=(-c "openAiApiKeySsmParameter=${INPUT_OPENAI_API_KEY_SSM_PARAMETER}")
           fi
-          if [ -n "${{ inputs.admin_emails }}" ]; then
-            EXTRA_CTX="$EXTRA_CTX -c adminEmails=${{ inputs.admin_emails }}"
+          if [[ -n "${INPUT_ADMIN_EMAILS}" ]]; then
+            ctx_args+=(-c "adminEmails=${INPUT_ADMIN_EMAILS}")
           fi
-          EXTRA_CTX="$EXTRA_CTX -c noemaInlineQa=${{ inputs.noema_inline_qa }}"
-          EXTRA_CTX="$EXTRA_CTX -c qaRateLimitMax=${{ inputs.qa_rate_limit_max }} -c qaRateLimitWindowMinutes=${{ inputs.qa_rate_limit_window_minutes }}"
+          ctx_args+=(
+            -c "noemaInlineQa=${INPUT_NOEMA_INLINE_QA}"
+            -c "qaRateLimitMax=${INPUT_QA_RATE_LIMIT_MAX}"
+            -c "qaRateLimitWindowMinutes=${INPUT_QA_RATE_LIMIT_WINDOW_MINUTES}"
+          )
 
           npm run deploy -- --require-approval never \
-            -c stage=${{ inputs.stack_stage }} \
-            -c frontendUrl=${{ inputs.frontend_url }} \
-            $EXTRA_CTX
+            -c "stage=${INPUT_STACK_STAGE}" \
+            -c "frontendUrl=${INPUT_FRONTEND_URL}" \
+            "${ctx_args[@]}"

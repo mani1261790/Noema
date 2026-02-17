@@ -36,6 +36,7 @@ export class NoemaStack extends Stack {
     const githubRepo = String(this.node.tryGetContext("githubRepo") ?? "");
     const githubRefPattern = String(this.node.tryGetContext("githubRefPattern") ?? "refs/heads/main");
     const createGithubDeployRole = String(this.node.tryGetContext("createGithubDeployRole") ?? "false") === "true";
+    const cdkBootstrapQualifier = String(this.node.tryGetContext("cdkBootstrapQualifier") ?? "hnb659fds");
     const qaModelProvider = String(this.node.tryGetContext("qaModelProvider") ?? "auto");
     const noemaInlineQa = String(this.node.tryGetContext("noemaInlineQa") ?? "false");
     const adminEmails = String(this.node.tryGetContext("adminEmails") ?? "");
@@ -518,6 +519,14 @@ export class NoemaStack extends Stack {
         }),
         description: "GitHub Actions OIDC role for Noema deployments"
       });
+      const account = cdk.Aws.ACCOUNT_ID;
+      const region = cdk.Aws.REGION;
+      const bootstrapRoleArns = [
+        `arn:${cdk.Aws.PARTITION}:iam::${account}:role/cdk-${cdkBootstrapQualifier}-deploy-role-${account}-${region}`,
+        `arn:${cdk.Aws.PARTITION}:iam::${account}:role/cdk-${cdkBootstrapQualifier}-file-publishing-role-${account}-${region}`,
+        `arn:${cdk.Aws.PARTITION}:iam::${account}:role/cdk-${cdkBootstrapQualifier}-image-publishing-role-${account}-${region}`,
+        `arn:${cdk.Aws.PARTITION}:iam::${account}:role/cdk-${cdkBootstrapQualifier}-lookup-role-${account}-${region}`
+      ];
       githubDeployRole.addToPolicy(
         new iam.PolicyStatement({
           actions: [
@@ -532,22 +541,16 @@ export class NoemaStack extends Stack {
             "sqs:*",
             "sns:*",
             "cognito-idp:*",
-            "iam:CreateRole",
-            "iam:DeleteRole",
-            "iam:GetRole",
-            "iam:UpdateRole",
-            "iam:PassRole",
-            "iam:TagRole",
-            "iam:UntagRole",
-            "iam:AttachRolePolicy",
-            "iam:DetachRolePolicy",
-            "iam:PutRolePolicy",
-            "iam:DeleteRolePolicy",
-            "iam:UpdateAssumeRolePolicy",
             "ssm:GetParameter",
             "ssm:GetParameters"
           ],
           resources: ["*"]
+        })
+      );
+      githubDeployRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ["sts:AssumeRole"],
+          resources: bootstrapRoleArns
         })
       );
 

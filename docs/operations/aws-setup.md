@@ -174,6 +174,9 @@ Run workflow `Deploy Static Assets` with:
 - `notebooks_table`: stack output table name (usually `noema-prod-notebooks`)
 - `cloudfront_distribution_id`: `CloudFrontDistributionId`
 
+Run workflow `Deploy Infra` with `run_cdk_bootstrap=false` for normal deploys.
+Set `run_cdk_bootstrap=true` only when CDK bootstrap is not initialized yet.
+
 ## 9. Smoke checks after deploy
 
 ### 9.1 Frontend

@@ -156,8 +156,8 @@ const ADMIN_EMAILS = new Set(
 );
 
 const INLINE_QA = (process.env.NOEMA_INLINE_QA || "false").toLowerCase() === "true";
-const QA_RATE_LIMIT_MAX = Math.max(1, Number(process.env.QA_RATE_LIMIT_MAX || 6));
-const QA_RATE_LIMIT_WINDOW_MINUTES = Math.max(1, Number(process.env.QA_RATE_LIMIT_WINDOW_MINUTES || 1));
+const QA_RATE_LIMIT_MAX = parsePositiveInt(process.env.QA_RATE_LIMIT_MAX, 6);
+const QA_RATE_LIMIT_WINDOW_MINUTES = parsePositiveInt(process.env.QA_RATE_LIMIT_WINDOW_MINUTES, 1);
 
 let openAiApiKeyPromise: Promise<string | null> | null = null;
 
@@ -175,6 +175,12 @@ function nowIso(): string {
 
 function epochSeconds(daysFromNow: number): number {
   return Math.floor(Date.now() / 1000) + daysFromNow * 24 * 60 * 60;
+}
+
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.floor(parsed));
 }
 
 function toNumber(value: unknown): number {
@@ -307,23 +313,75 @@ async function putAccessLog(userId: string, notebookId: string, action: string) 
 }
 
 async function ensureQuestionRateLimit(userId: string) {
-  const from = new Date(Date.now() - QA_RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
-  const response = await ddb.send(
-    new QueryCommand({
-      TableName: QUESTIONS_TABLE,
-      IndexName: "user-createdAt-index",
-      KeyConditionExpression: "userId = :userId AND createdAt >= :from",
-      ExpressionAttributeValues: {
-        ":userId": userId,
-        ":from": from
-      },
-      Select: "COUNT",
-      Limit: QA_RATE_LIMIT_MAX
-    })
-  );
+  const now = Date.now();
+  const windowMs = QA_RATE_LIMIT_WINDOW_MINUTES * 60_000;
+  const windowFloor = now - windowMs;
+  const rateLimitKey = `ratelimit:${userId}`;
+  const expiresAt = Math.floor((now + windowMs * 2) / 1000);
 
-  if ((response.Count ?? 0) >= QA_RATE_LIMIT_MAX) {
-    throw new Error("Rate limit exceeded. Please wait and retry.");
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: CACHE_TABLE,
+        Key: { cacheKey: rateLimitKey },
+        ConditionExpression: "attribute_exists(windowStartedAt) AND windowStartedAt > :windowFloor AND requestCount < :max",
+        UpdateExpression: "ADD requestCount :inc SET expiresAt = :expiresAt",
+        ExpressionAttributeValues: {
+          ":inc": 1,
+          ":max": QA_RATE_LIMIT_MAX,
+          ":expiresAt": expiresAt,
+          ":windowFloor": windowFloor
+        }
+      })
+    );
+    return;
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name !== "ConditionalCheckFailedException") throw error;
+  }
+
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: CACHE_TABLE,
+        Key: { cacheKey: rateLimitKey },
+        ConditionExpression: "attribute_not_exists(windowStartedAt) OR windowStartedAt <= :windowFloor",
+        UpdateExpression: "SET windowStartedAt = :now, requestCount = :one, expiresAt = :expiresAt",
+        ExpressionAttributeValues: {
+          ":now": now,
+          ":one": 1,
+          ":windowFloor": windowFloor,
+          ":expiresAt": expiresAt
+        }
+      })
+    );
+    return;
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name !== "ConditionalCheckFailedException") throw error;
+  }
+
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: CACHE_TABLE,
+        Key: { cacheKey: rateLimitKey },
+        ConditionExpression: "windowStartedAt > :windowFloor AND requestCount < :max",
+        UpdateExpression: "ADD requestCount :inc SET expiresAt = :expiresAt",
+        ExpressionAttributeValues: {
+          ":inc": 1,
+          ":max": QA_RATE_LIMIT_MAX,
+          ":windowFloor": windowFloor,
+          ":expiresAt": expiresAt
+        }
+      })
+    );
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "ConditionalCheckFailedException") {
+      throw new Error("Rate limit exceeded. Please wait and retry.");
+    }
+    throw error;
   }
 }
 
