@@ -91,94 +91,29 @@
   <main>
 <article class="prose-noema">
 <h1 id="基本的なpythonの操作">基本的なPythonの操作</h1>
-<p>このノートでは、機械学習学習前に必須となるPython基礎を、**実行しながら**確認します。</p>
-<p>対象: 学部1年生レベルの初学者</p>
+<p>基本的なPythonの操作を、初学者が「概念 -&gt; 理論 -&gt; 実装」の順に理解できるように整理します。</p>
 <h2 id="学習目標">学習目標</h2>
-<p>- 変数・型・演算の基本を説明できる<br>- 条件分岐・ループ・関数を使って小さな処理を書ける<br>- リスト/辞書などの基本データ構造を使い分けられる<br>- 例外処理の最小パターンを理解する</p>
-<h2 id="1-変数と基本型">1. 変数と基本型</h2>
-<p>Pythonでは、値に名前を付けて変数として扱います。</p>
-<pre><code class="language-python">age = 19
-height = 168.5
-name = &quot;Noema&quot;
-is_student = True
-
-print(age, type(age))
-print(height, type(height))
-print(name, type(name))
-print(is_student, type(is_student))</code></pre>
-<h2 id="2-演算と文字列フォーマット">2. 演算と文字列フォーマット</h2>
-<p>四則演算とf-stringは、データ分析コードで頻繁に使います。</p>
-<pre><code class="language-python">x = 7
-y = 3
-
-print(&quot;x + y =&quot;, x + y)
-print(&quot;x - y =&quot;, x - y)
-print(&quot;x * y =&quot;, x * y)
-print(&quot;x / y =&quot;, x / y)
-print(&quot;x // y =&quot;, x // y)
-print(&quot;x % y =&quot;, x % y)
-
-score = 84
-print(f&quot;{name} さんのスコアは {score} 点です&quot;)</code></pre>
-<h3 id="補足-の違い">補足: /, //, % の違い</h3>
-<p>- `/` : 実数として割り算（例: 7 / 3 = 2.333...）<br>- `//` : 商の整数部分（床）<br>- `%` : 余り</p>
-<p>特にデータ件数をバッチ分割するときに `//` と `%` をよく使います。</p>
-<h2 id="3-条件分岐とループ">3. 条件分岐とループ</h2>
-<p>if文とfor文で、条件に応じた処理や反復処理を記述します。</p>
-<pre><code class="language-python">temperature = 26
-if temperature &gt;= 25:
-    print(&quot;暑いです&quot;)
-else:
-    print(&quot;暑くないです&quot;)
-
-squares = []
-for n in range(1, 6):
-    squares.append(n ** 2)
-
-# 同じ処理をリスト内包表記で書くと次のようになります
-squares_comp = [n ** 2 for n in range(1, 6)]
-
-print(&quot;1~5 の二乗(for):&quot;, squares)
-print(&quot;1~5 の二乗(comprehension):&quot;, squares_comp)</code></pre>
-<h2 id="4-関数">4. 関数</h2>
-<p>関数は「入力を受け取り、結果を返す」再利用可能な処理のまとまりです。</p>
-<pre><code class="language-python">def mean(values):
-    &quot;&quot;&quot;平均値を返す。空配列は0.0を返す。&quot;&quot;&quot;
-    if len(values) == 0:
-        return 0.0
-    return sum(values) / len(values)
-
-samples = [3, 7, 9, 11]
-print(&quot;samples =&quot;, samples)
-print(&quot;mean =&quot;, mean(samples))</code></pre>
-<h2 id="5-基本データ構造-list-tuple-dict-set">5. 基本データ構造（list / tuple / dict / set）</h2>
-<p>- `list` : 順序あり・変更可能<br>- `tuple` : 順序あり・変更不可（イミュータブル）<br>- `dict` : キーと値の対応<br>- `set` : 重複なし集合</p>
-<p>機械学習前処理では、これらの型を使い分けます。</p>
-<pre><code class="language-python">numbers = [2, 4, 6, 8]
-point = (10, 20)
-student = {&quot;name&quot;: &quot;Aoi&quot;, &quot;grade&quot;: 1, &quot;score&quot;: 92}
-tags = {&quot;python&quot;, &quot;ml&quot;, &quot;python&quot;}
-
-print(&quot;list:&quot;, numbers)
-print(&quot;tuple:&quot;, point)
-print(&quot;dict:&quot;, student)
-print(&quot;set:&quot;, tags)
-print(&quot;dict access:&quot;, student[&quot;name&quot;], student[&quot;score&quot;])</code></pre>
-<h2 id="6-例外処理-try-except">6. 例外処理（try / except）</h2>
-<p>エラーで処理が止まるのを防ぎ、原因を把握しやすくします。</p>
-<pre><code class="language-python">def safe_divide(a, b):
-    try:
-        return a / b
-    except ZeroDivisionError:
-        print(&quot;0で割ることはできません&quot;)
-        return None
-
-print(safe_divide(10, 2))
-print(safe_divide(10, 0))</code></pre>
-<h2 id="7-演習">7. 演習</h2>
-<p>以下を自分で実装してみてください。<br>1. 1から100までの偶数だけをリストに入れて表示する。<br>2. 辞書 `{&quot;math&quot;: 78, &quot;english&quot;: 85, &quot;science&quot;: 90}` の平均点を求める関数を書く。<br>3. 文字列のリストから、長さが3以上の単語だけを抽出する。</p>
+<p>- このテーマの中心概念を説明できる<br>- 最低限の数式/アルゴリズムの意味を追える<br>- 実装例を実行し、出力を解釈できる</p>
+<h2 id="前提知識">前提知識</h2>
+<p>- 必須: Python基礎（変数・関数・リスト/辞書）<br>- 推奨: 線形代数・確率統計の初歩<br>- 目安: 数式の各記号を言葉に置き換えられること</p>
+<h2 id="直感">直感</h2>
+<p>一言で言うと: 基本的なPythonの操作は、複雑な対象を分解し、計算可能な形に落とし込む技術です。<br>理論を読む前に、まず『何を入力して何を出したいか』を図で考えると理解が速くなります。</p>
+<h2 id="理論">理論</h2>
+<p>- 基本的なPythonの操作で扱う主要な前提・仮定を明確にする。<br>- 評価指標または目的関数を明確にし、何を最適化するかを定義する。<br>- 実装時にはデータ前処理と境界条件の扱いが結果を大きく左右する。</p>
+<h3 id="代表式">代表式</h3>
+<p>- $f(x)$ の振る舞いをコードで確認し、仮説と実測の差を観察する。</p>
+<h2 id="実装の流れ">実装の流れ</h2>
+<p>1. 最小の入力データを準備し、入出力の型・次元を確認する。<br>2. 理論式に対応する計算を小さなコードで再現する。<br>3. 中間値を可視化/出力して、期待と一致しているか検証する。<br>4. 条件を変えたときの挙動を比較し、感度を確認する。</p>
+<pre><code class="language-python">data = [1, 2, 3, 4, 5]
+squared = [x**2 for x in data]
+print(&#39;data   =&#39;, data)
+print(&#39;square =&#39;, squared)</code></pre>
+<h2 id="よくあるつまずき">よくあるつまずき</h2>
+<p>- 式やアルゴリズムを暗記だけで進め、前提条件を見落とす。<br>- データのスケール・欠損・外れ値を確認せずに学習/推論を行う。<br>- 評価指標を1つだけ見て結論を急ぎ、失敗ケース分析を省略する。</p>
+<h2 id="演習">演習</h2>
+<p>1. ノートのコードを一部書き換えて、出力がどう変化するか説明する。<br>2. 理論式の各項が何を意味するか、自分の言葉で1行ずつ説明する。<br>3. 実運用を想定し、入力異常（欠損・外れ値・分布ずれ）への対処案を3つ挙げる。</p>
 <h2 id="まとめ">まとめ</h2>
-<p>このノートで扱った文法は、以降のNumPy/Pandas/機械学習実装の土台になります。<br>次のノートでは、配列演算に強いNumPyを学びます。</p>
+<p>基本的なPythonの操作の基本を確認しました。次は「NumPyの使い方」で、関連テーマを一段深く扱います。</p>
 </article>
   </main>
   <script src="/highlight/highlight.min.js"></script>
