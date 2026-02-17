@@ -573,10 +573,6 @@
 
     .assistant-title { font-weight: 700; font-size: 24px; margin: 0; }
 
-    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .card { border-radius: 12px; padding: 10px; font-size: 13px; }
-    .card p { margin: 4px 0 0; color: var(--muted); }
-
     #chat-log {
       min-height: 0;
       flex: 1;
@@ -625,7 +621,7 @@
     }
 
     select { padding: 8px 10px; }
-    textarea { min-height: 86px; padding: 10px; resize: vertical; }
+    textarea { min-height: 86px; padding: 10px; resize: none; }
 
     .fab {
       position: fixed;
@@ -739,16 +735,7 @@
             <h3 class="assistant-title">Assistant</h3>
             <div style="display:flex; gap:6px;">
               <button class="button-ghost" id="new-chat" type="button">New</button>
-            </div>
-          </div>
-          <div class="cards">
-            <div class="card glass-soft">
-              <strong>Highlight & Ask</strong>
-              <p>本文選択 + 質問で選択範囲を優先解説します。</p>
-            </div>
-            <div class="card glass-soft">
-              <strong>Add Context</strong>
-              <p>セクション指定で関連チャンクを絞って回答します。</p>
+              <button class="button-ghost" id="chat-history" type="button">History</button>
             </div>
           </div>
         </div>
@@ -756,10 +743,7 @@
         <div id="chat-log" class="glass-soft"></div>
 
         <div class="controls">
-          <div class="control-row">
-            <select id="section-select"></select>
-            <button class="button-ghost" id="pick-selection" type="button">selection</button>
-          </div>
+          <select id="section-select" style="display:none;"></select>
           <textarea id="chat-input" placeholder="ノート内容について質問する..."></textarea>
           <button class="button" id="send-chat" type="button">送信</button>
         </div>
@@ -824,12 +808,12 @@
         selectionCard: document.getElementById("selection-card"),
         selectionText: document.getElementById("selection-text"),
         clearSelection: document.getElementById("clear-selection"),
-        pickSelection: document.getElementById("pick-selection"),
         brandHome: document.getElementById("brand-home"),
         loginLink: document.getElementById("login-link"),
         adminLink: document.getElementById("admin-link"),
         adminLinkMobile: document.getElementById("admin-link-mobile"),
         newChat: document.getElementById("new-chat"),
+        chatHistory: document.getElementById("chat-history"),
         sidebarOverlay: document.getElementById("sidebar-overlay"),
         chatOverlay: document.getElementById("chat-overlay"),
         openSidebar: document.getElementById("open-sidebar"),
@@ -1505,6 +1489,79 @@
         }
       }
 
+      async function loadQuestionHistory() {
+        if (!state.loggedIn) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const notebook = state.activeNotebook;
+        if (!notebook) {
+          pushMessage("system", "先にサイドバーから教材を選択してください。");
+          return;
+        }
+
+        const token = getToken();
+        if (!token) {
+          pushMessage("system", "セッションが切れています。再ログインしてください。");
+          setChatOpen(false);
+          updateAuthState();
+          return;
+        }
+
+        el.chatHistory.disabled = true;
+        const before = el.chatHistory.textContent;
+        el.chatHistory.textContent = "Loading...";
+
+        try {
+          const response = await fetch(
+            `${API_BASE}/api/questions/history?notebookId=${encodeURIComponent(notebook.id)}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (!response.ok) {
+            let error = "履歴の取得に失敗しました";
+            try {
+              const payload = await response.json();
+              if (payload && payload.error) error = payload.error;
+            } catch {}
+            throw new Error(error);
+          }
+
+          const payload = await response.json();
+          const items = Array.isArray(payload?.items) ? payload.items : [];
+
+          if (!items.length) {
+            state.messages = [ { role: "system", text: "このノートの履歴はまだありません。", meta: {} } ];
+            renderMessages();
+            return;
+          }
+
+          const sorted = items
+            .slice()
+            .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+          state.messages = [];
+          sorted.forEach((item) => {
+            if (item.questionText) {
+              state.messages.push({ role: "user", text: String(item.questionText), meta: {} });
+            }
+            if (item.answerText) {
+              const refs = Array.isArray(item.sourceReferences)
+                ? item.sourceReferences.map((source) => `${source.notebookId || ""}${source.location || ""}`).join(", ")
+                : "";
+              state.messages.push({ role: "assistant", text: String(item.answerText), meta: refs ? { refs } : {} });
+            }
+          });
+          renderMessages();
+        } catch (error) {
+          pushMessage("system", error instanceof Error ? error.message : "履歴の取得に失敗しました");
+        } finally {
+          el.chatHistory.disabled = false;
+          el.chatHistory.textContent = before || "History";
+        }
+      }
+
       function setChatOpen(open) {
         if (open && !state.loggedIn) {
           window.location.href = "/login";
@@ -1627,17 +1684,6 @@
         }
       });
 
-      el.pickSelection.addEventListener("click", function () {
-        const selection = captureSelection();
-        if (!selection) {
-          pushMessage("system", "まずノート本文中のテキストを選択してください。");
-          return;
-        }
-        state.selectedText = selection.text;
-        state.selectedSection = selection.sectionId || "";
-        renderSelectionCard();
-      });
-
       el.clearSelection.addEventListener("click", function () {
         state.selectedText = "";
         state.selectedSection = "";
@@ -1647,6 +1693,10 @@
       el.newChat.addEventListener("click", function () {
         state.messages = [];
         renderMessages();
+      });
+
+      el.chatHistory.addEventListener("click", function () {
+        void loadQuestionHistory();
       });
 
       el.chatFab.addEventListener("click", function () {
