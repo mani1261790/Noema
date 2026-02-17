@@ -1,0 +1,52 @@
+name: Deploy Infra
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: AWS region
+        required: true
+        default: ap-northeast-3
+      stack_stage:
+        description: Stage suffix
+        required: true
+        default: prod
+      frontend_url:
+        description: Frontend URL for Cognito callback/logout
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: CDK bootstrap
+        run: npx cdk bootstrap
+
+      - name: CDK deploy
+        run: npm run deploy -- --require-approval never -c stage=${{ inputs.stack_stage }} -c frontendUrl=${{ inputs.frontend_url }}

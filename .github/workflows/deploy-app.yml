@@ -1,0 +1,64 @@
+name: Deploy Static Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: AWS region
+        required: true
+        default: ap-northeast-3
+      site_bucket:
+        description: Target S3 bucket for static web assets (public/*)
+        required: true
+      notebook_bucket:
+        description: Target S3 bucket for notebook HTML assets (public/notebooks/*)
+        required: true
+      cloudfront_distribution_id:
+        description: CloudFront distribution ID to invalidate
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-static-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build notebooks
+        run: npm run build:notebooks
+
+      - name: Build app
+        run: npm run build
+
+      - name: Upload site static files
+        run: |
+          aws s3 sync ./public s3://${{ inputs.site_bucket }} --delete
+
+      - name: Upload notebook html assets
+        run: |
+          aws s3 sync ./public/notebooks s3://${{ inputs.notebook_bucket }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ inputs.cloudfront_distribution_id }}" \
+            --paths "/*"
