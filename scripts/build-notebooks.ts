@@ -9,35 +9,100 @@ const CATALOG_OUTPUT_PATH = path.join(process.cwd(), "public", "catalog.json");
 
 function wrapNotebookHtml(title: string, bodyHtml: string): string {
   const safeTitle = title.replace(/[<>]/g, "");
-  return [
-    "<!doctype html>",
-    '<html lang="ja">',
-    "<head>",
-    '  <meta charset="utf-8" />',
-    '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
-    `  <title>${safeTitle}</title>`,
-    "  <style>",
-    "    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; margin: 0; padding: 2rem 1rem; background: #f4f8fb; color: #102027; }",
-    "    main { max-width: 960px; margin: 0 auto; background: rgba(255,255,255,0.82); border: 1px solid rgba(255,255,255,0.6); border-radius: 20px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); padding: 1.5rem; }",
-    "    .prose-noema h1, .prose-noema h2, .prose-noema h3 { color: #0b2d3f; line-height: 1.3; }",
-    "    .prose-noema h1 { margin-top: 0; font-size: 1.8rem; }",
-    "    .prose-noema h2 { margin-top: 1.2rem; font-size: 1.35rem; }",
-    "    .prose-noema p { line-height: 1.85; margin: 0.7rem 0; }",
-    "    .prose-noema pre { background: #09131a; color: #e6f0f5; border-radius: 12px; padding: 1rem; overflow: auto; }",
-    "    @media (prefers-color-scheme: dark) {",
-    "      body { background: #081018; color: #d3e6ef; }",
-    "      main { background: rgba(20,29,38,0.72); border-color: rgba(255,255,255,0.12); }",
-    "      .prose-noema h1, .prose-noema h2, .prose-noema h3 { color: #e8f6ff; }",
-    "    }",
-    "  </style>",
-    "</head>",
-    "<body>",
-    "  <main>",
-    bodyHtml,
-    "  </main>",
-    "</body>",
-    "</html>"
-  ].join("\n");
+  return `<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${safeTitle}</title>
+  <style>
+    :root {
+      --bg-0: #f3f8fb;
+      --bg-1: #d7e8f4;
+      --bg-2: #f9f1e7;
+      --text: #09162b;
+      --muted: #44556f;
+      --panel: rgba(255,255,255,.72);
+      --border: rgba(255,255,255,.62);
+      --code-bg: #09131a;
+      --code-text: #e6f0f5;
+      --shadow: 0 24px 54px rgba(10, 26, 54, 0.18), inset 0 1px 0 rgba(255,255,255,.62);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-0: #071225;
+        --bg-1: #0f2238;
+        --bg-2: #1a2f44;
+        --text: #ebf3ff;
+        --muted: #9db3cf;
+        --panel: rgba(12, 21, 40, 0.74);
+        --border: rgba(145, 183, 227, 0.33);
+        --code-bg: #040b17;
+        --code-text: #e4efff;
+        --shadow: 0 30px 66px rgba(2, 7, 16, 0.58), inset 0 1px 0 rgba(166,205,255,.16);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      color: var(--text);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 12% 12%, rgba(87,196,223,.18), transparent 44%),
+        radial-gradient(circle at 88% 5%, rgba(255, 155, 96, 0.16), transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(109, 196, 255, 0.2), transparent 45%),
+        linear-gradient(155deg, var(--bg-0) 0%, var(--bg-1) 48%, var(--bg-2) 100%);
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(20px) saturate(145%);
+      -webkit-backdrop-filter: blur(20px) saturate(145%);
+      box-shadow: var(--shadow);
+      padding: 1.25rem 1.25rem 1.5rem;
+    }
+    .prose-noema h1, .prose-noema h2, .prose-noema h3 {
+      line-height: 1.25;
+      margin-top: 1.25rem;
+      margin-bottom: .65rem;
+    }
+    .prose-noema h1 { margin-top: .1rem; font-size: 1.8rem; }
+    .prose-noema h2 { font-size: 1.35rem; }
+    .prose-noema p {
+      line-height: 1.85;
+      color: var(--text);
+      margin: .7rem 0;
+    }
+    .prose-noema a { color: inherit; text-underline-offset: 2px; }
+    .prose-noema pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 12px;
+      padding: 1rem;
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .prose-noema code {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .prose-noema img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+${bodyHtml}
+  </main>
+</body>
+</html>`;
 }
 
 async function main() {
