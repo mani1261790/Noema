@@ -34,6 +34,7 @@ export class NoemaStack extends Stack {
     const frontendUrl = String(this.node.tryGetContext("frontendUrl") ?? "https://example.com").replace(/\/$/, "");
     const alarmEmail = String(this.node.tryGetContext("alarmEmail") ?? "");
     const githubRepo = String(this.node.tryGetContext("githubRepo") ?? "");
+    const githubRefPattern = String(this.node.tryGetContext("githubRefPattern") ?? "refs/heads/main");
     const createGithubDeployRole = String(this.node.tryGetContext("createGithubDeployRole") ?? "false") === "true";
 
     const userPool = new cognito.UserPool(this, "UserPool", {
@@ -437,12 +438,32 @@ export class NoemaStack extends Stack {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
           },
           StringLike: {
-            "token.actions.githubusercontent.com:sub": `repo:${githubRepo}:ref:refs/heads/main`
+            "token.actions.githubusercontent.com:sub": `repo:${githubRepo}:ref:${githubRefPattern}`
           }
         }),
         description: "GitHub Actions OIDC role for Noema deployments"
       });
-      githubDeployRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"));
+      githubDeployRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "cloudformation:*",
+            "s3:*",
+            "cloudfront:*",
+            "lambda:*",
+            "apigateway:*",
+            "logs:*",
+            "cloudwatch:*",
+            "dynamodb:*",
+            "sqs:*",
+            "sns:*",
+            "cognito-idp:*",
+            "iam:*",
+            "ssm:GetParameter",
+            "ssm:GetParameters"
+          ],
+          resources: ["*"]
+        })
+      );
 
       new cdk.CfnOutput(this, "GitHubDeployRoleArn", {
         value: githubDeployRole.roleArn

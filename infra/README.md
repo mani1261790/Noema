@@ -50,7 +50,8 @@ npm run deploy -- --require-approval never \
   -c frontendUrl=https://your-frontend-domain \
   -c alarmEmail=you@example.com \
   -c createGithubDeployRole=true \
-  -c githubRepo=mani1261790/Noema
+  -c githubRepo=mani1261790/Noema \
+  -c githubRefPattern=refs/heads/main
 ```
 
 ## Useful outputs

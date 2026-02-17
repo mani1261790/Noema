@@ -30,6 +30,7 @@
 - `cognito_domain_prefix` (optional): custom Cognito domain prefix
 - `create_github_deploy_role` (optional): `true` to create OIDC role
 - `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
+- `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/main` or `refs/heads/*`
 
 ### Static asset workflow inputs (`Deploy Static Assets`)
 

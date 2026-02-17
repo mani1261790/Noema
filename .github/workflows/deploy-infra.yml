@@ -30,6 +30,10 @@ on:
         description: Repo slug for OIDC role trust (owner/repo)
         required: false
         default: ""
+      github_ref_pattern:
+        description: Git ref pattern for OIDC trust (ex refs/heads/main or refs/heads/*)
+        required: false
+        default: refs/heads/main
 
 permissions:
   id-token: write
@@ -78,7 +82,7 @@ jobs:
               echo "github_repo is required when create_github_deploy_role=true"
               exit 1
             fi
-            EXTRA_CTX="$EXTRA_CTX -c createGithubDeployRole=true -c githubRepo=${{ inputs.github_repo }}"
+            EXTRA_CTX="$EXTRA_CTX -c createGithubDeployRole=true -c githubRepo=${{ inputs.github_repo }} -c githubRefPattern=${{ inputs.github_ref_pattern }}"
           fi
 
           npm run deploy -- --require-approval never \
