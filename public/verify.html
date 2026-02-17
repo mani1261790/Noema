@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ログイン</title>
+  <title>認証コード入力</title>
   <style>
     :root {
       --bg-0: #081222;
@@ -34,7 +34,7 @@
     }
 
     .card {
-      width: min(92vw, 480px);
+      width: min(92vw, 500px);
       border-radius: 24px;
       border: 1px solid var(--border);
       background: var(--panel);
@@ -65,7 +65,7 @@
 
     h1 {
       margin: 0 0 8px 44px;
-      font-size: 30px;
+      font-size: 28px;
       line-height: 1.15;
     }
 
@@ -74,6 +74,31 @@
       line-height: 1.75;
       margin: 0 0 12px;
       font-size: 14px;
+    }
+
+    .mode-switch {
+      margin: 10px 0 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-btn {
+      border: 1px solid var(--border);
+      background: rgba(17, 34, 54, .48);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .mode-btn[data-active="true"] {
+      border-color: color-mix(in oklab, var(--accent) 64%, white);
+      background: linear-gradient(145deg, rgba(87,196,223,.30), rgba(60,172,199,.22));
+      color: #f8fdff;
+      font-weight: 700;
     }
 
     label {
@@ -147,7 +172,7 @@
     .status[data-state="visible"] {
       opacity: 1;
       transform: translateY(0);
-      max-height: 220px;
+      max-height: 260px;
       padding: 10px 12px;
     }
 
@@ -198,23 +223,36 @@
     .status-link:hover {
       text-decoration: underline;
     }
+
+    #password-wrap { display: none; }
+    #password-wrap.visible { display: block; }
   </style>
 </head>
 <body>
   <main class="card">
-    <a class="back" id="back-btn" href="/" aria-label="前のページへ戻る">‹</a>
-    <h1>ログイン</h1>
-    <p>ログイン済みユーザーのみ、LLM質問機能を利用できます。</p>
+    <a class="back" id="back-btn" href="/login" aria-label="前のページへ戻る">‹</a>
+    <h1>認証コード入力</h1>
+    <p>メールで届いた認証コードを入力してアカウント利用を有効化します。</p>
+
+    <div class="mode-switch">
+      <button class="mode-btn" id="mode-confirm" type="button" data-active="true">メール認証</button>
+      <button class="mode-btn" id="mode-reset" type="button" data-active="false">パスワード再設定</button>
+    </div>
 
     <label for="email">メールアドレス</label>
     <input id="email" type="email" autocomplete="email" />
 
-    <label for="password">パスワード</label>
-    <input id="password" type="password" autocomplete="current-password" />
+    <label for="code">認証コード</label>
+    <input id="code" type="text" autocomplete="one-time-code" />
 
-    <button class="button" id="login-btn" type="button">ログイン</button>
-    <button class="button-ghost" id="signup-btn" type="button">新規登録</button>
-    <a class="button-ghost" id="verify-entry-link" href="/verify.html">認証コード入力はこちら</a>
+    <div id="password-wrap">
+      <label for="new-password">新しいパスワード</label>
+      <input id="new-password" type="password" autocomplete="new-password" minlength="8" />
+    </div>
+
+    <button class="button" id="primary-btn" type="button">認証を完了する</button>
+    <button class="button-ghost" id="resend-btn" type="button">確認コードを再送する</button>
+    <a class="button-ghost" href="/login">ログインページへ戻る</a>
 
     <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
       <div class="status-head" id="status-head"></div>
@@ -228,33 +266,33 @@
       const REGION = "ap-northeast-3";
       const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
-      const TOKEN_KEY = "noema_id_token";
       const statusTitles = {
         info: "Information",
         success: "Success",
         error: "Error"
       };
 
+      const params = new URLSearchParams(window.location.search);
+
       const emailEl = document.getElementById("email");
-      const passwordEl = document.getElementById("password");
+      const codeEl = document.getElementById("code");
+      const newPasswordEl = document.getElementById("new-password");
+      const passwordWrap = document.getElementById("password-wrap");
+      const primaryBtn = document.getElementById("primary-btn");
+      const resendBtn = document.getElementById("resend-btn");
+      const modeConfirmBtn = document.getElementById("mode-confirm");
+      const modeResetBtn = document.getElementById("mode-reset");
       const statusEl = document.getElementById("status");
       const statusHeadEl = document.getElementById("status-head");
       const statusBodyEl = document.getElementById("status-body");
       const statusActionEl = document.getElementById("status-action");
-      const params = new URLSearchParams(window.location.search);
 
       const initialEmail = (params.get("email") || "").trim();
       if (initialEmail) {
         emailEl.value = initialEmail;
       }
 
-      function buildVerifyUrl(email, mode) {
-        const params = new URLSearchParams();
-        if (email) params.set("email", email);
-        if (mode) params.set("mode", mode);
-        const suffix = params.toString();
-        return `/verify.html${suffix ? `?${suffix}` : ""}`;
-      }
+      let mode = params.get("mode") === "reset" ? "reset" : "confirm";
 
       function setStatus(kind, message, title, action) {
         if (!message) {
@@ -282,24 +320,38 @@
 
       function normalizeCognitoErrorMessage(rawMessage) {
         const message = String(rawMessage || "");
-        if (!message) return "認証に失敗しました。時間をおいて再試行してください。";
+        if (!message) return "処理に失敗しました。時間をおいて再試行してください。";
 
+        if (message.includes("CodeMismatchException")) {
+          return "認証コードが正しくありません。メール内の最新コードを入力してください。";
+        }
+        if (message.includes("ExpiredCodeException")) {
+          return "認証コードの有効期限が切れています。コードを再送してください。";
+        }
+        if (message.includes("UserNotFoundException")) {
+          return "このメールアドレスのアカウントが見つかりません。先に新規登録してください。";
+        }
         if (message.includes("NotAuthorizedException")) {
-          return "メールアドレスまたはパスワードが正しくありません。";
-        }
-        if (message.includes("UserNotConfirmedException")) {
-          return "メール確認が完了していません。受信メールの確認手続きを先に実行してください。";
-        }
-        if (message.includes("UsernameExistsException")) {
-          return "このメールアドレスは既に登録済みです。ログインをお試しください。";
-        }
-        if (message.includes("InvalidPasswordException")) {
-          return "パスワード要件を満たしていません。英字・数字を含む8文字以上で設定してください。";
+          return "この操作は現在の状態では実行できません。コード再送またはログインをお試しください。";
         }
         if (message.includes("TooManyRequestsException")) {
           return "試行回数が多いため一時的に制限されています。数分後に再試行してください。";
         }
+        if (message.includes("InvalidPasswordException")) {
+          return "パスワード要件を満たしていません。英字・数字を含む8文字以上で設定してください。";
+        }
         return message.replace(/^.*?:\s*/, "").trim() || "認証処理に失敗しました。";
+      }
+
+      function setMode(nextMode) {
+        mode = nextMode === "reset" ? "reset" : "confirm";
+        modeConfirmBtn.dataset.active = mode === "confirm" ? "true" : "false";
+        modeResetBtn.dataset.active = mode === "reset" ? "true" : "false";
+
+        const resetMode = mode === "reset";
+        passwordWrap.classList.toggle("visible", resetMode);
+        primaryBtn.textContent = resetMode ? "パスワードを更新する" : "認証を完了する";
+        resendBtn.textContent = resetMode ? "再設定コードを送信する" : "確認コードを再送する";
       }
 
       async function cognitoCall(target, payload) {
@@ -317,118 +369,104 @@
           const message = data.message || data.Message || `${target} failed`;
           throw new Error(message);
         }
-
         return data;
       }
 
-      async function login() {
+      async function submitPrimary() {
         const email = emailEl.value.trim().toLowerCase();
-        const password = passwordEl.value;
-        if (!email || !password) {
-          setStatus("error", "メールアドレスとパスワードを入力してください。", "入力が必要です");
+        const code = codeEl.value.trim();
+        const newPassword = newPasswordEl.value;
+
+        if (!email || !code) {
+          setStatus("error", "メールアドレスと認証コードを入力してください。", "入力が必要です");
           return;
         }
 
-        setStatus("info", "ログイン処理中です。少しお待ちください。", "サインイン中");
+        if (mode === "reset" && !newPassword) {
+          setStatus("error", "新しいパスワードを入力してください。", "入力が必要です");
+          return;
+        }
+
+        setStatus("info", "認証処理中です。少しお待ちください。", "処理中");
 
         try {
-          const data = await cognitoCall("InitiateAuth", {
-            AuthFlow: "USER_PASSWORD_AUTH",
-            ClientId: CLIENT_ID,
-            AuthParameters: {
-              USERNAME: email,
-              PASSWORD: password
-            }
-          });
-
-          const idToken = data?.AuthenticationResult?.IdToken;
-          if (!idToken) {
-            throw new Error("IDトークンが取得できませんでした。");
+          if (mode === "confirm") {
+            await cognitoCall("ConfirmSignUp", {
+              ClientId: CLIENT_ID,
+              Username: email,
+              ConfirmationCode: code
+            });
+            setStatus(
+              "success",
+              "メール認証が完了しました。ログインページからサインインしてください。",
+              "認証完了",
+              { label: "ログインページへ", href: `/login?email=${encodeURIComponent(email)}` }
+            );
+            return;
           }
 
-          localStorage.setItem(TOKEN_KEY, idToken);
-          setStatus("success", "ログインに成功しました。トップページへ移動します。", "完了");
-          setTimeout(() => {
-            window.location.href = "/";
-          }, 450);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          setStatus("error", normalizeCognitoErrorMessage(message), "ログイン失敗");
-        }
-      }
-
-      async function signup() {
-        const email = emailEl.value.trim().toLowerCase();
-        const password = passwordEl.value;
-        if (!email || !password) {
-          setStatus("error", "新規登録にはメールアドレスとパスワードを入力してください。", "入力が必要です");
-          return;
-        }
-
-        setStatus("info", "新規登録処理中です。少しお待ちください。", "アカウント作成中");
-
-        try {
-          await cognitoCall("SignUp", {
+          await cognitoCall("ConfirmForgotPassword", {
             ClientId: CLIENT_ID,
             Username: email,
-            Password: password,
-            UserAttributes: [{ Name: "email", Value: email }]
+            ConfirmationCode: code,
+            Password: newPassword
           });
-
           setStatus(
             "success",
-            "登録を受け付けました。メールに届いた確認コードを入力して認証を完了してください。",
-            "登録完了",
-            { label: "認証コード入力はこちら", href: buildVerifyUrl(email, "confirm") }
+            "パスワードを更新しました。ログインページからサインインしてください。",
+            "更新完了",
+            { label: "ログインページへ", href: `/login?email=${encodeURIComponent(email)}` }
           );
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          if (message.includes("UsernameExistsException")) {
-            let handled = false;
-
-            try {
-              await cognitoCall("ResendConfirmationCode", {
-                ClientId: CLIENT_ID,
-                Username: email
-              });
-              handled = true;
-              setStatus(
-                "success",
-                "このメールアドレスは既に登録済みです。確認コードを再送しました。認証コード入力ページで認証を完了してください。",
-                "登録受付済み",
-                { label: "認証コード入力はこちら", href: buildVerifyUrl(email, "confirm") }
-              );
-            } catch {}
-
-            if (!handled) {
-              try {
-                await cognitoCall("ForgotPassword", {
-                  ClientId: CLIENT_ID,
-                  Username: email
-                });
-                handled = true;
-                setStatus(
-                  "success",
-                  "このメールアドレスは既に存在するため、パスワード再設定コードを送信しました。認証コード入力ページで新しいパスワードを設定してください。",
-                  "再設定コード送信済み",
-                  { label: "認証コード入力はこちら", href: buildVerifyUrl(email, "reset") }
-                );
-              } catch {}
-            }
-
-            if (handled) return;
-          }
-
-          setStatus("error", normalizeCognitoErrorMessage(message), "登録失敗");
+          setStatus("error", normalizeCognitoErrorMessage(message), "処理失敗");
         }
       }
 
-      document.getElementById("login-btn").addEventListener("click", function () {
-        void login();
+      async function resendCode() {
+        const email = emailEl.value.trim().toLowerCase();
+        if (!email) {
+          setStatus("error", "メールアドレスを入力してください。", "入力が必要です");
+          return;
+        }
+
+        setStatus("info", "コード送信中です。少しお待ちください。", "送信中");
+
+        try {
+          if (mode === "confirm") {
+            await cognitoCall("ResendConfirmationCode", {
+              ClientId: CLIENT_ID,
+              Username: email
+            });
+            setStatus("success", "確認コードを再送しました。受信メールをご確認ください。", "送信完了");
+            return;
+          }
+
+          await cognitoCall("ForgotPassword", {
+            ClientId: CLIENT_ID,
+            Username: email
+          });
+          setStatus("success", "パスワード再設定コードを送信しました。受信メールをご確認ください。", "送信完了");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setStatus("error", normalizeCognitoErrorMessage(message), "送信失敗");
+        }
+      }
+
+      modeConfirmBtn.addEventListener("click", function () {
+        setMode("confirm");
       });
 
-      document.getElementById("signup-btn").addEventListener("click", function () {
-        void signup();
+      modeResetBtn.addEventListener("click", function () {
+        setMode("reset");
+      });
+
+      primaryBtn.addEventListener("click", function () {
+        void submitPrimary();
+      });
+
+      resendBtn.addEventListener("click", function () {
+        void resendCode();
       });
 
       document.getElementById("back-btn").addEventListener("click", function (event) {
@@ -439,12 +477,8 @@
         }
       });
 
-      const existing = localStorage.getItem(TOKEN_KEY);
-      if (existing) {
-        setStatus("info", "既にログイン済みです。再ログインが必要な場合のみ入力してください。", "セッション有効");
-      } else {
-        setStatus("info", "", "");
-      }
+      setMode(mode);
+      setStatus("info", "", "");
     })();
   </script>
 </body>
