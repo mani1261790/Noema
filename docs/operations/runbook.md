@@ -44,13 +44,22 @@
 - `qa_rate_limit_window_minutes` (optional): rate-limit window minutes (default `1`)
 - `run_cdk_bootstrap` (optional): `true` only for first-time bootstrap (default `false`)
 
-### Static asset workflow inputs (`Deploy Static Assets`)
+### Static asset deploy (`Deploy Static Assets`)
 
-- `aws_region`: usually `ap-northeast-3`
-- `site_bucket`: stack output `SiteBucketName`
-- `notebook_bucket`: stack output `NotebookBucketName`
-- `notebooks_table`: stack output table name for notebook metadata/chunks
-- `cloudfront_distribution_id`: CloudFront distribution ID from AWS Console (Distribution detail page)
+- Normal operation: runs automatically on `main` push when app/content files change.
+- Manual fallback: run `Deploy Static Assets` workflow with inputs below.
+- Manual inputs:
+  - `aws_region`
+  - `site_bucket`
+  - `notebook_bucket`
+  - `notebooks_table`
+  - `cloudfront_distribution_id`
+- Required repository variables for auto deploy:
+  - `NOEMA_AWS_REGION` (usually `ap-northeast-3`)
+  - `NOEMA_SITE_BUCKET` (stack output `SiteBucketName`)
+  - `NOEMA_NOTEBOOK_BUCKET` (stack output `NotebookBucketName`)
+  - `NOEMA_NOTEBOOKS_TABLE` (stack output `NotebooksTableName`)
+  - `NOEMA_CLOUDFRONT_DISTRIBUTION_ID` (stack output `CloudFrontDistributionId`)
 
 ## Incident: Q&A delayed
 

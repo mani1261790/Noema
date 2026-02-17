@@ -1,6 +1,18 @@
 name: Deploy Static Assets
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "notebooks/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.*"
+      - "tailwind.config.*"
+      - ".github/workflows/deploy-app.yml"
   workflow_dispatch:
     inputs:
       aws_region:
@@ -24,9 +36,20 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-static-assets-prod
+  cancel-in-progress: true
+
 jobs:
   deploy-static-assets:
     runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ inputs.aws_region || vars.NOEMA_AWS_REGION || 'ap-northeast-3' }}
+      SITE_BUCKET: ${{ inputs.site_bucket || vars.NOEMA_SITE_BUCKET }}
+      NOTEBOOK_BUCKET: ${{ inputs.notebook_bucket || vars.NOEMA_NOTEBOOK_BUCKET }}
+      NOTEBOOKS_TABLE: ${{ inputs.notebooks_table || vars.NOEMA_NOTEBOOKS_TABLE }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ inputs.cloudfront_distribution_id || vars.NOEMA_CLOUDFRONT_DISTRIBUTION_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +64,17 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ inputs.aws_region }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate deployment variables
+        run: |
+          set -euo pipefail
+          for var_name in SITE_BUCKET NOTEBOOK_BUCKET NOTEBOOKS_TABLE CLOUDFRONT_DISTRIBUTION_ID; do
+            if [[ -z "${!var_name:-}" ]]; then
+              echo "Missing ${var_name}. Set workflow input or repository variable."
+              exit 1
+            fi
+          done
 
       - name: Install dependencies
         run: npm ci
@@ -54,18 +87,18 @@ jobs:
 
       - name: Upload site static files
         run: |
-          aws s3 sync ./public s3://${{ inputs.site_bucket }} --delete
+          aws s3 sync ./public s3://${SITE_BUCKET} --delete
 
       - name: Upload notebook html assets
         run: |
-          aws s3 sync ./public/notebooks s3://${{ inputs.notebook_bucket }} --delete
+          aws s3 sync ./public/notebooks s3://${NOTEBOOK_BUCKET} --delete
 
       - name: Sync notebook metadata/chunks to DynamoDB
         run: |
-          npm run sync:notebooks:aws -- --table "${{ inputs.notebooks_table }}"
+          npm run sync:notebooks:aws -- --table "${NOTEBOOKS_TABLE}"
 
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ inputs.cloudfront_distribution_id }}" \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
             --paths "/*"

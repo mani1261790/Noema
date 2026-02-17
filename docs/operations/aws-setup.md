@@ -173,7 +173,7 @@ Important outputs:
 - `HttpApiUrl`
 - `GitHubDeployRoleArn` (only if OIDC role creation was enabled)
 
-## 7. Configure GitHub secret for Actions
+## 7. Configure GitHub Actions secret/variables
 
 Repository secret required:
 
@@ -181,11 +181,25 @@ Repository secret required:
 
 GitHub UI path:
 
-- `Noema` repo -> `Settings` -> `Secrets and variables` -> `Actions` -> `New repository secret`
+- `Noema` repo -> `Settings` -> `Secrets and variables` -> `Actions`
+
+Repository variables required for automatic static deploy:
+
+- `NOEMA_AWS_REGION` = `ap-northeast-3`
+- `NOEMA_SITE_BUCKET` = output `SiteBucketName`
+- `NOEMA_NOTEBOOK_BUCKET` = output `NotebookBucketName`
+- `NOEMA_NOTEBOOKS_TABLE` = output `NotebooksTableName`
+- `NOEMA_CLOUDFRONT_DISTRIBUTION_ID` = output `CloudFrontDistributionId`
+
+Optional but recommended:
+
+- Create GitHub Environment `production` and require reviewer approval for deploy workflows.
 
 ## 8. Deploy static assets from GitHub Actions
 
-Run workflow `Deploy Static Assets` with:
+After step 7, static assets are deployed automatically on `main` push when app/content files change.
+
+Manual fallback: run workflow `Deploy Static Assets` with:
 
 - `aws_region`: `ap-northeast-3`
 - `site_bucket`: `SiteBucketName`
