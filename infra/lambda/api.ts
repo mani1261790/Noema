@@ -10,7 +10,11 @@ import {
   maybeInlineProcess,
   parseAdminPatchInput,
   parseAskQuestionInput,
+  parsePythonRuntimeInput,
+  parsePythonRuntimePreloadInput,
   patchAdminAnswer,
+  preloadPythonRuntime,
+  runPythonRuntime,
   upsertNotebookFromEvent
 } from "./runtime";
 
@@ -119,6 +123,36 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       tokensUsed: result.answer.tokensUsed,
       timestamp: result.answer.timestamp
     });
+  }
+
+  if (route === "POST /api/runtime/python") {
+    const payload = parsePythonRuntimeInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request", details: "notebookId/code are required." });
+    }
+
+    try {
+      const result = await runPythonRuntime(payload, user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
+  }
+
+  if (route === "POST /api/runtime/python/preload") {
+    const payload = parsePythonRuntimePreloadInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request", details: "notebookId is required." });
+    }
+
+    try {
+      const result = await preloadPythonRuntime(payload, user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
   }
 
   if (!isAdmin(user)) {

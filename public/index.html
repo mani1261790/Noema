@@ -782,11 +782,8 @@
         resizer: document.getElementById("chat-resizer")
       };
 
-      let pyodideInstance = null;
-      let pyodidePromise = null;
       let highlightPromise = null;
-      const loadedPythonPackages = new Set();
-      const loadingPythonPackages = new Map();
+      const preloadedNotebookPackages = new Set();
 
       function parseJwt(token) {
         try {
@@ -822,6 +819,9 @@
             window.location.href = "/";
           };
           el.chatFab.classList.add("visible");
+          if (state.activeNotebook) {
+            void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+          }
           return;
         }
 
@@ -829,6 +829,7 @@
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");
         el.chatFab.classList.remove("visible");
+        preloadedNotebookPackages.clear();
 
         el.loginLink.textContent = "ログイン";
         el.loginLink.href = "/login";
@@ -998,33 +999,6 @@
         `;
       }
 
-      function ensurePyodideScript() {
-        if (window.loadPyodide) return Promise.resolve();
-
-        return new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "/pyodide/pyodide.js";
-          script.async = true;
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error("Pyodide script load failed"));
-          document.head.appendChild(script);
-        });
-      }
-
-      async function ensurePythonRuntime() {
-        if (pyodideInstance) return pyodideInstance;
-        if (!pyodidePromise) {
-          pyodidePromise = (async () => {
-            await ensurePyodideScript();
-            pyodideInstance = await window.loadPyodide({
-              indexURL: "/pyodide/"
-            });
-            return pyodideInstance;
-          })();
-        }
-        return pyodidePromise;
-      }
-
       function resolvePythonPackage(moduleName) {
         const base = (moduleName || "").split(".")[0];
         const map = {
@@ -1035,24 +1009,6 @@
           bs4: "beautifulsoup4"
         };
         return map[base] || base;
-      }
-
-      function extractMissingModuleName(error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const match = message.match(/No module named ['"]([^'"]+)['"]/);
-        return match && match[1] ? match[1].split(".")[0] : "";
-      }
-
-      function escapePythonString(value) {
-        return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-      }
-
-      async function moduleExistsInRuntime(py, moduleName) {
-        const safeName = escapePythonString(moduleName);
-        const exists = await py.runPythonAsync(
-          `import importlib.util as _iu\n(_iu.find_spec('${safeName}') is not None)`
-        );
-        return Boolean(exists);
       }
 
       function extractImportedModulesFromSource(source) {
@@ -1097,67 +1053,96 @@
         return Array.from(modules);
       }
 
+      function normalizeModuleHints(moduleNames) {
+        const hints = new Set();
+        moduleNames.forEach((moduleName) => {
+          const normalized = resolvePythonPackage((moduleName || "").split(".")[0].trim());
+          if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(normalized)) return;
+          hints.add(normalized);
+        });
+        return Array.from(hints).slice(0, 24);
+      }
+
       async function preloadNotebookPackages(container, notebookId) {
-        const modules = collectNotebookImportedModules(container);
+        if (!state.loggedIn) return;
+        const token = getToken();
+        if (!token) return;
+
+        const modules = normalizeModuleHints(collectNotebookImportedModules(container));
         if (!modules.length) return;
 
+        const preloadKey = `${notebookId}:${modules.join(",")}`;
+        if (preloadedNotebookPackages.has(preloadKey)) return;
+
+        preloadedNotebookPackages.add(preloadKey);
         try {
-          const py = await ensurePythonRuntime();
-          for (const moduleName of modules) {
-            await installPythonModule(py, moduleName, null);
-          }
+          await fetch(`${API_BASE}/api/runtime/python/preload`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              notebookId,
+              expectedModules: modules
+            })
+          });
         } catch (error) {
-          console.warn("Notebook package preload failed", notebookId, error);
+          console.warn("Runtime preload failed", notebookId, error);
         }
       }
 
-      async function installPythonModule(py, moduleName, output) {
-        const packageName = resolvePythonPackage(moduleName);
-        if (loadedPythonPackages.has(packageName)) return true;
-        if (loadingPythonPackages.has(packageName)) {
-          return loadingPythonPackages.get(packageName);
+      async function runPythonOnServer(source, notebookId, sectionId, expectedModules) {
+        const token = getToken();
+        if (!token) {
+          throw new Error("コード実行にはログインが必要です。");
         }
 
-        const installPromise = (async () => {
-          if (await moduleExistsInRuntime(py, moduleName)) {
-            loadedPythonPackages.add(packageName);
-            return true;
-          }
+        const response = await fetch(`${API_BASE}/api/runtime/python`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            notebookId,
+            sectionId,
+            code: source,
+            expectedModules: normalizeModuleHints(expectedModules)
+          })
+        });
 
-          if (output) {
-            output.classList.add("visible");
-            output.textContent = `Missing module '${moduleName}'. Installing '${packageName}'...`;
-          }
-
-          try {
-            await py.loadPackage(packageName);
-            loadedPythonPackages.add(packageName);
-            return true;
-          } catch {
-            try {
-              await py.loadPackage("micropip");
-              const micropip = py.pyimport("micropip");
-              try {
-                await micropip.install(packageName);
-              } finally {
-                if (typeof micropip.destroy === "function") {
-                  micropip.destroy();
-                }
-              }
-              loadedPythonPackages.add(packageName);
-              return true;
-            } catch {
-              return false;
-            }
-          }
-        })();
-
-        loadingPythonPackages.set(packageName, installPromise);
+        let payload = {};
         try {
-          return await installPromise;
-        } finally {
-          loadingPythonPackages.delete(packageName);
+          payload = await response.json();
+        } catch {
+          payload = {};
         }
+
+        if (!response.ok) {
+          const errorText = payload && typeof payload.error === "string" ? payload.error : "Python実行に失敗しました。";
+          throw new Error(errorText);
+        }
+
+        return payload;
+      }
+
+      function renderPythonRunOutput(payload) {
+        const stdout = payload && typeof payload.stdout === "string" ? payload.stdout.trim() : "";
+        const stderr = payload && typeof payload.stderr === "string" ? payload.stderr.trim() : "";
+        const errorText = payload && typeof payload.error === "string" ? payload.error.trim() : "";
+        const durationMs = payload && Number.isFinite(Number(payload.durationMs)) ? Number(payload.durationMs) : 0;
+        const installedPackages = Array.isArray(payload?.installedPackages)
+          ? payload.installedPackages.map((pkg) => String(pkg).trim()).filter(Boolean)
+          : [];
+
+        const lines = [];
+        if (stdout) lines.push(stdout);
+        if (stderr) lines.push(stderr);
+        if (errorText) lines.push(`Error: ${errorText}`);
+        if (installedPackages.length) lines.push(`[installed] ${installedPackages.join(", ")}`);
+        lines.push(`[runtime] AWS Python ${durationMs}ms`);
+        return lines.join("\n") || "(no output)";
       }
 
       function ensureHighlightLibrary() {
@@ -1242,47 +1227,17 @@
             button.disabled = true;
             button.classList.add("is-running");
             output.classList.add("visible");
-            output.textContent = "Python runtime loading...";
+            output.textContent = "AWS Python runtime executing...";
 
             try {
-              const py = await ensurePythonRuntime();
-              const logs = [];
-              py.setStdout({ batched: (msg) => logs.push(msg) });
-              py.setStderr({ batched: (msg) => logs.push(msg) });
-              let result;
-              let executed = false;
-              const attemptedMissingModules = new Set();
-
-              for (let i = 0; i < 5; i += 1) {
-                try {
-                  result = await py.runPythonAsync(source);
-                  executed = true;
-                  break;
-                } catch (error) {
-                  const missingModule = extractMissingModuleName(error);
-                  if (!missingModule || attemptedMissingModules.has(missingModule)) {
-                    throw error;
-                  }
-
-                  attemptedMissingModules.add(missingModule);
-                  const installed = await installPythonModule(py, missingModule, output);
-                  if (!installed) {
-                    throw error;
-                  }
-                }
-              }
-
-              if (!executed) {
-                throw new Error("Python execution failed after dependency resolution retries.");
-              }
-              let resultText = "";
-              if (result !== undefined && result !== null) {
-                resultText = String(result);
-                if (typeof result === "object" && typeof result.destroy === "function") {
-                  result.destroy();
-                }
-              }
-              output.textContent = [logs.join("\n").trim(), resultText].filter(Boolean).join("\n") || "(no output)";
+              const expectedModules = extractImportedModulesFromSource(source);
+              const payload = await runPythonOnServer(
+                source,
+                (state.activeNotebook && state.activeNotebook.id) || "unknown-notebook",
+                state.activeSection || "intro",
+                expectedModules
+              );
+              output.textContent = renderPythonRunOutput(payload);
             } catch (error) {
               output.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
             } finally {

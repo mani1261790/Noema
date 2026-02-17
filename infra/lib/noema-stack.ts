@@ -299,6 +299,35 @@ export class NoemaStack extends Stack {
       }
     });
 
+    const pythonRunnerLogGroup = new logs.LogGroup(this, "PythonRunnerLogGroup", {
+      logGroupName: `/aws/lambda/${prefix}-python-runner`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.RETAIN
+    });
+
+    const pythonRunnerFunction = new lambda.Function(this, "PythonRunnerFunction", {
+      functionName: `${prefix}-python-runner`,
+      runtime: lambda.Runtime.PYTHON_3_12,
+      architecture: lambda.Architecture.X86_64,
+      handler: "handler.lambda_handler",
+      memorySize: 1024,
+      timeout: Duration.seconds(30),
+      reservedConcurrentExecutions: 5,
+      logGroup: pythonRunnerLogGroup,
+      code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/python-runner"), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            "bash",
+            "-lc",
+            "set -euo pipefail && pip install --disable-pip-version-check -r requirements.txt -t /asset-output && cp -au . /asset-output"
+          ]
+        }
+      })
+    });
+
+    apiFunction.addEnvironment("PYTHON_RUNNER_FUNCTION_NAME", pythonRunnerFunction.functionName);
+
     const workerLogGroup = new logs.LogGroup(this, "WorkerLogGroup", {
       logGroupName: `/aws/lambda/${prefix}-qa-worker`,
       retention: logs.RetentionDays.ONE_MONTH,
@@ -359,6 +388,7 @@ export class NoemaStack extends Stack {
     accessLogsTable.grantReadWriteData(apiFunction);
     qaQueue.grantSendMessages(apiFunction);
     notebookBucket.grantReadWrite(apiFunction);
+    pythonRunnerFunction.grantInvoke(apiFunction);
 
     questionsTable.grantReadWriteData(workerFunction);
     answersTable.grantReadWriteData(workerFunction);
@@ -434,6 +464,20 @@ export class NoemaStack extends Stack {
     api.addRoutes({
       path: "/api/questions/history",
       methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
+      path: "/api/runtime/python",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
+      path: "/api/runtime/python/preload",
+      methods: [apigwv2.HttpMethod.POST],
       integration: apiIntegration,
       authorizer: jwtAuthorizer
     });
@@ -534,7 +578,7 @@ export class NoemaStack extends Stack {
       new cloudwatch.GraphWidget({
         title: "Lambda Duration",
         width: 12,
-        left: [apiFunction.metricDuration(), workerFunction.metricDuration()]
+        left: [apiFunction.metricDuration(), workerFunction.metricDuration(), pythonRunnerFunction.metricDuration()]
       }),
       new cloudwatch.GraphWidget({
         title: "DynamoDB Throttles",

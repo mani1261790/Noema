@@ -3,6 +3,7 @@ import {
   BedrockRuntimeClient,
   ConverseCommand
 } from "@aws-sdk/client-bedrock-runtime";
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   BatchGetCommand,
@@ -115,6 +116,27 @@ type AskQuestionResult = {
   cached: boolean;
 };
 
+type PythonRuntimeExecuteInput = {
+  notebookId: string;
+  sectionId: string;
+  code: string;
+  expectedModules: string[];
+};
+
+type PythonRuntimePreloadInput = {
+  notebookId: string;
+  expectedModules: string[];
+};
+
+type PythonRuntimeExecuteResult = {
+  stdout: string;
+  stderr: string;
+  error: string | null;
+  durationMs: number;
+  timedOut: boolean;
+  installedPackages: string[];
+};
+
 type GetAnswerResult =
   | { kind: "not_found" }
   | { kind: "forbidden" }
@@ -137,6 +159,7 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 const sqs = new SQSClient({});
 const s3 = new S3Client({});
 const ssm = new SSMClient({});
+const lambdaClient = new LambdaClient({});
 
 const bedrockRegion = process.env.BEDROCK_REGION || process.env.AWS_REGION;
 const bedrockClient = bedrockRegion ? new BedrockRuntimeClient({ region: bedrockRegion }) : null;
@@ -149,6 +172,7 @@ const NOTEBOOKS_TABLE = requiredEnv("NOTEBOOKS_TABLE");
 const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
+const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
 
 const ADMIN_EMAILS = new Set(
   (process.env.ADMIN_EMAILS || "")
@@ -1451,9 +1475,138 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
   return notebookId;
 }
 
+function normalizeExpectedModules(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+
+  for (const item of raw) {
+    if (seen.size >= 24) break;
+    const moduleName = asString(item).trim().split(".")[0];
+    if (!moduleName) continue;
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(moduleName)) continue;
+    seen.add(moduleName);
+  }
+
+  return Array.from(seen);
+}
+
+async function invokePythonRunner(payload: Record<string, unknown>) {
+  if (!PYTHON_RUNNER_FUNCTION_NAME) {
+    throw new Error("PYTHON_RUNNER_FUNCTION_NAME is not configured.");
+  }
+
+  const invokeResult = await lambdaClient.send(
+    new InvokeCommand({
+      FunctionName: PYTHON_RUNNER_FUNCTION_NAME,
+      InvocationType: "RequestResponse",
+      Payload: Buffer.from(JSON.stringify(payload), "utf8")
+    })
+  );
+
+  const rawPayload = invokeResult.Payload ? Buffer.from(invokeResult.Payload).toString("utf8") : "{}";
+
+  let decoded: Record<string, unknown> = {};
+  try {
+    decoded = JSON.parse(rawPayload) as Record<string, unknown>;
+  } catch {
+    throw new Error("Python runner returned a non-JSON response.");
+  }
+
+  if (invokeResult.FunctionError) {
+    const message = asString(decoded.errorMessage || decoded.errorType || "Python runner invocation failed.");
+    throw new Error(message);
+  }
+
+  return decoded;
+}
+
+export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: AuthUser): Promise<PythonRuntimeExecuteResult> {
+  await putAccessLog(user.userId, input.notebookId, "RUN_NOTEBOOK_CODE");
+
+  const response = await invokePythonRunner({
+    action: "execute",
+    notebookId: input.notebookId,
+    sectionId: input.sectionId,
+    code: input.code,
+    expectedModules: input.expectedModules,
+    userId: user.userId
+  });
+
+  const installedPackages = Array.isArray(response.installedPackages)
+    ? response.installedPackages.map((pkg) => String(pkg).trim()).filter(Boolean).slice(0, 50)
+    : [];
+
+  return {
+    stdout: asString(response.stdout).slice(0, 40_000),
+    stderr: asString(response.stderr).slice(0, 40_000),
+    error: asString(response.error) || null,
+    durationMs: toNumber(response.durationMs),
+    timedOut: Boolean(response.timedOut),
+    installedPackages
+  };
+}
+
+export async function preloadPythonRuntime(input: PythonRuntimePreloadInput, user: AuthUser) {
+  await putAccessLog(user.userId, input.notebookId, "PRELOAD_NOTEBOOK_RUNTIME");
+
+  const response = await invokePythonRunner({
+    action: "preload",
+    notebookId: input.notebookId,
+    expectedModules: input.expectedModules,
+    userId: user.userId
+  });
+
+  const installedPackages = Array.isArray(response.installedPackages)
+    ? response.installedPackages.map((pkg) => String(pkg).trim()).filter(Boolean).slice(0, 50)
+    : [];
+
+  const failedModules = Array.isArray(response.failedModules)
+    ? response.failedModules.map((name) => String(name).trim()).filter(Boolean).slice(0, 50)
+    : [];
+
+  return {
+    ok: Boolean(response.ok ?? true),
+    installedPackages,
+    failedModules
+  };
+}
+
 export function parseAskQuestionInput(event: APIGatewayProxyEventV2): AskQuestionInput | null {
   const payload = parseJson<unknown>(event);
   return validateAskQuestionInput(payload);
+}
+
+export function parsePythonRuntimeInput(event: APIGatewayProxyEventV2): PythonRuntimeExecuteInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const notebookId = asString(payload.notebookId).trim();
+  const sectionId = asString(payload.sectionId).trim() || "intro";
+  const code = asString(payload.code);
+  const expectedModules = normalizeExpectedModules(payload.expectedModules);
+
+  if (!notebookId || !code.trim()) return null;
+  if (code.length > 20_000) return null;
+
+  return {
+    notebookId,
+    sectionId,
+    code,
+    expectedModules
+  };
+}
+
+export function parsePythonRuntimePreloadInput(event: APIGatewayProxyEventV2): PythonRuntimePreloadInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const notebookId = asString(payload.notebookId).trim();
+  if (!notebookId) return null;
+
+  return {
+    notebookId,
+    expectedModules: normalizeExpectedModules(payload.expectedModules)
+  };
 }
 
 export function parseAdminPatchInput(event: APIGatewayProxyEventV2) {
