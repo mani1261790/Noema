@@ -201,6 +201,37 @@ jobs:
                 ;;
             esac
           }
+          validate_frontend_url() {
+            local url="$1"
+            if [[ "${url}" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]]; then
+              return
+            fi
+            if [[ "${url}" =~ ^http://localhost(:[0-9]+)?$ ]]; then
+              return
+            fi
+            if [[ "${url}" =~ ^https?://[^[:space:]]+$ ]]; then
+              echo "frontend_url must be origin only (scheme://host[:port]), without path/query/hash."
+              exit 1
+            fi
+            if [[ ! "${url}" =~ ^https?:// ]]; then
+              echo "frontend_url must start with http:// or https://"
+              exit 1
+            fi
+            if [[ "${url}" =~ ^http:// ]]; then
+              echo "http:// is allowed only for localhost"
+              exit 1
+            fi
+            if [[ "${url}" =~ [[:space:]] ]]; then
+              echo "frontend_url must not include whitespace"
+              exit 1
+            fi
+            {
+              echo "Invalid frontend_url: ${url}"
+            } >&2
+            exit 1
+          }
+          FRONTEND_URL_NORM="$(trim "${INPUT_FRONTEND_URL}")"
+          FRONTEND_URL_NORM="${FRONTEND_URL_NORM%/}"
           BEDROCK_REGION_NORM="$(trim "${INPUT_BEDROCK_REGION}")"
           BEDROCK_MODEL_SMALL_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}")"
           BEDROCK_MODEL_MID_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_MID}")"
@@ -225,6 +256,7 @@ jobs:
             echo "create_github_deploy_role must be true when using stack-managed ${MANAGED_DEPLOY_ROLE}."
             exit 1
           fi
+          validate_frontend_url "${FRONTEND_URL_NORM}"
           validate_bedrock_region "${BEDROCK_REGION_NORM}"
           validate_bedrock_model "${BEDROCK_MODEL_SMALL_NORM}"
           validate_bedrock_model "${BEDROCK_MODEL_MID_NORM}"
@@ -280,5 +312,5 @@ jobs:
 
           npm run deploy -- --require-approval never \
             -c "stage=${INPUT_STACK_STAGE}" \
-            -c "frontendUrl=${INPUT_FRONTEND_URL}" \
+            -c "frontendUrl=${FRONTEND_URL_NORM}" \
             "${ctx_args[@]}"

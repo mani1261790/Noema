@@ -31,7 +31,23 @@ export class NoemaStack extends Stack {
     super(scope, id, props);
 
     const prefix = `${props.projectName}-${props.stage}`;
-    const frontendUrl = String(this.node.tryGetContext("frontendUrl") ?? "https://example.com").replace(/\/$/, "");
+    const frontendUrlRaw = String(this.node.tryGetContext("frontendUrl") ?? "https://example.com").trim();
+    let frontendUrlParsed: URL;
+    try {
+      frontendUrlParsed = new URL(frontendUrlRaw);
+    } catch {
+      throw new Error(`Invalid frontendUrl context: ${frontendUrlRaw}`);
+    }
+    const isHttpsOrigin = frontendUrlParsed.protocol === "https:";
+    const isLocalhostHttp = frontendUrlParsed.protocol === "http:" && frontendUrlParsed.hostname === "localhost";
+    const hasPath = frontendUrlParsed.pathname && frontendUrlParsed.pathname !== "/";
+    if (!isHttpsOrigin && !isLocalhostHttp) {
+      throw new Error(`Invalid frontendUrl context: ${frontendUrlRaw}`);
+    }
+    if (frontendUrlParsed.username || frontendUrlParsed.password || hasPath || frontendUrlParsed.search || frontendUrlParsed.hash) {
+      throw new Error(`frontendUrl must be origin only (scheme://host[:port]): ${frontendUrlRaw}`);
+    }
+    const frontendUrl = `${frontendUrlParsed.protocol}//${frontendUrlParsed.host}`;
     const alarmEmail = String(this.node.tryGetContext("alarmEmail") ?? "");
     const githubRepo = String(this.node.tryGetContext("githubRepo") ?? "");
     const githubRefPattern = String(this.node.tryGetContext("githubRefPattern") ?? "refs/heads/main");
