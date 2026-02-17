@@ -1,17 +1,22 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import {
   askQuestion,
+  deleteAdminNotebook,
   getAuthUser,
   getQuestionAnswer,
   isAdmin,
   json,
+  listCatalog,
+  listAdminNotebooks,
   listAdminQuestions,
   listQuestionHistory,
   maybeInlineProcess,
+  parseAdminNotebookPatchInput,
   parseAdminPatchInput,
   parseAskQuestionInput,
   parsePythonRuntimeInput,
   parsePythonRuntimePreloadInput,
+  patchAdminNotebook,
   patchAdminAnswer,
   preloadPythonRuntime,
   runPythonRuntime,
@@ -30,6 +35,18 @@ function questionIdFromEvent(event: APIGatewayProxyEventV2): string {
   return "";
 }
 
+function notebookIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.notebookId?.trim();
+  if (fromParams) return fromParams;
+
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  if (segments.length >= 4 && segments[0] === "api" && segments[1] === "admin" && segments[2] === "notebooks") {
+    return decodeURIComponent(segments[3]);
+  }
+
+  return "";
+}
+
 function routeKey(event: APIGatewayProxyEventV2): string {
   if (event.requestContext.routeKey && event.requestContext.routeKey !== "$default") {
     return event.requestContext.routeKey;
@@ -43,6 +60,16 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
   if (route === "GET /health") {
     return json(200, { ok: true, service: "noema-api" });
+  }
+
+  if (route === "GET /api/catalog") {
+    try {
+      const result = await listCatalog();
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
   }
 
   const user = getAuthUser(event);
@@ -188,6 +215,39 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         message.includes("required") || message.includes("Invalid") || message.includes("format") ? 400 : 500;
       return json(statusCode, { error: message });
     }
+  }
+
+  if (route === "GET /api/admin/notebooks") {
+    const result = await listAdminNotebooks();
+    return json(200, result);
+  }
+
+  if (route === "PATCH /api/admin/notebooks") {
+    const payload = parseAdminNotebookPatchInput(event);
+    if (!payload) {
+      return json(400, { error: "notebookId and at least one editable field are required" });
+    }
+
+    const ok = await patchAdminNotebook(payload);
+    if (!ok) {
+      return json(404, { error: "Not found" });
+    }
+
+    return json(200, { ok: true });
+  }
+
+  if (route === "DELETE /api/admin/notebooks/{notebookId}" || /^DELETE \/api\/admin\/notebooks\/[^/]+$/.test(route)) {
+    const notebookId = notebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const ok = await deleteAdminNotebook(notebookId);
+    if (!ok) {
+      return json(404, { error: "Not found" });
+    }
+
+    return json(200, { ok: true });
   }
 
   return json(404, {

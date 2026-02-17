@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Noema Admin</title>
+  <style>
+    :root {
+      --bg-0: #061020;
+      --bg-1: #10243b;
+      --bg-2: #1a2f44;
+      --text: #ebf3ff;
+      --muted: #a7bdd9;
+      --panel: rgba(12, 22, 39, .78);
+      --panel-soft: rgba(14, 28, 46, .54);
+      --border: rgba(145, 183, 227, .3);
+      --accent: #57c4df;
+      --accent-strong: #3cacc7;
+      --danger: #f26a86;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(87, 196, 223, .22), transparent 42%),
+        radial-gradient(circle at 90% 7%, rgba(255, 154, 95, .15), transparent 36%),
+        radial-gradient(circle at 76% 82%, rgba(112, 183, 255, .16), transparent 40%),
+        linear-gradient(158deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-2) 100%);
+      padding: 14px;
+    }
+
+    .shell {
+      max-width: 1420px;
+      margin: 0 auto;
+      border-radius: 26px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(22px) saturate(145%);
+      -webkit-backdrop-filter: blur(22px) saturate(145%);
+      box-shadow: 0 32px 72px rgba(3, 9, 22, .52), inset 0 1px 0 rgba(170, 210, 255, .18);
+      padding: 12px;
+    }
+
+    .topbar {
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--panel-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .back {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(17, 34, 54, .52);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: .02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .button, .button-ghost, .button-danger {
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .button {
+      border: 1px solid color-mix(in oklab, var(--accent) 66%, white);
+      color: #fff;
+      background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%);
+      box-shadow: 0 10px 22px color-mix(in oklab, var(--accent) 30%, transparent);
+    }
+
+    .button-ghost {
+      border: 1px solid var(--border);
+      background: rgba(17, 34, 54, .5);
+      color: var(--text);
+    }
+
+    .button-danger {
+      border: 1px solid color-mix(in oklab, var(--danger) 70%, white);
+      color: #ffe9ef;
+      background: linear-gradient(145deg, rgba(242, 106, 134, .34), rgba(151, 41, 66, .38));
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 10px;
+      min-height: calc(100dvh - 96px);
+    }
+
+    .panel {
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: var(--panel-soft);
+      padding: 12px;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .form-grid .full { grid-column: 1 / -1; }
+
+    label {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input, textarea {
+      border: 1px solid var(--border);
+      background: rgba(16, 32, 52, .62);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-size: 13px;
+      outline: none;
+      width: 100%;
+    }
+
+    input:focus, textarea:focus {
+      border-color: color-mix(in oklab, var(--accent) 70%, white);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .status {
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 0;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-2px);
+      transition: opacity 140ms ease, transform 140ms ease, max-height 160ms ease, padding 140ms ease;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    .status[data-visible="true"] {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: 160px;
+      padding: 10px 12px;
+    }
+
+    .status[data-kind="info"] {
+      background: rgba(20, 40, 64, .56);
+      border-color: color-mix(in oklab, var(--accent) 34%, var(--border));
+      color: #d9efff;
+    }
+
+    .status[data-kind="success"] {
+      border-color: rgba(96, 214, 180, .52);
+      background: rgba(16, 52, 45, .58);
+      color: #d6ffef;
+    }
+
+    .status[data-kind="error"] {
+      border-color: rgba(245, 122, 138, .64);
+      background: rgba(69, 22, 35, .6);
+      color: #ffdbe2;
+    }
+
+    .list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .list {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+      padding-right: 2px;
+    }
+
+    .item {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(16, 32, 52, .52);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+
+    .item-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .item-grid .full { grid-column: 1 / -1; }
+
+    .item-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1080px) {
+      .main-grid { grid-template-columns: 1fr; min-height: auto; }
+      .form-grid, .item-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="left">
+        <a class="back" href="/" aria-label="トップへ戻る">‹</a>
+        <div>
+          <h1>Noema Admin</h1>
+          <div class="meta">教材（ipynb）管理: 追加 / 編集 / 削除</div>
+        </div>
+      </div>
+      <button class="button-ghost" id="logout-btn" type="button">ログアウト</button>
+    </header>
+
+    <div class="main-grid">
+      <section class="panel">
+        <h2>教材を追加</h2>
+        <form id="upload-form" class="form-grid">
+          <label>タイトル
+            <input name="title" required />
+          </label>
+          <label>章タイトル
+            <input name="chapter" required />
+          </label>
+          <label>順序
+            <input name="order" type="number" min="1" value="1" required />
+          </label>
+          <label>タグ（カンマ区切り）
+            <input name="tags" />
+          </label>
+          <label class="full">Colab URL
+            <input name="colabUrl" required />
+          </label>
+          <label class="full">動画 URL（任意）
+            <input name="videoUrl" />
+          </label>
+          <label class="full">ipynb ファイル
+            <input name="file" type="file" accept=".ipynb,application/json" required />
+          </label>
+          <button class="button full" id="upload-btn" type="submit">ipynb を登録</button>
+        </form>
+        <div class="status" id="upload-status" data-visible="false" data-kind="info"></div>
+      </section>
+
+      <section class="panel">
+        <div class="list-head">
+          <h2>教材一覧</h2>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span class="meta" id="count-label">0 items</span>
+            <button class="button-ghost" id="refresh-btn" type="button">再読込</button>
+          </div>
+        </div>
+        <div class="status" id="list-status" data-visible="false" data-kind="info"></div>
+        <div class="list" id="notebook-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
+      const TOKEN_KEY = "noema_id_token";
+      const listEl = document.getElementById("notebook-list");
+      const countLabelEl = document.getElementById("count-label");
+      const uploadStatusEl = document.getElementById("upload-status");
+      const listStatusEl = document.getElementById("list-status");
+      const uploadForm = document.getElementById("upload-form");
+      const uploadBtn = document.getElementById("upload-btn");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const logoutBtn = document.getElementById("logout-btn");
+
+      function setStatus(target, kind, message) {
+        if (!message) {
+          target.dataset.visible = "false";
+          target.dataset.kind = "info";
+          target.textContent = "";
+          return;
+        }
+        target.dataset.visible = "true";
+        target.dataset.kind = kind;
+        target.textContent = message;
+      }
+
+      function parseJwt(token) {
+        try {
+          const payload = token.split(".")[1];
+          return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+        } catch {
+          return null;
+        }
+      }
+
+      function getToken() {
+        const token = localStorage.getItem(TOKEN_KEY) || "";
+        if (!token) return "";
+        const payload = parseJwt(token);
+        if (!payload) return "";
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          localStorage.removeItem(TOKEN_KEY);
+          return "";
+        }
+        return token;
+      }
+
+      function requireLogin() {
+        const token = getToken();
+        if (token) return token;
+        window.location.href = "/login";
+        throw new Error("ログインが必要です。");
+      }
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      async function api(path, init) {
+        const token = requireLogin();
+        const response = await fetch(`${API_BASE}${path}`, {
+          ...init,
+          headers: {
+            ...(init && init.headers ? init.headers : {}),
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        let payload = {};
+        try {
+          payload = await response.json();
+        } catch {
+          payload = {};
+        }
+
+        if (!response.ok) {
+          const errorText = payload && payload.error ? String(payload.error) : `Request failed (${response.status})`;
+          if (response.status === 401) {
+            localStorage.removeItem(TOKEN_KEY);
+            window.location.href = "/login";
+          }
+          if (response.status === 403) {
+            throw new Error("管理者権限が必要です。");
+          }
+          throw new Error(errorText);
+        }
+
+        return payload;
+      }
+
+      function rowPayload(itemElement) {
+        const notebookId = itemElement.getAttribute("data-id") || "";
+        const title = itemElement.querySelector("[data-field='title']").value.trim();
+        const chapter = itemElement.querySelector("[data-field='chapter']").value.trim();
+        const sortOrder = Number(itemElement.querySelector("[data-field='sortOrder']").value || 1);
+        const tags = itemElement.querySelector("[data-field='tags']").value
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const colabUrl = itemElement.querySelector("[data-field='colabUrl']").value.trim();
+        const videoUrl = itemElement.querySelector("[data-field='videoUrl']").value.trim();
+
+        return {
+          notebookId,
+          title,
+          chapter,
+          sortOrder: Number.isFinite(sortOrder) ? Math.max(1, Math.floor(sortOrder)) : 1,
+          tags,
+          colabUrl,
+          videoUrl
+        };
+      }
+
+      function bindRowActions() {
+        listEl.querySelectorAll("[data-action='save']").forEach((button) => {
+          button.addEventListener("click", async function () {
+            const itemElement = button.closest(".item");
+            if (!itemElement) return;
+
+            const payload = rowPayload(itemElement);
+            if (!payload.notebookId || !payload.title || !payload.chapter || !payload.colabUrl) {
+              setStatus(listStatusEl, "error", "タイトル / 章 / Colab URL は必須です。");
+              return;
+            }
+
+            button.disabled = true;
+            setStatus(listStatusEl, "info", `保存中... (${payload.notebookId})`);
+
+            try {
+              await api("/api/admin/notebooks", {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(payload)
+              });
+              setStatus(listStatusEl, "success", `保存しました: ${payload.notebookId}`);
+            } catch (error) {
+              setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+            } finally {
+              button.disabled = false;
+            }
+          });
+        });
+
+        listEl.querySelectorAll("[data-action='delete']").forEach((button) => {
+          button.addEventListener("click", async function () {
+            const itemElement = button.closest(".item");
+            if (!itemElement) return;
+            const notebookId = itemElement.getAttribute("data-id") || "";
+            if (!notebookId) return;
+
+            const ok = window.confirm(`教材 ${notebookId} を削除します。元に戻せません。`);
+            if (!ok) return;
+
+            button.disabled = true;
+            setStatus(listStatusEl, "info", `削除中... (${notebookId})`);
+
+            try {
+              await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, {
+                method: "DELETE"
+              });
+              setStatus(listStatusEl, "success", `削除しました: ${notebookId}`);
+              await loadNotebooks();
+            } catch (error) {
+              setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+            } finally {
+              button.disabled = false;
+            }
+          });
+        });
+      }
+
+      function renderList(items) {
+        countLabelEl.textContent = `${items.length} items`;
+
+        if (!items.length) {
+          listEl.innerHTML = '<div class="empty">教材がありません。左のフォームから ipynb を登録してください。</div>';
+          return;
+        }
+
+        listEl.innerHTML = items
+          .map((item) => `
+            <article class="item" data-id="${escapeHtml(item.notebookId)}">
+              <div class="item-top">
+                <span>${escapeHtml(item.notebookId)}</span>
+                <span>${escapeHtml(item.htmlPath || "")}</span>
+              </div>
+              <div class="item-grid">
+                <label>タイトル
+                  <input data-field="title" value="${escapeHtml(item.title)}" />
+                </label>
+                <label>章タイトル
+                  <input data-field="chapter" value="${escapeHtml(item.chapter)}" />
+                </label>
+                <label>順序
+                  <input data-field="sortOrder" type="number" min="1" value="${escapeHtml(String(item.sortOrder || 1))}" />
+                </label>
+                <label>タグ（カンマ区切り）
+                  <input data-field="tags" value="${escapeHtml((item.tags || []).join(", "))}" />
+                </label>
+                <label class="full">Colab URL
+                  <input data-field="colabUrl" value="${escapeHtml(item.colabUrl || "")}" />
+                </label>
+                <label class="full">動画 URL
+                  <input data-field="videoUrl" value="${escapeHtml(item.videoUrl || "")}" />
+                </label>
+              </div>
+              <div class="item-actions">
+                <button class="button-ghost" data-action="save" type="button">保存</button>
+                <button class="button-danger" data-action="delete" type="button">削除</button>
+              </div>
+            </article>
+          `)
+          .join("");
+
+        bindRowActions();
+      }
+
+      async function loadNotebooks() {
+        setStatus(listStatusEl, "info", "教材一覧を読み込み中...");
+        try {
+          const payload = await api("/api/admin/notebooks", { method: "GET" });
+          renderList(Array.isArray(payload.items) ? payload.items : []);
+          setStatus(listStatusEl, "success", "教材一覧を更新しました。");
+        } catch (error) {
+          renderList([]);
+          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+        }
+      }
+
+      uploadForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        setStatus(uploadStatusEl, "info", "登録中です...");
+        uploadBtn.disabled = true;
+
+        try {
+          const formData = new FormData(uploadForm);
+          const title = String(formData.get("title") || "").trim();
+          const chapter = String(formData.get("chapter") || "").trim();
+          const colabUrl = String(formData.get("colabUrl") || "").trim();
+          const file = formData.get("file");
+
+          if (!title || !chapter || !colabUrl || !(file instanceof File)) {
+            throw new Error("タイトル / 章 / Colab URL / ipynb は必須です。");
+          }
+
+          const response = await api("/api/admin/notebooks", {
+            method: "POST",
+            body: formData
+          });
+
+          setStatus(uploadStatusEl, "success", `登録完了: ${response.notebookId || title}`);
+          uploadForm.reset();
+          await loadNotebooks();
+        } catch (error) {
+          setStatus(uploadStatusEl, "error", error instanceof Error ? error.message : String(error));
+        } finally {
+          uploadBtn.disabled = false;
+        }
+      });
+
+      refreshBtn.addEventListener("click", function () {
+        void loadNotebooks();
+      });
+
+      logoutBtn.addEventListener("click", function () {
+        localStorage.removeItem(TOKEN_KEY);
+        window.location.href = "/login";
+      });
+
+      requireLogin();
+      void loadNotebooks();
+    })();
+  </script>
+</body>
+</html>

@@ -299,6 +299,14 @@
       border-top: 1px solid var(--border);
       padding: 10px 8px 6px;
       margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .footer-link {
+      display: block;
+      text-align: center;
     }
 
     .main {
@@ -687,6 +695,7 @@
         <div id="sidebar-list"></div>
         <div class="sidebar-footer">
           <a class="button" id="login-link" href="/login">ログイン</a>
+          <a class="button-ghost" id="admin-link" href="/admin.html" style="display:none;">管理画面</a>
         </div>
       </aside>
 
@@ -767,6 +776,7 @@
       </div>
       <div id="sidebar-mobile-list" style="min-height:0; overflow:auto;"></div>
       <a class="button" href="/login">ログイン</a>
+      <a class="button-ghost footer-link" id="admin-link-mobile" href="/admin.html" style="display:none;">管理画面</a>
     </div>
   </div>
 
@@ -817,6 +827,8 @@
         pickSelection: document.getElementById("pick-selection"),
         brandHome: document.getElementById("brand-home"),
         loginLink: document.getElementById("login-link"),
+        adminLink: document.getElementById("admin-link"),
+        adminLinkMobile: document.getElementById("admin-link-mobile"),
         newChat: document.getElementById("new-chat"),
         sidebarOverlay: document.getElementById("sidebar-overlay"),
         chatOverlay: document.getElementById("chat-overlay"),
@@ -864,6 +876,8 @@
             window.location.href = "/";
           };
           el.chatFab.classList.add("visible");
+          el.adminLink.style.display = "";
+          el.adminLinkMobile.style.display = "";
           if (state.activeNotebook) {
             void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
           }
@@ -874,6 +888,8 @@
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");
         el.chatFab.classList.remove("visible");
+        el.adminLink.style.display = "none";
+        el.adminLinkMobile.style.display = "none";
         preloadedNotebookPackages.clear();
 
         el.loginLink.textContent = "ログイン";
@@ -1525,9 +1541,14 @@
       }
 
       async function loadCatalog() {
+        const apiResponse = await fetch(`${API_BASE}/api/catalog`, { cache: "no-cache" }).catch(() => null);
+        if (apiResponse && apiResponse.ok) {
+          return apiResponse.json();
+        }
+
         const response = await fetch("/catalog.json", { cache: "no-cache" });
         if (!response.ok) {
-          throw new Error("catalog.json の読み込みに失敗しました");
+          throw new Error("catalog の読み込みに失敗しました");
         }
         return response.json();
       }

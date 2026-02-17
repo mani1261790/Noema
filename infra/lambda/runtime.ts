@@ -16,7 +16,7 @@ import {
   UpdateCommand
 } from "@aws-sdk/lib-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
@@ -86,6 +86,16 @@ type NotebookRecord = {
   chunks?: NotebookChunk[];
   createdAt?: string;
   updatedAt?: string;
+};
+
+type AdminNotebookPatchInput = {
+  notebookId: string;
+  title?: string;
+  chapter?: string;
+  sortOrder?: number;
+  tags?: string[];
+  colabUrl?: string;
+  videoUrl?: string;
 };
 
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
@@ -1084,6 +1094,192 @@ export async function listAdminQuestions() {
   };
 }
 
+export async function listCatalog() {
+  const response = await ddb.send(
+    new ScanCommand({
+      TableName: NOTEBOOKS_TABLE,
+      Limit: 1000
+    })
+  );
+
+  const rows = ((response.Items as NotebookRecord[] | undefined) ?? []).slice();
+  const chapters = new Map<
+    string,
+    {
+      id: string;
+      title: string;
+      order: number;
+      notebooks: Array<{
+        id: string;
+        title: string;
+        order: number;
+        tags: string[];
+        htmlPath: string;
+        colabUrl: string;
+        videoUrl?: string;
+      }>;
+    }
+  >();
+
+  rows.sort((a, b) => {
+    const chapterCmp = a.chapter.localeCompare(b.chapter);
+    if (chapterCmp !== 0) return chapterCmp;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.title.localeCompare(b.title);
+  });
+
+  for (const row of rows) {
+    const chapterId = slugify(row.chapter) || "chapter";
+    const chapter = chapters.get(chapterId) ?? {
+      id: chapterId,
+      title: row.chapter,
+      order: chapters.size + 1,
+      notebooks: []
+    };
+
+    chapter.notebooks.push({
+      id: row.notebookId,
+      title: row.title,
+      order: row.sortOrder,
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      htmlPath: row.htmlPath,
+      colabUrl: row.colabUrl,
+      videoUrl: row.videoUrl || undefined
+    });
+    chapters.set(chapterId, chapter);
+  }
+
+  return {
+    chapters: Array.from(chapters.values()).map((chapter) => ({
+      ...chapter,
+      notebooks: chapter.notebooks.sort((a, b) => a.order - b.order)
+    }))
+  };
+}
+
+function normalizeNotebookTags(raw: unknown): string[] | undefined {
+  if (raw === undefined) return undefined;
+
+  if (Array.isArray(raw)) {
+    return raw
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+      .slice(0, 32);
+  }
+
+  return String(raw || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 32);
+}
+
+export async function listAdminNotebooks() {
+  const response = await ddb.send(
+    new ScanCommand({
+      TableName: NOTEBOOKS_TABLE,
+      Limit: 1000
+    })
+  );
+
+  const notebooks = ((response.Items as NotebookRecord[] | undefined) ?? []).sort((a, b) => {
+    const chapterCmp = a.chapter.localeCompare(b.chapter);
+    if (chapterCmp !== 0) return chapterCmp;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.title.localeCompare(b.title);
+  });
+
+  return {
+    items: notebooks.map((item) => ({
+      notebookId: item.notebookId,
+      title: item.title,
+      chapter: item.chapter,
+      sortOrder: item.sortOrder,
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      htmlPath: item.htmlPath,
+      colabUrl: item.colabUrl,
+      videoUrl: item.videoUrl || ""
+    }))
+  };
+}
+
+export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promise<boolean> {
+  const existing = await getNotebook(input.notebookId);
+  if (!existing) return false;
+
+  const title = input.title ?? existing.title;
+  const chapter = input.chapter ?? existing.chapter;
+  const sortOrder =
+    input.sortOrder !== undefined && Number.isFinite(input.sortOrder)
+      ? Math.max(1, Math.floor(input.sortOrder))
+      : existing.sortOrder;
+  const tags = input.tags ?? existing.tags ?? [];
+  const colabUrl = input.colabUrl ?? existing.colabUrl;
+  const videoUrl = input.videoUrl !== undefined ? input.videoUrl : existing.videoUrl;
+
+  const baseItem: Omit<NotebookRecord, "chunks"> = {
+    notebookId: existing.notebookId,
+    title,
+    chapter,
+    sortOrder,
+    tags,
+    htmlPath: existing.htmlPath,
+    colabUrl,
+    videoUrl: videoUrl || undefined,
+    createdAt: existing.createdAt || nowIso(),
+    updatedAt: nowIso()
+  };
+  const compactedChunks = compactChunksForDynamo(baseItem, existing.chunks ?? []);
+
+  await ddb.send(
+    new PutCommand({
+      TableName: NOTEBOOKS_TABLE,
+      Item: {
+        ...baseItem,
+        chunks: compactedChunks
+      }
+    })
+  );
+
+  return true;
+}
+
+export async function deleteAdminNotebook(notebookId: string): Promise<boolean> {
+  const existing = await getNotebook(notebookId);
+  if (!existing) return false;
+
+  await ddb.send(
+    new DeleteCommand({
+      TableName: NOTEBOOKS_TABLE,
+      Key: { notebookId }
+    })
+  );
+
+  if (NOTEBOOK_BUCKET) {
+    const keys = new Set([`notebooks/${notebookId}.html`, `notebooks/${notebookId}.ipynb`]);
+
+    const fromHtmlPath = asString(existing.htmlPath).replace(/^\//, "");
+    if (fromHtmlPath.startsWith("notebooks/")) {
+      keys.add(fromHtmlPath);
+    }
+
+    await Promise.all(
+      Array.from(keys).map((key) =>
+        s3
+          .send(
+            new DeleteObjectCommand({
+              Bucket: NOTEBOOK_BUCKET,
+              Key: key
+            })
+          )
+          .catch(() => undefined)
+      )
+    );
+  }
+
+  return true;
+}
+
 export async function patchAdminAnswer(questionId: string, answerText: string): Promise<boolean> {
   const question = await getQuestion(questionId);
   if (!question) return false;
@@ -1750,4 +1946,57 @@ export function parseAdminPatchInput(event: APIGatewayProxyEventV2) {
   if (!questionId || !answerText) return null;
 
   return { questionId, answerText };
+}
+
+export function parseAdminNotebookPatchInput(event: APIGatewayProxyEventV2): AdminNotebookPatchInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const notebookId = asString(payload.notebookId).trim();
+  if (!notebookId) return null;
+
+  const result: AdminNotebookPatchInput = { notebookId };
+  let changed = false;
+
+  if ("title" in payload) {
+    const title = asString(payload.title).trim();
+    if (!title) return null;
+    result.title = title;
+    changed = true;
+  }
+
+  if ("chapter" in payload) {
+    const chapter = asString(payload.chapter).trim();
+    if (!chapter) return null;
+    result.chapter = chapter;
+    changed = true;
+  }
+
+  if ("order" in payload || "sortOrder" in payload) {
+    const rawOrder = payload.sortOrder ?? payload.order;
+    const parsed = Number(rawOrder);
+    if (!Number.isFinite(parsed)) return null;
+    result.sortOrder = Math.max(1, Math.floor(parsed));
+    changed = true;
+  }
+
+  if ("tags" in payload) {
+    result.tags = normalizeNotebookTags(payload.tags) ?? [];
+    changed = true;
+  }
+
+  if ("colabUrl" in payload) {
+    const colabUrl = asString(payload.colabUrl).trim();
+    if (!colabUrl) return null;
+    result.colabUrl = colabUrl;
+    changed = true;
+  }
+
+  if ("videoUrl" in payload) {
+    result.videoUrl = asString(payload.videoUrl).trim();
+    changed = true;
+  }
+
+  if (!changed) return null;
+  return result;
 }

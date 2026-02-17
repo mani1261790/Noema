@@ -422,6 +422,7 @@ export class NoemaStack extends Stack {
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,
           apigwv2.CorsHttpMethod.PATCH,
+          apigwv2.CorsHttpMethod.DELETE,
           apigwv2.CorsHttpMethod.OPTIONS
         ],
         allowOrigins: ["http://localhost:3000", frontendUrl]
@@ -436,6 +437,12 @@ export class NoemaStack extends Stack {
 
     api.addRoutes({
       path: "/health",
+      methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration
+    });
+
+    api.addRoutes({
+      path: "/api/catalog",
       methods: [apigwv2.HttpMethod.GET],
       integration: apiIntegration
     });
@@ -476,7 +483,14 @@ export class NoemaStack extends Stack {
 
     api.addRoutes({
       path: "/api/admin/notebooks",
-      methods: [apigwv2.HttpMethod.POST],
+      methods: [apigwv2.HttpMethod.POST, apigwv2.HttpMethod.GET, apigwv2.HttpMethod.PATCH],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
+      path: "/api/admin/notebooks/{notebookId}",
+      methods: [apigwv2.HttpMethod.DELETE],
       integration: apiIntegration,
       authorizer: jwtAuthorizer
     });
