@@ -169,6 +169,7 @@ Run workflow `Deploy Static Assets` with:
 - `aws_region`: `ap-northeast-3`
 - `site_bucket`: `SiteBucketName`
 - `notebook_bucket`: `NotebookBucketName`
+- `notebooks_table`: stack output table name (usually `noema-prod-notebooks`)
 - `cloudfront_distribution_id`: `CloudFrontDistributionId`
 
 ## 9. Smoke checks after deploy

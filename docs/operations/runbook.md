@@ -43,6 +43,7 @@
 - `aws_region`: usually `ap-northeast-3`
 - `site_bucket`: stack output `SiteBucketName`
 - `notebook_bucket`: stack output `NotebookBucketName`
+- `notebooks_table`: stack output table name for notebook metadata/chunks
 - `cloudfront_distribution_id`: CloudFront distribution ID from AWS Console (Distribution detail page)
 
 ## Incident: Q&A delayed
@@ -81,6 +82,7 @@
 - `CognitoUserPoolClientId`
 - `SiteBucketName`
 - `NotebookBucketName`
+- `NotebooksTableName`
 - `AlarmTopicArn`
 - `CloudWatchDashboardName`
 - `GitHubDeployRoleArn` (optional)

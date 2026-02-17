@@ -82,6 +82,7 @@ After deploy, note these stack outputs:
 - `CognitoUserPoolId`
 - `CognitoUserPoolClientId`
 - `NotebookBucketName`
+- `NotebooksTableName`
 - `AlarmTopicArn`
 - `CloudWatchDashboardName`
 - `GitHubDeployRoleArn` (when `createGithubDeployRole=true`)

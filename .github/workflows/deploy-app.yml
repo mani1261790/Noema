@@ -13,6 +13,9 @@ on:
       notebook_bucket:
         description: Target S3 bucket for notebook HTML assets (public/notebooks/*)
         required: true
+      notebooks_table:
+        description: DynamoDB notebook metadata table name
+        required: true
       cloudfront_distribution_id:
         description: CloudFront distribution ID to invalidate
         required: true
@@ -48,6 +51,10 @@ jobs:
 
       - name: Build app
         run: npm run build
+
+      - name: Sync notebook metadata/chunks to DynamoDB
+        run: |
+          npm run sync:notebooks:aws -- --table "${{ inputs.notebooks_table }}"
 
       - name: Upload site static files
         run: |

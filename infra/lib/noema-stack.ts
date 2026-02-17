@@ -553,6 +553,9 @@ export class NoemaStack extends Stack {
     new cdk.CfnOutput(this, "NotebookBucketName", {
       value: notebookBucket.bucketName
     });
+    new cdk.CfnOutput(this, "NotebooksTableName", {
+      value: notebooksTable.tableName
+    });
 
     new cdk.CfnOutput(this, "HttpApiUrl", {
       value: api.url ?? ""

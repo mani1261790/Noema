@@ -12,11 +12,14 @@
     "db:seed": "tsx prisma/seed.ts",
     "build:notebooks": "tsx scripts/build-notebooks.ts",
     "sync:notebooks": "tsx scripts/sync-notebooks.ts",
+    "sync:notebooks:aws": "tsx scripts/sync-notebooks-aws.ts",
     "worker": "tsx src/worker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.991.0",
+    "@aws-sdk/client-dynamodb": "^3.930.0",
     "@aws-sdk/client-s3": "^3.991.0",
+    "@aws-sdk/lib-dynamodb": "^3.930.0",
     "@prisma/client": "^6.3.0",
     "@types/sanitize-html": "^2.16.0",
     "bcryptjs": "^2.4.3",
