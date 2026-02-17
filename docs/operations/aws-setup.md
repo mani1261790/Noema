@@ -105,7 +105,7 @@ Notes:
 
 - Replace `https://your-frontend-domain` with your actual CloudFront/app domain.
 - `alarmEmail` is optional but strongly recommended.
-- `createGithubDeployRole=true` is only needed when creating the GitHub OIDC role.
+- When GitHub Actions uses stack-managed deploy role (`noema-<stage>-github-deploy`), keep `createGithubDeployRole=true` in infra deploy to avoid role deletion.
 
 ## 5.1 AWS-only QA (Bedrock, recommended)
 

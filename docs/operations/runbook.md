@@ -28,7 +28,7 @@
 - `frontend_url`: public frontend URL (for Cognito callback/logout), example `https://noema.example.com`
 - `alarm_email` (optional): email for SNS alarm notifications
 - `cognito_domain_prefix` (optional): custom Cognito domain prefix
-- `create_github_deploy_role` (optional): `true` to create OIDC role
+- `create_github_deploy_role` (recommended): `true` when using `noema-<stage>-github-deploy`
 - `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
 - `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/main` or `refs/heads/*`
 - `qa_model_provider` (optional): `auto` / `openai` / `bedrock` / `mock`

@@ -25,11 +25,11 @@ on:
       create_github_deploy_role:
         description: Create GitHub OIDC deploy role (true/false)
         required: false
-        default: "false"
+        default: "true"
       github_repo:
         description: Repo slug for OIDC role trust (owner/repo)
         required: false
-        default: ""
+        default: mani1261790/Noema
       github_ref_pattern:
         description: Git ref pattern for OIDC trust (ex refs/heads/main or refs/heads/*)
         required: false
@@ -147,6 +147,7 @@ jobs:
           INPUT_NOEMA_INLINE_QA: ${{ inputs.noema_inline_qa }}
           INPUT_QA_RATE_LIMIT_MAX: ${{ inputs.qa_rate_limit_max }}
           INPUT_QA_RATE_LIMIT_WINDOW_MINUTES: ${{ inputs.qa_rate_limit_window_minutes }}
+          DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
         run: |
           set -euo pipefail
 
@@ -218,6 +219,11 @@ jobs:
               echo "bedrock_model_small is required when qa_model_provider=bedrock"
               exit 1
             fi
+          fi
+          MANAGED_DEPLOY_ROLE="noema-${INPUT_STACK_STAGE}-github-deploy"
+          if [[ "${INPUT_CREATE_GITHUB_DEPLOY_ROLE}" != "true" ]] && [[ "${DEPLOY_ROLE_ARN}" == *":role/${MANAGED_DEPLOY_ROLE}" ]]; then
+            echo "create_github_deploy_role must be true when using stack-managed ${MANAGED_DEPLOY_ROLE}."
+            exit 1
           fi
           validate_bedrock_region "${BEDROCK_REGION_NORM}"
           validate_bedrock_model "${BEDROCK_MODEL_SMALL_NORM}"
