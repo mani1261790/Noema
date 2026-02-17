@@ -17,6 +17,10 @@
       --border: rgba(145, 183, 227, .3);
       --accent: #78aebf;
       --accent-strong: #5f95a7;
+      --button-accent: #71aabd;
+      --button-accent-strong: #5b8ea2;
+      --button-panel-strong: rgba(12, 21, 40, .74);
+      --button-panel-soft: rgba(12, 23, 43, .36);
     }
 
     * { box-sizing: border-box; }
@@ -102,18 +106,18 @@
     }
 
     .button {
-      border: 1px solid color-mix(in oklab, var(--accent) 52%, white);
+      border: 1px solid color-mix(in oklab, var(--button-accent) 52%, white);
       color: color-mix(in oklab, #f7fbff 88%, var(--text));
       background:
         linear-gradient(
           145deg,
-          color-mix(in oklab, var(--accent) 58%, var(--panel-strong)) 0%,
-          color-mix(in oklab, var(--accent-strong) 62%, var(--panel-soft)) 100%
+          color-mix(in oklab, var(--button-accent) 58%, var(--button-panel-strong)) 0%,
+          color-mix(in oklab, var(--button-accent-strong) 62%, var(--button-panel-soft)) 100%
         );
       backdrop-filter: blur(14px) saturate(140%);
       -webkit-backdrop-filter: blur(14px) saturate(140%);
       box-shadow:
-        0 10px 22px color-mix(in oklab, var(--accent) 18%, transparent),
+        0 10px 22px color-mix(in oklab, var(--button-accent) 18%, transparent),
         inset 0 1px 0 rgba(255,255,255,.26);
       border-radius: 12px;
       padding: 11px 14px;
