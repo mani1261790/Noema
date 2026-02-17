@@ -491,19 +491,27 @@
 
       async function api(path, init) {
         const token = requireLogin();
-        const response = await fetch(`${API_BASE}${path}`, {
-          ...init,
-          headers: {
-            ...(init && init.headers ? init.headers : {}),
-            Authorization: `Bearer ${token}`
-          }
-        });
+        let response;
+        try {
+          response = await fetch(`${API_BASE}${path}`, {
+            ...init,
+            headers: {
+              ...(init && init.headers ? init.headers : {}),
+              Authorization: `Bearer ${token}`
+            }
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(`APIに接続できませんでした: ${message}`);
+        }
 
         let payload = {};
+        let rawText = "";
         try {
-          payload = await response.json();
+          rawText = await response.text();
+          payload = rawText ? JSON.parse(rawText) : {};
         } catch {
-          payload = {};
+          payload = rawText ? { error: rawText } : {};
         }
 
         if (!response.ok) {
@@ -513,7 +521,12 @@
             window.location.href = "/login";
           }
           if (response.status === 403) {
-            throw new Error("管理者権限が必要です。");
+            const tokenPayload = parseJwt(token) || {};
+            const identity =
+              String(tokenPayload.email || tokenPayload["cognito:username"] || tokenPayload.username || "").trim() || "不明";
+            throw new Error(
+              `管理者権限が必要です（現在ログイン: ${identity}）。Deploy Infra の admin_emails にこのメールを設定してください。`
+            );
           }
           throw new Error(errorText);
         }
@@ -979,8 +992,9 @@
           renderChapters();
           setStatus(listStatusEl, "success", "教材一覧を更新しました。");
         } catch (error) {
-          chaptersEl.innerHTML = '<div class="empty">教材一覧の取得に失敗しました。</div>';
-          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
+          const message = error instanceof Error ? error.message : String(error);
+          chaptersEl.innerHTML = `<div class="empty">教材一覧の取得に失敗しました。<br />${escapeHtml(message)}</div>`;
+          setStatus(listStatusEl, "error", message);
           markDirty(false);
           updateCounts();
         }

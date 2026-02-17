@@ -185,10 +185,43 @@ const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
 
+function normalizeEmailAddress(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function canonicalEmailCandidates(value: string): string[] {
+  const normalized = normalizeEmailAddress(value);
+  if (!normalized || !normalized.includes("@")) {
+    return normalized ? [normalized] : [];
+  }
+
+  const [localPartRaw, domainRaw] = normalized.split("@");
+  const localPart = localPartRaw.trim();
+  const domain = domainRaw.trim();
+  if (!localPart || !domain) {
+    return [normalized];
+  }
+
+  const candidates = new Set<string>([`${localPart}@${domain}`]);
+  const plusLessLocal = localPart.replace(/\+.*/, "");
+  if (plusLessLocal) {
+    candidates.add(`${plusLessLocal}@${domain}`);
+  }
+
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    const dotLess = plusLessLocal.replace(/\./g, "");
+    if (dotLess) {
+      candidates.add(`${dotLess}@gmail.com`);
+    }
+  }
+
+  return Array.from(candidates);
+}
+
 const ADMIN_EMAILS = new Set(
   (process.env.ADMIN_EMAILS || "")
     .split(",")
-    .map((value) => value.trim().toLowerCase())
+    .flatMap((value) => canonicalEmailCandidates(value))
     .filter(Boolean)
 );
 
@@ -314,6 +347,8 @@ export function getAuthUser(event: APIGatewayProxyEventV2): AuthUser | null {
 
   const email =
     asString(claims.email || "") ||
+    asString(claims["custom:email"] || "") ||
+    asString(claims.preferred_username || "") ||
     asString(claims["cognito:username"] || "") ||
     asString(claims.username || "") ||
     null;
@@ -324,7 +359,15 @@ export function getAuthUser(event: APIGatewayProxyEventV2): AuthUser | null {
 
 export function isAdmin(user: AuthUser): boolean {
   if (user.groups.includes("admin")) return true;
-  if (user.email && ADMIN_EMAILS.has(user.email.toLowerCase())) return true;
+
+  if (user.email) {
+    const candidates = canonicalEmailCandidates(user.email);
+    for (const candidate of candidates) {
+      if (ADMIN_EMAILS.has(candidate)) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 
