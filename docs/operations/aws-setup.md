@@ -107,7 +107,26 @@ Notes:
 - `alarmEmail` is optional but strongly recommended.
 - `createGithubDeployRole=true` is only needed when creating the GitHub OIDC role.
 
-## 5.1 Configure OpenAI key in SSM (recommended)
+## 5.1 AWS-only QA (Bedrock, recommended)
+
+No external API key is required. Deploy with Bedrock as primary provider:
+
+```bash
+cd infra
+npm run deploy -- --require-approval never \
+  -c stage=prod \
+  -c frontendUrl=https://your-frontend-domain \
+  -c qaModelProvider=bedrock \
+  -c bedrockRegion=us-east-1 \
+  -c bedrockModelSmall=amazon.nova-micro-v1:0 \
+  -c adminEmails=admin@example.com \
+  -c noemaInlineQa=false \
+  -c qaRateLimitMax=6 \
+  -c qaRateLimitWindowMinutes=1
+cd ..
+```
+
+## 5.2 Configure OpenAI key in SSM (optional fallback)
 
 Store your OpenAI key as SSM SecureString (avoid plaintext in deploy args):
 

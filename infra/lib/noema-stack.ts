@@ -51,10 +51,24 @@ export class NoemaStack extends Stack {
     const qaRateLimitMax = String(this.node.tryGetContext("qaRateLimitMax") ?? "6");
     const qaRateLimitWindowMinutes = String(this.node.tryGetContext("qaRateLimitWindowMinutes") ?? "1");
     const bedrockRegion = String(this.node.tryGetContext("bedrockRegion") ?? "us-east-1");
+    const allowedBedrockRegions = new Set(["us-east-1", "us-west-2", "ap-northeast-1", "ap-northeast-3"]);
+    if (!allowedBedrockRegions.has(bedrockRegion)) {
+      throw new Error(
+        `Unsupported bedrockRegion context: ${bedrockRegion}. Allowed regions: us-east-1, us-west-2, ap-northeast-1, ap-northeast-3`
+      );
+    }
     const bedrockModelSmall = String(this.node.tryGetContext("bedrockModelSmall") ?? "");
     const bedrockModelMid = String(this.node.tryGetContext("bedrockModelMid") ?? "");
     const bedrockModelLarge = String(this.node.tryGetContext("bedrockModelLarge") ?? "");
     const bedrockMaxTokens = String(this.node.tryGetContext("bedrockMaxTokens") ?? "800");
+    const bedrockModelArns = [bedrockModelSmall, bedrockModelMid, bedrockModelLarge]
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((modelId) =>
+        modelId.startsWith("arn:")
+          ? modelId
+          : `arn:${cdk.Aws.PARTITION}:bedrock:${bedrockRegion}::foundation-model/${modelId}`
+      );
 
     const userPool = new cognito.UserPool(this, "UserPool", {
       userPoolName: `${prefix}-user-pool`,
@@ -336,13 +350,15 @@ export class NoemaStack extends Stack {
     notebookBucket.grantReadWrite(workerFunction);
     qaQueue.grantConsumeMessages(workerFunction);
 
-    const bedrockPolicy = new iam.PolicyStatement({
-      sid: "AllowBedrockInvoke",
-      actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-      resources: ["*"]
-    });
-    apiFunction.addToRolePolicy(bedrockPolicy);
-    workerFunction.addToRolePolicy(bedrockPolicy);
+    if (bedrockModelArns.length > 0) {
+      const bedrockPolicy = new iam.PolicyStatement({
+        sid: "AllowBedrockInvoke",
+        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+        resources: bedrockModelArns
+      });
+      apiFunction.addToRolePolicy(bedrockPolicy);
+      workerFunction.addToRolePolicy(bedrockPolicy);
+    }
 
     if (openAiApiKeySsmParameter) {
       const parameterPath = openAiApiKeySsmParameter.startsWith("/")

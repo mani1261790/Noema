@@ -16,7 +16,7 @@
 - Static Contents: Jupyter Book または nbconvert で生成し S3 配信
 - Auth: Amazon Cognito（OAuth2 + Email/Password）
 - API: API Gateway + AWS Lambda
-- LLM: OpenAI API（`gpt-5-nano` デフォルト）/ Amazon Bedrock（任意）
+- LLM: Amazon Bedrock（推奨）/ OpenAI API（任意）
 - Data: DynamoDB（質問/回答/キャッシュ/メタデータ）
 - Retrieval: OpenSearch または pgvector
 - CDN: CloudFront

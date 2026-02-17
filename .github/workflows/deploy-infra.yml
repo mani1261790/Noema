@@ -37,7 +37,23 @@ on:
       qa_model_provider:
         description: QA model provider (auto/openai/bedrock/mock)
         required: false
-        default: openai
+        default: auto
+      bedrock_region:
+        description: Bedrock runtime region
+        required: false
+        default: us-east-1
+      bedrock_model_small:
+        description: Bedrock small model ID
+        required: false
+        default: ""
+      bedrock_model_mid:
+        description: Optional Bedrock mid model ID
+        required: false
+        default: ""
+      bedrock_model_large:
+        description: Optional Bedrock large model ID
+        required: false
+        default: ""
       openai_model_small:
         description: OpenAI small model id
         required: false
@@ -119,6 +135,10 @@ jobs:
           INPUT_GITHUB_REPO: ${{ inputs.github_repo }}
           INPUT_GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern }}
           INPUT_QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider }}
+          INPUT_BEDROCK_REGION: ${{ inputs.bedrock_region }}
+          INPUT_BEDROCK_MODEL_SMALL: ${{ inputs.bedrock_model_small }}
+          INPUT_BEDROCK_MODEL_MID: ${{ inputs.bedrock_model_mid }}
+          INPUT_BEDROCK_MODEL_LARGE: ${{ inputs.bedrock_model_large }}
           INPUT_OPENAI_MODEL_SMALL: ${{ inputs.openai_model_small }}
           INPUT_OPENAI_MODEL_MID: ${{ inputs.openai_model_mid }}
           INPUT_OPENAI_MODEL_LARGE: ${{ inputs.openai_model_large }}
@@ -129,6 +149,43 @@ jobs:
           INPUT_QA_RATE_LIMIT_WINDOW_MINUTES: ${{ inputs.qa_rate_limit_window_minutes }}
         run: |
           set -euo pipefail
+
+          validate_bedrock_model() {
+            local model="$1"
+            if [[ -z "${model}" ]]; then
+              return
+            fi
+            case "${model}" in
+              amazon.nova-micro-v1:0|amazon.nova-lite-v1:0) ;;
+              *)
+                echo "Unsupported bedrock model: ${model}"
+                echo "Allowed: amazon.nova-micro-v1:0, amazon.nova-lite-v1:0"
+                exit 1
+                ;;
+            esac
+          }
+          validate_bedrock_region() {
+            local region="$1"
+            case "${region}" in
+              us-east-1|us-west-2|ap-northeast-1|ap-northeast-3) ;;
+              *)
+                echo "Unsupported bedrock region: ${region}"
+                echo "Allowed: us-east-1, us-west-2, ap-northeast-1, ap-northeast-3"
+                exit 1
+                ;;
+            esac
+          }
+
+          if [[ "${INPUT_QA_MODEL_PROVIDER}" == "bedrock" ]]; then
+            if [[ -z "${INPUT_BEDROCK_MODEL_SMALL}" ]]; then
+              echo "bedrock_model_small is required when qa_model_provider=bedrock"
+              exit 1
+            fi
+          fi
+          validate_bedrock_region "${INPUT_BEDROCK_REGION}"
+          validate_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}"
+          validate_bedrock_model "${INPUT_BEDROCK_MODEL_MID}"
+          validate_bedrock_model "${INPUT_BEDROCK_MODEL_LARGE}"
 
           ctx_args=()
           if [[ -n "${INPUT_ALARM_EMAIL}" ]]; then
@@ -148,7 +205,18 @@ jobs:
               -c "githubRefPattern=${INPUT_GITHUB_REF_PATTERN}"
             )
           fi
-          ctx_args+=(-c "qaModelProvider=${INPUT_QA_MODEL_PROVIDER}" -c "openAiModelSmall=${INPUT_OPENAI_MODEL_SMALL}")
+          ctx_args+=(
+            -c "qaModelProvider=${INPUT_QA_MODEL_PROVIDER}"
+            -c "bedrockRegion=${INPUT_BEDROCK_REGION}"
+            -c "bedrockModelSmall=${INPUT_BEDROCK_MODEL_SMALL}"
+            -c "openAiModelSmall=${INPUT_OPENAI_MODEL_SMALL}"
+          )
+          if [[ -n "${INPUT_BEDROCK_MODEL_MID}" ]]; then
+            ctx_args+=(-c "bedrockModelMid=${INPUT_BEDROCK_MODEL_MID}")
+          fi
+          if [[ -n "${INPUT_BEDROCK_MODEL_LARGE}" ]]; then
+            ctx_args+=(-c "bedrockModelLarge=${INPUT_BEDROCK_MODEL_LARGE}")
+          fi
           if [[ -n "${INPUT_OPENAI_MODEL_MID}" ]]; then
             ctx_args+=(-c "openAiModelMid=${INPUT_OPENAI_MODEL_MID}")
           fi

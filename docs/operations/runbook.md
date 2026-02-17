@@ -32,6 +32,9 @@
 - `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
 - `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/main` or `refs/heads/*`
 - `qa_model_provider` (optional): `auto` / `openai` / `bedrock` / `mock`
+- `bedrock_region` (optional): `us-east-1` / `us-west-2` / `ap-northeast-1` / `ap-northeast-3`
+- `bedrock_model_small` (required when `qa_model_provider=bedrock`): `amazon.nova-micro-v1:0` or `amazon.nova-lite-v1:0`
+- `bedrock_model_mid`, `bedrock_model_large` (optional): same allowlist as above
 - `openai_model_small` (optional): default `gpt-5-nano`
 - `openai_model_mid`, `openai_model_large` (optional): fallback model IDs
 - `openai_api_key_ssm_parameter` (optional): SSM SecureString name for OpenAI key

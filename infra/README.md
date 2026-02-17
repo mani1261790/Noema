@@ -54,7 +54,20 @@ npm run deploy -- --require-approval never \
   -c githubRefPattern=refs/heads/main
 ```
 
-Enable OpenAI-based QA worker (recommended low-cost setup):
+Enable AWS-only QA worker on Bedrock (recommended):
+
+```bash
+npm run deploy -- --require-approval never \
+  -c frontendUrl=https://your-frontend-domain \
+  -c qaModelProvider=bedrock \
+  -c bedrockRegion=us-east-1 \
+  -c bedrockModelSmall=amazon.nova-micro-v1:0 \
+  -c adminEmails=admin@example.com \
+  -c qaRateLimitMax=6 \
+  -c qaRateLimitWindowMinutes=1
+```
+
+Enable OpenAI-based QA worker (optional fallback):
 
 ```bash
 # store key once (SecureString)
