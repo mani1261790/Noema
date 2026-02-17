@@ -296,18 +296,25 @@
       width: 100%;
     }
 
-    #sidebar-list {
+    #sidebar-list,
+    #sidebar-mobile-list {
       min-height: 0;
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding-right: 2px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: block;
+      padding-right: 4px;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable both-edges;
     }
 
     .chapter {
+      flex: 0 0 auto;
       border-radius: 14px;
       overflow: hidden;
+    }
+
+    .chapter + .chapter {
+      margin-top: 8px;
     }
 
     .chapter-toggle {
@@ -395,6 +402,11 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+      max-height: min(44vh, 420px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
       background: color-mix(in oklab, var(--panel-soft) 48%, transparent);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
@@ -970,6 +982,7 @@
       .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
       .home-grid { grid-template-columns: 1fr; }
+      .chapter-items { max-height: min(52vh, 460px); }
     }
 
     /* レスポンシブ対応 */
