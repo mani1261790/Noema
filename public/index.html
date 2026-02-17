@@ -184,6 +184,19 @@
       text-align: left;
     }
 
+    .chapter-arrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      font-size: 14px;
+      transition: transform 160ms ease;
+    }
+
+    .chapter-arrow.expanded {
+      transform: rotate(90deg);
+    }
+
     .chapter-items {
       border-top: 1px solid var(--border);
       padding: 6px;
@@ -240,7 +253,7 @@
     }
 
     .header-title {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 700;
       margin: 0;
       white-space: nowrap;
@@ -259,6 +272,35 @@
       min-height: 0;
       overflow: auto;
       padding: 12px;
+    }
+
+    .lite-inline {
+      margin: 0 auto 10px;
+      max-width: 980px;
+      border-radius: 14px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .lite-inline.visible {
+      display: block;
+    }
+
+    .lite-inline-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .lite-inline iframe {
+      width: 100%;
+      height: 64vh;
+      border: 0;
+      background: #fff;
     }
 
     .selection-card {
@@ -448,7 +490,7 @@
     <div class="shell" id="shell">
       <aside class="sidebar glass-strong" id="sidebar-desktop">
         <p class="sidebar-title">Noema</p>
-        <h1>機械学習ノート</h1>
+        <h1>Noema</h1>
         <label class="search">
           <span style="color:var(--muted)">⌕</span>
           <input id="sidebar-search" placeholder="教材を検索" />
@@ -471,12 +513,21 @@
             <div class="header-actions">
               <a class="button-ghost" id="download-btn" href="#">Download</a>
               <a class="button" id="colab-btn" href="#" target="_blank" rel="noreferrer">Colabで実行</a>
-              <a class="button-ghost" id="jupyterlite-btn" href="#" target="_blank" rel="noreferrer">JupyterLite</a>
+              <button class="button-ghost" id="jupyterlite-inline-btn" type="button">このページで実行</button>
+              <a class="button-ghost" id="jupyterlite-btn" href="#" target="_blank" rel="noreferrer">JupyterLite(別タブ)</a>
             </div>
           </div>
         </header>
 
         <div id="reader">
+          <div id="lite-inline" class="lite-inline glass-soft">
+            <div class="lite-inline-head">
+              <span>JupyterLite 実行パネル</span>
+              <button class="button-ghost" id="close-lite-inline" type="button" style="padding:6px 9px;font-size:12px;">閉じる</button>
+            </div>
+            <iframe id="lite-inline-frame" loading="lazy" referrerpolicy="no-referrer"></iframe>
+          </div>
+
           <div id="selection-card" class="selection-card glass-soft">
             <div>
               <div class="selection-title">選択中のテキストを質問に添付します</div>
@@ -574,6 +625,10 @@
         downloadBtn: document.getElementById("download-btn"),
         colabBtn: document.getElementById("colab-btn"),
         jupyterliteBtn: document.getElementById("jupyterlite-btn"),
+        jupyterliteInlineBtn: document.getElementById("jupyterlite-inline-btn"),
+        closeLiteInline: document.getElementById("close-lite-inline"),
+        liteInline: document.getElementById("lite-inline"),
+        liteInlineFrame: document.getElementById("lite-inline-frame"),
         notebookContent: document.getElementById("notebook-content"),
         sectionSelect: document.getElementById("section-select"),
         chatLog: document.getElementById("chat-log"),
@@ -690,7 +745,7 @@
               <section class="chapter glass-soft">
                 <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button">
                   <span>${chapter.title}</span>
-                  <span>${expanded ? "−" : "+"}</span>
+                  <span class="chapter-arrow ${expanded ? "expanded" : ""}">&gt;</span>
                 </button>
                 ${items}
               </section>
@@ -760,6 +815,21 @@
 
         const notebookUrl = `${window.location.origin}/notebooks/${nb.id}.ipynb`;
         el.jupyterliteBtn.href = `https://jupyterlite.github.io/demo/lab/index.html?fromURL=${encodeURIComponent(notebookUrl)}`;
+        el.jupyterliteInlineBtn.textContent = el.liteInline.classList.contains("visible")
+          ? "実行パネルを閉じる"
+          : "このページで実行";
+      }
+
+      function toggleInlineLite(open) {
+        const nextOpen = typeof open === "boolean" ? open : !el.liteInline.classList.contains("visible");
+        el.liteInline.classList.toggle("visible", nextOpen);
+        if (nextOpen && !el.liteInlineFrame.src) {
+          el.liteInlineFrame.src = el.jupyterliteBtn.href;
+        }
+        if (nextOpen && el.liteInlineFrame.src && el.liteInlineFrame.src !== el.jupyterliteBtn.href) {
+          el.liteInlineFrame.src = el.jupyterliteBtn.href;
+        }
+        renderHeader();
       }
 
       async function selectNotebook(notebookId) {
@@ -799,6 +869,9 @@
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
           renderSections();
+          if (el.liteInline.classList.contains("visible")) {
+            el.liteInlineFrame.src = el.jupyterliteBtn.href;
+          }
 
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
@@ -1080,6 +1153,14 @@
       el.newChat.addEventListener("click", function () {
         state.messages = [];
         renderMessages();
+      });
+
+      el.jupyterliteInlineBtn.addEventListener("click", function () {
+        toggleInlineLite();
+      });
+
+      el.closeLiteInline.addEventListener("click", function () {
+        toggleInlineLite(false);
       });
 
       el.chatFab.addEventListener("click", function () {
