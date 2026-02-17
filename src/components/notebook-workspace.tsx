@@ -85,11 +85,7 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   const [notebookHtml, setNotebookHtml] = useState(initialHtml);
   const [sectionIds, setSectionIds] = useState(initialSectionIds);
   const [activeSectionId, setActiveSectionId] = useState(initialSectionIds[0] ?? "intro");
-  const [openChapterIds, setOpenChapterIds] = useState<Record<string, boolean>>(() => {
-    const chapter = sortedChapters.find((item) => item.notebooks.some((notebook) => notebook.id === initialNotebook.id));
-    const defaultId = chapter?.id ?? sortedChapters[0]?.id ?? "";
-    return defaultId ? { [defaultId]: true } : {};
-  });
+  const [openChapterIds, setOpenChapterIds] = useState<Record<string, boolean>>({});
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [loadingNotebook, setLoadingNotebook] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -114,13 +110,6 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
   useEffect(() => {
     setActiveSectionId(sectionIds[0] ?? "intro");
   }, [sectionIds, activeNotebook.id]);
-
-  useEffect(() => {
-    const chapter = sortedChapters.find((item) => item.notebooks.some((notebook) => notebook.id === activeNotebook.id));
-    if (chapter) {
-      setOpenChapterIds((prev) => ({ ...prev, [chapter.id]: true }));
-    }
-  }, [activeNotebook.id, sortedChapters]);
 
   const findSelectionInNotebook = (): SelectionContext | null => {
     const selection = window.getSelection();

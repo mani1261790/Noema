@@ -859,11 +859,6 @@
           .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
           .filter((chapter) => chapter.notebooks.length > 0);
 
-        const hasOpenChapter = chapters.some((chapter) => Boolean(state.openChapters[chapter.id]));
-        if (!hasOpenChapter && chapters[0]) {
-          state.openChapters[chapters[0].id] = true;
-        }
-
         if (chapters.length === 0) {
           return '<p style="color:var(--muted);font-size:13px;padding:8px;">一致する教材がありません。</p>';
         }
@@ -1518,11 +1513,7 @@
         const requested = findInitialNotebookId();
         const requestedNotebook = notebooks.find((nb) => nb.id === requested) || null;
 
-        const initialChapterId =
-          chapters.find((ch) => ch.notebooks.some((nb) => nb.id === (requestedNotebook?.id || notebooks[0].id)))?.id ||
-          chapters[0]?.id ||
-          "";
-        state.openChapters = initialChapterId ? { [initialChapterId]: true } : {};
+        state.openChapters = {};
         renderSidebar();
         if (requestedNotebook) {
           await selectNotebook(requestedNotebook.id);

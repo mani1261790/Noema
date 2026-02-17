@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ChapterSummary } from "@/lib/notebooks";
 
 type Props = {
@@ -15,24 +15,7 @@ export function LearningSidebar({ chapters, activeNotebookId }: Props) {
     [chapters]
   );
 
-  const defaultOpen = useMemo(() => {
-    if (activeNotebookId) {
-      const activeChapter = sortedChapters.find((chapter) =>
-        chapter.notebooks.some((notebook) => notebook.id === activeNotebookId)
-      );
-      if (activeChapter) {
-        return activeChapter.id;
-      }
-    }
-
-    return sortedChapters[0]?.id ?? "";
-  }, [activeNotebookId, sortedChapters]);
-
-  const [openMap, setOpenMap] = useState<Record<string, boolean>>(defaultOpen ? { [defaultOpen]: true } : {});
-
-  useEffect(() => {
-    setOpenMap((prev) => (defaultOpen ? { ...prev, [defaultOpen]: true } : prev));
-  }, [defaultOpen]);
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
 
   return (
     <aside className="glass-panel h-full rounded-2xl p-3">
