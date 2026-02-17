@@ -150,6 +150,30 @@ jobs:
         run: |
           set -euo pipefail
 
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "${value}"
+          }
+          normalize_bedrock_model() {
+            local model
+            model="$(trim "$1")"
+            case "${model}" in
+              "")
+                printf ''
+                ;;
+              amazon.nova-micro-v1|amazon.nova-micro-v1:0)
+                printf 'amazon.nova-micro-v1:0'
+                ;;
+              amazon.nova-lite-v1|amazon.nova-lite-v1:0)
+                printf 'amazon.nova-lite-v1:0'
+                ;;
+              *)
+                printf 'INVALID:%s' "${model}"
+                ;;
+            esac
+          }
           validate_bedrock_model() {
             local model="$1"
             if [[ -z "${model}" ]]; then
@@ -175,17 +199,29 @@ jobs:
                 ;;
             esac
           }
+          BEDROCK_REGION_NORM="$(trim "${INPUT_BEDROCK_REGION}")"
+          BEDROCK_MODEL_SMALL_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}")"
+          BEDROCK_MODEL_MID_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_MID}")"
+          BEDROCK_MODEL_LARGE_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_LARGE}")"
+          for model in "${BEDROCK_MODEL_SMALL_NORM}" "${BEDROCK_MODEL_MID_NORM}" "${BEDROCK_MODEL_LARGE_NORM}"; do
+            if [[ "${model}" == INVALID:* ]]; then
+              bad_model="${model#INVALID:}"
+              echo "Unsupported bedrock model: ${bad_model}"
+              echo "Allowed: amazon.nova-micro-v1(:0), amazon.nova-lite-v1(:0)"
+              exit 1
+            fi
+          done
 
           if [[ "${INPUT_QA_MODEL_PROVIDER}" == "bedrock" ]]; then
-            if [[ -z "${INPUT_BEDROCK_MODEL_SMALL}" ]]; then
+            if [[ -z "${BEDROCK_MODEL_SMALL_NORM}" ]]; then
               echo "bedrock_model_small is required when qa_model_provider=bedrock"
               exit 1
             fi
           fi
-          validate_bedrock_region "${INPUT_BEDROCK_REGION}"
-          validate_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}"
-          validate_bedrock_model "${INPUT_BEDROCK_MODEL_MID}"
-          validate_bedrock_model "${INPUT_BEDROCK_MODEL_LARGE}"
+          validate_bedrock_region "${BEDROCK_REGION_NORM}"
+          validate_bedrock_model "${BEDROCK_MODEL_SMALL_NORM}"
+          validate_bedrock_model "${BEDROCK_MODEL_MID_NORM}"
+          validate_bedrock_model "${BEDROCK_MODEL_LARGE_NORM}"
 
           ctx_args=()
           if [[ -n "${INPUT_ALARM_EMAIL}" ]]; then
@@ -199,23 +235,23 @@ jobs:
               echo "github_repo is required when create_github_deploy_role=true"
               exit 1
             fi
-            ctx_args+=(
+          ctx_args+=(
               -c "createGithubDeployRole=true"
               -c "githubRepo=${INPUT_GITHUB_REPO}"
               -c "githubRefPattern=${INPUT_GITHUB_REF_PATTERN}"
             )
           fi
-          ctx_args+=(
+            ctx_args+=(
             -c "qaModelProvider=${INPUT_QA_MODEL_PROVIDER}"
-            -c "bedrockRegion=${INPUT_BEDROCK_REGION}"
-            -c "bedrockModelSmall=${INPUT_BEDROCK_MODEL_SMALL}"
+            -c "bedrockRegion=${BEDROCK_REGION_NORM}"
+            -c "bedrockModelSmall=${BEDROCK_MODEL_SMALL_NORM}"
             -c "openAiModelSmall=${INPUT_OPENAI_MODEL_SMALL}"
           )
-          if [[ -n "${INPUT_BEDROCK_MODEL_MID}" ]]; then
-            ctx_args+=(-c "bedrockModelMid=${INPUT_BEDROCK_MODEL_MID}")
+          if [[ -n "${BEDROCK_MODEL_MID_NORM}" ]]; then
+            ctx_args+=(-c "bedrockModelMid=${BEDROCK_MODEL_MID_NORM}")
           fi
-          if [[ -n "${INPUT_BEDROCK_MODEL_LARGE}" ]]; then
-            ctx_args+=(-c "bedrockModelLarge=${INPUT_BEDROCK_MODEL_LARGE}")
+          if [[ -n "${BEDROCK_MODEL_LARGE_NORM}" ]]; then
+            ctx_args+=(-c "bedrockModelLarge=${BEDROCK_MODEL_LARGE_NORM}")
           fi
           if [[ -n "${INPUT_OPENAI_MODEL_MID}" ]]; then
             ctx_args+=(-c "openAiModelMid=${INPUT_OPENAI_MODEL_MID}")
