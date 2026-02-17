@@ -4,6 +4,8 @@ import { notebookToHtml, type NotebookFile } from "../src/lib/notebook-ingest";
 
 const NOTEBOOK_SOURCE_DIR = path.join(process.cwd(), "content", "notebooks");
 const OUTPUT_DIR = path.join(process.cwd(), "public", "notebooks");
+const CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
+const CATALOG_OUTPUT_PATH = path.join(process.cwd(), "public", "catalog.json");
 
 function wrapNotebookHtml(title: string, bodyHtml: string): string {
   const safeTitle = title.replace(/[<>]/g, "");
@@ -55,7 +57,14 @@ async function main() {
     const outputPath = path.join(OUTPUT_DIR, outputName);
     await fs.writeFile(outputPath, html, "utf8");
     console.log(`Built: ${outputPath}`);
+
+    const ipynbOutputPath = path.join(OUTPUT_DIR, file);
+    await fs.writeFile(ipynbOutputPath, raw, "utf8");
+    console.log(`Copied: ${ipynbOutputPath}`);
   }
+
+  await fs.copyFile(CATALOG_SOURCE_PATH, CATALOG_OUTPUT_PATH);
+  console.log(`Copied: ${CATALOG_OUTPUT_PATH}`);
 }
 
 main().catch((error) => {

@@ -88,6 +88,8 @@ jobs:
       - name: Upload site static files
         run: |
           aws s3 sync ./public s3://${SITE_BUCKET} --delete
+          aws s3 cp ./public/login.html s3://${SITE_BUCKET}/login --content-type "text/html; charset=utf-8"
+          aws s3 cp ./public/api/auth/callback/cognito.html s3://${SITE_BUCKET}/api/auth/callback/cognito --content-type "text/html; charset=utf-8"
 
       - name: Upload notebook html assets
         run: |

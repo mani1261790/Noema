@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Noema Auth Callback</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0b1627;
+      color: #e8f2ff;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+    }
+    .box {
+      width: min(90vw, 520px);
+      border-radius: 16px;
+      border: 1px solid rgba(157, 187, 228, .3);
+      background: rgba(14, 24, 38, .76);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 20px;
+    }
+    p { line-height: 1.75; color: #b8cde8; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main class="box">
+    <h1>認証処理中...</h1>
+    <p id="message">Cognitoトークンを取得しています。</p>
+    <p id="detail" class="mono"></p>
+  </main>
+
+  <script>
+    (function () {
+      const COGNITO_DOMAIN = "https://noema-437089831576-auth.auth.ap-northeast-3.amazoncognito.com";
+      const COGNITO_CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+      const REDIRECT_URI = `${window.location.origin}/api/auth/callback/cognito`;
+
+      const messageEl = document.getElementById("message");
+      const detailEl = document.getElementById("detail");
+
+      function fail(message, detail) {
+        messageEl.textContent = message;
+        if (detail) detailEl.textContent = detail;
+      }
+
+      async function run() {
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get("error");
+        const errorDescription = params.get("error_description");
+        if (error) {
+          fail("認証エラーが発生しました。", `${error}: ${errorDescription || ""}`);
+          return;
+        }
+
+        const code = params.get("code");
+        const state = params.get("state");
+        const expectedState = sessionStorage.getItem("noema_pkce_state");
+        const verifier = sessionStorage.getItem("noema_pkce_verifier");
+
+        if (!code || !state || !expectedState || !verifier) {
+          fail("認証情報が不足しています。", "loginページから再度実行してください。");
+          return;
+        }
+
+        if (state !== expectedState) {
+          fail("state検証に失敗しました。", "CSRF防止のため処理を中止しました。");
+          return;
+        }
+
+        const payload = new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: COGNITO_CLIENT_ID,
+          code,
+          redirect_uri: REDIRECT_URI,
+          code_verifier: verifier
+        });
+
+        const response = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: payload.toString()
+        });
+
+        if (!response.ok) {
+          const raw = await response.text();
+          fail("トークン交換に失敗しました。", raw.slice(0, 300));
+          return;
+        }
+
+        const tokenPayload = await response.json();
+        if (!tokenPayload.id_token) {
+          fail("IDトークンが取得できませんでした。", JSON.stringify(tokenPayload).slice(0, 280));
+          return;
+        }
+
+        localStorage.setItem("noema_id_token", tokenPayload.id_token);
+        if (tokenPayload.access_token) {
+          localStorage.setItem("noema_access_token", tokenPayload.access_token);
+        }
+
+        sessionStorage.removeItem("noema_pkce_state");
+        sessionStorage.removeItem("noema_pkce_verifier");
+
+        messageEl.textContent = "ログインに成功しました。トップへ戻ります。";
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 700);
+      }
+
+      run().catch((error) => {
+        fail("認証処理に失敗しました。", error instanceof Error ? error.message : String(error));
+      });
+    })();
+  </script>
+</body>
+</html>

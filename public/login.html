@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Noema Login</title>
+  <style>
+    :root {
+      --bg: #0a1526;
+      --panel: rgba(16, 28, 46, .75);
+      --border: rgba(151, 185, 228, .28);
+      --text: #e7f0ff;
+      --muted: #a8bdd8;
+      --accent: #4ab7d7;
+      --accent-2: #2796bf;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(87, 196, 223, .22), transparent 36%),
+        radial-gradient(circle at 90% 8%, rgba(255, 153, 89, .12), transparent 35%),
+        linear-gradient(160deg, #081120 0%, #0e1f35 50%, #1a2b44 100%);
+    }
+    .card {
+      width: min(92vw, 520px);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 24px 56px rgba(3,7,16,.52), inset 0 1px 0 rgba(169,208,255,.15);
+      padding: 22px;
+    }
+    h1 { margin: 0; font-size: 34px; }
+    p { color: var(--muted); line-height: 1.75; font-size: 14px; }
+    .button {
+      border: 1px solid color-mix(in oklab, var(--accent) 65%, white);
+      background: linear-gradient(145deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .button-ghost {
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      background: rgba(17, 34, 54, .5);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      display: inline-block;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="mono">Noema / Cognito Login</div>
+    <h1>ログイン</h1>
+    <p>
+      サイドバー下部のログインボタンから来ています。Cognito Hosted UI で認証し、
+      質問APIに必要なIDトークンをブラウザ保存します。
+    </p>
+    <button class="button" id="login-button" type="button">Cognitoでログイン</button>
+    <a class="button-ghost" href="/">トップへ戻る</a>
+    <p id="status" class="mono"></p>
+  </main>
+
+  <script>
+    (function () {
+      const COGNITO_DOMAIN = "https://noema-437089831576-auth.auth.ap-northeast-3.amazoncognito.com";
+      const COGNITO_CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+      const REDIRECT_URI = `${window.location.origin}/api/auth/callback/cognito`;
+      const SCOPE = "openid email profile";
+      const STATUS = document.getElementById("status");
+
+      const existing = localStorage.getItem("noema_id_token");
+      if (existing) {
+        STATUS.textContent = "既にトークンが保存されています。再ログインする場合は下のボタンを押してください。";
+      }
+
+      function randomString(length) {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+        const values = crypto.getRandomValues(new Uint8Array(length));
+        let result = "";
+        values.forEach((value) => {
+          result += chars[value % chars.length];
+        });
+        return result;
+      }
+
+      function base64UrlEncode(arrayBuffer) {
+        const bytes = new Uint8Array(arrayBuffer);
+        let str = "";
+        bytes.forEach((byte) => {
+          str += String.fromCharCode(byte);
+        });
+        return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      }
+
+      async function createChallenge(verifier) {
+        const data = new TextEncoder().encode(verifier);
+        const digest = await crypto.subtle.digest("SHA-256", data);
+        return base64UrlEncode(digest);
+      }
+
+      async function startLogin() {
+        const verifier = randomString(96);
+        const challenge = await createChallenge(verifier);
+        const state = randomString(40);
+
+        sessionStorage.setItem("noema_pkce_verifier", verifier);
+        sessionStorage.setItem("noema_pkce_state", state);
+
+        const params = new URLSearchParams({
+          response_type: "code",
+          client_id: COGNITO_CLIENT_ID,
+          redirect_uri: REDIRECT_URI,
+          scope: SCOPE,
+          state,
+          code_challenge_method: "S256",
+          code_challenge: challenge
+        });
+
+        window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
+      }
+
+      document.getElementById("login-button").addEventListener("click", function () {
+        void startLogin();
+      });
+    })();
+  </script>
+</body>
+</html>

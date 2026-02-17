@@ -1,0 +1,45 @@
+{
+  "chapters": [
+    {
+      "id": "ml-basics",
+      "title": "機械学習とLLMの基礎",
+      "order": 1,
+      "notebooks": [
+        {
+          "id": "intro-llm",
+          "title": "LLM入門: トークンと推論",
+          "order": 1,
+          "tags": ["llm", "token", "prompt"],
+          "htmlPath": "/notebooks/intro-llm.html",
+          "colabUrl": "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/colab-github-demo.ipynb",
+          "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        },
+        {
+          "id": "ml-regression-basics",
+          "title": "線形回帰の基礎",
+          "order": 2,
+          "tags": ["machine-learning", "regression"],
+          "htmlPath": "/notebooks/ml-regression-basics.html",
+          "colabUrl": "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/snippets/markdown.ipynb",
+          "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+        }
+      ]
+    },
+    {
+      "id": "rl-track",
+      "title": "強化学習と世界モデル",
+      "order": 2,
+      "notebooks": [
+        {
+          "id": "rl-world-model-intro",
+          "title": "強化学習と世界モデル入門",
+          "order": 1,
+          "tags": ["rl", "world-model"],
+          "htmlPath": "/notebooks/rl-world-model-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/googlecolab/colabtools/blob/main/notebooks/snippets/images.ipynb",
+          "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+        }
+      ]
+    }
+  ]
+}
