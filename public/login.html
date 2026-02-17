@@ -13,8 +13,8 @@
       --muted: #a7bdd9;
       --panel: rgba(12, 22, 39, .76);
       --border: rgba(145, 183, 227, .3);
-      --accent: #57c4df;
-      --accent-strong: #3cacc7;
+      --accent: #78aebf;
+      --accent-strong: #5f95a7;
     }
 
     * { box-sizing: border-box; }
@@ -27,7 +27,7 @@
       color: var(--text);
       font-family: "IBM Plex Sans", system-ui, sans-serif;
       background:
-        radial-gradient(circle at 12% 10%, rgba(87, 196, 223, .22), transparent 42%),
+        radial-gradient(circle at 12% 10%, rgba(120, 174, 191, .18), transparent 42%),
         radial-gradient(circle at 90% 7%, rgba(255, 154, 95, .15), transparent 36%),
         linear-gradient(158deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-2) 100%);
       padding: 16px;
@@ -100,9 +100,10 @@
     }
 
     .button {
-      border: 1px solid color-mix(in oklab, var(--accent) 65%, white);
+      border: 1px solid color-mix(in oklab, var(--accent) 52%, white);
       background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%);
       color: white;
+      box-shadow: 0 8px 16px color-mix(in oklab, var(--accent) 20%, transparent);
       border-radius: 12px;
       padding: 11px 14px;
       font-size: 14px;
