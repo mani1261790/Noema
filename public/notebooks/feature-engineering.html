@@ -99,89 +99,276 @@
   <main>
 <article class="prose-noema">
 <h1 id="特徴量エンジニアリング">特徴量エンジニアリング</h1>
-<p>特徴量エンジニアリングでは、式を暗記するより、計算の意味をコードで検証する姿勢を優先します。</p>
+<p>モデルの性能は、アルゴリズム選択だけでなく「どの入力特徴量を作るか」で大きく変わります。<br>
+特徴量エンジニアリングは、元データをモデルが学びやすい表現に変換する作業です。</p>
+<p>このノートでは、欠損値・カテゴリ変数・スケーリング・非線形変換・交互作用を、<br>
+実務で使う <code>Pipeline</code> / <code>ColumnTransformer</code> と結びつけて確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>特徴量エンジニアリングに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, PolynomialFeatures, FunctionTransformer
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import RandomForestRegressor
+
+sns.set_theme(style=&quot;whitegrid&quot;, context=&quot;notebook&quot;)</code></pre>
+<h2 id="1-元データを観察する">1. 元データを観察する</h2>
+<p>まずは「どんな列があるか」を確認します。<br>
+特徴量設計の第一歩は、モデル前にデータの意味と型を把握することです。</p>
+<p>以下のデータは教材用の疑似データです。</p>
 <ul>
-<li><strong>特徴量</strong>: モデルが予測に使う入力変数です。列の作り方が精度に直結します。</li>
-<li><strong>目的変数</strong>: 当てたい値です。回帰では連続値、分類ではラベルになります。</li>
-<li><strong>損失関数</strong>: 予測のずれを数値化する関数です。学習はこの値を下げる方向に進みます。</li>
-<li><strong>リーク</strong>: 学習時点で利用できない未来情報を特徴量に含めてしまう誤りです。</li>
-<li><strong>スケーリング</strong>: 特徴量のスケール差を調整して最適化を安定させる処理です。</li>
+<li><code>area</code>, <code>rooms</code>, <code>age</code>, <code>distance_to_station</code>, <code>floor</code> が価格に影響するという仮定で価格を生成</li>
+<li><code>station</code> は立地プレミアムを表すカテゴリ列</li>
+<li><code>noise</code> は観測できない要因（内装、周辺環境など）をまとめた誤差</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>また、実務に寄せるために数値列とカテゴリ列へ意図的に欠損を入れています。</p>
 
-<h2 id="実験-1-特徴量設計の元データを作る">実験 1: 特徴量設計の元データを作る</h2>
-<p>欠損や外れ値を意識した前処理の入口として、ばらつきを持つデータを用意します。</p>
+<pre><code class="language-python">rng = np.random.default_rng(42)
+n = 600
 
-<pre><code class="language-python">x = [1, 2, 3, 4, 5, 8]
-y = [2.0, 4.1, 5.9, 8.3, 9.8, 15.2]
-pairs = list(zip(x, y))
-raw_flags = [&#39;ok&#39;, &#39;ok&#39;, &#39;ok&#39;, &#39;ok&#39;, &#39;ok&#39;, &#39;outlier&#39;]
-print(&#39;task = feature-engineering&#39;)
-print(&#39;pairs =&#39;, pairs, &#39;flags =&#39;, raw_flags)</code></pre>
-<p>この元データから、特徴変換やスケーリングの意味を確認します。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+area = rng.normal(65, 18, n).clip(20, 150)
+rooms = rng.integers(1, 6, n)
+age = rng.integers(0, 40, n)
+distance = rng.normal(18, 8, n).clip(1, 45)
+station = rng.choice([&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;], size=n, p=[0.30, 0.30, 0.25, 0.15])
+floor = rng.integers(1, 16, n)
 
-<h2 id="実験-2-単回帰を手で計算する">実験 2: 単回帰を手で計算する</h2>
-<p>次に、最小二乗法の係数を手計算で求めます。既存ライブラリを使う前に中身を一度体験すると理解が安定します。</p>
+station_effect = pd.Series(station).map({&quot;A&quot;: 180, &quot;B&quot;: 120, &quot;C&quot;: 60, &quot;D&quot;: 20}).to_numpy()
+noise = rng.normal(0, 35, n)
+price = 45 + 4.2 * area + 16 * rooms - 2.3 * age - 3.8 * distance + station_effect + 2.8 * floor + noise
 
-<pre><code class="language-python">x_bar = sum(x) / len(x)
-y_bar = sum(y) / len(y)
-num = sum((xi - x_bar) * (yi - y_bar) for xi, yi in pairs)
-den = sum((xi - x_bar) ** 2 for xi in x)
-w1 = num / den; w0 = y_bar - w1 * x_bar
-print(&#39;w0, w1 =&#39;, round(w0, 4), round(w1, 4))</code></pre>
-<p>式の記号は抽象的に見えますが、コードでは平均・差分・和に分解されます。難しい式ほど、実装で部品に分けて確認するのが有効です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+df = pd.DataFrame({
+    &quot;area&quot;: area,
+    &quot;rooms&quot;: rooms,
+    &quot;age&quot;: age,
+    &quot;distance_to_station&quot;: distance,
+    &quot;station&quot;: station,
+    &quot;floor&quot;: floor,
+    &quot;price&quot;: price,
+})
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
+# 欠損を意図的に作る
+missing_idx_num = rng.choice(df.index, size=35, replace=False)
+missing_idx_cat = rng.choice(df.index, size=20, replace=False)
+df.loc[missing_idx_num, &quot;distance_to_station&quot;] = np.nan
+df.loc[missing_idx_cat, &quot;station&quot;] = np.nan
+
+df.head()</code></pre>
+<p><code>info</code> と <code>isna</code> で型と欠損を確認します。<br>
+この確認を飛ばすと、後段で変換失敗やリークの原因になります。</p>
+
+<pre><code class="language-python">print(df.info())
+print(&quot;\n欠損数:\n&quot;, df.isna().sum())</code></pre>
+<h2 id="2-変換前後で分布を比べる">2. 変換前後で分布を比べる</h2>
+<p>歪んだ分布に対して対数変換が有効な場面があります。<br>
+ここでは駅距離の分布を <code>log1p</code> 変換前後で比較します。</p>
+
+<pre><code class="language-python">fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+
+sns.histplot(df[&quot;distance_to_station&quot;], bins=30, ax=axes[0], kde=True)
+axes[0].set_title(&quot;original distance&quot;)
+
+sns.histplot(np.log1p(df[&quot;distance_to_station&quot;]), bins=30, ax=axes[1], kde=True)
+axes[1].set_title(&quot;log1p(distance)&quot;)
+
+plt.tight_layout()
+plt.show()</code></pre>
+<h2 id="3-ベースライン-最小限の前処理">3. ベースライン（最小限の前処理）</h2>
+<p>最初に単純なベースラインを作ります。<br>
+比較対象があると、後で追加した特徴量の効果を正しく評価できます。</p>
+
+<pre><code class="language-python">X = df.drop(columns=[&quot;price&quot;])
+y = df[&quot;price&quot;]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+num_cols = [&quot;area&quot;, &quot;rooms&quot;, &quot;age&quot;, &quot;distance_to_station&quot;, &quot;floor&quot;]
+cat_cols = [&quot;station&quot;]
+
+baseline_preprocess = ColumnTransformer([
+    (&quot;num&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;median&quot;)),
+        (&quot;scaler&quot;, StandardScaler()),
+    ]), num_cols),
+    (&quot;cat&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;most_frequent&quot;)),
+        (&quot;onehot&quot;, OneHotEncoder(handle_unknown=&quot;ignore&quot;)),
+    ]), cat_cols),
+])
+
+baseline_model = Pipeline([
+    (&quot;preprocess&quot;, baseline_preprocess),
+    (&quot;regressor&quot;, LinearRegression()),
+])
+
+baseline_model.fit(X_train, y_train)
+baseline_pred = baseline_model.predict(X_test)
+
+print(f&quot;baseline MAE: {mean_absolute_error(y_test, baseline_pred):.2f}&quot;)
+print(f&quot;baseline R2 : {r2_score(y_test, baseline_pred):.3f}&quot;)</code></pre>
+<h2 id="4-特徴量を追加する">4. 特徴量を追加する</h2>
+<p>次に、ドメイン知識を反映した特徴を追加します。</p>
+<ul>
+<li><code>area_per_room</code>: 1部屋あたり面積。広さと間取りを1つの軸で表せる</li>
+<li><code>is_new</code>: 築浅フラグ。築年数の閾値効果を捉えやすくする</li>
+<li><code>log_distance</code>: 駅距離の対数。長い尾を圧縮して線形モデルで扱いやすくする</li>
+</ul>
+<p>こうした手作業特徴は、モデルにとって有効な表現を直接与える手段です。</p>
+
+<pre><code class="language-python">def add_features(frame: pd.DataFrame) -&gt; pd.DataFrame:
+    out = frame.copy()
+    out[&quot;area_per_room&quot;] = out[&quot;area&quot;] / np.maximum(out[&quot;rooms&quot;], 1)
+    out[&quot;is_new&quot;] = (out[&quot;age&quot;] &lt;= 5).astype(int)
+    out[&quot;log_distance&quot;] = np.log1p(out[&quot;distance_to_station&quot;])
+    return out
+
+feature_num_cols = [
+    &quot;area&quot;, &quot;rooms&quot;, &quot;age&quot;, &quot;distance_to_station&quot;, &quot;floor&quot;,
+    &quot;area_per_room&quot;, &quot;is_new&quot;, &quot;log_distance&quot;
+]
+feature_cat_cols = [&quot;station&quot;]
+
+feature_preprocess = ColumnTransformer([
+    (&quot;num&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;median&quot;)),
+        (&quot;scaler&quot;, StandardScaler()),
+    ]), feature_num_cols),
+    (&quot;cat&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;most_frequent&quot;)),
+        (&quot;onehot&quot;, OneHotEncoder(handle_unknown=&quot;ignore&quot;)),
+    ]), feature_cat_cols),
+])
+
+feature_model = Pipeline([
+    (&quot;feature_builder&quot;, FunctionTransformer(add_features, validate=False)),
+    (&quot;preprocess&quot;, feature_preprocess),
+    (&quot;regressor&quot;, Ridge(alpha=1.0, random_state=42)),
+])
+
+feature_model.fit(X_train, y_train)
+feature_pred = feature_model.predict(X_test)
+
+print(f&quot;feature MAE: {mean_absolute_error(y_test, feature_pred):.2f}&quot;)
+print(f&quot;feature R2 : {r2_score(y_test, feature_pred):.3f}&quot;)</code></pre>
+<h2 id="5-交互作用特徴を試す">5. 交互作用特徴を試す</h2>
+<p>線形モデルでは、列同士の掛け算項（交互作用）を入れると表現力が上がる場合があります。<br>
+<code>PolynomialFeatures(degree=2)</code> は、2次の項（例: <code>area^2</code>）や交互作用項（例: <code>area * rooms</code>）を自動生成します。</p>
+<p>次元が増えやすいので、正則化や検証とセットで使います。</p>
+
+<pre><code class="language-python">poly_num_cols = [&quot;area&quot;, &quot;rooms&quot;, &quot;age&quot;, &quot;distance_to_station&quot;, &quot;floor&quot;]
+
+poly_preview = PolynomialFeatures(degree=2, include_bias=False)
+poly_preview.fit(X_train[poly_num_cols])
+poly_names = poly_preview.get_feature_names_out(poly_num_cols)
+print(&quot;num of polynomial features:&quot;, len(poly_names))
+print(&quot;sample names:&quot;, poly_names[:12])
+
+poly_preprocess = ColumnTransformer([
+    (&quot;num_poly&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;median&quot;)),
+        (&quot;poly&quot;, PolynomialFeatures(degree=2, include_bias=False)),
+        (&quot;scaler&quot;, StandardScaler()),
+    ]), poly_num_cols),
+    (&quot;cat&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;most_frequent&quot;)),
+        (&quot;onehot&quot;, OneHotEncoder(handle_unknown=&quot;ignore&quot;)),
+    ]), cat_cols),
+])
+
+poly_model = Pipeline([
+    (&quot;preprocess&quot;, poly_preprocess),
+    (&quot;regressor&quot;, Ridge(alpha=2.0, random_state=42)),
+])
+
+poly_model.fit(X_train, y_train)
+poly_pred = poly_model.predict(X_test)
+
+print(f&quot;poly MAE: {mean_absolute_error(y_test, poly_pred):.2f}&quot;)
+print(f&quot;poly R2 : {r2_score(y_test, poly_pred):.3f}&quot;)</code></pre>
+<h2 id="6-木モデルとの比較">6. 木モデルとの比較</h2>
+<p>木ベースモデルはスケーリングに依存しにくく、<br>
+非線形関係も自動で取り込みやすいので、特徴量設計との相性を確認しやすいです。</p>
+
+<pre><code class="language-python">tree_preprocess = ColumnTransformer([
+    (&quot;num&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;median&quot;)),
+    ]), feature_num_cols),
+    (&quot;cat&quot;, Pipeline([
+        (&quot;imputer&quot;, SimpleImputer(strategy=&quot;most_frequent&quot;)),
+        (&quot;onehot&quot;, OneHotEncoder(handle_unknown=&quot;ignore&quot;)),
+    ]), feature_cat_cols),
+])
+
+tree_model = Pipeline([
+    (&quot;feature_builder&quot;, FunctionTransformer(add_features, validate=False)),
+    (&quot;preprocess&quot;, tree_preprocess),
+    (&quot;regressor&quot;, RandomForestRegressor(
+        n_estimators=300,
+        max_depth=10,
+        min_samples_leaf=2,
+        random_state=42,
+        n_jobs=-1,
+    )),
+])
+
+tree_model.fit(X_train, y_train)
+tree_pred = tree_model.predict(X_test)
+
+print(f&quot;random forest MAE: {mean_absolute_error(y_test, tree_pred):.2f}&quot;)
+print(f&quot;random forest R2 : {r2_score(y_test, tree_pred):.3f}&quot;)</code></pre>
+<h2 id="7-リークを避けるための注意">7. リークを避けるための注意</h2>
+<p>特徴量エンジニアリングで最も危険なのはデータリークです。<br>
+例えば「テストデータを見てから欠損補完値を決める」「目的変数に依存する列を特徴に入れる」は禁止です。</p>
+<p><code>Pipeline</code> / <code>ColumnTransformer</code> を使って訓練データの手順を固定すれば、<br>
+推論時にも同じ変換を安全に適用できます。</p>
+<p>次のセルでは、4つのモデルを 5-fold CV で同一基準比較します。<br>
+<code>cross_val_score</code> の <code>neg_mean_absolute_error</code> は「大きいほど良い」形式に合わせるため負符号付きで返るため、<br>
+表示時に <code>-scores.mean()</code> として通常の MAE（小さいほど良い）へ戻しています。</p>
+
+<pre><code class="language-python">models = {
+    &quot;baseline_linear&quot;: baseline_model,
+    &quot;feature_ridge&quot;: feature_model,
+    &quot;poly_ridge&quot;: poly_model,
+    &quot;tree_rf&quot;: tree_model,
+}
+
+rows = []
+for name, model in models.items():
+    # すべての前処理（特徴量追加を含む）をパイプライン内で実行
+    scores = cross_val_score(
+        model,
+        X,
+        y,
+        cv=5,
+        scoring=&quot;neg_mean_absolute_error&quot;,
+        n_jobs=-1,
+    )
+    rows.append({
+        &quot;model&quot;: name,
+        &quot;cv_mae_mean&quot;: -scores.mean(),
+        &quot;cv_mae_std&quot;: scores.std(),
+    })
+
+pd.DataFrame(rows).sort_values(&quot;cv_mae_mean&quot;)</code></pre>
+<h2 id="まとめ">まとめ</h2>
+<p>特徴量エンジニアリングでは、</p>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{y} = f_{\theta}(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi><mo>(</mo><mi>θ</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mn>1</mn></mrow><mrow><mi>N</mi></mrow></mfrac><msub><mo>∑</mo><mi>i</mi></msub><mi mathvariant="normal">ℓ</mi><mo>(</mo><msub><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mi>i</mi></msub><mo separator="true">,</mo><msub><mi>y</mi><mi>i</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L(\theta) = \frac{1}{N}\sum_i \ell(\hat{y}_i, y_i)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.845108em;"></span><span class="strut bottom" style="height:1.190108em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord mathit">L</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.10903em;">N</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">ℓ</span><span class="mopen">(</span><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
+<li>データの型と欠損を把握する</li>
+<li>ベースラインを作る</li>
+<li>意味のある特徴を追加して比較する</li>
+<li>CVで効果を確認する</li>
 </ol>
-
-<h2 id="実験-3-予測と誤差を見る">実験 3: 予測と誤差を見る</h2>
-<p>ここで、求めた係数で予測を出し、誤差を数値化します。モデル改善は誤差の観察から始まります。</p>
-
-<pre><code class="language-python">pred = [w0 + w1 * xi for xi in x]
-residual = [yi - pi for yi, pi in zip(y, pred)]
-mse = sum((r ** 2) for r in residual) / len(residual)
-print(&#39;pred =&#39;, pred)
-print(&#39;mse =&#39;, round(mse, 8))</code></pre>
-<p>誤差を観察するときは、平均値だけでなく個別の残差も見てください。偏りがあると、モデル構造の見直しが必要になります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-4-特徴量を拡張する">実験 4: 特徴量を拡張する</h2>
-<p>次に、特徴量を追加したときに表現力がどう変わるかを確認します。特徴量設計は精度に直接効く実装作業です。</p>
-
-<pre><code class="language-python">x2 = [xi ** 2 for xi in x]
-feature = list(zip(x, x2))
-print(&#39;feature sample =&#39;, feature[:3])
-scaled_x = [(xi - x_bar) / (max(x) - min(x)) for xi in x]
-print(&#39;scaled_x =&#39;, [round(v, 4) for v in scaled_x])</code></pre>
-<p>特徴量を増やすと表現力は上がりますが、同時に過学習リスクも増えます。増やす理由を説明できる特徴だけを採用する姿勢が重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-5-評価分割を体験する">実験 5: 評価分割を体験する</h2>
-<p>最後に、学習と評価を分ける意味をコードで確かめます。分割しない評価は自己採点に近く、実運用の性能を過大評価しがちです。</p>
-
-<pre><code class="language-python">train_x, test_x = x[:3], x[3:]
-train_y, test_y = y[:3], y[3:]
-pred_test = [w0 + w1 * xi for xi in test_x]
-mae_test = sum(abs(yi - pi) for yi, pi in zip(test_y, pred_test)) / len(test_y)
-print(&#39;test mae =&#39;, round(mae_test, 6))</code></pre>
-<p>検証データでの誤差が急に悪化したら、モデルより先にデータ分布の差を疑ってください。この視点は実務で非常に重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>訓練データと評価データの分布差を見ない</li>
-<li>単一スコアだけでモデルを選んでしまう</li>
-<li>前処理の漏れを評価後に気づく</li>
-</ol>
+<p>という順序を崩さないことが重要です。</p>
+<p>精度改善だけでなく、リークを避けて再現可能な前処理を作ることが、実務で最も価値のあるポイントです。</p>
 
 </article>
   </main>
