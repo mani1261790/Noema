@@ -835,12 +835,15 @@
       min-width: 0;
       display: grid;
       align-items: start;
+      isolation: isolate;
     }
 
     .code-editor-surface pre {
       pointer-events: auto;
       position: relative;
       z-index: 1;
+      opacity: 1 !important;
+      visibility: visible !important;
     }
 
     .code-editor-surface pre,
@@ -851,7 +854,8 @@
 
     .code-editor {
       display: none;
-      position: relative;
+      position: absolute;
+      inset: 0;
       width: 100%;
       min-height: 100%;
       border: 0;
@@ -863,16 +867,16 @@
       resize: none;
       color: transparent;
       caret-color: var(--code-fg);
-      background: transparent;
+      background: transparent !important;
       outline: none;
       tab-size: 2;
       white-space: pre-wrap;
       overflow: hidden;
       overflow-wrap: break-word;
-      z-index: 2;
+      z-index: 3;
       pointer-events: auto;
-      -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 0 transparent;
+      -webkit-appearance: none;
+      appearance: none;
     }
 
     .reader-prose pre code,
@@ -1852,6 +1856,9 @@
         renderPlaygroundSidebarControls();
         renderPlaygroundHeaderControls();
         applyPlaygroundModeToCurrentNotebook();
+        if (!state.playgroundEnabled) {
+          await applySyntaxHighlight(el.notebookContent);
+        }
       }
 
       async function updateAdminVisibility(token) {
