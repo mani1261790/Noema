@@ -500,7 +500,50 @@
     .header-actions {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .playground-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--glass-edge-soft);
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 42%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 6px 10px;
+    }
+
+    .playground-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    #playground-notebook-select {
+      min-width: 240px;
+      max-width: 360px;
+      border: 1px solid var(--glass-edge-soft);
+      border-radius: 999px;
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 34%, transparent), transparent 64%),
+        color-mix(in oklab, var(--panel-soft) 80%, transparent);
+      color: var(--text);
+      font-size: 12px;
+      padding: 6px 10px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #playground-notebook-select:focus-visible {
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 28%, transparent);
     }
 
     #reader {
@@ -793,6 +836,39 @@
         linear-gradient(156deg, rgba(255,255,255,.07), transparent 64%),
         var(--code-bg);
       color: var(--code-fg);
+    }
+
+    .code-editor {
+      display: none;
+      width: 100%;
+      min-height: 160px;
+      border: 0;
+      margin: 0;
+      padding: 12px;
+      font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.58;
+      resize: vertical;
+      color: var(--code-fg);
+      background:
+        linear-gradient(156deg, rgba(255,255,255,.07), transparent 64%),
+        var(--code-bg);
+      outline: none;
+      tab-size: 2;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    .code-runner.playground-active pre {
+      display: none;
+    }
+
+    .code-runner.playground-active .code-editor {
+      display: block;
+    }
+
+    .code-runner.playground-active .code-runner-shell {
+      align-items: start;
     }
 
     .run-code {
@@ -1271,6 +1347,7 @@
       .header-spacer { display: none; }
       .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
+      #playground-notebook-select { min-width: 200px; max-width: 260px; }
       .home-grid { grid-template-columns: 1fr; }
       .home-hero-top { flex-direction: column; }
       .home-orbit { display: none; }
@@ -1299,6 +1376,7 @@
         <div id="sidebar-list"></div>
         <div class="sidebar-footer">
           <a class="button" id="login-link" href="/login">ログイン</a>
+          <button class="button-ghost is-hidden" id="playground-link" type="button">プレイグラウンド</button>
           <a class="button-ghost is-hidden" id="admin-link" href="/admin.html">管理画面</a>
         </div>
       </aside>
@@ -1316,9 +1394,14 @@
             <div class="header-spacer" aria-hidden="true"></div>
             <h2 class="header-title" id="header-title">読み込み中...</h2>
             <div class="header-actions">
+              <div class="playground-controls is-hidden" id="playground-controls">
+                <label class="playground-label" for="playground-notebook-select">Notebook</label>
+                <select id="playground-notebook-select"></select>
+              </div>
               <div class="liquid-nav">
                 <a class="nav-item" id="download-btn" href="#">Download</a>
                 <a class="nav-item" id="colab-btn" href="#" target="_blank" rel="noreferrer">Colabで実行</a>
+                <button class="nav-item is-hidden" id="reset-playground" type="button">Reset</button>
               </div>
             </div>
           </div>
@@ -1380,6 +1463,7 @@
       </div>
       <div id="sidebar-mobile-list" class="overlay-scroll"></div>
       <a class="button" href="/login">ログイン</a>
+      <button class="button-ghost footer-link is-hidden" id="playground-link-mobile" type="button">プレイグラウンド</button>
       <a class="button-ghost footer-link is-hidden" id="admin-link-mobile" href="/admin.html">管理画面</a>
     </div>
   </div>
@@ -1392,6 +1476,7 @@
     (function () {
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
+      const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
       const KATEX_CSS_HREF = "/katex/katex.min.css";
       // MathJax v3 is Apache-2.0 licensed.
       const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
@@ -1416,7 +1501,11 @@
         authCheckSeq: 0,
         resizing: false,
         startX: 0,
-        startWidth: 400
+        startWidth: 400,
+        playgroundEnabled: false,
+        userScopeKey: "",
+        activeEditorMap: new Map(),
+        playgroundSaveTimer: null
       };
 
       const el = {
@@ -1438,6 +1527,11 @@
         clearSelection: document.getElementById("clear-selection"),
         brandHome: document.getElementById("brand-home"),
         loginLink: document.getElementById("login-link"),
+        playgroundLink: document.getElementById("playground-link"),
+        playgroundLinkMobile: document.getElementById("playground-link-mobile"),
+        playgroundControls: document.getElementById("playground-controls"),
+        playgroundNotebookSelect: document.getElementById("playground-notebook-select"),
+        resetPlayground: document.getElementById("reset-playground"),
         adminLink: document.getElementById("admin-link"),
         adminLinkMobile: document.getElementById("admin-link-mobile"),
         newChat: document.getElementById("new-chat"),
@@ -1588,6 +1682,150 @@
         return token;
       }
 
+      function resolveUserScopeKey(token) {
+        const payload = parseJwt(token);
+        if (!payload || typeof payload !== "object") return "";
+        const raw =
+          (typeof payload.sub === "string" && payload.sub.trim()) ||
+          (typeof payload.email === "string" && payload.email.trim()) ||
+          "";
+        return raw ? raw.toLowerCase() : "";
+      }
+
+      function getPlaygroundStorageKey() {
+        if (!state.userScopeKey) return "";
+        return `${PLAYGROUND_DRAFT_KEY_PREFIX}:${state.userScopeKey}`;
+      }
+
+      function readPlaygroundStore() {
+        const key = getPlaygroundStorageKey();
+        if (!key) return {};
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+          if (parsed && typeof parsed === "object") return parsed;
+        } catch {}
+        return {};
+      }
+
+      function writePlaygroundStore(nextStore) {
+        const key = getPlaygroundStorageKey();
+        if (!key) return;
+        try {
+          localStorage.setItem(key, JSON.stringify(nextStore));
+        } catch {}
+      }
+
+      function readNotebookPlaygroundDraft(notebookId) {
+        if (!notebookId) return [];
+        const store = readPlaygroundStore();
+        const entry = store[notebookId];
+        if (!entry || !Array.isArray(entry.cells)) return [];
+        return entry.cells.map((cell) => String(cell));
+      }
+
+      function writeNotebookPlaygroundDraft(notebookId, cells) {
+        if (!notebookId) return;
+        const normalized = Array.isArray(cells) ? cells.map((cell) => String(cell)) : [];
+        const store = readPlaygroundStore();
+        store[notebookId] = {
+          cells: normalized,
+          updatedAt: new Date().toISOString()
+        };
+        writePlaygroundStore(store);
+      }
+
+      function clearNotebookPlaygroundDraft(notebookId) {
+        if (!notebookId) return;
+        const store = readPlaygroundStore();
+        if (!(notebookId in store)) return;
+        delete store[notebookId];
+        writePlaygroundStore(store);
+      }
+
+      function collectEditableCellSources() {
+        return Array.from(state.activeEditorMap.keys())
+          .sort((a, b) => a - b)
+          .map((index) => {
+            const editor = state.activeEditorMap.get(index);
+            return editor ? String(editor.value || "") : "";
+          });
+      }
+
+      function schedulePlaygroundAutosave() {
+        if (!state.loggedIn || !state.playgroundEnabled || !state.activeNotebook) return;
+        if (state.playgroundSaveTimer) {
+          clearTimeout(state.playgroundSaveTimer);
+        }
+        state.playgroundSaveTimer = setTimeout(() => {
+          state.playgroundSaveTimer = null;
+          if (!state.activeNotebook) return;
+          writeNotebookPlaygroundDraft(state.activeNotebook.id, collectEditableCellSources());
+        }, 320);
+      }
+
+      async function syncEditorsToCodeBlocks() {
+        if (!state.activeEditorMap.size) return;
+        Array.from(state.activeEditorMap.entries()).forEach(([index, editor]) => {
+          const code = el.notebookContent.querySelector(`pre[data-noema-cell-index="${index}"] > code`);
+          if (!code) return;
+          code.textContent = normalizeRunnableSource(editor.value || "");
+        });
+        await applySyntaxHighlight(el.notebookContent);
+      }
+
+      function applyPlaygroundModeToCurrentNotebook() {
+        const wrappers = el.notebookContent.querySelectorAll(".code-runner");
+        wrappers.forEach((wrapper) => {
+          wrapper.classList.toggle("playground-active", state.playgroundEnabled);
+        });
+      }
+
+      function renderPlaygroundHeaderControls() {
+        const showControls = state.loggedIn && state.playgroundEnabled && !!state.activeNotebook;
+        el.playgroundControls.classList.toggle("is-hidden", !showControls);
+        el.resetPlayground.classList.toggle("is-hidden", !showControls);
+        el.playgroundNotebookSelect.disabled = !showControls;
+      }
+
+      function renderPlaygroundSidebarControls() {
+        const visible = state.loggedIn;
+        el.playgroundLink.classList.toggle("is-hidden", !visible);
+        el.playgroundLinkMobile.classList.toggle("is-hidden", !visible);
+        const label = state.playgroundEnabled ? "プレイグラウンド終了" : "プレイグラウンド";
+        el.playgroundLink.textContent = label;
+        el.playgroundLinkMobile.textContent = label;
+      }
+
+      function populatePlaygroundNotebookSelect() {
+        const chapters = notebookList();
+        const options = [];
+        chapters.forEach((chapter) => {
+          chapter.notebooks.forEach((notebook) => {
+            options.push(
+              `<option value="${notebook.id}">${escapeHtml(`${chapter.title} / ${notebook.title}`)}</option>`
+            );
+          });
+        });
+        el.playgroundNotebookSelect.innerHTML = options.join("");
+        if (state.activeNotebook) {
+          el.playgroundNotebookSelect.value = state.activeNotebook.id;
+        }
+      }
+
+      async function setPlaygroundEnabled(nextEnabled) {
+        if (nextEnabled && !state.loggedIn) {
+          window.location.href = "/login";
+          return;
+        }
+        if (!nextEnabled && state.playgroundEnabled) {
+          await syncEditorsToCodeBlocks();
+        }
+        state.playgroundEnabled = Boolean(nextEnabled);
+        renderPlaygroundSidebarControls();
+        renderPlaygroundHeaderControls();
+        applyPlaygroundModeToCurrentNotebook();
+      }
+
       async function updateAdminVisibility(token) {
         const seq = ++state.authCheckSeq;
         state.isAdmin = false;
@@ -1616,6 +1854,7 @@
       function updateAuthState() {
         const token = getToken();
         state.loggedIn = Boolean(token);
+        state.userScopeKey = token ? resolveUserScopeKey(token) : "";
 
         if (state.loggedIn) {
           el.loginLink.textContent = "ログアウト";
@@ -1630,22 +1869,33 @@
           if (state.activeNotebook) {
             void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
           }
+          renderPlaygroundSidebarControls();
+          renderPlaygroundHeaderControls();
           return;
         }
 
         state.authCheckSeq += 1;
         state.isAdmin = false;
         state.chatOpen = false;
+        state.playgroundEnabled = false;
+        applyPlaygroundModeToCurrentNotebook();
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");
         el.chatFab.classList.remove("visible");
         el.adminLink.classList.add("is-hidden");
         el.adminLinkMobile.classList.add("is-hidden");
         preloadedNotebookPackages.clear();
+        state.activeEditorMap = new Map();
+        if (state.playgroundSaveTimer) {
+          clearTimeout(state.playgroundSaveTimer);
+          state.playgroundSaveTimer = null;
+        }
 
         el.loginLink.textContent = "ログイン";
         el.loginLink.href = "/login";
         el.loginLink.onclick = null;
+        renderPlaygroundSidebarControls();
+        renderPlaygroundHeaderControls();
       }
 
       function notebookList() {
@@ -1768,6 +2018,7 @@
           el.headerTitle.textContent = "教材トップ";
           el.downloadBtn.style.display = "none";
           el.colabBtn.style.display = "none";
+          renderPlaygroundHeaderControls();
           return;
         }
 
@@ -1777,6 +2028,8 @@
         el.downloadBtn.href = `/notebooks/${nb.id}.ipynb`;
         el.downloadBtn.setAttribute("download", `${nb.id}.ipynb`);
         el.colabBtn.href = nb.colabUrl || "#";
+        populatePlaygroundNotebookSelect();
+        renderPlaygroundHeaderControls();
       }
 
       function renderHomeDashboard() {
@@ -2036,13 +2289,21 @@
 
       const EXECUTION_CONTEXT_CHAR_LIMIT = 19000;
 
+      function getCellSource(codeBlock, index) {
+        const editor = state.activeEditorMap.get(index);
+        if (editor) {
+          return normalizeRunnableSource(editor.value || "");
+        }
+        return normalizeRunnableSource(codeBlock.textContent || "");
+      }
+
       function buildExecutionContext(codeBlocks, uptoIndex) {
         const parts = [];
         const modules = new Set();
         let totalChars = 0;
 
         for (let i = uptoIndex; i >= 0; i -= 1) {
-          const source = normalizeRunnableSource(codeBlocks[i].textContent || "");
+          const source = getCellSource(codeBlocks[i], i);
           if (!source.trim()) continue;
 
           const chunk = `# --- cell ${i + 1} ---\n${source.trimEnd()}\n`;
@@ -2063,11 +2324,18 @@
 
       function enhanceCodeBlocks() {
         const blocks = Array.from(el.notebookContent.querySelectorAll("pre > code"));
+        const notebookId = state.activeNotebook ? state.activeNotebook.id : "";
+        const savedDraft = notebookId ? readNotebookPlaygroundDraft(notebookId) : [];
+        state.activeEditorMap = new Map();
 
         blocks.forEach((code, codeIndex) => {
           const pre = code.parentElement;
           if (!pre || pre.dataset.noemaRunnable === "1") return;
           pre.dataset.noemaRunnable = "1";
+          pre.dataset.noemaCellIndex = String(codeIndex);
+          const defaultSource = normalizeRunnableSource(code.textContent || "");
+          const restoredSource = savedDraft[codeIndex] !== undefined ? normalizeRunnableSource(savedDraft[codeIndex]) : defaultSource;
+          code.textContent = restoredSource;
 
           const wrapper = document.createElement("div");
           wrapper.className = "code-runner";
@@ -2081,6 +2349,17 @@
           shell.appendChild(rail);
 
           shell.appendChild(pre);
+
+          const editor = document.createElement("textarea");
+          editor.className = "code-editor";
+          editor.setAttribute("aria-label", `Editable code cell ${codeIndex + 1}`);
+          editor.value = restoredSource;
+          editor.addEventListener("input", () => {
+            code.textContent = normalizeRunnableSource(editor.value || "");
+            schedulePlaygroundAutosave();
+          });
+          state.activeEditorMap.set(codeIndex, editor);
+          shell.appendChild(editor);
 
           const button = document.createElement("button");
           button.className = "run-code";
@@ -2120,9 +2399,19 @@
             }
           });
         });
+
+        applyPlaygroundModeToCurrentNotebook();
       }
 
       async function selectNotebook(notebookId) {
+        if (state.playgroundSaveTimer) {
+          clearTimeout(state.playgroundSaveTimer);
+          state.playgroundSaveTimer = null;
+        }
+        if (state.playgroundEnabled && state.activeNotebook && state.activeEditorMap.size) {
+          writeNotebookPlaygroundDraft(state.activeNotebook.id, collectEditableCellSources());
+        }
+
         const chapters = notebookList();
         let target = null;
         let chapterId = "";
@@ -2175,8 +2464,8 @@
           renderHeader();
           renderSections();
           void preloadNotebookPackages(el.notebookContent, target.id);
-          await applySyntaxHighlight(el.notebookContent);
           enhanceCodeBlocks();
+          await applySyntaxHighlight(el.notebookContent);
 
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
@@ -2496,6 +2785,7 @@
         state.activeSection = "intro";
         state.selectedText = "";
         state.selectedSection = "";
+        state.activeEditorMap = new Map();
         renderSidebar();
         renderHeader();
         renderSections();
@@ -2544,6 +2834,56 @@
       el.brandHome.addEventListener("click", function (event) {
         event.preventDefault();
         showHomeDashboard();
+      });
+
+      el.playgroundLink.addEventListener("click", function () {
+        void (async () => {
+          if (!state.loggedIn) {
+            window.location.href = "/login";
+            return;
+          }
+          const nextEnabled = !state.playgroundEnabled;
+          await setPlaygroundEnabled(nextEnabled);
+          if (nextEnabled && !state.activeNotebook) {
+            const firstNotebook = notebookList().flatMap((chapter) => chapter.notebooks)[0];
+            if (firstNotebook) {
+              await selectNotebook(firstNotebook.id);
+            }
+          }
+        })();
+      });
+
+      el.playgroundLinkMobile.addEventListener("click", function () {
+        void (async () => {
+          el.sidebarOverlay.classList.remove("visible");
+          if (!state.loggedIn) {
+            window.location.href = "/login";
+            return;
+          }
+          const nextEnabled = !state.playgroundEnabled;
+          await setPlaygroundEnabled(nextEnabled);
+          if (nextEnabled && !state.activeNotebook) {
+            const firstNotebook = notebookList().flatMap((chapter) => chapter.notebooks)[0];
+            if (firstNotebook) {
+              await selectNotebook(firstNotebook.id);
+            }
+          }
+        })();
+      });
+
+      el.playgroundNotebookSelect.addEventListener("change", function () {
+        const notebookId = String(el.playgroundNotebookSelect.value || "").trim();
+        if (!notebookId || (state.activeNotebook && state.activeNotebook.id === notebookId)) return;
+        void selectNotebook(notebookId);
+      });
+
+      el.resetPlayground.addEventListener("click", function () {
+        if (!state.activeNotebook) return;
+        const shouldReset = window.confirm("プレイグラウンドの編集内容を破棄して初期状態へ戻しますか？");
+        if (!shouldReset) return;
+
+        clearNotebookPlaygroundDraft(state.activeNotebook.id);
+        void selectNotebook(state.activeNotebook.id);
       });
 
       el.sectionSelect.addEventListener("change", function () {
