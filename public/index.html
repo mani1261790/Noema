@@ -1712,13 +1712,22 @@
         grid-template-columns: minmax(0, 1fr) auto;
       }
       .chat-mobile-mount .assistant-head-actions {
-        display: inline-flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
         gap: 8px;
-        justify-self: end;
+        width: 100%;
+        justify-self: stretch;
+      }
+      .chat-mobile-mount .assistant-head-actions .liquid-nav {
+        width: 100%;
+        justify-content: flex-start;
       }
       .chat-mobile-mount .assistant-close {
         display: inline-flex;
+      }
+      body.sidebar-menu-open .mobile-controls {
+        display: none !important;
       }
       #playground-link-mobile,
       #admin-link-mobile {
@@ -2802,7 +2811,7 @@
             if (id) {
               selectNotebook(id);
             }
-            el.sidebarOverlay.classList.remove("visible");
+            setSidebarOverlayOpen(false);
           });
         });
       }
@@ -3949,6 +3958,12 @@
         el.assistantPanel.style.removeProperty("display");
       }
 
+      function setSidebarOverlayOpen(open) {
+        const isOpen = Boolean(open);
+        el.sidebarOverlay.classList.toggle("visible", isOpen);
+        document.body.classList.toggle("sidebar-menu-open", isOpen);
+      }
+
       function syncChatFabState() {
         const visible = state.loggedIn;
         el.chatFab.classList.toggle("visible", visible);
@@ -4105,7 +4120,7 @@
 
       el.playgroundLinkMobile.addEventListener("click", function () {
         void (async () => {
-          el.sidebarOverlay.classList.remove("visible");
+          setSidebarOverlayOpen(false);
           if (!state.loggedIn) {
             window.location.href = "/login";
             return;
@@ -4185,7 +4200,7 @@
       });
 
       el.openSidebar.addEventListener("click", function () {
-        el.sidebarOverlay.classList.add("visible");
+        setSidebarOverlayOpen(true);
       });
 
       if (el.openChatMobile) {
@@ -4199,12 +4214,12 @@
       }
 
       el.closeSidebar.addEventListener("click", function () {
-        el.sidebarOverlay.classList.remove("visible");
+        setSidebarOverlayOpen(false);
       });
 
       el.sidebarOverlay.addEventListener("click", function (event) {
         if (event.target === el.sidebarOverlay) {
-          el.sidebarOverlay.classList.remove("visible");
+          setSidebarOverlayOpen(false);
         }
       });
 
