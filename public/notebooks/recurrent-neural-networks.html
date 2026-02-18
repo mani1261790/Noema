@@ -98,95 +98,288 @@
 <body>
   <main>
 <article class="prose-noema">
-<h1 id="再帰型ニューラルネットワーク-rnn-lstm-gru">再帰型ニューラルネットワーク（RNN/LSTM/GRU）</h1>
-<p>再帰型ニューラルネットワーク（RNN/LSTM/GRU）は、損失が下がる理由を『式』と『数値変化』の両方で確認する構成です。</p>
-
-<h2 id="概念の土台">概念の土台</h2>
-<p>再帰型ニューラルネットワーク（RNN/LSTM/GRU）に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>パラメータ θ</strong>: モデルが学習で更新する重み集合です。予測の形を決めます。</li>
-<li><strong>順伝播</strong>: 入力から出力へ値を流して予測を計算する過程です。</li>
-<li><strong>逆伝播</strong>: 損失から勾配を計算して各パラメータの更新量を求める過程です。</li>
-<li><strong>隠れ状態</strong>: 時刻をまたいで情報を保持する内部ベクトルです。</li>
-<li><strong>勾配消失</strong>: 長系列で勾配が小さくなり学習が進みにくくなる問題です。</li>
-<li><strong>ゲート機構</strong>: LSTM/GRUで情報の通過量を制御する仕組みです。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
-
-<h2 id="実験-1-再帰状態の1ステップ更新">実験 1: 再帰状態の1ステップ更新</h2>
-<p>RNNの基本として、前時刻状態を使う更新式を最小実装します。</p>
-
 <pre><code class="language-python">import math
-x_t = 0.6
-h_prev = -0.2
-x = [x_t, h_prev, 1.0]
-w = [0.8, 0.5, -0.1]
-z = sum(xi * wi for xi, wi in zip(x, w))
-y = math.tanh(z)
-print(&#39;task = recurrent-neural-networks&#39;, &#39;h_t=&#39;, round(y, 6))</code></pre>
-<p>時刻依存の状態遷移をここから追跡します。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+import numpy as np
+import matplotlib.pyplot as plt
 
-<h2 id="実験-2-損失を計算する">実験 2: 損失を計算する</h2>
-<p>次に、予測値に対する損失を計算します。学習は損失を下げる方向に進むので、損失の意味を言葉で説明できることが重要です。</p>
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    TORCH_AVAILABLE = True
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    optim = None
+    TORCH_AVAILABLE = False</code></pre>
+<h1 id="再帰型ニューラルネットワーク-rnn-lstm-gru">再帰型ニューラルネットワーク（RNN/LSTM/GRU）</h1>
+<p>時系列データでは、いま見ている値だけでは正解が決まらないことがよくあります。<br>
+例えば文章なら、次の単語を決めるために前の単語列が必要です。<br>
+RNN系モデルは、過去の情報を「隠れ状態」として持ち運ぶことで、こうした問題を扱います。</p>
 
-<pre><code class="language-python">target = 1.0
-eps = 1e-9
-loss = -(target * math.log(y + eps) + (1 - target) * math.log(1 - y + eps))
-print(&#39;loss =&#39;, round(loss, 6))
-print(&#39;error =&#39;, round(target - y, 6))</code></pre>
-<p>損失は『どれだけ外したか』を測る物差しです。物差しがない状態では、改善の方向を決められません。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<p>最初に、最も単純なRNNの更新を実装します。</p>
+<p>ここでは 1 次元入力を仮定します。<br>
+<code>x_t</code> は時刻 <code>t</code> の入力、<code>h_t</code> は時刻 <code>t</code> の隠れ状態（記憶）です。<br>
+<code>W_x</code> は入力に掛かる重み、<code>W_h</code> は前時刻の記憶に掛かる重み、<code>b</code> はバイアスです。</p>
+<p>h_t = tanh(W_x x_t + W_h h_{t-1} + b)</p>
+<p>この式の意味は「新しい入力 <code>x_t</code> と、ひとつ前の記憶 <code>h_{t-1}</code> を混ぜて、新しい記憶 <code>h_t</code> を作る」です。</p>
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>z</mi><mo>=</mo><mi>W</mi><mi>x</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z = W x + b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="mord mathit">x</span><span class="mbin">+</span><span class="mord mathit">b</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>θ</mi><mo>←</mo><mi>θ</mi><mo>−</mo><mi>η</mi><mspace width="0.16667em"></mspace><msub><mi mathvariant="normal">∇</mi><mrow><mi>θ</mi></mrow></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\theta \leftarrow \theta - \eta \, \nabla_{\theta} L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mrel">←</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.03588em;">η</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">L</span></span></span></span></li>
-</ol>
+<pre><code class="language-python">def simple_rnn_forward(xs, wxh=0.9, whh=0.8, bh=0.0):
+    h = 0.0
+    history = []
+    for t, x_t in enumerate(xs):
+        # pre = W_x x_t + W_h h_{t-1} + b
+        pre = wxh * x_t + whh * h + bh
+        # h_t = tanh(pre)
+        h = math.tanh(pre)
+        history.append({&#39;t&#39;: t, &#39;x_t&#39;: x_t, &#39;pre&#39;: pre, &#39;h_t&#39;: h})
+    return h, history
 
-<h2 id="実験-3-勾配降下法の一歩">実験 3: 勾配降下法の一歩</h2>
-<p>ここで、重みを一回更新する最小実験を行います。更新前後の損失を比較して、学習の方向が正しいかを確認します。</p>
 
-<pre><code class="language-python">lr = 0.1
-grad = -(target - y) * y * (1 - y)
-w_new = [wi - lr * grad * xi for wi, xi in zip(w, x)]
-z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + 0.1
-y_new = 1 / (1 + math.exp(-z_new))
-print(&#39;y before/after =&#39;, round(y, 6), round(y_new, 6))</code></pre>
-<p>この更新で損失が下がれば、勾配方向が合理的だったと言えます。下がらないなら学習率や符号を疑います。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+sequence = [0.2, -0.1, 0.5, 0.3, -0.4, 0.1]
+final_h, hist = simple_rnn_forward(sequence, wxh=1.0, whh=0.75, bh=0.0)
 
-<h2 id="実験-4-正則化の感覚を作る">実験 4: 正則化の感覚を作る</h2>
-<p>次に、重みが大きくなりすぎることを抑える正則化項を追加します。過学習対策をコードで体験するのが狙いです。</p>
+for row in hist:
+    print(f&quot;t={row[&#39;t&#39;]:&gt;2d}, x_t={row[&#39;x_t&#39;]:&gt;5.2f}, pre={row[&#39;pre&#39;]:&gt;7.4f}, h_t={row[&#39;h_t&#39;]:&gt;7.4f}&quot;)
 
-<pre><code class="language-python">l2 = 0.01
-weight_norm = sum(wi * wi for wi in w_new)
-loss_reg = loss + l2 * weight_norm
-print(&#39;weight_norm =&#39;, round(weight_norm, 6))
-print(&#39;regularized loss =&#39;, round(loss_reg, 6))</code></pre>
-<p>正則化は精度を上げる魔法ではなく、汎化の崩れを防ぐ保険です。評価データと合わせて効果を判断してください。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&#39;final hidden state =&#39;, round(final_h, 4))</code></pre>
+<pre><code class="language-python">t_axis = [r[&#39;t&#39;] for r in hist]
+x_axis = [r[&#39;x_t&#39;] for r in hist]
+h_axis = [r[&#39;h_t&#39;] for r in hist]
 
-<h2 id="実験-5-ミニバッチの考え方">実験 5: ミニバッチの考え方</h2>
-<p>最後に、複数サンプルをまとめて扱う発想を確認します。実務では1件ずつよりバッチ処理が主流です。</p>
+plt.figure(figsize=(7.2, 3.6))
+plt.plot(t_axis, x_axis, marker=&#39;o&#39;, label=&#39;input x_t&#39;)
+plt.plot(t_axis, h_axis, marker=&#39;s&#39;, label=&#39;hidden h_t&#39;)
+plt.axhline(0, color=&#39;#999999&#39;, linewidth=1)
+plt.xlabel(&#39;time step t&#39;)
+plt.ylabel(&#39;value&#39;)
+plt.title(&#39;Simple RNN: input vs hidden state&#39;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>RNNの弱点として、長い系列になると初期の情報が消えやすい問題があります。<br>
+逆伝播では、時刻をまたいで勾配が連鎖的に掛け算されるため、係数が1より小さいと急速に小さくなります。<br>
+この現象が勾配消失（vanishing gradient）です。</p>
+<p>下の可視化は直感用の近似で、<code>|W_h|^T</code> のスカラー連鎖だけを取り出して見ています。<br>
+実際には <code>tanh</code> の導関数やヤコビアン積も効くので、ここでの図は「雰囲気の把握」が目的です。</p>
 
-<pre><code class="language-python">batch = [[0.8, -0.4, 0.2], [0.2, 0.1, -0.3], [0.5, -0.2, 0.7]]
-targets = [1.0, 0.0, 1.0]
-preds = []
-for bx in batch:
-    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + 0.1
-    preds.append(1 / (1 + math.exp(-z_b)))
-print(&#39;preds =&#39;, [round(p, 4) for p in preds])</code></pre>
-<p>ミニバッチを扱えるようになると、計算効率と学習安定性の両面で設計の幅が広がります。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">def recurrent_chain_gain(whh, steps):
+    return np.abs(whh) ** steps
 
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>学習率が大きすぎて発散する</li>
-<li>検証損失の監視をせず過学習を見逃す</li>
-<li>前処理と活性化の相性を無視する</li>
-</ol>
+
+steps = np.arange(1, 61)
+for whh in [0.5, 0.9, 1.1]:
+    gains = recurrent_chain_gain(whh, steps)
+    print(f&#39;whh={whh}: step 1 -&gt; {gains[0]:.6f}, step 30 -&gt; {gains[29]:.6f}, step 60 -&gt; {gains[59]:.6f}&#39;)
+
+plt.figure(figsize=(7.2, 3.6))
+for whh in [0.5, 0.9, 1.1]:
+    plt.plot(steps, recurrent_chain_gain(whh, steps), label=f&#39;|whh|={whh}&#39;)
+plt.yscale(&#39;log&#39;)
+plt.xlabel(&#39;time distance&#39;)
+plt.ylabel(&#39;gradient scale (log)&#39;)
+plt.title(&#39;Why long-term dependency is hard for plain RNN&#39;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>LSTMはこの問題に対して、記憶セル <code>c_t</code> と3つのゲートを導入します。</p>
+<ul>
+<li>忘却ゲート <code>f_t</code>: どれだけ過去記憶を残すか</li>
+<li>入力ゲート <code>i_t</code>: 新しい情報をどれだけ入れるか</li>
+<li>出力ゲート <code>o_t</code>: 記憶をどれだけ外に見せるか</li>
+<li>候補情報 <code>g_t</code>: 新しく書き込みたい内容</li>
+</ul>
+<p><code>c_t</code> を足し算中心で更新することで、勾配が流れやすくなります。</p>
+
+<pre><code class="language-python">def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
+
+def init_lstm_params(input_size=1, hidden_size=2, seed=7):
+    rng = np.random.default_rng(seed)
+    concat_size = input_size + hidden_size
+
+    def w(shape):
+        return rng.normal(0.0, 0.35, size=shape)
+
+    params = {
+        &#39;W_i&#39;: w((hidden_size, concat_size)),
+        &#39;b_i&#39;: np.zeros(hidden_size),
+        &#39;W_f&#39;: w((hidden_size, concat_size)),
+        &#39;b_f&#39;: np.zeros(hidden_size),
+        &#39;W_g&#39;: w((hidden_size, concat_size)),
+        &#39;b_g&#39;: np.zeros(hidden_size),
+        &#39;W_o&#39;: w((hidden_size, concat_size)),
+        &#39;b_o&#39;: np.zeros(hidden_size),
+    }
+    return params
+
+
+def lstm_step(x_t, h_prev, c_prev, p):
+    # x_t:(1,), h_prev/c_prev:(2,), W_*:(2,3), b_*:(2,)
+    z = np.concatenate([x_t, h_prev])
+
+    i_t = sigmoid(p[&#39;W_i&#39;] @ z + p[&#39;b_i&#39;])
+    f_t = sigmoid(p[&#39;W_f&#39;] @ z + p[&#39;b_f&#39;])
+    g_t = np.tanh(p[&#39;W_g&#39;] @ z + p[&#39;b_g&#39;])
+    o_t = sigmoid(p[&#39;W_o&#39;] @ z + p[&#39;b_o&#39;])
+
+    c_t = f_t * c_prev + i_t * g_t
+    h_t = o_t * np.tanh(c_t)
+
+    return h_t, c_t, {&#39;i_t&#39;: i_t, &#39;f_t&#39;: f_t, &#39;g_t&#39;: g_t, &#39;o_t&#39;: o_t}
+
+
+params = init_lstm_params(input_size=1, hidden_size=2, seed=7)
+xs = [np.array([v]) for v in [0.6, -0.2, 0.1, 0.5, -0.4]]
+h = np.zeros(2)
+c = np.zeros(2)
+
+for t, x_t in enumerate(xs):
+    h, c, gates = lstm_step(x_t, h, c, params)
+    print(f&#39;t={t}, x={x_t[0]:&gt;5.2f}&#39;)
+    print(&#39;  i_t=&#39;, np.round(gates[&#39;i_t&#39;], 4), &#39;f_t=&#39;, np.round(gates[&#39;f_t&#39;], 4), &#39;o_t=&#39;, np.round(gates[&#39;o_t&#39;], 4))
+    print(&#39;  c_t=&#39;, np.round(c, 4), &#39;h_t=&#39;, np.round(h, 4))
+
+print(&#39;読み方の目安: f_t が 1 に近いほど過去記憶を残し、0 に近いほど忘れます。&#39;)</code></pre>
+<p>GRUはLSTMを簡素化した派生モデルです。<br>
+セル状態 <code>c_t</code> を分離せず、隠れ状態 <code>h_t</code> だけを更新します。</p>
+<ul>
+<li>更新ゲート <code>z_t</code>: 以前の隠れ状態をどれだけ残すか（PyTorch流儀）</li>
+<li>リセットゲート <code>r_t</code>: 候補状態計算で過去情報をどれだけ使うか</li>
+</ul>
+<p>一般に、GRUはLSTMよりパラメータが少なく、学習が軽いことがあります。</p>
+
+<pre><code class="language-python">def count_rnn_params_single_bias(input_size, hidden_size):
+    # 理論の最小形（重み1組 + bias1組）
+    return hidden_size * (input_size + hidden_size) + hidden_size
+
+
+def count_params_pytorch_style(gates, input_size, hidden_size):
+    # PyTorchは bias_ih と bias_hh の2本を持つ
+    return gates * (hidden_size * input_size + hidden_size * hidden_size + 2 * hidden_size)
+
+
+input_size = 16
+hidden_size = 64
+
+print(&#39;--- single-bias theoretical count ---&#39;)
+print(&#39;RNN :&#39;, count_rnn_params_single_bias(input_size, hidden_size))
+print(&#39;LSTM:&#39;, 4 * count_rnn_params_single_bias(input_size, hidden_size))
+print(&#39;GRU :&#39;, 3 * count_rnn_params_single_bias(input_size, hidden_size))
+
+print(&#39;--- PyTorch parameter count (bias_ih + bias_hh) ---&#39;)
+print(&#39;RNN :&#39;, count_params_pytorch_style(1, input_size, hidden_size))
+print(&#39;LSTM:&#39;, count_params_pytorch_style(4, input_size, hidden_size))
+print(&#39;GRU :&#39;, count_params_pytorch_style(3, input_size, hidden_size))</code></pre>
+<pre><code class="language-python">def init_gru_params(input_size=1, hidden_size=2, seed=9):
+    rng = np.random.default_rng(seed)
+    concat_size = input_size + hidden_size
+
+    def w(shape):
+        return rng.normal(0.0, 0.35, size=shape)
+
+    return {
+        &#39;W_z&#39;: w((hidden_size, concat_size)),
+        &#39;b_z&#39;: np.zeros(hidden_size),
+        &#39;W_r&#39;: w((hidden_size, concat_size)),
+        &#39;b_r&#39;: np.zeros(hidden_size),
+        &#39;W_h&#39;: w((hidden_size, concat_size)),
+        &#39;b_h&#39;: np.zeros(hidden_size),
+    }
+
+
+def gru_step(x_t, h_prev, p):
+    z_in = np.concatenate([x_t, h_prev])
+    z_t = sigmoid(p[&#39;W_z&#39;] @ z_in + p[&#39;b_z&#39;])
+    r_t = sigmoid(p[&#39;W_r&#39;] @ z_in + p[&#39;b_r&#39;])
+
+    h_candidate_in = np.concatenate([x_t, r_t * h_prev])
+    h_tilde = np.tanh(p[&#39;W_h&#39;] @ h_candidate_in + p[&#39;b_h&#39;])
+
+    # PyTorchと同じ流儀: z_t は過去状態を残す割合
+    h_t = z_t * h_prev + (1.0 - z_t) * h_tilde
+    return h_t, {&#39;z_t&#39;: z_t, &#39;r_t&#39;: r_t, &#39;h_tilde&#39;: h_tilde}
+
+
+gru_params = init_gru_params(input_size=1, hidden_size=2, seed=9)
+h = np.zeros(2)
+for t, x_t in enumerate(xs):
+    h, gates = gru_step(x_t, h, gru_params)
+    print(f&#39;t={t}, x={x_t[0]:&gt;5.2f}, z_t={np.round(gates[&quot;z_t&quot;],4)}, r_t={np.round(gates[&quot;r_t&quot;],4)}, h_t={np.round(h,4)}&#39;)</code></pre>
+<p>ここからはPyTorchで、RNN/LSTM/GRUの違いを同じ課題で比較します。<br>
+課題は「系列の最初の値が正か負かを、最後の時刻で判定する」です。<br>
+途中にノイズが多いため、初期情報を保持できるモデルほど有利です。</p>
+<p><code>logit</code> は確率に変換する前の値で、<code>BCEWithLogitsLoss</code> は2値分類の標準損失です。<br>
+予測時は <code>sigmoid(logit) &gt;= 0.5</code> を陽性判定に使います。</p>
+<p>期待値としては RNN &lt; (GRU, LSTM) になりやすいですが、データ分布やハイパーパラメータで逆転もあります。</p>
+
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    np.random.seed(0)
+
+    def build_memory_dataset(n_samples=768, seq_len=28):
+        x = np.random.randn(n_samples, seq_len, 1).astype(np.float32)
+        y = (x[:, 0, 0] &gt; 0).astype(np.float32)
+        return torch.tensor(x), torch.tensor(y)
+
+    x_train, y_train = build_memory_dataset(n_samples=768, seq_len=28)
+    x_val, y_val = build_memory_dataset(n_samples=256, seq_len=28)
+
+    class SequenceClassifier(nn.Module):
+        def __init__(self, cell_type=&#39;RNN&#39;, hidden_size=24):
+            super().__init__()
+            if cell_type == &#39;RNN&#39;:
+                self.rnn = nn.RNN(input_size=1, hidden_size=hidden_size, batch_first=True)
+            elif cell_type == &#39;LSTM&#39;:
+                self.rnn = nn.LSTM(input_size=1, hidden_size=hidden_size, batch_first=True)
+            elif cell_type == &#39;GRU&#39;:
+                self.rnn = nn.GRU(input_size=1, hidden_size=hidden_size, batch_first=True)
+            else:
+                raise ValueError(&#39;Unknown cell_type&#39;)
+            self.head = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            out, _ = self.rnn(x)
+            last = out[:, -1, :]
+            logit = self.head(last).squeeze(-1)
+            return logit
+
+    def train_and_eval(cell_type, seed=0, epochs=6, lr=1e-2):
+        torch.manual_seed(seed)
+        model = SequenceClassifier(cell_type=cell_type, hidden_size=24)
+        criterion = nn.BCEWithLogitsLoss()
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+
+        batch_size = 64
+        for _ in range(epochs):
+            perm = torch.randperm(x_train.size(0))
+            for i in range(0, x_train.size(0), batch_size):
+                idx = perm[i:i+batch_size]
+                xb, yb = x_train[idx], y_train[idx]
+
+                optimizer.zero_grad()
+                logits = model(xb)
+                loss = criterion(logits, yb)
+                loss.backward()
+                optimizer.step()
+
+        with torch.no_grad():
+            logits = model(x_val)
+            preds = (torch.sigmoid(logits) &gt;= 0.5).float()
+            acc = (preds == y_val).float().mean().item()
+        return acc
+
+    seeds = [0, 1, 2]
+    for ct in [&#39;RNN&#39;, &#39;LSTM&#39;, &#39;GRU&#39;]:
+        accs = [train_and_eval(ct, seed=s) for s in seeds]
+        print(f&#39;{ct} accuracy: mean={np.mean(accs):.4f}, std={np.std(accs):.4f}, each={np.round(accs,4)}&#39;)
+
+    print(&#39;注: hidden_sizeを固定した簡易比較で、パラメータ数を厳密に一致させた比較ではありません。&#39;)
+else:
+    print(&#39;PyTorch未導入のため比較実験セルはスキップしました。&#39;)</code></pre>
+<p>実務での使い分けは、まずGRUかLSTMを基準にし、必要に応じて単純RNNを比較に置くのが安全です。<br>
+系列が長い、あるいは初期情報の保持が重要な課題では、単純RNNだけで戦うよりLSTM/GRUのほうが安定しやすくなります。</p>
+<p>一方で、長大な系列や並列計算効率が重要な場面ではTransformer系が選ばれることも多く、RNN系は軽量性やオンライン処理の文脈で依然有効です。</p>
 
 </article>
   </main>
