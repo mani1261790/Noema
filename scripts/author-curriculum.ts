@@ -773,6 +773,9 @@ function clonePack(pack: TopicPack): TopicPack {
 
 function overridePack(id: string, title: string, base: TopicPack): TopicPack {
   const pack = clonePack(base);
+  const overrideFirstModule = (label: string, before: string, lines: string[], after: string) => {
+    pack.modules[0] = unit(label, before, lines, after);
+  };
 
   if (id === "numpy-basics") {
     pack.modules[0] = unit(
@@ -991,6 +994,771 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
         "print('template_len=', len(template))"
       ],
       "この設計は生成APIを呼ばなくても、入力仕様の品質点検として価値があります。"
+    );
+  }
+
+  // Machine Learning: avoid duplicate notebook starts while preserving x/y/pairs dependency.
+  if (id === "simple-regression") {
+    overrideFirstModule(
+      "単回帰データを作る",
+      "単回帰の前提を確認するため、直線関係が見える最小データを作ります。",
+      [
+        "x = [1, 2, 3, 4, 5]",
+        "y = [2.1, 4.2, 6.1, 8.2, 10.1]",
+        "pairs = list(zip(x, y))",
+        "print('task = simple-regression')",
+        "print('pairs =', pairs)"
+      ],
+      "このデータを基準に、係数推定と誤差評価の流れを追います。"
+    );
+  }
+
+  if (id === "multiple-regression") {
+    overrideFirstModule(
+      "重回帰用の基本系列を作る",
+      "重回帰へ進む前に、主変数の系列を作って基準線を確認します。",
+      [
+        "x = [1, 2, 3, 4, 5, 6]",
+        "y = [3.2, 5.1, 7.4, 9.3, 11.6, 13.7]",
+        "pairs = list(zip(x, y))",
+        "aux_feature = [round(v**2 * 0.1, 2) for v in x]",
+        "print('task = multiple-regression')",
+        "print('pairs/head =', pairs[:3], 'aux=', aux_feature[:3])"
+      ],
+      "後続で特徴を増やしたときの変化を比較できるよう、基準を固定します。"
+    );
+  }
+
+  if (id === "feature-engineering") {
+    overrideFirstModule(
+      "特徴量設計の元データを作る",
+      "欠損や外れ値を意識した前処理の入口として、ばらつきを持つデータを用意します。",
+      [
+        "x = [1, 2, 3, 4, 5, 8]",
+        "y = [2.0, 4.1, 5.9, 8.3, 9.8, 15.2]",
+        "pairs = list(zip(x, y))",
+        "raw_flags = ['ok', 'ok', 'ok', 'ok', 'ok', 'outlier']",
+        "print('task = feature-engineering')",
+        "print('pairs =', pairs, 'flags =', raw_flags)"
+      ],
+      "この元データから、特徴変換やスケーリングの意味を確認します。"
+    );
+  }
+
+  if (id === "supervised-unsupervised-learning") {
+    overrideFirstModule(
+      "教師あり・教師なしの比較用データ",
+      "同じ系列を、ラベルあり/なしの2つの見方で扱う準備をします。",
+      [
+        "x = [1, 2, 3, 6, 7, 8]",
+        "y = [1.0, 1.8, 2.7, 6.5, 7.1, 8.2]",
+        "pairs = list(zip(x, y))",
+        "labels = ['A', 'A', 'A', 'B', 'B', 'B']",
+        "print('task = supervised-unsupervised-learning')",
+        "print('pairs =', pairs, 'labels =', labels)"
+      ],
+      "この準備で、予測問題とクラスタ問題の違いを同じ土台で比較できます。"
+    );
+  }
+
+  if (id === "time-series-data") {
+    overrideFirstModule(
+      "時系列の基礎系列を作る",
+      "時間順序を崩さずに扱うため、トレンドを含む系列を先に定義します。",
+      [
+        "x = [1, 2, 3, 4, 5, 6, 7]",
+        "y = [10.0, 10.8, 11.7, 13.0, 14.2, 15.1, 16.4]",
+        "pairs = list(zip(x, y))",
+        "diff = [round(y[i] - y[i-1], 3) for i in range(1, len(y))]",
+        "print('task = time-series-data')",
+        "print('pairs/head =', pairs[:4], 'diff/head =', diff[:3])"
+      ],
+      "この系列を使い、分割方法と評価の注意点を後続で確認します。"
+    );
+  }
+
+  // Deep Learning: topic-specific starts while preserving math/x/w/z/y dependency.
+  if (id === "neural-network-basics") {
+    overrideFirstModule(
+      "パーセプトロンの順伝播",
+      "ニューラルネットワークの入口として、1ユニットの順伝播を明示的に計算します。",
+      [
+        "import math",
+        "x = [0.7, -0.2, 0.5]",
+        "w = [0.4, -0.8, 0.3]",
+        "z = sum(xi * wi for xi, wi in zip(x, w)) - 0.05",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('task = neural-network-basics', 'z=', round(z, 5), 'y=', round(y, 5))"
+      ],
+      "この1ステップを基準に、損失や更新式を読み解きます。"
+    );
+  }
+
+  if (id === "loss-and-gradient-descent") {
+    overrideFirstModule(
+      "損失計算の初期値を作る",
+      "勾配降下法を理解しやすくするため、損失を計算できる初期状態を固定します。",
+      [
+        "import math",
+        "x = [1.0, -0.5, 0.3]",
+        "w = [0.2, -0.4, 0.6]",
+        "z = sum(xi * wi for xi, wi in zip(x, w)) + 0.12",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('task = loss-and-gradient-descent', 'pred=', round(y, 6))"
+      ],
+      "この初期予測を使って、損失の勾配と更新方向を確認します。"
+    );
+  }
+
+  if (id === "optimization-regularization") {
+    overrideFirstModule(
+      "最適化の初期点を定義する",
+      "最適化手法比較のため、重みと予測を同じ初期点から開始します。",
+      [
+        "import math",
+        "x = [0.9, -0.3, 0.1]",
+        "w = [0.5, -0.2, 0.4]",
+        "z = sum(xi * wi for xi, wi in zip(x, w)) + 0.03",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('task = optimization-regularization', 'init_pred=', round(y, 6))"
+      ],
+      "同じ初期点を使うことで、手法差を比較しやすくします。"
+    );
+  }
+
+  if (id === "convolution-basics") {
+    overrideFirstModule(
+      "畳み込みの最小計算",
+      "CNNの直感を作るため、1次元の畳み込みを手計算に近い形で実行します。",
+      [
+        "import math",
+        "signal = [1.0, 0.0, 2.0, 1.0, 3.0]",
+        "kernel = [0.5, -1.0, 0.5]",
+        "x = [signal[0], signal[1], signal[2]]",
+        "w = kernel",
+        "z = sum(xi * wi for xi, wi in zip(x, w))",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('task = convolution-basics', 'conv0=', round(z, 5), 'act=', round(y, 5))"
+      ],
+      "この計算感覚を2次元画像へ拡張するのがCNNです。"
+    );
+  }
+
+  if (id === "recurrent-neural-networks") {
+    overrideFirstModule(
+      "再帰状態の1ステップ更新",
+      "RNNの基本として、前時刻状態を使う更新式を最小実装します。",
+      [
+        "import math",
+        "x_t = 0.6",
+        "h_prev = -0.2",
+        "x = [x_t, h_prev, 1.0]",
+        "w = [0.8, 0.5, -0.1]",
+        "z = sum(xi * wi for xi, wi in zip(x, w))",
+        "y = math.tanh(z)",
+        "print('task = recurrent-neural-networks', 'h_t=', round(y, 6))"
+      ],
+      "時刻依存の状態遷移をここから追跡します。"
+    );
+  }
+
+  if (id === "transformer-basics") {
+    overrideFirstModule(
+      "自己注意の最小例",
+      "Transformerの核心である注意重みを、2トークンの最小例で計算します。",
+      [
+        "import math",
+        "query = [1.0, 0.0]",
+        "key = [0.8, 0.6]",
+        "value = [0.3, 0.9]",
+        "score = sum(q * k for q, k in zip(query, key)) / math.sqrt(2)",
+        "weight = math.exp(score) / (math.exp(score) + math.exp(0.0))",
+        "x = [weight, 1 - weight, 1.0]",
+        "w = [value[0], value[1], 0.0]",
+        "z = sum(xi * wi for xi, wi in zip(x, w))",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('task = transformer-basics', 'attn=', round(weight, 6), 'mix=', round(z, 6))"
+      ],
+      "この注意重みの計算が、系列依存を扱う中心操作です。"
+    );
+  }
+
+  if (id === "nlp-deep-learning") {
+    overrideFirstModule(
+      "トークン埋め込みの最小計算",
+      "NLPの入口として、語IDから埋め込みを引いて合成ベクトルを作ります。",
+      [
+        "import math",
+        "embedding = {0: [0.1, 0.2], 1: [0.4, -0.1], 2: [0.3, 0.5]}",
+        "token_ids = [0, 2, 1]",
+        "vec = [sum(embedding[t][d] for t in token_ids) / len(token_ids) for d in range(2)]",
+        "x = [vec[0], vec[1], 1.0]",
+        "w = [0.7, -0.2, 0.05]",
+        "z = sum(xi * wi for xi, wi in zip(x, w))",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('task = nlp-deep-learning', 'vec=', [round(v, 4) for v in vec], 'pred=', round(y, 6))"
+      ],
+      "埋め込みから予測までの流れを、まず小さく確認します。"
+    );
+  }
+
+  // RL family: keep gamma/g flow while making each notebook distinct.
+  if (id === "rl-foundation") {
+    overrideFirstModule(
+      "割引報酬の基礎",
+      "強化学習の原点として、割引和の計算を基礎例で確認します。",
+      [
+        "rewards = [0, 1, 0, 2]",
+        "gamma = 0.90",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = rl-foundation', 'return=', round(g, 6))"
+      ],
+      "ここでの return 計算が価値関数理解の土台になります。"
+    );
+  }
+
+  if (id === "value-function") {
+    overrideFirstModule(
+      "価値関数の直感を作る",
+      "価値関数ノートでは、同じ方策で将来報酬を見積もる感覚を作ります。",
+      [
+        "rewards = [0.2, 0.3, 0.6, 1.0]",
+        "gamma = 0.85",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = value-function', 'v_pi_start=', round(g, 6))"
+      ],
+      "この見積もりを状態ごとに持つのが価値関数です。"
+    );
+  }
+
+  if (id === "bellman-equations") {
+    overrideFirstModule(
+      "ベルマン更新前の準備",
+      "ベルマン方程式へ入る前に、割引率と報酬列を固定して再帰構造を確認します。",
+      [
+        "rewards = [1.0, 0.4, 0.0, 1.2]",
+        "gamma = 0.92",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = bellman-equations', 'boot_return=', round(g, 6))"
+      ],
+      "再帰的な更新規則を次セルで定量的に確認します。"
+    );
+  }
+
+  if (id === "policy-iteration") {
+    overrideFirstModule(
+      "方策反復の初期評価",
+      "方策反復では、評価→改善の繰り返しに入る前の初期値を確認します。",
+      [
+        "rewards = [0.1, 0.5, 0.9, 1.1]",
+        "gamma = 0.88",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = policy-iteration', 'initial_policy_value=', round(g, 6))"
+      ],
+      "以降で評価値に基づく方策改善を行います。"
+    );
+  }
+
+  if (id === "value-iteration") {
+    overrideFirstModule(
+      "価値反復の初期化",
+      "価値反復の1ステップ更新を追うため、初期の報酬列を定義します。",
+      [
+        "rewards = [0.0, 0.6, 0.4, 1.3]",
+        "gamma = 0.93",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = value-iteration', 'init_value=', round(g, 6))"
+      ],
+      "この初期化から最適価値への収束過程を観察します。"
+    );
+  }
+
+  if (id === "td-learning") {
+    overrideFirstModule(
+      "TD法の初期系列",
+      "TD誤差を観察するため、短い遷移で割引報酬の基準を作ります。",
+      [
+        "rewards = [0.3, 0.0, 0.7, 1.0]",
+        "gamma = 0.87",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = td-learning', 'bootstrap=', round(g, 6))"
+      ],
+      "この値を参照してTD更新の動きを比較します。"
+    );
+  }
+
+  if (id === "q-learning") {
+    overrideFirstModule(
+      "Q学習の更新準備",
+      "Q学習の更新式確認のため、割引率と報酬列を先に定義します。",
+      [
+        "rewards = [0.0, 1.0, 0.2, 1.4]",
+        "gamma = 0.91",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = q-learning', 'reference_return=', round(g, 6))"
+      ],
+      "次セルでmax演算を含む更新規則に接続します。"
+    );
+  }
+
+  if (id === "sarsa") {
+    overrideFirstModule(
+      "SARSAの初期系列",
+      "SARSAでは行動込みの更新を扱うため、基準となる割引報酬を先に計算します。",
+      [
+        "rewards = [0.2, 0.8, 0.4, 1.0]",
+        "gamma = 0.89",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = sarsa', 'reference_return=', round(g, 6))"
+      ],
+      "この基準を元にon-policy更新を確認します。"
+    );
+  }
+
+  if (id === "n-step-td") {
+    overrideFirstModule(
+      "n-step TDの基礎系列",
+      "n-stepで将来情報を何段先まで使うかを考えるための基礎系列を作ります。",
+      [
+        "rewards = [0.4, 0.1, 0.6, 0.9, 1.1]",
+        "gamma = 0.86",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = n-step-td', 'full_return=', round(g, 6))"
+      ],
+      "この系列を使って1-stepとの差を比較します。"
+    );
+  }
+
+  if (id === "td-lambda") {
+    overrideFirstModule(
+      "TD(λ)の初期系列",
+      "λ混合の意味を確認するため、割引報酬列を初期化しておきます。",
+      [
+        "rewards = [0.1, 0.5, 0.2, 1.2]",
+        "gamma = 0.90",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = td-lambda', 'base_return=', round(g, 6))"
+      ],
+      "ここからn-stepの混合比を考える準備に入ります。"
+    );
+  }
+
+  if (id === "eligibility-trace-td-lambda") {
+    overrideFirstModule(
+      "Eligibility Traceの初期系列",
+      "後方観測更新を理解するため、trace導入前の基準報酬列を作ります。",
+      [
+        "rewards = [0.0, 0.7, 0.3, 1.0, 0.8]",
+        "gamma = 0.88",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = eligibility-trace-td-lambda', 'base=', round(g, 6))"
+      ],
+      "この基準を使ってtrace蓄積の効果を比較します。"
+    );
+  }
+
+  if (id === "deep-rl") {
+    overrideFirstModule(
+      "深層強化学習の基準系列",
+      "関数近似を導入する前に、報酬系列から基準となる割引和を作ります。",
+      [
+        "rewards = [0.5, 0.2, 0.9, 1.4]",
+        "gamma = 0.94",
+        "g = 0.0",
+        "for r in reversed(rewards):",
+        "    g = r + gamma * g",
+        "print('task = deep-rl', 'reference=', round(g, 6))"
+      ],
+      "この基準をベースに近似誤差の影響を見ます。"
+    );
+  }
+
+  // LLM family.
+  if (id === "llm-pretraining") {
+    overrideFirstModule(
+      "事前学習コーパスのトークン概算",
+      "事前学習ノートでは、長文コーパスのトークン規模感を最初に確認します。",
+      [
+        "text = '事前学習は大規模コーパスから統計構造を学習する。'",
+        "char_len = len(text)",
+        "space_tokens = text.split()",
+        "rough_tokens = max(1, char_len // 2)",
+        "print('task = llm-pretraining')",
+        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
+      ],
+      "コストとデータ規模の関係をここで掴みます。"
+    );
+  }
+
+  if (id === "scaling-laws") {
+    overrideFirstModule(
+      "スケーリング則の観測データ",
+      "モデルサイズと損失の関係を見るため、簡易ログを先に作っておきます。",
+      [
+        "text = 'paramsとtoken数を増やすと損失がべき乗的に下がる傾向がある。'",
+        "char_len = len(text)",
+        "space_tokens = text.split()",
+        "rough_tokens = max(1, char_len // 2)",
+        "print('task = scaling-laws')",
+        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
+      ],
+      "後続で計算資源配分の判断へつなげます。"
+    );
+  }
+
+  if (id === "fine-tuning") {
+    overrideFirstModule(
+      "ファインチューニング対象文の準備",
+      "微調整ではドメイン文体を反映したデータ設計が重要です。最小文で確認します。",
+      [
+        "text = '微調整では目的タスクの分布に近い教師信号を使う。'",
+        "char_len = len(text)",
+        "space_tokens = text.split()",
+        "rough_tokens = max(1, char_len // 2)",
+        "print('task = fine-tuning')",
+        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
+      ],
+      "ここでの文体差が適応性能に影響します。"
+    );
+  }
+
+  if (id === "hallucination-rlhf") {
+    overrideFirstModule(
+      "ハルシネーション観測の基礎",
+      "根拠欠落の回答を減らす観点で、入力長と情報密度をまず確認します。",
+      [
+        "text = '根拠が不足した回答は一見自然でも信頼性を損なう。'",
+        "char_len = len(text)",
+        "space_tokens = text.split()",
+        "rough_tokens = max(1, char_len // 2)",
+        "print('task = hallucination-rlhf')",
+        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
+      ],
+      "以降で評価軸と報酬設計に接続します。"
+    );
+  }
+
+  if (id === "domain-specialization") {
+    overrideFirstModule(
+      "ドメイン特化データの入口",
+      "特化モデルでは一般知識との差分を明確にする必要があります。最小文で確認します。",
+      [
+        "text = 'ドメイン特化では専門語の分布と評価指標を先に固定する。'",
+        "char_len = len(text)",
+        "space_tokens = text.split()",
+        "rough_tokens = max(1, char_len // 2)",
+        "print('task = domain-specialization')",
+        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
+      ],
+      "この入口設計が精度と運用コストを左右します。"
+    );
+  }
+
+  // Generative family: preserve z dependency for module 2.
+  if (id === "generative-model-overview") {
+    overrideFirstModule(
+      "潜在変数の入口",
+      "生成モデル全体像として、潜在空間からのサンプリングを先に体験します。",
+      [
+        "import random",
+        "random.seed(11)",
+        "z = [round(random.gauss(0, 1), 3) for _ in range(5)]",
+        "print('task = generative-model-overview')",
+        "print('latent z =', z)"
+      ],
+      "このzをデコーダに渡す流れを後続で確認します。"
+    );
+  }
+
+  if (id === "latent-variable-mixture-models") {
+    overrideFirstModule(
+      "混合分布を意識したサンプル",
+      "潜在変数と混合モデルの違いを掴むため、2モードの潜在サンプルを作ります。",
+      [
+        "import random",
+        "random.seed(13)",
+        "z = [round(random.choice([-1.5, 1.8]) + random.gauss(0, 0.15), 3) for _ in range(5)]",
+        "print('task = latent-variable-mixture-models')",
+        "print('latent z =', z)"
+      ],
+      "モード構造が生成結果へどう影響するかを見ます。"
+    );
+  }
+
+  if (id === "vae") {
+    overrideFirstModule(
+      "VAE向け潜在サンプル",
+      "VAEの再構成とKLの関係を見るため、ガウス潜在を初期化します。",
+      [
+        "import random",
+        "random.seed(17)",
+        "z = [round(random.gauss(0, 0.7), 3) for _ in range(5)]",
+        "print('task = vae')",
+        "print('latent z =', z)"
+      ],
+      "この潜在系列を再構成の例で使います。"
+    );
+  }
+
+  if (id === "gan") {
+    overrideFirstModule(
+      "GANノイズ入力の作成",
+      "GANでは生成器の入力ノイズが多様性を左右します。最小ノイズ列を作ります。",
+      [
+        "import random",
+        "random.seed(19)",
+        "z = [round(random.uniform(-1, 1), 3) for _ in range(5)]",
+        "print('task = gan')",
+        "print('latent z =', z)"
+      ],
+      "このノイズから生成サンプルへの写像を追います。"
+    );
+  }
+
+  if (id === "autoregressive-flow-models") {
+    overrideFirstModule(
+      "自己回帰系列の初期化",
+      "自己回帰とフローの違いを見るため、時系列的な潜在列を準備します。",
+      [
+        "import random",
+        "random.seed(23)",
+        "z = []",
+        "cur = 0.0",
+        "for _ in range(5):",
+        "    cur = 0.7 * cur + random.gauss(0, 0.4)",
+        "    z.append(round(cur, 3))",
+        "print('task = autoregressive-flow-models')",
+        "print('latent z =', z)"
+      ],
+      "系列依存を持つ潜在列から生成特性を比較します。"
+    );
+  }
+
+  if (id === "energy-based-models") {
+    overrideFirstModule(
+      "エネルギー地形の入口",
+      "EBMでは確率そのものよりエネルギーの相対差を見ます。潜在点列を準備します。",
+      [
+        "import random",
+        "random.seed(29)",
+        "z = [round(random.uniform(-2, 2), 3) for _ in range(5)]",
+        "print('task = energy-based-models')",
+        "print('latent z =', z)"
+      ],
+      "この点列を使ってエネルギーの高低を比較します。"
+    );
+  }
+
+  if (id === "score-diffusion-models") {
+    overrideFirstModule(
+      "拡散向けノイズ初期化",
+      "スコアベースモデルではノイズ段階が鍵です。初期ノイズ列を作ります。",
+      [
+        "import random",
+        "random.seed(31)",
+        "z = [round(random.gauss(0, 1.2), 3) for _ in range(5)]",
+        "print('task = score-diffusion-models')",
+        "print('latent z =', z)"
+      ],
+      "ノイズから復元する流れをここから追跡します。"
+    );
+  }
+
+  if (id === "continuous-diffusion-flow-matching") {
+    overrideFirstModule(
+      "連続時間拡散の初期点",
+      "連続時間モデルの直感を作るため、時間方向に扱う初期潜在点を準備します。",
+      [
+        "import random",
+        "random.seed(37)",
+        "z = [round(random.gauss(0, 0.9) + t * 0.1, 3) for t in range(5)]",
+        "print('task = continuous-diffusion-flow-matching')",
+        "print('latent z =', z)"
+      ],
+      "この初期点列を使って流れ場近似を確認します。"
+    );
+  }
+
+  // World-model family: preserve z_next dependency for module 2.
+  if (id === "world-models-and-generative-models") {
+    overrideFirstModule(
+      "世界モデルの遷移初期化",
+      "生成モデルとの関係を見る前に、遷移式の基礎を定義します。",
+      [
+        "z_t = 0.20",
+        "a_t = 1.0",
+        "A, B = 0.90, 0.20",
+        "z_next = A * z_t + B * a_t",
+        "print('task = world-models-and-generative-models')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この遷移を起点に観測復元へ進みます。"
+    );
+  }
+
+  if (id === "control-model-and-mbrl") {
+    overrideFirstModule(
+      "制御モデルの遷移初期化",
+      "制御入力が状態へどう効くかを見るため、遷移係数を明示します。",
+      [
+        "z_t = -0.15",
+        "a_t = 0.8",
+        "A, B = 0.93, 0.16",
+        "z_next = A * z_t + B * a_t",
+        "print('task = control-model-and-mbrl')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "ここから計画候補評価へつなげます。"
+    );
+  }
+
+  if (id === "state-space-models") {
+    overrideFirstModule(
+      "状態空間モデルの遷移",
+      "状態空間モデルとして、線形遷移の最小形を定義します。",
+      [
+        "z_t = 0.35",
+        "a_t = -0.3",
+        "A, B = 0.88, 0.22",
+        "z_next = A * z_t + B * a_t",
+        "print('task = state-space-models')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この線形遷移を起点に表現学習へ接続します。"
+    );
+  }
+
+  if (id === "state-representation-learning") {
+    overrideFirstModule(
+      "表現学習の遷移初期化",
+      "状態表現学習では圧縮状態の可用性が重要なので、簡易遷移から始めます。",
+      [
+        "z_t = 0.12",
+        "a_t = 0.5",
+        "A, B = 0.91, 0.19",
+        "z_next = A * z_t + B * a_t",
+        "print('task = state-representation-learning')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "このzをどれだけ情報保持できるかが論点になります。"
+    );
+  }
+
+  if (id === "state-prediction-models") {
+    overrideFirstModule(
+      "状態予測モデルの初期遷移",
+      "未来状態予測の誤差を見るため、遷移初期値を定義します。",
+      [
+        "z_t = -0.05",
+        "a_t = 1.1",
+        "A, B = 0.89, 0.21",
+        "z_next = A * z_t + B * a_t",
+        "print('task = state-prediction-models')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この遷移誤差を後続で時系列的に評価します。"
+    );
+  }
+
+  if (id === "vae-diffusion-world-models") {
+    overrideFirstModule(
+      "VAE/拡散併用の遷移初期化",
+      "世界モデルでの生成的遷移を意識し、遷移係数を設定します。",
+      [
+        "z_t = 0.27",
+        "a_t = -0.6",
+        "A, B = 0.94, 0.14",
+        "z_next = A * z_t + B * a_t",
+        "print('task = vae-diffusion-world-models')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この遷移に生成モデルを重ねる観点を後続で扱います。"
+    );
+  }
+
+  if (id === "simulation-and-cg") {
+    overrideFirstModule(
+      "シミュレーション初期遷移",
+      "CGと物理更新の接続を見るため、遷移係数を準備します。",
+      [
+        "z_t = 0.41",
+        "a_t = 0.2",
+        "A, B = 0.87, 0.25",
+        "z_next = A * z_t + B * a_t",
+        "print('task = simulation-and-cg')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この遷移から観測生成までをつないで見ます。"
+    );
+  }
+
+  if (id === "ssm-and-transformer") {
+    overrideFirstModule(
+      "SSMとTransformer比較の初期遷移",
+      "状態空間更新と自己注意比較の土台として、遷移初期値を固定します。",
+      [
+        "z_t = -0.22",
+        "a_t = 0.9",
+        "A, B = 0.92, 0.17",
+        "z_next = A * z_t + B * a_t",
+        "print('task = ssm-and-transformer')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この値を基準に系列モデリング差を確認します。"
+    );
+  }
+
+  if (id === "observation-prediction-models") {
+    overrideFirstModule(
+      "観測予測の遷移初期化",
+      "観測再現精度を見るため、まず状態遷移の起点を定義します。",
+      [
+        "z_t = 0.08",
+        "a_t = 0.7",
+        "A, B = 0.90, 0.18",
+        "z_next = A * z_t + B * a_t",
+        "print('task = observation-prediction-models')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この起点から自己回帰/拡散の観測予測へ接続します。"
+    );
+  }
+
+  if (id === "multimodal-world-models") {
+    overrideFirstModule(
+      "マルチモーダル遷移の起点",
+      "複数モダリティ統合を意識し、共通状態の遷移初期値を作ります。",
+      [
+        "z_t = 0.18",
+        "a_t = -0.4",
+        "A, B = 0.91, 0.20",
+        "z_next = A * z_t + B * a_t",
+        "print('task = multimodal-world-models')",
+        "print('z_next =', round(z_next, 6))"
+      ],
+      "この共通状態を使って各モダリティ予測を比較します。"
     );
   }
 
