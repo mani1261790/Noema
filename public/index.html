@@ -1398,21 +1398,23 @@
       position: fixed;
       right: 18px;
       bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
-      z-index: 40;
+      z-index: 80;
       width: 48px;
       height: 48px;
       border-radius: 999px;
       padding: 0;
       display: none;
-      border: 1px solid color-mix(in oklab, var(--glass-highlight) 38%, var(--glass-edge));
+      border: 1px solid color-mix(in oklab, var(--glass-highlight) 48%, var(--glass-edge));
       background:
-        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 56%, transparent), transparent 58%),
+        radial-gradient(circle at 28% 22%, color-mix(in oklab, var(--glass-highlight) 86%, transparent), transparent 56%),
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 62%, transparent), transparent 58%),
         color-mix(in oklab, var(--panel-soft) 84%, transparent);
-      backdrop-filter: blur(18px) saturate(155%);
-      -webkit-backdrop-filter: blur(18px) saturate(155%);
+      backdrop-filter: blur(20px) saturate(165%);
+      -webkit-backdrop-filter: blur(20px) saturate(165%);
       box-shadow:
-        0 14px 26px color-mix(in oklab, var(--shadow) 36%, transparent),
-        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 86%, transparent);
+        0 16px 28px color-mix(in oklab, var(--shadow) 38%, transparent),
+        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 92%, transparent),
+        inset 0 -1px 0 color-mix(in oklab, var(--glass-edge-soft) 72%, transparent);
       align-items: center;
       justify-content: center;
     }
@@ -1608,12 +1610,14 @@
           max(58px, calc(env(safe-area-inset-left) + 48px));
       }
       .header-top {
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        display: block;
       }
       .header-spacer { display: none; }
-      .header-title { font-size: 16px; }
+      .header-title {
+        font-size: 16px;
+        text-align: center;
+        margin: 0 auto;
+      }
       .header-actions { display: none !important; }
       #download-btn,
       #colab-btn {
@@ -1681,6 +1685,7 @@
       .header-title {
         width: 100%;
         text-align: center;
+        margin: 0 auto;
       }
 
       #reader {
@@ -1961,7 +1966,6 @@
         chatOverlay: document.getElementById("chat-overlay"),
         openSidebar: document.getElementById("open-sidebar"),
         closeSidebar: document.getElementById("close-sidebar"),
-        openChatMobile: document.getElementById("open-chat-mobile"),
         chatMobileMount: document.getElementById("chat-mobile-mount"),
         resizer: document.getElementById("chat-resizer")
       };
@@ -4109,16 +4113,6 @@
       el.closeSidebar.addEventListener("click", function () {
         el.sidebarOverlay.classList.remove("visible");
       });
-
-      if (el.openChatMobile) {
-        el.openChatMobile.addEventListener("click", function () {
-          if (!state.loggedIn) {
-            window.location.href = "/login";
-            return;
-          }
-          setChatOpen(!state.chatOpen);
-        });
-      }
 
       el.sidebarOverlay.addEventListener("click", function (event) {
         if (event.target === el.sidebarOverlay) {
