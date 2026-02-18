@@ -99,93 +99,343 @@
   <main>
 <article class="prose-noema">
 <h1 id="畳み込みとcnn">畳み込みとCNN</h1>
-<p>畳み込みとCNNは、損失が下がる理由を『式』と『数値変化』の両方で確認する構成です。</p>
+<p>畳み込みニューラルネットワーク（CNN）は、画像の中から「どこにあるか」をある程度保ちながら特徴を抽出するための設計です。<br>
+このノートでは、畳み込みの計算を手で追える形から始め、stride・padding・pooling の役割を確認し、最後に小さな画像分類を実装します。</p>
+<p>さらに、分類CNNがどう Fully Convolutional Network（FCN）へ拡張されるかまでつなげます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>畳み込みとCNNに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    TORCH_AVAILABLE = True
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    optim = None
+    TORCH_AVAILABLE = False
+
+np.random.seed(42)</code></pre>
+<p>まず、1チャネル画像に対する2次元演算を自分で実装します。<br>
+ここでは深層学習ライブラリ（<code>Conv2d</code>）と同じ慣習に合わせ、カーネル反転なしの相互相関（cross-correlation）を標準にします。</p>
+<p>厳密な数学的畳み込みを見たいときは、カーネルを上下左右反転してから積和します。</p>
+
+<pre><code class="language-python">def conv2d_single(image, kernel, stride=1, padding=0, flip_kernel=False):
+    h, w = image.shape
+    kh, kw = kernel.shape
+    k = np.flip(kernel, axis=(0, 1)) if flip_kernel else kernel
+
+    if padding &gt; 0:
+        padded = np.pad(image, ((padding, padding), (padding, padding)), mode=&#39;constant&#39;)
+    else:
+        padded = image
+
+    ph, pw = padded.shape
+    out_h = (ph - kh) // stride + 1
+    out_w = (pw - kw) // stride + 1
+    out = np.zeros((out_h, out_w), dtype=np.float64)
+
+    for i in range(out_h):
+        for j in range(out_w):
+            patch = padded[i * stride:i * stride + kh, j * stride:j * stride + kw]
+            out[i, j] = np.sum(patch * k)
+
+    return out
+
+
+def maxpool2d_single(feature_map, pool=2, stride=2):
+    h, w = feature_map.shape
+    out_h = (h - pool) // stride + 1
+    out_w = (w - pool) // stride + 1
+    out = np.zeros((out_h, out_w), dtype=np.float64)
+
+    for i in range(out_h):
+        for j in range(out_w):
+            patch = feature_map[i * stride:i * stride + pool, j * stride:j * stride + pool]
+            out[i, j] = np.max(patch)
+
+    return out</code></pre>
+<pre><code class="language-python">toy = np.zeros((10, 10), dtype=np.float64)
+toy[2:8, 4:6] = 1.0
+toy[6:8, 1:9] = 1.0
+
+kernel_vertical = np.array([
+    [-1, 0, 1],
+    [-2, 0, 2],
+    [-1, 0, 1],
+], dtype=np.float64)
+
+kernel_horizontal = np.array([
+    [-1, -2, -1],
+    [ 0,  0,  0],
+    [ 1,  2,  1],
+], dtype=np.float64)
+
+feat_v = conv2d_single(toy, kernel_vertical, stride=1, padding=1)
+feat_h = conv2d_single(toy, kernel_horizontal, stride=1, padding=1)
+
+fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.2))
+axes[0].imshow(toy, cmap=&#39;gray&#39;, vmin=0, vmax=1)
+axes[0].set_title(&#39;Input&#39;)
+axes[1].imshow(feat_v, cmap=&#39;coolwarm&#39;)
+axes[1].set_title(&#39;Vertical-edge response&#39;)
+axes[2].imshow(feat_h, cmap=&#39;coolwarm&#39;)
+axes[2].set_title(&#39;Horizontal-edge response&#39;)
+for ax in axes:
+    ax.axis(&#39;off&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p><code>padding</code> は周辺情報を残したまま畳み込みするために使います。<br>
+<code>stride</code> はカーネルの移動幅で、値を大きくすると出力解像度が下がります。</p>
+
+<pre><code class="language-python">out_no_pad = conv2d_single(toy, kernel_vertical, stride=1, padding=0)
+out_pad1 = conv2d_single(toy, kernel_vertical, stride=1, padding=1)
+out_stride2 = conv2d_single(toy, kernel_vertical, stride=2, padding=1)
+
+print(&#39;input shape      :&#39;, toy.shape)
+print(&#39;no padding shape :&#39;, out_no_pad.shape)
+print(&#39;padding=1 shape  :&#39;, out_pad1.shape)
+print(&#39;stride=2 shape   :&#39;, out_stride2.shape)</code></pre>
+<pre><code class="language-python">pooled = maxpool2d_single(np.maximum(feat_v, 0.0), pool=2, stride=2)
+
+fig, axes = plt.subplots(1, 2, figsize=(7.4, 3.0))
+axes[0].imshow(np.maximum(feat_v, 0.0), cmap=&#39;magma&#39;)
+axes[0].set_title(&#39;ReLU(feature)&#39;)
+axes[1].imshow(pooled, cmap=&#39;magma&#39;)
+axes[1].set_title(&#39;MaxPool 2x2&#39;)
+for ax in axes:
+    ax.axis(&#39;off&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>次に、CNNが全結合層よりパラメータ効率が良い理由を数で確認します。</p>
+
+<pre><code class="language-python"># 32x32x3 画像を 64 ユニットへ直接全結合する場合
+fc_params = 32 * 32 * 3 * 64 + 64
+
+# 3x3 Conv (in=3, out=64) の場合
+conv_params = 3 * 3 * 3 * 64 + 64
+
+print(&#39;Fully connected params:&#39;, fc_params)
+print(&#39;Conv 3x3 params      :&#39;, conv_params)
+print(&#39;FC / Conv ratio      :&#39;, round(fc_params / conv_params, 1))</code></pre>
+<p>ここから小規模データでCNN的な分類を体験します。<br>
+16x16画像に「横帯（class 0）」か「縦帯（class 1）」を描き、ノイズを混ぜたデータを作ります。</p>
+
+<pre><code class="language-python">def make_stripe_image(kind, size=16, noise_std=0.12, rng=None):
+    if rng is None:
+        rng = np.random.default_rng()
+    img = np.zeros((size, size), dtype=np.float64)
+
+    if kind == 0:  # horizontal stripe
+        y0 = int(rng.integers(3, size - 3))
+        img[max(0, y0 - 1):min(size, y0 + 1), :] = 1.0
+    else:  # vertical stripe
+        x0 = int(rng.integers(3, size - 3))
+        img[:, max(0, x0 - 1):min(size, x0 + 1)] = 1.0
+
+    img += rng.normal(0.0, noise_std, size=(size, size))
+    return np.clip(img, 0.0, 1.0)
+
+
+def make_dataset(n_samples=400, size=16, seed=0):
+    rng = np.random.default_rng(seed)
+    X = np.zeros((n_samples, size, size), dtype=np.float64)
+    y = np.zeros((n_samples,), dtype=np.int64)
+
+    for i in range(n_samples):
+        label = int(rng.integers(0, 2))
+        X[i] = make_stripe_image(label, size=size, rng=rng)
+        y[i] = label
+
+    return X, y
+
+X_all, y_all = make_dataset(n_samples=500, size=16, seed=7)
+
+fig, axes = plt.subplots(2, 5, figsize=(9.2, 3.8))
+for i, ax in enumerate(axes.ravel()):
+    ax.imshow(X_all[i], cmap=&#39;gray&#39;, vmin=0, vmax=1)
+    ax.set_title(f&#39;label={y_all[i]}&#39;, fontsize=9)
+    ax.axis(&#39;off&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>CNN全体を最初から実装する代わりに、</p>
+<ol>
+<li>畳み込み + ReLU + Pooling で特徴抽出（ここは固定フィルタで学習しない）</li>
+<li>その特徴に線形分類器（Softmax）を学習（ここで学習するのは <code>W, b</code>）</li>
+</ol>
+<p>という2段構成で、CNNの役割分担を見える化します。まずは「何が固定で、何を学習しているか」に注目してください。</p>
+
+<pre><code class="language-python">filters = [
+    np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float64),
+    np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float64),
+    np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float64),
+]
+
+
+def extract_features(images, kernels):
+    feats = []
+    for img in images:
+        f_img = []
+        for k in kernels:
+            conv = conv2d_single(img, k, stride=1, padding=1)
+            act = np.maximum(conv, 0.0)
+            pool = maxpool2d_single(act, pool=2, stride=2)
+            f_img.append(np.mean(pool))
+            f_img.append(np.max(pool))
+        feats.append(f_img)
+    return np.array(feats, dtype=np.float64)
+
+features_all = extract_features(X_all, filters)
+print(&#39;feature shape:&#39;, features_all.shape)</code></pre>
+<pre><code class="language-python">idx = np.random.permutation(len(X_all))
+train_size = int(0.8 * len(X_all))
+train_idx = idx[:train_size]
+test_idx = idx[train_size:]
+
+X_train = features_all[train_idx]
+y_train = y_all[train_idx]
+X_test = features_all[test_idx]
+y_test = y_all[test_idx]
+
+
+def softmax(logits):
+    z = logits - np.max(logits, axis=1, keepdims=True)
+    exp_z = np.exp(z)
+    return exp_z / np.sum(exp_z, axis=1, keepdims=True)
+
+
+def one_hot(y, n_classes):
+    out = np.zeros((len(y), n_classes), dtype=np.float64)
+    out[np.arange(len(y)), y] = 1.0
+    return out
+
+
+def train_softmax(X, y, lr=0.1, epochs=500):
+    n, d = X.shape
+    c = int(np.max(y)) + 1
+    W = np.zeros((d, c), dtype=np.float64)
+    b = np.zeros((1, c), dtype=np.float64)
+    Y = one_hot(y, c)
+
+    hist = []
+    for _ in range(epochs):
+        logits = X @ W + b
+        prob = softmax(logits)
+
+        loss = -np.mean(np.sum(Y * np.log(prob + 1e-12), axis=1))
+        hist.append(loss)
+
+        dlogits = (prob - Y) / n
+        dW = X.T @ dlogits
+        db = np.sum(dlogits, axis=0, keepdims=True)
+
+        W -= lr * dW
+        b -= lr * db
+
+    return W, b, hist
+
+W_cls, b_cls, loss_cls = train_softmax(X_train, y_train, lr=0.2, epochs=600)
+
+train_pred = np.argmax(X_train @ W_cls + b_cls, axis=1)
+test_pred = np.argmax(X_test @ W_cls + b_cls, axis=1)
+
+train_acc = np.mean(train_pred == y_train)
+test_acc = np.mean(test_pred == y_test)
+
+print(&#39;train acc:&#39;, round(float(train_acc), 4))
+print(&#39;test  acc:&#39;, round(float(test_acc), 4))</code></pre>
+<pre><code class="language-python">fig, ax = plt.subplots(figsize=(6.0, 3.5))
+ax.plot(loss_cls, color=&#39;#2b6cb0&#39;)
+ax.set_title(&#39;Classifier Loss on Conv Features&#39;)
+ax.set_xlabel(&#39;epoch&#39;)
+ax.set_ylabel(&#39;cross-entropy&#39;)
+plt.tight_layout()
+plt.show()
+
+cm = np.zeros((2, 2), dtype=int)
+for yt, yp in zip(y_test, test_pred):
+    cm[yt, yp] += 1
+print(&#39;confusion matrix (rows=true, cols=pred)&#39;)
+print(cm)</code></pre>
+<p>同じタスクを PyTorch の小さなCNNで学習します。<br>
+今回は出力を2ユニット（class 0/1）で表す設計なので <code>CrossEntropyLoss</code> を使います。<br>
+（1ユニットで陽性確率を直接出す設計なら <code>BCEWithLogitsLoss</code> を使います。）</p>
+
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    torch.manual_seed(42)
+
+    X_train_img = torch.tensor(X_all[train_idx][:, None, :, :], dtype=torch.float32)
+    y_train_t = torch.tensor(y_all[train_idx], dtype=torch.long)
+    X_test_img = torch.tensor(X_all[test_idx][:, None, :, :], dtype=torch.float32)
+    y_test_t = torch.tensor(y_all[test_idx], dtype=torch.long)
+
+    model = nn.Sequential(
+        nn.Conv2d(1, 8, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.MaxPool2d(2),
+        nn.Conv2d(8, 16, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.AdaptiveAvgPool2d((1, 1)),
+        nn.Flatten(),
+        nn.Linear(16, 2),
+    )
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+    loss_torch = []
+    for _ in range(60):
+        logits = model(X_train_img)
+        loss = criterion(logits, y_train_t)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        loss_torch.append(float(loss.detach()))
+
+    with torch.no_grad():
+        train_pred_t = torch.argmax(model(X_train_img), dim=1)
+        test_pred_t = torch.argmax(model(X_test_img), dim=1)
+        train_acc_t = (train_pred_t == y_train_t).float().mean().item()
+        test_acc_t = (test_pred_t == y_test_t).float().mean().item()
+
+    print(&#39;torch train acc:&#39;, round(train_acc_t, 4))
+    print(&#39;torch test  acc:&#39;, round(test_acc_t, 4))
+
+    fig, ax = plt.subplots(figsize=(6.0, 3.5))
+    ax.plot(loss_torch, color=&#39;#6b46c1&#39;)
+    ax.set_title(&#39;PyTorch CNN Training Loss&#39;)
+    ax.set_xlabel(&#39;epoch&#39;)
+    ax.set_ylabel(&#39;cross-entropy&#39;)
+    plt.tight_layout()
+    plt.show()
+else:
+    print(&#39;PyTorchが未導入のため、この節はスキップしました。&#39;)</code></pre>
+<p>最後に、分類CNNとFCNの関係を形で確認します。<br>
+分類CNNは最後に全結合でクラスを出しますが、FCNは1x1畳み込みで「各位置のクラススコア」を出すため、セグメンテーションに使えます。</p>
+
+<pre><code class="language-python"># 形だけを確認する簡易デモ
+feat_map = np.random.randn(1, 8, 6, 6)  # (batch, channel, height, width)
+conv1x1_w = np.random.randn(3, 8)        # 3クラス用 1x1 conv 重み
+
+# 1x1 conv: 各位置で channel 方向の内積
+logits_map = np.einsum(&#39;oc,bchw-&gt;bohw&#39;, conv1x1_w, feat_map)
+upsampled = np.repeat(np.repeat(logits_map, 2, axis=2), 2, axis=3)
+
+print(&#39;feature map shape :&#39;, feat_map.shape)
+print(&#39;logits map shape  :&#39;, logits_map.shape)
+print(&#39;upsampled shape   :&#39;, upsampled.shape)</code></pre>
+<p>このノートで押さえるべき点は次の通りです。</p>
 <ul>
-<li><strong>パラメータ θ</strong>: モデルが学習で更新する重み集合です。予測の形を決めます。</li>
-<li><strong>順伝播</strong>: 入力から出力へ値を流して予測を計算する過程です。</li>
-<li><strong>逆伝播</strong>: 損失から勾配を計算して各パラメータの更新量を求める過程です。</li>
-<li><strong>カーネル</strong>: 局所領域に適用する重み行列です。特徴抽出を担います。</li>
-<li><strong>ストライド</strong>: カーネルをずらす幅です。出力解像度に影響します。</li>
+<li>畳み込みは「局所パターン検出」をパラメータ共有で行う</li>
+<li>stride/padding/pooling は解像度と情報量の調整器</li>
+<li>CNNは特徴抽出器 + 分類器として分解して考えると理解しやすい</li>
+<li>FCNは分類器部分を空間出力に置き換えた拡張</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
-
-<h2 id="検証-1-畳み込みの最小計算">検証 1: 畳み込みの最小計算</h2>
-<p>CNNの直感を作るため、1次元の畳み込みを手計算に近い形で実行します。</p>
-
-<pre><code class="language-python">import math
-signal = [1.0, 0.0, 2.0, 1.0, 3.0]
-kernel = [0.5, -1.0, 0.5]
-x = [signal[0], signal[1], signal[2]]
-w = kernel
-z = sum(xi * wi for xi, wi in zip(x, w))
-y = 1 / (1 + math.exp(-z))
-print(&#39;task = convolution-basics&#39;, &#39;conv0=&#39;, round(z, 5), &#39;act=&#39;, round(y, 5))</code></pre>
-<p>この計算感覚を2次元画像へ拡張するのがCNNです。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-2-損失を計算する">検証 2: 損失を計算する</h2>
-<p>次に、予測値に対する損失を計算します。学習は損失を下げる方向に進むので、損失の意味を言葉で説明できることが重要です。</p>
-
-<pre><code class="language-python">target = 1.0
-eps = 1e-9
-loss = -(target * math.log(y + eps) + (1 - target) * math.log(1 - y + eps))
-print(&#39;loss =&#39;, round(loss, 6))
-print(&#39;error =&#39;, round(target - y, 6))</code></pre>
-<p>損失は『どれだけ外したか』を測る物差しです。物差しがない状態では、改善の方向を決められません。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="定義の確認">定義の確認</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>z</mi><mo>=</mo><mi>W</mi><mi>x</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z = W x + b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="mord mathit">x</span><span class="mbin">+</span><span class="mord mathit">b</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>θ</mi><mo>←</mo><mi>θ</mi><mo>−</mo><mi>η</mi><mspace width="0.16667em"></mspace><msub><mi mathvariant="normal">∇</mi><mrow><mi>θ</mi></mrow></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\theta \leftarrow \theta - \eta \, \nabla_{\theta} L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mrel">←</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.03588em;">η</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">L</span></span></span></span></li>
-</ol>
-
-<h2 id="検証-3-勾配降下法の一歩">検証 3: 勾配降下法の一歩</h2>
-<p>ここで、重みを一回更新する最小実験を行います。更新前後の損失を比較して、学習の方向が正しいかを確認します。</p>
-
-<pre><code class="language-python">lr = 0.1
-grad = -(target - y) * y * (1 - y)
-w_new = [wi - lr * grad * xi for wi, xi in zip(w, x)]
-z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + 0.1
-y_new = 1 / (1 + math.exp(-z_new))
-print(&#39;y before/after =&#39;, round(y, 6), round(y_new, 6))</code></pre>
-<p>この更新で損失が下がれば、勾配方向が合理的だったと言えます。下がらないなら学習率や符号を疑います。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-4-正則化の感覚を作る">検証 4: 正則化の感覚を作る</h2>
-<p>次に、重みが大きくなりすぎることを抑える正則化項を追加します。過学習対策をコードで体験するのが狙いです。</p>
-
-<pre><code class="language-python">l2 = 0.01
-weight_norm = sum(wi * wi for wi in w_new)
-loss_reg = loss + l2 * weight_norm
-print(&#39;weight_norm =&#39;, round(weight_norm, 6))
-print(&#39;regularized loss =&#39;, round(loss_reg, 6))</code></pre>
-<p>正則化は精度を上げる魔法ではなく、汎化の崩れを防ぐ保険です。評価データと合わせて効果を判断してください。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-5-ミニバッチの考え方">検証 5: ミニバッチの考え方</h2>
-<p>最後に、複数サンプルをまとめて扱う発想を確認します。実務では1件ずつよりバッチ処理が主流です。</p>
-
-<pre><code class="language-python">batch = [[0.8, -0.4, 0.2], [0.2, 0.1, -0.3], [0.5, -0.2, 0.7]]
-targets = [1.0, 0.0, 1.0]
-preds = []
-for bx in batch:
-    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + 0.1
-    preds.append(1 / (1 + math.exp(-z_b)))
-print(&#39;preds =&#39;, [round(p, 4) for p in preds])</code></pre>
-<p>ミニバッチを扱えるようになると、計算効率と学習安定性の両面で設計の幅が広がります。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>学習率が大きすぎて発散する</li>
-<li>検証損失の監視をせず過学習を見逃す</li>
-<li>前処理と活性化の相性を無視する</li>
-</ol>
+<p>次は損失関数・最適化・正則化の観点から、CNN学習をより安定化する方法を扱います。</p>
 
 </article>
   </main>
