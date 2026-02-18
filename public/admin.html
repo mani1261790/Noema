@@ -302,7 +302,8 @@
     .editor-panel {
       min-height: 0;
       display: grid;
-      grid-template-rows: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 10px;
     }
 
     .ipynb-editor {
@@ -348,6 +349,61 @@
       min-height: 80px;
       resize: vertical;
       font-family: inherit;
+    }
+
+    .patch-panel {
+      margin-top: 6px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .patch-textarea {
+      min-height: 90px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .patch-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .patch-summary {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    .patch-diff-panel {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .patch-diff-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .patch-diff {
+      margin: 0;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(7, 15, 28, .74);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.55;
+      max-height: 34vh;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     }
 
     .chapter-input,
@@ -496,6 +552,10 @@
         justify-content: flex-start;
         flex-wrap: wrap;
       }
+
+      .patch-actions {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -595,10 +655,33 @@
             <div class="status-line">Video URL (optional)</div>
             <input class="field" id="meta-video" />
           </label>
+
+          <section class="patch-panel glass-soft">
+            <h2 class="meta-section-title">LLMパッチ提案</h2>
+            <textarea
+              class="field-textarea patch-textarea"
+              id="patch-instruction"
+              placeholder="例: 2章の導入説明を初学者向けに具体例つきで改善し、数式説明を補強する"
+            ></textarea>
+            <div class="patch-actions">
+              <button class="button" id="patch-generate-btn" type="button">提案生成</button>
+              <button class="button" id="patch-apply-btn" type="button" disabled>採用</button>
+              <button class="button-ghost" id="patch-reject-btn" type="button" disabled>却下</button>
+            </div>
+            <div class="status-line" id="patch-status" data-kind="info"></div>
+            <div class="patch-summary" id="patch-summary"></div>
+          </section>
         </section>
 
         <section class="editor-panel">
           <textarea class="ipynb-editor" id="ipynb-editor" spellcheck="false" placeholder="ここに ipynb JSON が表示されます"></textarea>
+          <section class="patch-diff-panel glass-soft" id="patch-diff-panel" hidden>
+            <div class="patch-diff-head">
+              <strong>提案差分 (unified diff)</strong>
+              <span id="patch-model-label"></span>
+            </div>
+            <pre class="patch-diff" id="patch-diff"></pre>
+          </section>
         </section>
       </div>
 
@@ -635,7 +718,16 @@
         metaChapter: document.getElementById("meta-chapter"),
         metaTags: document.getElementById("meta-tags"),
         metaColab: document.getElementById("meta-colab"),
-        metaVideo: document.getElementById("meta-video")
+        metaVideo: document.getElementById("meta-video"),
+        patchInstruction: document.getElementById("patch-instruction"),
+        patchGenerateBtn: document.getElementById("patch-generate-btn"),
+        patchApplyBtn: document.getElementById("patch-apply-btn"),
+        patchRejectBtn: document.getElementById("patch-reject-btn"),
+        patchStatus: document.getElementById("patch-status"),
+        patchSummary: document.getElementById("patch-summary"),
+        patchDiffPanel: document.getElementById("patch-diff-panel"),
+        patchDiff: document.getElementById("patch-diff"),
+        patchModelLabel: document.getElementById("patch-model-label")
       };
 
       const state = {
@@ -652,7 +744,9 @@
         savedStructureHash: "",
         loadSeq: 0,
         savingStructure: false,
-        savingNotebook: false
+        savingNotebook: false,
+        patchGenerating: false,
+        patchProposal: null
       };
 
       function escapeHtml(value) {
@@ -757,6 +851,46 @@
       function setEditorSaveState(message, kind) {
         el.editorSaveState.textContent = message || "";
         el.editorSaveState.style.color = kind === "error" ? "#ffb7c3" : kind === "success" ? "var(--ok)" : "var(--muted)";
+      }
+
+      function setPatchStatus(kind, message) {
+        setLine(el.patchStatus, kind || "info", message || "");
+      }
+
+      function renderPatchProposal() {
+        const proposal = state.patchProposal;
+        if (!proposal) {
+          el.patchApplyBtn.disabled = true;
+          el.patchRejectBtn.disabled = true;
+          el.patchSummary.textContent = "";
+          el.patchDiff.textContent = "";
+          el.patchModelLabel.textContent = "";
+          el.patchDiffPanel.hidden = true;
+          return;
+        }
+
+        const stale = String(el.ipynbEditor.value || "") !== String(proposal.baseIpynbRaw || "");
+        el.patchApplyBtn.disabled = state.patchGenerating || stale;
+        el.patchRejectBtn.disabled = state.patchGenerating;
+        el.patchSummary.textContent = proposal.summary || "提案概要はありません。";
+        el.patchDiff.textContent = proposal.unifiedDiff || "(no changes)";
+        el.patchModelLabel.textContent =
+          proposal.modelLabel || proposal.tokensUsed ? `${proposal.modelLabel} | ${proposal.tokensUsed} tokens` : "";
+        el.patchDiffPanel.hidden = false;
+
+        if (stale) {
+          setPatchStatus("warn", "ノート本文が変更されたため、この提案は再生成してください。");
+        }
+      }
+
+      function clearPatchProposal(message, kind) {
+        state.patchProposal = null;
+        renderPatchProposal();
+        if (message) {
+          setPatchStatus(kind || "info", message);
+        } else if (!state.patchGenerating) {
+          setPatchStatus("info", "");
+        }
       }
 
       function normalizeCatalogFromChapters(chapters) {
@@ -1317,6 +1451,112 @@
         }
       }
 
+      async function generatePatchProposal() {
+        if (state.patchGenerating) return;
+        const notebookId = String(state.activeNotebookId || "").trim();
+        if (!notebookId) {
+          setPatchStatus("error", "先にノートを選択してください。");
+          return;
+        }
+
+        const instruction = String(el.patchInstruction.value || "").trim();
+        if (!instruction) {
+          setPatchStatus("error", "修正指示を入力してください。");
+          return;
+        }
+
+        const raw = String(el.ipynbEditor.value || "");
+        if (raw !== String(state.ipynbSavedRaw || "")) {
+          setPatchStatus("warn", "未保存の変更があります。先に保存してから提案を生成してください。");
+          return;
+        }
+
+        const selStart = Number(el.ipynbEditor.selectionStart || 0);
+        const selEnd = Number(el.ipynbEditor.selectionEnd || 0);
+        const selectedText = selEnd > selStart ? raw.slice(selStart, selEnd).slice(0, 8000) : "";
+
+        state.patchGenerating = true;
+        el.patchGenerateBtn.disabled = true;
+        setPatchStatus("info", "LLMがパッチ提案を生成中...");
+        renderPatchProposal();
+
+        try {
+          const result = await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}/llm-patch`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              instruction,
+              selectedText
+            })
+          });
+
+          state.patchProposal = {
+            notebookId,
+            summary: String(result.summary || ""),
+            baseIpynbRaw: String(result.currentIpynbRaw || ""),
+            proposedIpynbRaw: String(result.proposedIpynbRaw || ""),
+            unifiedDiff: String(result.unifiedDiff || ""),
+            modelLabel: `${String(result.model?.provider || "")}:${String(result.model?.modelId || "")}`,
+            tokensUsed: Number(result.tokensUsed || 0)
+          };
+
+          renderPatchProposal();
+          setPatchStatus("success", `提案を生成しました (${new Date().toLocaleTimeString()})`);
+        } catch (error) {
+          clearPatchProposal();
+          const message = error instanceof Error ? error.message : String(error);
+          setPatchStatus("error", message);
+        } finally {
+          state.patchGenerating = false;
+          el.patchGenerateBtn.disabled = false;
+          renderPatchProposal();
+        }
+      }
+
+      async function applyPatchProposal() {
+        const proposal = state.patchProposal;
+        if (!proposal) {
+          setPatchStatus("warn", "採用できる提案がありません。");
+          return;
+        }
+
+        if (proposal.notebookId !== state.activeNotebookId) {
+          setPatchStatus("warn", "ノートが切り替わったため提案を再生成してください。");
+          return;
+        }
+
+        const currentRaw = String(el.ipynbEditor.value || "");
+        if (currentRaw !== String(proposal.baseIpynbRaw || "")) {
+          setPatchStatus("warn", "本文が変更されているため採用できません。再生成してください。");
+          renderPatchProposal();
+          return;
+        }
+
+        if (!String(proposal.proposedIpynbRaw || "").trim()) {
+          setPatchStatus("error", "提案内容が空です。");
+          return;
+        }
+
+        el.ipynbEditor.value = proposal.proposedIpynbRaw;
+        state.ipynbRaw = proposal.proposedIpynbRaw;
+        markNotebookDirty("LLM提案を適用しました。保存します...");
+
+        const saved = await saveActiveNotebook(true);
+        if (saved) {
+          clearPatchProposal("提案を採用して保存しました。", "success");
+        } else {
+          setPatchStatus("error", "採用後の保存に失敗しました。");
+        }
+      }
+
+      function rejectPatchProposal() {
+        if (!state.patchProposal) {
+          setPatchStatus("warn", "却下する提案がありません。");
+          return;
+        }
+        clearPatchProposal("提案を却下しました。", "info");
+      }
+
       async function setActiveNotebook(notebookId) {
         const normalized = String(notebookId || "").trim();
         if (!normalized) {
@@ -1324,6 +1564,7 @@
           state.ipynbRaw = "";
           state.ipynbSavedRaw = "";
           el.ipynbEditor.value = "";
+          clearPatchProposal();
           renderHeaderMeta();
           setEditorSaveState("自動保存: 待機中", "info");
           setEditorStatus("ノートを選択してください。", "info");
@@ -1331,6 +1572,7 @@
         }
 
         state.activeNotebookId = normalized;
+        clearPatchProposal();
         renderCatalog();
 
         state.loadSeq += 1;
@@ -1521,9 +1763,19 @@
         el.reloadNotebookBtn.addEventListener("click", function () {
           void setActiveNotebook(state.activeNotebookId);
         });
+        el.patchGenerateBtn.addEventListener("click", function () {
+          void generatePatchProposal();
+        });
+        el.patchApplyBtn.addEventListener("click", function () {
+          void applyPatchProposal();
+        });
+        el.patchRejectBtn.addEventListener("click", function () {
+          rejectPatchProposal();
+        });
 
         el.ipynbEditor.addEventListener("input", function () {
           state.ipynbRaw = String(el.ipynbEditor.value || "");
+          renderPatchProposal();
           markNotebookDirty("ノート本文を変更しました。自動保存します...");
         });
 
@@ -1570,6 +1822,7 @@
 
       requireLogin();
       bindTopLevelEvents();
+      renderPatchProposal();
       void loadCatalog();
     })();
   </script>

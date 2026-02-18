@@ -502,6 +502,13 @@ export class NoemaStack extends Stack {
     });
 
     api.addRoutes({
+      path: "/api/admin/notebooks/{notebookId}/llm-patch",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
       path: "/api/admin/questions",
       methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.PATCH],
       integration: apiIntegration,

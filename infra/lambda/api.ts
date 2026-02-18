@@ -13,6 +13,7 @@ import {
   listQuestionHistory,
   maybeInlineProcess,
   parseAdminNotebookPatchInput,
+  parseAdminNotebookLlmPatchInput,
   parseAdminNotebookPutInput,
   parseAdminPatchInput,
   parseAskQuestionInput,
@@ -20,6 +21,7 @@ import {
   parsePythonRuntimePreloadInput,
   patchAdminNotebook,
   putAdminNotebook,
+  proposeAdminNotebookPatch,
   patchAdminAnswer,
   preloadPythonRuntime,
   runPythonRuntime,
@@ -253,6 +255,30 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     return json(200, result);
+  }
+
+  if (
+    route === "POST /api/admin/notebooks/{notebookId}/llm-patch" ||
+    /^POST \/api\/admin\/notebooks\/[^/]+\/llm-patch$/.test(route)
+  ) {
+    const notebookId = notebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const payload = parseAdminNotebookLlmPatchInput(event);
+    if (!payload) {
+      return json(400, { error: "instruction is required (<= 4000 chars)." });
+    }
+
+    try {
+      const result = await proposeAdminNotebookPatch(notebookId, payload, user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message === "Notebook not found." ? 404 : 500;
+      return json(status, { error: message });
+    }
   }
 
   if (route === "PUT /api/admin/notebooks/{notebookId}" || /^PUT \/api\/admin\/notebooks\/[^/]+$/.test(route)) {

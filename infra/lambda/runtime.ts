@@ -111,6 +111,11 @@ type AdminNotebookPutInput = {
   ipynbRaw?: string;
 };
 
+type AdminNotebookLlmPatchInput = {
+  instruction: string;
+  selectedText?: string;
+};
+
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
 const MAX_CHUNK_CHARACTERS = 1_200;
 
@@ -734,6 +739,300 @@ function fallbackAnswer(questionText: string, contexts: string[]) {
     "次の一歩:",
     "- Colabでノートを実行し、変数を変えて挙動を確認してください。"
   ].join("\n");
+}
+
+type LineDiffOp =
+  | { kind: "equal"; line: string }
+  | { kind: "add"; line: string }
+  | { kind: "remove"; line: string };
+
+function extractFirstJsonObject(raw: string): string {
+  const text = raw.trim();
+  if (!text) return "";
+
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]?.trim()) {
+    return fenced[1].trim();
+  }
+
+  let start = text.indexOf("{");
+  while (start >= 0) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (ch === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (ch === "\"") {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (ch === "\"") {
+        inString = true;
+        continue;
+      }
+
+      if (ch === "{") {
+        depth += 1;
+        continue;
+      }
+
+      if (ch === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          return text.slice(start, i + 1);
+        }
+      }
+    }
+
+    start = text.indexOf("{", start + 1);
+  }
+
+  return "";
+}
+
+function parseAdminPatchModelOutput(raw: string): { summary: string; notebook: NotebookFile } | null {
+  const jsonText = extractFirstJsonObject(raw);
+  if (!jsonText) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+  const record = parsed as Record<string, unknown>;
+  const summary = asString(record.summary).trim();
+
+  const notebookCandidate = record.ipynb ?? record.notebook ?? parsed;
+  if (!notebookCandidate || typeof notebookCandidate !== "object") {
+    return null;
+  }
+
+  const notebook = notebookCandidate as NotebookFile;
+  if (!Array.isArray(notebook.cells)) {
+    return null;
+  }
+
+  return {
+    summary,
+    notebook
+  };
+}
+
+function computeLineDiff(beforeLines: string[], afterLines: string[]): LineDiffOp[] {
+  const rows = beforeLines.length;
+  const cols = afterLines.length;
+  const width = cols + 1;
+  const matrixCells = (rows + 1) * (cols + 1);
+
+  if (matrixCells > 3_000_000) {
+    const output: LineDiffOp[] = [];
+    for (const line of beforeLines) output.push({ kind: "remove", line });
+    for (const line of afterLines) output.push({ kind: "add", line });
+    return output;
+  }
+
+  const lcs = new Uint32Array(matrixCells);
+  const at = (r: number, c: number) => r * width + c;
+
+  for (let r = rows - 1; r >= 0; r -= 1) {
+    for (let c = cols - 1; c >= 0; c -= 1) {
+      if (beforeLines[r] === afterLines[c]) {
+        lcs[at(r, c)] = lcs[at(r + 1, c + 1)] + 1;
+      } else {
+        const down = lcs[at(r + 1, c)];
+        const right = lcs[at(r, c + 1)];
+        lcs[at(r, c)] = down >= right ? down : right;
+      }
+    }
+  }
+
+  const output: LineDiffOp[] = [];
+  let r = 0;
+  let c = 0;
+
+  while (r < rows && c < cols) {
+    if (beforeLines[r] === afterLines[c]) {
+      output.push({ kind: "equal", line: beforeLines[r] });
+      r += 1;
+      c += 1;
+      continue;
+    }
+
+    const down = lcs[at(r + 1, c)];
+    const right = lcs[at(r, c + 1)];
+    if (down >= right) {
+      output.push({ kind: "remove", line: beforeLines[r] });
+      r += 1;
+    } else {
+      output.push({ kind: "add", line: afterLines[c] });
+      c += 1;
+    }
+  }
+
+  while (r < rows) {
+    output.push({ kind: "remove", line: beforeLines[r] });
+    r += 1;
+  }
+  while (c < cols) {
+    output.push({ kind: "add", line: afterLines[c] });
+    c += 1;
+  }
+
+  return output;
+}
+
+function lineNumbersUntil(ops: LineDiffOp[], limit: number) {
+  let oldLine = 1;
+  let newLine = 1;
+  for (let i = 0; i < limit; i += 1) {
+    const op = ops[i];
+    if (op.kind !== "add") oldLine += 1;
+    if (op.kind !== "remove") newLine += 1;
+  }
+  return { oldLine, newLine };
+}
+
+function buildUnifiedDiff(before: string, after: string, beforeName: string, afterName: string): string {
+  const beforeLines = before.replace(/\r\n/g, "\n").split("\n");
+  const afterLines = after.replace(/\r\n/g, "\n").split("\n");
+  const ops = computeLineDiff(beforeLines, afterLines);
+
+  const changedIndexes: number[] = [];
+  for (let i = 0; i < ops.length; i += 1) {
+    if (ops[i].kind !== "equal") changedIndexes.push(i);
+  }
+
+  const out: string[] = [`--- ${beforeName}`, `+++ ${afterName}`];
+  if (changedIndexes.length === 0) {
+    out.push("@@ -1,0 +1,0 @@", " (no changes)");
+    return `${out.join("\n")}\n`;
+  }
+
+  const context = 3;
+  const hunks: Array<{ start: number; end: number }> = [];
+  for (const changedIndex of changedIndexes) {
+    const start = Math.max(0, changedIndex - context);
+    const end = Math.min(ops.length, changedIndex + context + 1);
+    const prev = hunks[hunks.length - 1];
+    if (!prev || start > prev.end) {
+      hunks.push({ start, end });
+    } else {
+      prev.end = Math.max(prev.end, end);
+    }
+  }
+
+  for (const hunk of hunks) {
+    const begin = lineNumbersUntil(ops, hunk.start);
+    let oldLine = begin.oldLine;
+    let newLine = begin.newLine;
+    let oldCount = 0;
+    let newCount = 0;
+    const hunkLines: string[] = [];
+
+    for (let i = hunk.start; i < hunk.end; i += 1) {
+      const op = ops[i];
+      if (op.kind === "equal") {
+        oldCount += 1;
+        newCount += 1;
+        oldLine += 1;
+        newLine += 1;
+        hunkLines.push(` ${op.line}`);
+      } else if (op.kind === "remove") {
+        oldCount += 1;
+        oldLine += 1;
+        hunkLines.push(`-${op.line}`);
+      } else {
+        newCount += 1;
+        newLine += 1;
+        hunkLines.push(`+${op.line}`);
+      }
+    }
+
+    out.push(`@@ -${begin.oldLine},${oldCount} +${begin.newLine},${newCount} @@`);
+    out.push(...hunkLines);
+  }
+
+  const MAX_LINES = 2000;
+  if (out.length > MAX_LINES) {
+    return `${out.slice(0, MAX_LINES).join("\n")}\n... (diff truncated)\n`;
+  }
+
+  return `${out.join("\n")}\n`;
+}
+
+async function generateNotebookPatchWithLlm(
+  currentIpynbRaw: string,
+  input: AdminNotebookLlmPatchInput
+) {
+  const selectedModel = routeModel(input.instruction, currentIpynbRaw.length);
+  const selectedContext = input.selectedText ? `\nSelected excerpt:\n${input.selectedText}\n` : "";
+  const prompt = [
+    "You are a senior notebook maintainer.",
+    "Apply the requested patch to the notebook JSON.",
+    "Return JSON only, no markdown fences.",
+    'Required schema: {"summary":"...","ipynb":{...}}',
+    "Rules:",
+    "- Keep notebook valid ipynb JSON.",
+    "- Preserve metadata fields unless the instruction asks to change them.",
+    "- Do not add meta commentary in notebook text.",
+    "- Keep code executable and consistent.",
+    "",
+    "Instruction:",
+    input.instruction,
+    selectedContext,
+    "Current notebook JSON:",
+    currentIpynbRaw
+  ].join("\n");
+
+  let text = "";
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  if (selectedModel.provider === "openai") {
+    const result = await callOpenAI(prompt, selectedModel.modelId);
+    text = result.text;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
+  } else if (selectedModel.provider === "bedrock") {
+    const result = await callBedrock(prompt, selectedModel.modelId);
+    text = result.text;
+    inputTokens = result.inputTokens;
+    outputTokens = result.outputTokens;
+  } else {
+    throw new Error("LLM provider is not configured for patch proposal.");
+  }
+
+  const parsed = parseAdminPatchModelOutput(text);
+  if (!parsed) {
+    throw new Error("LLM response parsing failed. Please refine the instruction and retry.");
+  }
+
+  const canonical = canonicalizeNotebookFile(parsed.notebook);
+  const proposedIpynbRaw = `${JSON.stringify(canonical, null, 2)}\n`;
+  const summary = parsed.summary || "LLM patch proposal generated.";
+
+  return {
+    summary,
+    proposedIpynbRaw,
+    provider: selectedModel.provider,
+    modelId: selectedModel.modelId,
+    tokensUsed: inputTokens + outputTokens
+  };
 }
 
 function buildPrompt(questionText: string, contexts: Array<{ sectionId: string; content: string }>) {
@@ -1416,6 +1715,41 @@ export async function getAdminNotebookDetail(notebookId: string) {
       updatedAt: existing.updatedAt || ""
     },
     ipynbRaw
+  };
+}
+
+export async function proposeAdminNotebookPatch(
+  notebookId: string,
+  input: AdminNotebookLlmPatchInput,
+  user: AuthUser
+) {
+  const existing = await getNotebook(notebookId);
+  if (!existing) {
+    throw new Error("Notebook not found.");
+  }
+
+  await putAccessLog(user.userId, notebookId, "ADMIN_PATCH_PROPOSAL");
+  const currentIpynbRaw = await loadStoredNotebookIpynbRaw(notebookId, existing.chunks ?? []);
+  const generated = await generateNotebookPatchWithLlm(currentIpynbRaw, input);
+  const unifiedDiff = buildUnifiedDiff(
+    currentIpynbRaw,
+    generated.proposedIpynbRaw,
+    `a/notebooks/${notebookId}.ipynb`,
+    `b/notebooks/${notebookId}.ipynb`
+  );
+
+  return {
+    notebookId,
+    summary: generated.summary,
+    currentIpynbRaw,
+    proposedIpynbRaw: generated.proposedIpynbRaw,
+    unifiedDiff,
+    model: {
+      provider: generated.provider,
+      modelId: generated.modelId
+    },
+    tokensUsed: generated.tokensUsed,
+    generatedAt: nowIso()
   };
 }
 
@@ -2297,6 +2631,24 @@ export function parseAdminNotebookPatchInput(event: APIGatewayProxyEventV2): Adm
 
   if (!changed) return null;
   return result;
+}
+
+export function parseAdminNotebookLlmPatchInput(event: APIGatewayProxyEventV2): AdminNotebookLlmPatchInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const instruction = asString(payload.instruction).trim();
+  if (!instruction || instruction.length > 4000) {
+    return null;
+  }
+
+  const selectedTextRaw = asString(payload.selectedText);
+  const selectedText = selectedTextRaw.trim() ? selectedTextRaw.slice(0, 8000) : undefined;
+
+  return {
+    instruction,
+    selectedText
+  };
 }
 
 export function parseAdminNotebookPutInput(event: APIGatewayProxyEventV2): AdminNotebookPutInput | null {
