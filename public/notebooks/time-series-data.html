@@ -99,89 +99,301 @@
   <main>
 <article class="prose-noema">
 <h1 id="時系列データの扱い">時系列データの扱い</h1>
-<p>時系列データの扱いでは、式を暗記するより、計算の意味をコードで検証する姿勢を優先します。</p>
+<p>時系列データは、表の1行1行が独立ではなく、時間順でつながっています。<br>
+この順序を無視して分割や特徴量設計をすると、評価だけ高くて本番で崩れるモデルになりやすくなります。</p>
+<p>このノートでは、売上の1ステップ先予測を題材に、観察、特徴量化、リーク回避、評価、将来予測までを一気通貫で確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>時系列データの扱いに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>特徴量</strong>: モデルが予測に使う入力変数です。列の作り方が精度に直結します。</li>
-<li><strong>目的変数</strong>: 当てたい値です。回帰では連続値、分類ではラベルになります。</li>
-<li><strong>損失関数</strong>: 予測のずれを数値化する関数です。学習はこの値を下げる方向に進みます。</li>
-<li><strong>時系列分割</strong>: 時間順序を保って訓練・検証を分ける評価法です。</li>
-<li><strong>時系列リーク</strong>: 未来時点の情報を過去予測に混ぜる誤りです。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
-<h2 id="実験-1-時系列の基礎系列を作る">実験 1: 時系列の基礎系列を作る</h2>
-<p>時間順序を崩さずに扱うため、トレンドを含む系列を先に定義します。</p>
+from sklearn.base import clone
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error
+from sklearn.model_selection import TimeSeriesSplit, cross_val_score, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler</code></pre>
+<p>まず、上昇トレンド、季節性、キャンペーン効果を持つ疑似データを作ります。<br>
+実データがなくても、構造を入れた疑似データを作って小さく検証すると、何が効くのかを読み取りやすくなります。</p>
 
-<pre><code class="language-python">x = [1, 2, 3, 4, 5, 6, 7]
-y = [10.0, 10.8, 11.7, 13.0, 14.2, 15.1, 16.4]
-pairs = list(zip(x, y))
-diff = [round(y[i] - y[i-1], 3) for i in range(1, len(y))]
-print(&#39;task = time-series-data&#39;)
-print(&#39;pairs/head =&#39;, pairs[:4], &#39;diff/head =&#39;, diff[:3])</code></pre>
-<p>この系列を使い、分割方法と評価の注意点を後続で確認します。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">plt.style.use(&quot;seaborn-v0_8-whitegrid&quot;)
+rng = np.random.default_rng(7)
 
-<h2 id="実験-2-単回帰を手で計算する">実験 2: 単回帰を手で計算する</h2>
-<p>次に、最小二乗法の係数を手計算で求めます。既存ライブラリを使う前に中身を一度体験すると理解が安定します。</p>
+dates = pd.date_range(&quot;2018-01-01&quot;, periods=96, freq=&quot;MS&quot;)
+trend = np.linspace(0, 95, len(dates))
+seasonal = 18 * np.sin(2 * np.pi * np.arange(len(dates)) / 12)
+promo = (np.arange(len(dates)) % 6 == 0).astype(int)
+noise = rng.normal(loc=0.0, scale=4.5, size=len(dates))
 
-<pre><code class="language-python">x_bar = sum(x) / len(x)
-y_bar = sum(y) / len(y)
-num = sum((xi - x_bar) * (yi - y_bar) for xi, yi in pairs)
-den = sum((xi - x_bar) ** 2 for xi in x)
-w1 = num / den; w0 = y_bar - w1 * x_bar
-print(&#39;w0, w1 =&#39;, round(w0, 4), round(w1, 4))</code></pre>
-<p>式の記号は抽象的に見えますが、コードでは平均・差分・和に分解されます。難しい式ほど、実装で部品に分けて確認するのが有効です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+sales = 220 + trend + seasonal + 16 * promo + noise
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{y} = f_{\theta}(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi><mo>(</mo><mi>θ</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mn>1</mn></mrow><mrow><mi>N</mi></mrow></mfrac><msub><mo>∑</mo><mi>i</mi></msub><mi mathvariant="normal">ℓ</mi><mo>(</mo><msub><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mi>i</mi></msub><mo separator="true">,</mo><msub><mi>y</mi><mi>i</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L(\theta) = \frac{1}{N}\sum_i \ell(\hat{y}_i, y_i)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.845108em;"></span><span class="strut bottom" style="height:1.190108em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord mathit">L</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.10903em;">N</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">ℓ</span><span class="mopen">(</span><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
+df = pd.DataFrame({
+    &quot;date&quot;: dates,
+    &quot;sales&quot;: sales,
+    &quot;promo&quot;: promo,
+})
 
-<h2 id="実験-3-予測と誤差を見る">実験 3: 予測と誤差を見る</h2>
-<p>ここで、求めた係数で予測を出し、誤差を数値化します。モデル改善は誤差の観察から始まります。</p>
+df.head()</code></pre>
+<pre><code class="language-python">fig, ax = plt.subplots(figsize=(11, 4.4))
+ax.plot(df[&quot;date&quot;], df[&quot;sales&quot;], color=&quot;#2b6cb0&quot;, linewidth=2, label=&quot;sales&quot;)
+ax.scatter(
+    df.loc[df[&quot;promo&quot;] == 1, &quot;date&quot;],
+    df.loc[df[&quot;promo&quot;] == 1, &quot;sales&quot;],
+    color=&quot;#c05621&quot;,
+    s=28,
+    label=&quot;promo month&quot;,
+)
+ax.plot(df[&quot;date&quot;], df[&quot;sales&quot;].rolling(12).mean(), color=&quot;#4a5568&quot;, linewidth=1.6, label=&quot;12-month moving average&quot;)
+ax.set_title(&quot;Monthly Sales&quot;)
+ax.set_xlabel(&quot;date&quot;)
+ax.set_ylabel(&quot;sales&quot;)
+ax.legend(loc=&quot;upper left&quot;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>時系列予測で最重要なのは、「予測時点で使える情報だけ」で特徴量を作ることです。<br>
+ここでは <code>lag_1, lag_2, lag_3, lag_6, lag_12</code> と移動平均を作ります。<br>
+<code>lag_12</code> を使うため先頭12か月は欠損となり、<code>dropna()</code> で除外されます。これは正常な挙動です。</p>
+<p>また、月を 1〜12 の整数のまま使うと 12月と1月が遠く見えるため、<code>sin/cos</code> で円環的な季節性を表します。<br>
+移動平均には <code>shift(1)</code> を入れ、当月値の混入を防いでリークを避けます。</p>
 
-<pre><code class="language-python">pred = [w0 + w1 * xi for xi in x]
-residual = [yi - pi for yi, pi in zip(y, pred)]
-mse = sum((r ** 2) for r in residual) / len(residual)
-print(&#39;pred =&#39;, pred)
-print(&#39;mse =&#39;, round(mse, 8))</code></pre>
-<p>誤差を観察するときは、平均値だけでなく個別の残差も見てください。偏りがあると、モデル構造の見直しが必要になります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">def make_time_features(frame: pd.DataFrame, lag_steps=(1, 2, 3, 6, 12), roll_windows=(3, 6)) -&gt; pd.DataFrame:
+    out = frame.sort_values(&quot;date&quot;).reset_index(drop=True).copy()
 
-<h2 id="実験-4-特徴量を拡張する">実験 4: 特徴量を拡張する</h2>
-<p>次に、特徴量を追加したときに表現力がどう変わるかを確認します。特徴量設計は精度に直接効く実装作業です。</p>
+    for lag in lag_steps:
+        out[f&quot;lag_{lag}&quot;] = out[&quot;sales&quot;].shift(lag)
 
-<pre><code class="language-python">x2 = [xi ** 2 for xi in x]
-feature = list(zip(x, x2))
-print(&#39;feature sample =&#39;, feature[:3])
-scaled_x = [(xi - x_bar) / (max(x) - min(x)) for xi in x]
-print(&#39;scaled_x =&#39;, [round(v, 4) for v in scaled_x])</code></pre>
-<p>特徴量を増やすと表現力は上がりますが、同時に過学習リスクも増えます。増やす理由を説明できる特徴だけを採用する姿勢が重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    for window in roll_windows:
+        out[f&quot;roll_mean_{window}&quot;] = out[&quot;sales&quot;].shift(1).rolling(window=window).mean()
 
-<h2 id="実験-5-評価分割を体験する">実験 5: 評価分割を体験する</h2>
-<p>最後に、学習と評価を分ける意味をコードで確かめます。分割しない評価は自己採点に近く、実運用の性能を過大評価しがちです。</p>
+    month = out[&quot;date&quot;].dt.month
+    out[&quot;month_sin&quot;] = np.sin(2 * np.pi * month / 12)
+    out[&quot;month_cos&quot;] = np.cos(2 * np.pi * month / 12)
 
-<pre><code class="language-python">train_x, test_x = x[:3], x[3:]
-train_y, test_y = y[:3], y[3:]
-pred_test = [w0 + w1 * xi for xi in test_x]
-mae_test = sum(abs(yi - pi) for yi, pi in zip(test_y, pred_test)) / len(test_y)
-print(&#39;test mae =&#39;, round(mae_test, 6))</code></pre>
-<p>検証データでの誤差が急に悪化したら、モデルより先にデータ分布の差を疑ってください。この視点は実務で非常に重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    return out.dropna().reset_index(drop=True)
 
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>訓練データと評価データの分布差を見ない</li>
-<li>単一スコアだけでモデルを選んでしまう</li>
-<li>前処理の漏れを評価後に気づく</li>
-</ol>
+feature_df = make_time_features(df)
+feature_df.head()</code></pre>
+<pre><code class="language-python">feature_cols = [
+    &quot;promo&quot;,
+    &quot;month_sin&quot;,
+    &quot;month_cos&quot;,
+    &quot;lag_1&quot;,
+    &quot;lag_2&quot;,
+    &quot;lag_3&quot;,
+    &quot;lag_6&quot;,
+    &quot;lag_12&quot;,
+    &quot;roll_mean_3&quot;,
+    &quot;roll_mean_6&quot;,
+]
+
+print(&quot;raw period :&quot;, df[&quot;date&quot;].min().date(), &quot;to&quot;, df[&quot;date&quot;].max().date(), &quot;rows:&quot;, len(df))
+print(&quot;feat period:&quot;, feature_df[&quot;date&quot;].min().date(), &quot;to&quot;, feature_df[&quot;date&quot;].max().date(), &quot;rows:&quot;, len(feature_df))
+print(&quot;features:&quot;, feature_cols)</code></pre>
+<p>自己相関を見ると、「何か月前の値と似た動きをするか」が分かります。<br>
+季節周期の候補やラグの当たりを付けるときに役立ちます。</p>
+
+<pre><code class="language-python">def autocorr_at_lag(values: np.ndarray, lag: int) -&gt; float:
+    x = values[lag:]
+    y = values[:-lag]
+    if x.std() == 0 or y.std() == 0:
+        return 0.0
+    return float(np.corrcoef(x, y)[0, 1])
+
+series = feature_df[&quot;sales&quot;].to_numpy()
+lags = np.arange(1, 25)
+autocorr_values = np.array([autocorr_at_lag(series, int(lag)) for lag in lags])
+
+fig, ax = plt.subplots(figsize=(10, 3.6))
+ax.bar(lags, autocorr_values, color=&quot;#2f855a&quot;)
+ax.axhline(0, color=&quot;#1a202c&quot;, linewidth=1)
+ax.set_title(&quot;Autocorrelation by lag&quot;)
+ax.set_xlabel(&quot;lag&quot;)
+ax.set_ylabel(&quot;corr&quot;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>ここからは、最後の12か月をテストに固定して評価します。<br>
+まずは基準として、1か月前の値をそのまま予測に使う単純ベースラインを作ります。</p>
+
+<pre><code class="language-python">test_horizon = 12
+train_df = feature_df.iloc[:-test_horizon].copy()
+test_df = feature_df.iloc[-test_horizon:].copy()
+
+X_train = train_df[feature_cols]
+y_train = train_df[&quot;sales&quot;]
+X_test = test_df[feature_cols]
+y_test = test_df[&quot;sales&quot;]
+
+naive_pred = test_df[&quot;lag_1&quot;].to_numpy()
+naive_mae = mean_absolute_error(y_test, naive_pred)
+print(f&quot;naive MAE: {naive_mae:.3f}&quot;)</code></pre>
+<p>対照として、やってはいけないランダム分割も試します。<br>
+ランダム分割では「後年のデータを学習に使いながら前の年をテストする」状態が起き、本番では使えない未来情報が暗黙に混ざります。</p>
+
+<pre><code class="language-python">X_all = feature_df[feature_cols]
+y_all = feature_df[&quot;sales&quot;]
+
+X_tr_rand, X_te_rand, y_tr_rand, y_te_rand = train_test_split(
+    X_all, y_all, test_size=0.2, random_state=42, shuffle=True
+)
+
+rand_pipeline = Pipeline([
+    (&quot;scaler&quot;, StandardScaler()),
+    (&quot;ridge&quot;, Ridge(alpha=1.0)),
+])
+rand_pipeline.fit(X_tr_rand, y_tr_rand)
+rand_pred = rand_pipeline.predict(X_te_rand)
+rand_mae = mean_absolute_error(y_te_rand, rand_pred)
+
+print(f&quot;random split ridge MAE (invalid for TS): {rand_mae:.3f}&quot;)</code></pre>
+<p>次に、時系列順を守った1ステップ先予測（予測のたびに実測で更新する前提）でモデルを比較します。<br>
+線形モデルは解釈しやすく、木モデルは非線形性を拾いやすいという違いがあります。</p>
+
+<pre><code class="language-python">ridge_model = Pipeline([
+    (&quot;scaler&quot;, StandardScaler()),
+    (&quot;ridge&quot;, Ridge(alpha=1.0)),
+])
+
+rf_model = RandomForestRegressor(
+    n_estimators=350,
+    max_depth=8,
+    min_samples_leaf=2,
+    random_state=42,
+    n_jobs=-1,
+)
+
+ridge_model.fit(X_train, y_train)
+rf_model.fit(X_train, y_train)
+
+ridge_pred = ridge_model.predict(X_test)
+rf_pred = rf_model.predict(X_test)
+
+ridge_mae = mean_absolute_error(y_test, ridge_pred)
+rf_mae = mean_absolute_error(y_test, rf_pred)
+
+print(f&quot;naive MAE                : {naive_mae:.3f}&quot;)
+print(f&quot;chronological ridge MAE  : {ridge_mae:.3f}&quot;)
+print(f&quot;chronological rf MAE     : {rf_mae:.3f}&quot;)
+print(f&quot;random split ridge MAE   : {rand_mae:.3f} (invalid setup)&quot;)</code></pre>
+<pre><code class="language-python">one_step_df = test_df[[&quot;date&quot;, &quot;sales&quot;]].copy()
+one_step_df[&quot;naive&quot;] = naive_pred
+one_step_df[&quot;ridge&quot;] = ridge_pred
+one_step_df[&quot;rf&quot;] = rf_pred
+
+fig, ax = plt.subplots(figsize=(11, 4.4))
+ax.plot(one_step_df[&quot;date&quot;], one_step_df[&quot;sales&quot;], marker=&quot;o&quot;, linewidth=2, label=&quot;actual&quot;)
+ax.plot(one_step_df[&quot;date&quot;], one_step_df[&quot;naive&quot;], marker=&quot;o&quot;, linewidth=1.5, label=&quot;naive&quot;)
+ax.plot(one_step_df[&quot;date&quot;], one_step_df[&quot;ridge&quot;], marker=&quot;o&quot;, linewidth=1.5, label=&quot;ridge&quot;)
+ax.plot(one_step_df[&quot;date&quot;], one_step_df[&quot;rf&quot;], marker=&quot;o&quot;, linewidth=1.5, label=&quot;random forest&quot;)
+ax.set_title(&quot;One-Step Forecast (Observed Updates)&quot;)
+ax.set_xlabel(&quot;date&quot;)
+ax.set_ylabel(&quot;sales&quot;)
+ax.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>固定起点で12か月先まで当てるには、逐次予測のバックテストが必要です。<br>
+ここでは学習期間を固定し、予測値を次月ラグへ入れながら12ステップ先まで進めます。<br>
+<code>promo</code> は「6か月ごとに実施される既知の計画値」を使える前提にしています。</p>
+
+<pre><code class="language-python">def predict_next_months(history: pd.DataFrame, model, steps: int = 12) -&gt; pd.DataFrame:
+    working = history.sort_values(&quot;date&quot;).reset_index(drop=True).copy()
+    preds = []
+
+    for _ in range(steps):
+        next_date = (working[&quot;date&quot;].iloc[-1] + pd.offsets.MonthBegin(1)).normalize()
+        month_index = len(working)
+        next_promo = int(month_index % 6 == 0)
+
+        next_row = {
+            &quot;date&quot;: next_date,
+            &quot;promo&quot;: next_promo,
+            &quot;lag_1&quot;: float(working[&quot;sales&quot;].iloc[-1]),
+            &quot;lag_2&quot;: float(working[&quot;sales&quot;].iloc[-2]),
+            &quot;lag_3&quot;: float(working[&quot;sales&quot;].iloc[-3]),
+            &quot;lag_6&quot;: float(working[&quot;sales&quot;].iloc[-6]),
+            &quot;lag_12&quot;: float(working[&quot;sales&quot;].iloc[-12]),
+            &quot;roll_mean_3&quot;: float(working[&quot;sales&quot;].iloc[-3:].mean()),
+            &quot;roll_mean_6&quot;: float(working[&quot;sales&quot;].iloc[-6:].mean()),
+            &quot;month_sin&quot;: float(np.sin(2 * np.pi * next_date.month / 12)),
+            &quot;month_cos&quot;: float(np.cos(2 * np.pi * next_date.month / 12)),
+        }
+
+        row_df = pd.DataFrame([next_row])
+        y_hat = float(model.predict(row_df[feature_cols])[0])
+
+        preds.append({&quot;date&quot;: next_date, &quot;forecast&quot;: y_hat})
+        working = pd.concat(
+            [working, pd.DataFrame([{&quot;date&quot;: next_date, &quot;sales&quot;: y_hat, &quot;promo&quot;: next_promo}])],
+            ignore_index=True,
+        )
+
+    return pd.DataFrame(preds)
+
+train_raw = df.iloc[:-test_horizon].copy()
+test_raw = df.iloc[-test_horizon:].copy()
+train_raw_feat = make_time_features(train_raw)
+
+ridge_recursive = clone(ridge_model)
+rf_recursive = clone(rf_model)
+ridge_recursive.fit(train_raw_feat[feature_cols], train_raw_feat[&quot;sales&quot;])
+rf_recursive.fit(train_raw_feat[feature_cols], train_raw_feat[&quot;sales&quot;])
+
+ridge_backtest = predict_next_months(train_raw, ridge_recursive, steps=test_horizon)
+rf_backtest = predict_next_months(train_raw, rf_recursive, steps=test_horizon)
+
+ridge_recursive_mae = mean_absolute_error(test_raw[&quot;sales&quot;], ridge_backtest[&quot;forecast&quot;])
+rf_recursive_mae = mean_absolute_error(test_raw[&quot;sales&quot;], rf_backtest[&quot;forecast&quot;])
+
+print(f&quot;recursive ridge MAE (12-step): {ridge_recursive_mae:.3f}&quot;)
+print(f&quot;recursive rf MAE (12-step)   : {rf_recursive_mae:.3f}&quot;)</code></pre>
+<pre><code class="language-python">recursive_plot = test_raw[[&quot;date&quot;, &quot;sales&quot;]].copy()
+recursive_plot[&quot;ridge_recursive&quot;] = ridge_backtest[&quot;forecast&quot;].to_numpy()
+recursive_plot[&quot;rf_recursive&quot;] = rf_backtest[&quot;forecast&quot;].to_numpy()
+
+fig, ax = plt.subplots(figsize=(11, 4.4))
+ax.plot(recursive_plot[&quot;date&quot;], recursive_plot[&quot;sales&quot;], marker=&quot;o&quot;, linewidth=2, label=&quot;actual&quot;)
+ax.plot(recursive_plot[&quot;date&quot;], recursive_plot[&quot;ridge_recursive&quot;], marker=&quot;o&quot;, linewidth=1.5, label=&quot;ridge recursive&quot;)
+ax.plot(recursive_plot[&quot;date&quot;], recursive_plot[&quot;rf_recursive&quot;], marker=&quot;o&quot;, linewidth=1.5, label=&quot;rf recursive&quot;)
+ax.set_title(&quot;Recursive 12-Step Backtest&quot;)
+ax.set_xlabel(&quot;date&quot;)
+ax.set_ylabel(&quot;sales&quot;)
+ax.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>分割1回だけでは偶然の影響が残るため、<code>TimeSeriesSplit</code> でウォークフォワード評価も確認します。<br>
+この評価では常に「過去で学習し未来を検証する」順序が守られます。</p>
+
+<pre><code class="language-python">tscv = TimeSeriesSplit(n_splits=5)
+cv_scores = cross_val_score(
+    ridge_model,
+    X_all,
+    y_all,
+    cv=tscv,
+    scoring=&quot;neg_mean_absolute_error&quot;,
+)
+
+cv_mae = -cv_scores
+print(&quot;TimeSeriesSplit MAE:&quot;, np.round(cv_mae, 3))
+print(&quot;mean:&quot;, round(cv_mae.mean(), 3), &quot;std:&quot;, round(cv_mae.std(), 3))</code></pre>
+<p>最後に運用想定として、利用可能な全期間で再学習して未来12か月を予測します。</p>
+
+<pre><code class="language-python">ridge_final = clone(ridge_model)
+ridge_final.fit(X_all, y_all)
+
+future_pred = predict_next_months(df, ridge_final, steps=12)
+future_pred.head()</code></pre>
+<pre><code class="language-python">recent_hist = df.tail(24)
+fig, ax = plt.subplots(figsize=(11, 4.4))
+ax.plot(recent_hist[&quot;date&quot;], recent_hist[&quot;sales&quot;], marker=&quot;o&quot;, label=&quot;history (last 24 months)&quot;)
+ax.plot(future_pred[&quot;date&quot;], future_pred[&quot;forecast&quot;], marker=&quot;o&quot;, label=&quot;future forecast (ridge)&quot;)
+ax.set_title(&quot;History and 12-Month Forecast&quot;)
+ax.set_xlabel(&quot;date&quot;)
+ax.set_ylabel(&quot;sales&quot;)
+ax.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>時系列モデリングでは、モデルを複雑にする前に「時間順を壊していないか」を必ず確認してください。<br>
+ラグ特徴と移動平均のような基本設計でも、評価設計が正しければ実務で使える強い基準線になります。</p>
 
 </article>
   </main>
