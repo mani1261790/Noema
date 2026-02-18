@@ -13,6 +13,9 @@ MAX_CODE_CHARS = 20000
 MAX_EXPECTED_MODULES = 24
 EXEC_TIMEOUT_SECONDS = 12
 TMP_SITE_PACKAGES = "/tmp/noema-site-packages"
+TMP_RUNTIME_HOME = "/tmp/noema-home"
+TMP_XDG_CONFIG_HOME = "/tmp/noema-config"
+TMP_MPL_CONFIG_DIR = "/tmp/noema-mplconfig"
 BASE_MODULES_RAW = os.environ.get(
     "NOEMA_BASE_MODULES",
     "numpy,pandas,scipy,matplotlib,sklearn,seaborn,sympy,statsmodels,networkx",
@@ -130,14 +133,27 @@ def _extract_missing_module(stderr_text: str) -> str:
     return match.group(1).split(".")[0]
 
 
+def _build_runtime_env() -> dict[str, str]:
+    os.makedirs(TMP_SITE_PACKAGES, exist_ok=True)
+    os.makedirs(TMP_RUNTIME_HOME, exist_ok=True)
+    os.makedirs(TMP_XDG_CONFIG_HOME, exist_ok=True)
+    os.makedirs(TMP_MPL_CONFIG_DIR, exist_ok=True)
+
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{TMP_SITE_PACKAGES}:{existing}" if existing else TMP_SITE_PACKAGES
+    env["HOME"] = TMP_RUNTIME_HOME
+    env["XDG_CONFIG_HOME"] = TMP_XDG_CONFIG_HOME
+    env["MPLCONFIGDIR"] = TMP_MPL_CONFIG_DIR
+    return env
+
+
 def _install_package(module_name: str) -> tuple[bool, str]:
     package_name = _module_to_package(module_name)
     if package_name in installed_packages:
         return True, package_name
     if package_name in failed_packages:
         return False, package_name
-
-    os.makedirs(TMP_SITE_PACKAGES, exist_ok=True)
 
     cmd = [
         sys.executable,
@@ -151,9 +167,7 @@ def _install_package(module_name: str) -> tuple[bool, str]:
         package_name,
     ]
 
-    env = dict(os.environ)
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = f"{TMP_SITE_PACKAGES}:{existing}" if existing else TMP_SITE_PACKAGES
+    env = _build_runtime_env()
 
     with install_lock:
         if package_name in installed_packages:
@@ -194,11 +208,7 @@ def _ensure_base_modules() -> tuple[list[str], list[str]]:
 
 
 def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
-    os.makedirs(TMP_SITE_PACKAGES, exist_ok=True)
-
-    env = dict(os.environ)
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = f"{TMP_SITE_PACKAGES}:{existing}" if existing else TMP_SITE_PACKAGES
+    env = _build_runtime_env()
 
     try:
         completed = subprocess.run(
