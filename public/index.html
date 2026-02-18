@@ -892,6 +892,19 @@
       word-break: normal;
     }
 
+    /* Keep highlighted code metrics identical to textarea overlay in playground mode. */
+    #notebook-content .hljs {
+      padding: 0 !important;
+      margin: 0 !important;
+      border: 0;
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      line-height: inherit;
+      font: inherit;
+      tab-size: 2;
+    }
+
     .code-runner.playground-active .code-editor {
       display: block;
     }
