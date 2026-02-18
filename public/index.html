@@ -2112,19 +2112,65 @@
         } catch {}
       }
 
-      function readNotebookPlaygroundDraft(notebookId) {
+      function collectBaseCellSources() {
+        return Array.from(state.baseCellSourceMap.keys())
+          .sort((a, b) => a - b)
+          .map((index) => String(state.baseCellSourceMap.get(index) || ""));
+      }
+
+      function mergeDraftOntoBase(baseCells, draftCells) {
+        const normalizedBase = normalizeCellArray(baseCells);
+        const normalizedDraft = normalizeCellArray(draftCells);
+        const maxLength = Math.max(normalizedBase.length, normalizedDraft.length);
+        const merged = normalizedBase.slice();
+        let hasChanges = false;
+
+        for (let index = 0; index < maxLength; index += 1) {
+          if (index >= normalizedDraft.length) continue;
+          const baseSource = index < normalizedBase.length ? normalizedBase[index] : "";
+          const draftSource = normalizedDraft[index];
+          if (draftSource !== baseSource) {
+            hasChanges = true;
+            merged[index] = draftSource;
+          }
+        }
+
+        return { merged, hasChanges };
+      }
+
+      function readNotebookPlaygroundDraft(notebookId, baseCells = []) {
         if (!notebookId) return [];
         const store = readPlaygroundStore();
         const entry = store.notebooks[notebookId];
-        return latestCellsFromEntry(store, entry);
+        const latestDraftCells = latestCellsFromEntry(store, entry);
+        const normalizedBase = normalizeCellArray(baseCells);
+        if (!normalizedBase.length) return latestDraftCells;
+
+        const { merged, hasChanges } = mergeDraftOntoBase(normalizedBase, latestDraftCells);
+        if (hasChanges) return merged;
+
+        if (store.notebooks[notebookId]) {
+          delete store.notebooks[notebookId];
+          writePlaygroundStore(store);
+        }
+        return [];
       }
 
-      function writeNotebookPlaygroundDraft(notebookId, cells) {
+      function writeNotebookPlaygroundDraft(notebookId, cells, baseCells = []) {
         if (!notebookId) return;
         const normalized = normalizeCellArray(cells);
+        const normalizedBase = normalizeCellArray(baseCells);
         const store = readPlaygroundStore();
         const entry = store.notebooks[notebookId] || { revisions: [] };
         const latestCells = latestCellsFromEntry(store, entry);
+
+        if (normalizedBase.length && sameCells(normalized, normalizedBase)) {
+          if (store.notebooks[notebookId]) {
+            delete store.notebooks[notebookId];
+            writePlaygroundStore(store);
+          }
+          return;
+        }
         if (sameCells(latestCells, normalized)) return;
 
         const createdAt = new Date().toISOString();
@@ -2164,14 +2210,21 @@
         state.playgroundSaveTimer = setTimeout(() => {
           state.playgroundSaveTimer = null;
           if (!state.activeNotebook) return;
-          writeNotebookPlaygroundDraft(state.activeNotebook.id, collectEditableCellSources());
+          writeNotebookPlaygroundDraft(
+            state.activeNotebook.id,
+            collectEditableCellSources(),
+            collectBaseCellSources()
+          );
         }, 320);
       }
 
       function applyEditorSourcesForCurrentMode() {
         if (!state.activeEditorMap.size) return;
         const notebookId = state.activeNotebook ? state.activeNotebook.id : "";
-        const drafts = state.playgroundEnabled && notebookId ? readNotebookPlaygroundDraft(notebookId) : [];
+        const drafts =
+          state.playgroundEnabled && notebookId
+            ? readNotebookPlaygroundDraft(notebookId, collectBaseCellSources())
+            : [];
 
         Array.from(state.activeEditorMap.entries()).forEach(([index, editor]) => {
           const baseSource = state.baseCellSourceMap.get(index) ?? normalizeRunnableSource(editor.value || "");
@@ -2928,7 +2981,8 @@
       function enhanceCodeBlocks() {
         const blocks = Array.from(el.notebookContent.querySelectorAll("pre > code"));
         const notebookId = state.activeNotebook ? state.activeNotebook.id : "";
-        const savedDraft = notebookId ? readNotebookPlaygroundDraft(notebookId) : [];
+        const defaultSources = blocks.map((code) => normalizeRunnableSource(code.textContent || ""));
+        const savedDraft = notebookId ? readNotebookPlaygroundDraft(notebookId, defaultSources) : [];
         state.activeEditorMap = new Map();
         state.baseCellSourceMap = new Map();
 
@@ -2938,7 +2992,7 @@
           pre.dataset.noemaRunnable = "1";
           pre.dataset.noemaCellIndex = String(codeIndex);
           let clearExecutionStatus = () => {};
-          const defaultSource = normalizeRunnableSource(code.textContent || "");
+          const defaultSource = defaultSources[codeIndex] || normalizeRunnableSource(code.textContent || "");
           state.baseCellSourceMap.set(codeIndex, defaultSource);
           const restoredSource =
             state.playgroundEnabled && savedDraft[codeIndex] !== undefined
@@ -3054,7 +3108,11 @@
           state.playgroundSaveTimer = null;
         }
         if (state.playgroundEnabled && state.activeNotebook && state.activeEditorMap.size) {
-          writeNotebookPlaygroundDraft(state.activeNotebook.id, collectEditableCellSources());
+          writeNotebookPlaygroundDraft(
+            state.activeNotebook.id,
+            collectEditableCellSources(),
+            collectBaseCellSources()
+          );
         }
 
         const chapters = notebookList();
