@@ -99,9 +99,13 @@
   <main>
 <article class="prose-noema">
 <h1 id="scikit-learnとxgboostの使い方">scikit-learnとXGBoostの使い方</h1>
-<p>scikit-learn は、前処理・学習・評価を統一された API で扱えるライブラリです。<br>
-XGBoost は勾配ブースティングを高速かつ高精度に実装した手法で、タブularデータで強力な選択肢になります。</p>
-<p>このノートでは、まず scikit-learn の基本フローを固め、その上で XGBoost を同じ問題に適用して比較します。</p>
+<p>このノートでは、分類モデルの実験を「分割設計 → 交差検証 → チューニング → 最終評価」の順で実装します。<br>
+重要なのは、比較に使う設計を先に固定することです。モデルだけを入れ替えても、評価設計が曖昧だと結果を正しく解釈できません。</p>
+
+<h2 id="実行前準備">実行前準備</h2>
+<p>想定環境は Python 3.10 以上です。<br>
+未導入の場合は次を実行してください。</p>
+<p><code>%pip install scikit-learn xgboost pandas numpy matplotlib seaborn</code></p>
 
 <pre><code class="language-python">import numpy as np
 import pandas as pd
@@ -109,11 +113,25 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import (
+    GridSearchCV,
+    RandomizedSearchCV,
+    StratifiedKFold,
+    cross_validate,
+    cross_val_predict,
+    train_test_split,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 try:
     from xgboost import XGBClassifier
@@ -122,124 +140,235 @@ except ModuleNotFoundError:
     XGBClassifier = None
     XGBOOST_AVAILABLE = False
 
-sns.set_theme(style=&quot;whitegrid&quot;, context=&quot;notebook&quot;)</code></pre>
-<h2 id="1-scikit-learnの基本フロー">1. scikit-learnの基本フロー</h2>
-<p>ここでは乳がんデータセットを使って、<br>
-<code>データ分割 → パイプライン定義 → 学習 → 評価</code> を一気通貫で実行します。</p>
-<p>評価指標は Accuracy と ROC-AUC を使います。<br>
-Accuracy は分類の正解率、ROC-AUC は分類しきい値を動かしたときの識別性能（順位づけの上手さ）を見ます。</p>
+sns.set_theme(style=&quot;whitegrid&quot;, context=&quot;notebook&quot;)
+np.random.seed(42)</code></pre>
+<p>まずデータを確認します。<br>
+このデータでは <code>target=0</code> が malignant（悪性）、<code>target=1</code> が benign（良性）です。<br>
+このノートでは class 1（benign）を正例として Precision/Recall/F1 を計算します。</p>
 
 <pre><code class="language-python">cancer = load_breast_cancer(as_frame=True)
 X = cancer.data
 y = cancer.target
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
+summary = pd.DataFrame({
+    &quot;n_samples&quot;: [len(X)],
+    &quot;n_features&quot;: [X.shape[1]],
+    &quot;benign_ratio(class1)&quot;: [float(y.mean())],
+})
+summary</code></pre>
+<pre><code class="language-python">class_counts = y.value_counts().sort_index()
+class_names = [cancer.target_names[i] for i in class_counts.index]
 
-baseline = Pipeline([
-    (&quot;scaler&quot;, StandardScaler()),
-    (&quot;model&quot;, LogisticRegression(max_iter=2000, random_state=42)),
-])
-
-baseline.fit(X_train, y_train)
-pred = baseline.predict(X_test)
-proba = baseline.predict_proba(X_test)[:, 1]
-
-print(f&quot;accuracy: {accuracy_score(y_test, pred):.3f}&quot;)
-print(f&quot;roc_auc : {roc_auc_score(y_test, proba):.3f}&quot;)</code></pre>
-<p>混同行列を確認すると、単純な精度だけでは見えない誤分類の偏りを把握できます。</p>
-
-<pre><code class="language-python">cm = confusion_matrix(y_test, pred)
-fig, ax = plt.subplots(figsize=(4.5, 4))
-sns.heatmap(cm, annot=True, fmt=&quot;d&quot;, cmap=&quot;Greens&quot;, cbar=False, ax=ax)
-ax.set_title(&quot;Logistic Regression Confusion Matrix&quot;)
-ax.set_xlabel(&quot;Predicted&quot;)
-ax.set_ylabel(&quot;Actual&quot;)
+fig, ax = plt.subplots(figsize=(6, 3.4))
+ax.bar(class_names, class_counts.values, color=[&quot;#4c78a8&quot;, &quot;#f58518&quot;])
+ax.set_title(&quot;Class Balance&quot;)
+ax.set_ylabel(&quot;count&quot;)
+plt.tight_layout()
 plt.show()</code></pre>
-<h2 id="2-交差検証とハイパーパラメータ探索">2. 交差検証とハイパーパラメータ探索</h2>
-<p>分割1回の評価だけでは偶然の影響が残るので、交差検証で安定性を見ます。<br>
-その後、<code>GridSearchCV</code> で <code>C</code> を探索します。</p>
-<p>ここでの流れは次の通りです。</p>
-<ul>
-<li>まず CV で、モデル設定が全体として安定しているかを確認</li>
-<li>次に訓練データ側で GridSearch を実行し、テストデータは最後まで未使用に保つ</li>
-</ul>
-<p>こうすることで、チューニング結果を過度に楽観視しにくくなります。</p>
+<p>ここでデータを <code>dev</code>（開発用: 学習・CV・チューニングに使う）と <code>test</code>（最終確認専用）に分けます。<br>
+<code>test</code> は最後の1回だけ使い、探索中には触れません。</p>
 
-<pre><code class="language-python">cv_scores = cross_val_score(
-    baseline,
+<pre><code class="language-python">X_dev, X_test, y_dev, y_test = train_test_split(
     X,
     y,
-    cv=5,
-    scoring=&quot;roc_auc&quot;,
+    test_size=0.2,
+    random_state=42,
+    stratify=y,
 )
-print(&quot;CV ROC-AUC (5-fold):&quot;, np.round(cv_scores, 4))
-print(&quot;mean:&quot;, cv_scores.mean())</code></pre>
-<pre><code class="language-python">search = GridSearchCV(
-    estimator=Pipeline([
-        (&quot;scaler&quot;, StandardScaler()),
-        (&quot;model&quot;, LogisticRegression(max_iter=2000, random_state=42)),
-    ]),
-    param_grid={
-        &quot;model__C&quot;: [0.01, 0.1, 1.0, 3.0, 10.0],
-    },
-    cv=5,
-    scoring=&quot;roc_auc&quot;,
+
+print(&quot;dev shape :&quot;, X_dev.shape)
+print(&quot;test shape:&quot;, X_test.shape)
+print(&quot;dev  benign ratio:&quot;, round(float(y_dev.mean()), 3))
+print(&quot;test benign ratio:&quot;, round(float(y_test.mean()), 3))</code></pre>
+<p>scikit-learn では Pipeline で前処理とモデルを一体化します。<br>
+これにより各 fold での前処理が訓練部分だけで fit され、リークを防ぎやすくなります。</p>
+
+<pre><code class="language-python">primary_metric = &quot;roc_auc&quot;
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+baseline_lr = Pipeline([
+    (&quot;scaler&quot;, StandardScaler()),
+    (&quot;model&quot;, LogisticRegression(max_iter=4000, random_state=42)),
+])
+
+baseline_cv = cross_validate(
+    baseline_lr,
+    X_dev,
+    y_dev,
+    cv=cv,
+    scoring={&quot;roc_auc&quot;: &quot;roc_auc&quot;, &quot;f1&quot;: &quot;f1&quot;},
+    n_jobs=-1,
+    return_train_score=False,
+)
+
+baseline_summary = {
+    &quot;roc_auc_mean&quot;: float(np.mean(baseline_cv[&quot;test_roc_auc&quot;])),
+    &quot;roc_auc_std&quot;: float(np.std(baseline_cv[&quot;test_roc_auc&quot;])),
+    &quot;f1_mean&quot;: float(np.mean(baseline_cv[&quot;test_f1&quot;])),
+    &quot;f1_std&quot;: float(np.std(baseline_cv[&quot;test_f1&quot;])),
+}
+
+pd.Series(baseline_summary).round(4)</code></pre>
+<pre><code class="language-python">print(&quot;ROC-AUC mean/std:&quot;, round(baseline_summary[&quot;roc_auc_mean&quot;], 4), &quot;/&quot;, round(baseline_summary[&quot;roc_auc_std&quot;], 4))
+print(&quot;F1      mean/std:&quot;, round(baseline_summary[&quot;f1_mean&quot;], 4), &quot;/&quot;, round(baseline_summary[&quot;f1_std&quot;], 4))
+print(&quot;std が小さいほど、分割によるブレが小さく安定していると解釈できます。&quot;)</code></pre>
+<p><code>cross_val_predict</code> で得る予測は OOF（Out-of-Fold）予測です。<br>
+各サンプルは、そのサンプルを学習に使っていないモデルで予測されます。</p>
+
+<pre><code class="language-python">baseline_oof_pred = cross_val_predict(
+    baseline_lr,
+    X_dev,
+    y_dev,
+    cv=cv,
+    method=&quot;predict&quot;,
     n_jobs=-1,
 )
-search.fit(X_train, y_train)
+cm = confusion_matrix(y_dev, baseline_oof_pred)
 
-best_lr = search.best_estimator_
-best_pred = best_lr.predict(X_test)
-best_proba = best_lr.predict_proba(X_test)[:, 1]
+fig, ax = plt.subplots(figsize=(5, 4.2))
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt=&quot;d&quot;,
+    cmap=&quot;Blues&quot;,
+    cbar=False,
+    ax=ax,
+    xticklabels=class_names,
+    yticklabels=class_names,
+)
+ax.set_title(&quot;Baseline Logistic (CV/OOF Confusion Matrix)&quot;)
+ax.set_xlabel(&quot;Predicted&quot;)
+ax.set_ylabel(&quot;Actual&quot;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>次に Logistic Regression をチューニングします。<br>
+Pipeline 内のパラメータは <code>&lt;step名&gt;__&lt;パラメータ名&gt;</code> で指定します。<br>
+たとえば <code>model__C</code> は LogisticRegression の <code>C</code> を意味します。<br>
+ここでは L1/L2 の両方を扱える <code>solver='liblinear'</code> を使います。</p>
 
-print(&quot;best params:&quot;, search.best_params_)
-print(f&quot;tuned accuracy: {accuracy_score(y_test, best_pred):.3f}&quot;)
-print(f&quot;tuned roc_auc : {roc_auc_score(y_test, best_proba):.3f}&quot;)</code></pre>
-<h2 id="3-xgboostを同じ問題に適用する">3. XGBoostを同じ問題に適用する</h2>
-<p>XGBoost が利用可能な環境では、同じ学習データで性能比較します。<br>
-XGBoost は木ベースなので、今回の設定では標準化を必須としません。</p>
+<pre><code class="language-python">lr_search = GridSearchCV(
+    estimator=Pipeline([
+        (&quot;scaler&quot;, StandardScaler()),
+        (&quot;model&quot;, LogisticRegression(max_iter=5000, random_state=42, solver=&quot;liblinear&quot;)),
+    ]),
+    param_grid={
+        &quot;model__penalty&quot;: [&quot;l1&quot;, &quot;l2&quot;],
+        &quot;model__C&quot;: [0.01, 0.1, 0.5, 1.0, 3.0, 10.0],
+    },
+    cv=cv,
+    scoring=primary_metric,
+    n_jobs=-1,
+)
+lr_search.fit(X_dev, y_dev)
+
+print(&quot;best lr params:&quot;, lr_search.best_params_)
+print(f&quot;best lr cv {primary_metric}:&quot;, round(lr_search.best_score_, 4))</code></pre>
+<p>XGBoost でも同じ <code>dev</code> データと同じ CV 設定で探索します。<br>
+主なパラメータの意味は次の通りです。</p>
+<ul>
+<li><code>max_depth</code>: 木の深さ。大きいほど複雑な境界を表現できます。</li>
+<li><code>learning_rate</code>: 1本ごとの更新幅。小さくすると学習は遅いが安定しやすいです。</li>
+<li><code>n_estimators</code>: 木の本数。多いほど表現力は上がるが過学習リスクも増えます。</li>
+<li><code>min_child_weight</code>: 葉を分割するために必要な最小重み。大きいほど過学習を抑えます。</li>
+</ul>
+<p>ここでは速度と探索範囲のバランスのため <code>RandomizedSearchCV(n_iter=20)</code> を使います。</p>
 
 <pre><code class="language-python">if XGBOOST_AVAILABLE:
-    xgb = XGBClassifier(
-        n_estimators=300,
-        max_depth=4,
-        learning_rate=0.05,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        eval_metric=&quot;logloss&quot;,
+    xgb_search = RandomizedSearchCV(
+        estimator=XGBClassifier(
+            eval_metric=&quot;logloss&quot;,
+            random_state=42,
+        ),
+        param_distributions={
+            &quot;n_estimators&quot;: [150, 250, 400, 600],
+            &quot;max_depth&quot;: [2, 3, 4, 5, 6],
+            &quot;learning_rate&quot;: [0.01, 0.03, 0.05, 0.1],
+            &quot;subsample&quot;: [0.7, 0.8, 0.9, 1.0],
+            &quot;colsample_bytree&quot;: [0.6, 0.8, 1.0],
+            &quot;reg_lambda&quot;: [0.5, 1.0, 3.0, 10.0],
+            &quot;min_child_weight&quot;: [1, 3, 5],
+        },
+        n_iter=20,
+        scoring=primary_metric,
+        cv=cv,
         random_state=42,
+        n_jobs=-1,
     )
-    xgb.fit(X_train, y_train)
+    xgb_search.fit(X_dev, y_dev)
 
-    xgb_pred = xgb.predict(X_test)
-    xgb_proba = xgb.predict_proba(X_test)[:, 1]
-
-    print(f&quot;xgb accuracy: {accuracy_score(y_test, xgb_pred):.3f}&quot;)
-    print(f&quot;xgb roc_auc : {roc_auc_score(y_test, xgb_proba):.3f}&quot;)
+    print(&quot;best xgb params:&quot;, xgb_search.best_params_)
+    print(f&quot;best xgb cv {primary_metric}:&quot;, round(xgb_search.best_score_, 4))
 else:
-    print(&quot;xgboost がインストールされていないため、このセルはスキップされました。&quot;)</code></pre>
-<p>XGBoost を使えた場合は、重要特徴量を見て学習がどこに注目したかを確認します。</p>
+    xgb_search = None
+    print(&quot;xgboost が未導入のため、XGBoost探索をスキップしました。&quot;)</code></pre>
+<p>候補モデルの比較は、テストではなく CV スコアで行います。<br>
+ここで勝者を決め、最後にその1モデルだけを <code>test</code> で評価します。</p>
 
-<pre><code class="language-python">if XGBOOST_AVAILABLE:
-    importances = pd.Series(xgb.feature_importances_, index=X.columns).sort_values(ascending=False).head(12)
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    sns.barplot(x=importances.values, y=importances.index, orient=&quot;h&quot;, ax=ax)
-    ax.set_title(&quot;Top 12 Feature Importances (XGBoost)&quot;)
+<pre><code class="language-python">candidates = {
+    &quot;Logistic (baseline)&quot;: baseline_summary[f&quot;{primary_metric}_mean&quot;],
+    &quot;Logistic (tuned)&quot;: float(lr_search.best_score_),
+}
+if xgb_search is not None:
+    candidates[&quot;XGBoost (tuned)&quot;] = float(xgb_search.best_score_)
+
+cv_compare = pd.DataFrame({
+    &quot;model&quot;: list(candidates.keys()),
+    f&quot;cv_{primary_metric}&quot;: list(candidates.values()),
+}).sort_values(f&quot;cv_{primary_metric}&quot;, ascending=False)
+cv_compare</code></pre>
+<pre><code class="language-python">winner_name = cv_compare.iloc[0][&quot;model&quot;]
+if winner_name == &quot;Logistic (baseline)&quot;:
+    final_model = baseline_lr
+elif winner_name == &quot;Logistic (tuned)&quot;:
+    final_model = lr_search.best_estimator_
+else:
+    final_model = xgb_search.best_estimator_
+
+final_model.fit(X_dev, y_dev)
+final_pred = final_model.predict(X_test)
+final_proba = final_model.predict_proba(X_test)[:, 1]
+
+final_metrics = {
+    &quot;accuracy&quot;: accuracy_score(y_test, final_pred),
+    &quot;precision&quot;: precision_score(y_test, final_pred),
+    &quot;recall&quot;: recall_score(y_test, final_pred),
+    &quot;f1&quot;: f1_score(y_test, final_pred),
+    &quot;roc_auc&quot;: roc_auc_score(y_test, final_proba),
+}
+
+print(&quot;selected model:&quot;, winner_name)
+pd.Series(final_metrics).round(4)</code></pre>
+<pre><code class="language-python">cm_test = confusion_matrix(y_test, final_pred)
+fig, ax = plt.subplots(figsize=(5, 4.2))
+sns.heatmap(
+    cm_test,
+    annot=True,
+    fmt=&quot;d&quot;,
+    cmap=&quot;Greens&quot;,
+    cbar=False,
+    ax=ax,
+    xticklabels=class_names,
+    yticklabels=class_names,
+)
+ax.set_title(f&quot;Final Model on Test ({winner_name})&quot;)
+ax.set_xlabel(&quot;Predicted&quot;)
+ax.set_ylabel(&quot;Actual&quot;)
+plt.tight_layout()
+plt.show()</code></pre>
+<pre><code class="language-python">if xgb_search is not None and winner_name == &quot;XGBoost (tuned)&quot;:
+    importances = pd.Series(final_model.feature_importances_, index=X.columns).sort_values(ascending=False).head(12)
+    fig, ax = plt.subplots(figsize=(7.2, 5))
+    sns.barplot(x=importances.values, y=importances.index, orient=&quot;h&quot;, ax=ax, color=&quot;#4c78a8&quot;)
+    ax.set_title(&quot;Top 12 Feature Importances (Final XGBoost)&quot;)
     ax.set_xlabel(&quot;importance&quot;)
     ax.set_ylabel(&quot;feature&quot;)
     plt.tight_layout()
     plt.show()
 else:
-    print(&quot;xgboost 未導入のため、重要特徴量の表示をスキップしました。&quot;)</code></pre>
-<h2 id="4-使い分けの実務メモ">4. 使い分けの実務メモ</h2>
-<ul>
-<li>scikit-learn: 実験の土台を作るのが速く、比較実験を回しやすい</li>
-<li>XGBoost: 表形式データで高い精度を狙いやすい</li>
-</ul>
-<p>まず scikit-learn で前処理と評価設計を固め、<br>
-次に XGBoost を含む複数モデルを同一条件で比較する流れが実践的です。</p>
+    print(&quot;最終モデルがXGBoostではないか、xgboost未導入のため重要度表示をスキップしました。&quot;)</code></pre>
+<p>この流れで重要なのは、モデル比較に test を使わないことです。<br>
+比較は dev 内 CV で完結させ、test は最終確認に一度だけ使います。</p>
+<p>scikit-learn は実験設計の再現性を作る土台として強く、XGBoost はその土台の上で精度を詰める有力候補です。</p>
 
 </article>
   </main>
