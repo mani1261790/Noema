@@ -98,89 +98,389 @@
 <body>
   <main>
 <article class="prose-noema">
-<h1 id="事前学習">事前学習</h1>
-<p>事前学習では、モデル呼び出し以前に入力設計と評価設計を固める習慣を作ります。</p>
+<pre><code class="language-python">import math
+import random
+import re
+from collections import Counter, defaultdict
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>事前学習に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+import numpy as np
+import matplotlib.pyplot as plt
+
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    TORCH_AVAILABLE = True
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    optim = None
+    TORCH_AVAILABLE = False</code></pre>
+<h1 id="事前学習-pre-training">事前学習（Pre-training）</h1>
+<p>事前学習は、大量の未ラベルテキストから「次にどのトークンが来るか」を予測することで、言語の統計構造を学ぶ段階です。<br>
+このノートでは、データ準備、N-gramからニューラル言語モデルへの流れ、評価（perplexity）、計算コスト感覚、そして機械論的解釈可能性の入口までを一貫して確認します。</p>
+
+<p>言語モデルの基本目的は次の確率を最大化することです。</p>
+<p><code>P(w_1, ..., w_T) = Π_t P(w_t | w_{&lt;t})</code></p>
+<p>ここで <code>w_{&lt;t}</code> は <code>w_1 ... w_{t-1}</code>（時刻 <code>t</code> より前のトークン列）です。<br>
+実装ではクロスエントロピー損失を最小化します。<br>
+評価では perplexity（困惑度）を使い、<code>perplexity = exp(平均クロスエントロピー)</code>、低いほど予測が当たりやすいことを意味します。</p>
+
+<pre><code class="language-python"># 小さな日本語コーパス（教育用）
+raw_docs = [
+    &#39;事前学習では大量のテキストから次トークン予測を学ぶ。&#39;,
+    &#39;言語モデルは文脈に応じた分布を出力する。&#39;,
+    &#39;トークン化の設計は学習効率と性能に強く影響する。&#39;,
+    &#39;前処理では重複除去や品質フィルタリングが重要になる。&#39;,
+    &#39;評価ではperplexityや下流タスク性能を併用する。&#39;,
+    &#39;モデル規模とデータ規模のバランスが学習の成否を左右する。&#39;,
+    &#39;機械論的解釈可能性は内部回路の理解に役立つ。&#39;,
+    &#39;SFTは事前学習済みモデルを指示追従に調整する工程である。&#39;,
+    &#39;推論時は温度やサンプリング戦略が出力を変える。&#39;,
+    &#39;長文文脈では注意機構の設計が効いてくる。&#39;,
+]
+
+
+def normalize(s):
+    s = s.lower().strip()
+    s = re.sub(r&#39;[。､，,.!?！？]&#39;, &#39; &#39;, s)
+    s = re.sub(r&#39;\s+&#39;, &#39; &#39;, s)
+    return s
+
+
+def char_tokenize(s):
+    s = normalize(s).replace(&#39; &#39;, &#39;&#39;)
+    return list(s)
+
+
+docs = [char_tokenize(d) for d in raw_docs]
+random.seed(0)
+random.shuffle(docs)
+split = int(len(docs) * 0.8)
+train_docs = docs[:split]
+val_docs = docs[split:]
+
+print(&#39;train docs:&#39;, len(train_docs), &#39;val docs:&#39;, len(val_docs))
+print(&#39;sample train tokens:&#39;, &#39;&#39;.join(train_docs[0][:30]))</code></pre>
+<pre><code class="language-python">train_lengths = np.array([len(d) for d in train_docs], dtype=np.int64)
+val_lengths = np.array([len(d) for d in val_docs], dtype=np.int64)
+
+vocab = sorted(set(ch for doc in train_docs for ch in doc))
+vocab = [&#39;&lt;unk&gt;&#39;] + vocab
+stoi = {ch: i for i, ch in enumerate(vocab)}
+itos = {i: ch for ch, i in stoi.items()}
+unk_id = stoi[&#39;&lt;unk&gt;&#39;]
+
+print(&#39;vocab size:&#39;, len(vocab))
+print(&#39;avg train length:&#39;, float(train_lengths.mean()))
+print(&#39;avg val length  :&#39;, float(val_lengths.mean()))
+
+plt.figure(figsize=(6.8, 3.4))
+plt.hist(train_lengths, alpha=0.7, label=&#39;train&#39;, color=&#39;#7aa2ff&#39;)
+plt.hist(val_lengths, alpha=0.7, label=&#39;val&#39;, color=&#39;#8dd3a7&#39;)
+plt.xlabel(&#39;sequence length (characters)&#39;)
+plt.ylabel(&#39;count&#39;)
+plt.title(&#39;Length distribution after tokenization&#39;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>まずはN-gram言語モデルを作り、事前学習の最小ベースラインを確認します。</p>
 <ul>
-<li><strong>トークン</strong>: モデルが処理する最小単位です。日本語では1文字単位とは限りません。</li>
-<li><strong>次トークン確率</strong>: 文脈に対して次に出る候補の確率分布です。生成の中核です。</li>
-<li><strong>コンテキスト</strong>: モデルに渡す入力全体です。指示・資料・履歴が含まれます。</li>
-<li><strong>事前学習</strong>: 大規模コーパスで次トークン予測を学ぶ段階です。</li>
-<li><strong>言語モデリング損失</strong>: 正解トークン確率の対数尤度に基づく損失です。</li>
+<li>Uni-gram: 直前文脈を使わず出現頻度だけで予測</li>
+<li>Bi-gram: 1つ前のトークンを条件に次トークンを予測</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>ここでは加法スムージング（add-k）を入れて、未知遷移でも確率0を避けます。<br>
+また簡略化のためBOS/EOSは入れず、生成時の開始文字を固定しています（実運用ではBOS開始・EOS停止が一般的）。</p>
 
-<h2 id="観察-1-事前学習コーパスのトークン概算">観察 1: 事前学習コーパスのトークン概算</h2>
-<p>事前学習ノートでは、長文コーパスのトークン規模感を最初に確認します。</p>
+<pre><code class="language-python">def flatten(docs):
+    out = []
+    for d in docs:
+        out.extend(d)
+    return out
 
-<pre><code class="language-python">text = &#39;事前学習は大規模コーパスから統計構造を学習する。&#39;
-char_len = len(text)
-space_tokens = text.split()
-rough_tokens = max(1, char_len // 2)
-print(&#39;task = llm-pretraining&#39;)
-print(&#39;chars=&#39;, char_len, &#39;space_tokens=&#39;, len(space_tokens), &#39;rough_tokens=&#39;, rough_tokens)</code></pre>
-<p>コストとデータ規模の関係をここで掴みます。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="観察-2-プロンプトを構造化する">観察 2: プロンプトを構造化する</h2>
-<p>次に、指示・制約・出力形式を分離したテンプレートを作ります。曖昧さを減らすための実装技法です。</p>
+def to_ids(doc):
+    return [stoi.get(ch, unk_id) for ch in doc]
 
-<pre><code class="language-python">instruction = &#39;勾配降下法を初学者向けに説明する&#39;
-constraints = [&#39;120字以内&#39;, &#39;比喩は1つまで&#39;, &#39;最後に要点を1行でまとめる&#39;]
-prompt = f&quot;指示: {instruction}\n制約: {&#39;; &#39;.join(constraints)}\n出力:&quot;
-print(prompt)
-print(&#39;prompt_chars=&#39;, len(prompt))</code></pre>
-<p>この形にすると、失敗原因を特定しやすくなります。品質改善は原因分離のしやすさで決まります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>t</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">p_{\theta}(x_t \mid x_{&lt;t})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>L</mi><mrow><mi>C</mi><mi>E</mi></mrow></msub><mo>=</mo><mo>−</mo><msub><mo>∑</mo><mi>t</mi></msub><mi>log</mi><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>t</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L_{CE} = -\sum_t \log p_{\theta}(x_t \mid x_{&lt;t})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1.0500099999999999em;vertical-align:-0.30001em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">L</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.07153em;">C</span><span class="mord mathit" style="margin-right:0.05764em;">E</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord">−</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
+train_ids = [to_ids(d) for d in train_docs]
+val_ids = [to_ids(d) for d in val_docs]
 
-<h2 id="観察-3-検索文脈を結合する">観察 3: 検索文脈を結合する</h2>
-<p>ここで RAG の最小形を実装します。質問と関連文を結合し、回答入力を作る流れを確認します。</p>
+unigram_counts = Counter(flatten(train_ids))
+bigram_counts = defaultdict(Counter)
+for seq in train_ids:
+    for a, b in zip(seq[:-1], seq[1:]):
+        bigram_counts[a][b] += 1
 
-<pre><code class="language-python">question = &#39;ベルマン方程式を高校生向けに説明して&#39;
-retrieved = [&#39;価値は将来報酬の割引和で定義する&#39;, &#39;現在価値は次状態価値で再帰的に更新できる&#39;]
-context = &#39;\n&#39;.join(f&#39;- {c}&#39; for c in retrieved)
-final_input = f&quot;質問:\n{question}\n\n参考文脈:\n{context}\n\n回答:&quot;
-print(final_input)</code></pre>
-<p>検索文脈を入れる目的は、モデルの記憶に頼りすぎないことです。根拠付き応答を作りやすくなります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+V = len(vocab)
 
-<h2 id="観察-4-評価項目を数値化する">観察 4: 評価項目を数値化する</h2>
-<p>次に、回答を点検するための簡易スコアを定義します。評価軸を言語化すると改善が継続できます。</p>
 
-<pre><code class="language-python">answer = &#39;ベルマン方程式は、今の価値を次の価値で更新する再帰式です。&#39;
-checks = {&#39;length_ok&#39;: len(answer) &lt;= 120, &#39;has_keyword&#39;: &#39;価値&#39; in answer, &#39;has_recurrence&#39;: &#39;再帰&#39; in answer}
-score = sum(1 for v in checks.values() if v) / len(checks)
-print(&#39;checks=&#39;, checks)
-print(&#39;score=&#39;, round(score, 3))</code></pre>
-<p>このような軽量評価でも、改善方向を揃える効果があります。実務ではこの評価軸をチームで共有します。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def unigram_prob(tok, k=0.1):
+    total = sum(unigram_counts.values())
+    return (unigram_counts[tok] + k) / (total + k * V)
 
-<h2 id="観察-5-推論コストを見積もる">観察 5: 推論コストを見積もる</h2>
-<p>最後に、入力と出力の長さから概算コストを計算します。モデル選択は性能だけでなく費用とのバランスが必要です。</p>
 
-<pre><code class="language-python">input_tokens = 320
-output_tokens = 180
-price_per_1k = 0.0012
-cost = (input_tokens + output_tokens) / 1000 * price_per_1k
-print(&#39;estimated_cost=&#39;, round(cost, 6))</code></pre>
-<p>この見積もりを運用前に作ると、スケール時の予算超過を防ぎやすくなります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def bigram_prob(prev, tok, k=0.1):
+    row = bigram_counts[prev]
+    total = sum(row.values())
+    return (row[tok] + k) / (total + k * V)
 
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>プロンプトだけで全問題を解決しようとする</li>
-<li>評価指標を決めずに改善を繰り返す</li>
-<li>コストと品質のバランスを見ない</li>
-</ol>
+
+def perplexity_unigram(seqs):
+    nll = 0.0
+    n = 0
+    for seq in seqs:
+        for t in seq:
+            p = unigram_prob(t)
+            nll += -math.log(p + 1e-12)
+            n += 1
+    return math.exp(nll / max(n, 1))
+
+
+def perplexity_bigram(seqs):
+    nll = 0.0
+    n = 0
+    for seq in seqs:
+        for prev, t in zip(seq[:-1], seq[1:]):
+            p = bigram_prob(prev, t)
+            nll += -math.log(p + 1e-12)
+            n += 1
+    return math.exp(nll / max(n, 1))
+
+
+print(&#39;val perplexity unigram:&#39;, round(perplexity_unigram(val_ids), 4))
+print(&#39;val perplexity bigram :&#39;, round(perplexity_bigram(val_ids), 4))</code></pre>
+<pre><code class="language-python">def sample_unigram(max_len=40):
+    probs = np.array([unigram_prob(i) for i in range(V)], dtype=np.float64)
+    probs = probs / probs.sum()
+    ids = np.random.choice(np.arange(V), size=max_len, p=probs)
+    return &#39;&#39;.join(itos[i] for i in ids if i != unk_id)
+
+
+def sample_bigram(start_id, max_len=40):
+    out = [start_id]
+    cur = start_id
+    for _ in range(max_len - 1):
+        probs = np.array([bigram_prob(cur, j) for j in range(V)], dtype=np.float64)
+        probs = probs / probs.sum()
+        nxt = int(np.random.choice(np.arange(V), p=probs))
+        out.append(nxt)
+        cur = nxt
+    return &#39;&#39;.join(itos[i] for i in out if i != unk_id)
+
+
+np.random.seed(1)
+start_char = train_ids[0][0]
+print(&#39;unigram sample:&#39;, sample_unigram(36))
+print(&#39;bigram sample :&#39;, sample_bigram(start_char, 36))</code></pre>
+<p>次に、クロスエントロピー損失を手計算し、ニューラル言語モデル学習へ接続します。</p>
+
+<pre><code class="language-python">logits = np.array([0.2, -0.3, 1.1, 0.0], dtype=np.float64)
+target = 2
+
+shift = logits - np.max(logits)
+probs = np.exp(shift) / np.sum(np.exp(shift))
+ce = -math.log(probs[target] + 1e-12)
+
+print(&#39;probs =&#39;, np.round(probs, 4))
+print(&#39;cross entropy =&#39;, round(float(ce), 6))
+print(&#39;perplexity for this token =&#39;, round(float(math.exp(ce)), 6))</code></pre>
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    torch.manual_seed(0)
+
+    # 連結テキストを作成
+    train_text = &#39;&#39;.join(&#39;&#39;.join(d) + &#39;\n&#39; for d in train_docs)
+    val_text = &#39;&#39;.join(&#39;&#39;.join(d) + &#39;\n&#39; for d in val_docs)
+
+    train_data = torch.tensor([stoi.get(ch, unk_id) for ch in train_text], dtype=torch.long)
+    val_data = torch.tensor([stoi.get(ch, unk_id) for ch in val_text], dtype=torch.long)
+
+    max_block = min(48, len(train_data) - 1, len(val_data) - 1)
+    if max_block &lt; 2:
+        raise ValueError(&#39;Dataset too short for neural LM demo after split&#39;)
+
+    block = max_block
+    batch_size = 32
+
+    def get_batch(data, block_size, bsz):
+        high = len(data) - block_size - 1
+        idx = torch.randint(0, high + 1, (bsz,))
+        x = torch.stack([data[i:i+block_size] for i in idx])
+        y = torch.stack([data[i+1:i+block_size+1] for i in idx])
+        return x, y
+
+    class TinyPretrainLM(nn.Module):
+        def __init__(self, vocab_size, d_model=64):
+            super().__init__()
+            self.emb = nn.Embedding(vocab_size, d_model)
+            self.gru = nn.GRU(d_model, d_model, batch_first=True)
+            self.head = nn.Linear(d_model, vocab_size)
+
+        def forward(self, x):
+            h = self.emb(x)
+            out, _ = self.gru(h)
+            return self.head(out)
+
+    model = TinyPretrainLM(len(vocab), d_model=64)
+    opt = optim.AdamW(model.parameters(), lr=3e-3)
+    criterion_mean = nn.CrossEntropyLoss()
+    criterion_sum = nn.CrossEntropyLoss(reduction=&#39;sum&#39;)
+
+    for step in range(260):
+        xb, yb = get_batch(train_data, block, batch_size)
+        logits = model(xb)
+        loss = criterion_mean(logits.reshape(-1, len(vocab)), yb.reshape(-1))
+
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+        if step % 65 == 0:
+            print(f&#39;step={step:&gt;3d}, train loss={loss.item():.4f}&#39;)
+
+    # バッチ1個ではなく、検証系列全体で近似perplexityを計算
+    with torch.no_grad():
+        total_nll = 0.0
+        total_tok = 0
+        starts = list(range(0, len(val_data) - 1, block))
+        for s in starts:
+            b = min(block, len(val_data) - 1 - s)
+            if b &lt;= 0:
+                continue
+            x = val_data[s:s+b].unsqueeze(0)
+            y = val_data[s+1:s+b+1].unsqueeze(0)
+            logits = model(x)
+            nll = criterion_sum(logits.reshape(-1, len(vocab)), y.reshape(-1)).item()
+            total_nll += nll
+            total_tok += y.numel()
+
+        val_loss = total_nll / max(total_tok, 1)
+        val_ppl = math.exp(val_loss)
+
+    print(&#39;val avg nll =&#39;, round(val_loss, 4), &#39;val perplexity =&#39;, round(val_ppl, 4))
+
+    # 生成
+    prompt = &#39;事前学習&#39;
+    ids = [stoi.get(ch, unk_id) for ch in prompt]
+    x = torch.tensor(ids, dtype=torch.long).unsqueeze(0)
+    for _ in range(40):
+        logits = model(x)
+        next_id = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+        x = torch.cat([x, next_id], dim=1)
+    gen = &#39;&#39;.join(itos[i] if i != unk_id else &#39;□&#39; for i in x.squeeze(0).tolist())
+    print(&#39;generated:&#39;, gen)
+else:
+    print(&#39;PyTorch未導入のため、ニューラルLMセルをスキップしました。&#39;)</code></pre>
+<p>事前学習ではデータ品質が非常に重要です。<br>
+重複が多いと実効データ量が減り、汚染データがあると望ましくない振る舞いを学習します。<br>
+下では文字3-gramのJaccard類似度で近重複を簡易検出します。</p>
+
+<pre><code class="language-python">def shingles(text, k=3):
+    if len(text) &lt; k:
+        return {text}
+    return {text[i:i+k] for i in range(len(text) - k + 1)}
+
+
+def jaccard(a, b):
+    inter = len(a &amp; b)
+    union = len(a | b)
+    return inter / max(union, 1)
+
+
+dedup_candidates = [
+    &#39;llmの事前学習では大規模テキストを使う&#39;,
+    &#39;llmの事前学習では大規模なテキストを使う&#39;,
+    &#39;画像分類ではラベル付きデータで学習する&#39;,
+]
+
+S = [shingles(s, k=3) for s in dedup_candidates]
+for i in range(len(S)):
+    for j in range(i + 1, len(S)):
+        sim = jaccard(S[i], S[j])
+        print(f&#39;sim({i},{j}) = {sim:.4f}&#39;)</code></pre>
+<p>スケーリング則の細部は設定依存ですが、実務では「おおまかな計算量感覚」を先に持つのが重要です。<br>
+ここではデコーダ型Transformer学習の粗い目安として、</p>
+<p><code>FLOPs ≈ 6 * N_params * N_tokens</code></p>
+<p>を使って見積もります（係数はモデル形状・実装・ハードウェアで変動します）。</p>
+
+<pre><code class="language-python">def estimate_flops(params_billion, tokens_billion):
+    n_params = params_billion * 1e9
+    n_tokens = tokens_billion * 1e9
+    return 6.0 * n_params * n_tokens
+
+
+settings = [
+    (0.1, 20),   # 0.1B params, 20B tokens
+    (0.7, 100),  # 0.7B params, 100B tokens
+    (7.0, 300),  # 7B params, 300B tokens
+]
+
+for p_b, t_b in settings:
+    flops = estimate_flops(p_b, t_b)
+    print(f&#39;params={p_b:&gt;4.1f}B, tokens={t_b:&gt;4.0f}B -&gt; FLOPs≈{flops:.3e}&#39;)
+
+# トークン課金の例（仮定値）
+in_tok, out_tok = 1200, 400
+price_per_m_in = 0.20
+price_per_m_out = 0.80
+cost = (in_tok / 1e6) * price_per_m_in + (out_tok / 1e6) * price_per_m_out
+print(&#39;\nexample inference cost per request (assumed pricing) =&#39;, round(cost, 6), &#39;USD&#39;)</code></pre>
+<p>事前学習後には、継続事前学習（domain adaptive pretraining）やSFTへ進むことが多いです。<br>
+混合データでの学習では、一般コーパスとドメインコーパスの損失バランスを監視し、過学習や忘却を防ぎます。</p>
+
+<pre><code class="language-python"># 2種類のデータ損失を重み付きで合成する簡易例
+loss_general = np.array([2.20, 2.05, 1.98, 1.95, 1.93])
+loss_domain = np.array([2.80, 2.30, 2.00, 1.82, 1.74])
+alpha = 0.6  # general側の重み
+
+mixed = alpha * loss_general + (1 - alpha) * loss_domain
+for i, (g, d, m) in enumerate(zip(loss_general, loss_domain, mixed), 1):
+    print(f&#39;epoch {i}: general={g:.3f}, domain={d:.3f}, mixed={m:.3f}&#39;)
+
+plt.figure(figsize=(6.8, 3.5))
+plt.plot(loss_general, marker=&#39;o&#39;, label=&#39;general loss&#39;)
+plt.plot(loss_domain, marker=&#39;s&#39;, label=&#39;domain loss&#39;)
+plt.plot(mixed, marker=&#39;^&#39;, label=&#39;weighted objective&#39;)
+plt.xlabel(&#39;epoch&#39;)
+plt.ylabel(&#39;loss&#39;)
+plt.title(&#39;Balancing continued pretraining objectives&#39;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>機械論的解釈可能性（mechanistic interpretability）は、ニューラルモデル内部の回路を理解する試みです。<br>
+下の可視化は厳密な回路解析そのものではなく、<br>
+「何が次に出やすいか」を統計遷移として読むための入口デモです。</p>
+<p>本格的には、注意ヘッドやMLPニューロン活性を直接解析して因果的に検証します。</p>
+
+<pre><code class="language-python"># Bi-gram遷移行列を可視化（解釈可能性の最小例）
+show_chars = [ch for ch in [&#39;事&#39;, &#39;前&#39;, &#39;学&#39;, &#39;習&#39;, &#39;モ&#39;, &#39;デ&#39;, &#39;ル&#39;, &#39;。&#39;] if ch in stoi]
+show_ids = [stoi[ch] for ch in show_chars]
+
+M = np.zeros((len(show_ids), len(show_ids)), dtype=np.float64)
+for i, src in enumerate(show_ids):
+    for j, dst in enumerate(show_ids):
+        M[i, j] = bigram_prob(src, dst)
+
+row_sums = M.sum(axis=1, keepdims=True)
+M_norm = M / np.maximum(row_sums, 1e-12)
+
+plt.figure(figsize=(6.0, 4.6))
+plt.imshow(M_norm, cmap=&#39;magma&#39;)
+plt.colorbar(label=&#39;P(next | current)&#39;)
+plt.xticks(range(len(show_chars)), show_chars)
+plt.yticks(range(len(show_chars)), show_chars)
+plt.xlabel(&#39;next token&#39;)
+plt.ylabel(&#39;current token&#39;)
+plt.title(&#39;Interpretable transition map (toy bigram)&#39;)
+plt.tight_layout()
+plt.show()
+
+for i, src in enumerate(show_chars):
+    top = np.argsort(M_norm[i])[::-1][:3]
+    cand = [(show_chars[t], float(M_norm[i, t])) for t in top]
+    print(src, &#39;-&gt;&#39;, [(c, round(p, 4)) for c, p in cand])</code></pre>
+<p>事前学習では「データ」「目的関数」「計算資源」の3つを同時に設計する必要があります。<br>
+最初に小さな実験で挙動を掴み、次に本番規模へスケールする手順を徹底すると、失敗コストを下げやすくなります。</p>
 
 </article>
   </main>
