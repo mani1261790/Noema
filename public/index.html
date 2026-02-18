@@ -1673,6 +1673,7 @@
         playgroundEnabled: false,
         userScopeKey: "",
         activeEditorMap: new Map(),
+        baseCellSourceMap: new Map(),
         playgroundSaveTimer: null,
         colabSessionBusy: false
       };
@@ -2167,14 +2168,31 @@
         }, 320);
       }
 
-      async function syncEditorsToCodeBlocks() {
+      function applyEditorSourcesForCurrentMode() {
         if (!state.activeEditorMap.size) return;
+        const notebookId = state.activeNotebook ? state.activeNotebook.id : "";
+        const drafts = state.playgroundEnabled && notebookId ? readNotebookPlaygroundDraft(notebookId) : [];
+
         Array.from(state.activeEditorMap.entries()).forEach(([index, editor]) => {
+          const baseSource = state.baseCellSourceMap.get(index) ?? normalizeRunnableSource(editor.value || "");
+          const draftSource =
+            drafts[index] !== undefined ? normalizeRunnableSource(drafts[index]) : baseSource;
+          const source = state.playgroundEnabled ? draftSource : baseSource;
+
+          editor.value = source;
+          autosizeCodeEditor(editor);
+
           const code = el.notebookContent.querySelector(`pre[data-noema-cell-index="${index}"] > code`);
-          if (!code) return;
-          code.textContent = normalizeRunnableSource(editor.value || "");
+          if (code) {
+            code.textContent = source;
+          }
+
+          const wrapper = code && code.closest ? code.closest(".code-runner") : null;
+          const runButton = wrapper ? wrapper.querySelector(".run-code") : null;
+          if (runButton) {
+            runButton.classList.remove("is-done", "is-failed", "is-running");
+          }
         });
-        await applySyntaxHighlight(el.notebookContent);
       }
 
       function applyPlaygroundModeToCurrentNotebook() {
@@ -2240,16 +2258,12 @@
           window.location.href = "/login";
           return;
         }
-        if (!nextEnabled && state.playgroundEnabled) {
-          await syncEditorsToCodeBlocks();
-        }
         state.playgroundEnabled = Boolean(nextEnabled);
+        applyEditorSourcesForCurrentMode();
         renderPlaygroundSidebarControls();
         renderPlaygroundHeaderControls();
         applyPlaygroundModeToCurrentNotebook();
-        if (!state.playgroundEnabled) {
-          await applySyntaxHighlight(el.notebookContent);
-        }
+        await applySyntaxHighlight(el.notebookContent);
       }
 
       async function updateAdminVisibility(token) {
@@ -2310,6 +2324,7 @@
         state.isAdmin = false;
         state.chatOpen = false;
         state.playgroundEnabled = false;
+        applyEditorSourcesForCurrentMode();
         applyPlaygroundModeToCurrentNotebook();
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");
@@ -2318,6 +2333,7 @@
         setElementVisibility(el.adminLinkMobile, false);
         preloadedNotebookPackages.clear();
         state.activeEditorMap = new Map();
+        state.baseCellSourceMap = new Map();
         if (state.playgroundSaveTimer) {
           clearTimeout(state.playgroundSaveTimer);
           state.playgroundSaveTimer = null;
@@ -2917,6 +2933,7 @@
         const notebookId = state.activeNotebook ? state.activeNotebook.id : "";
         const savedDraft = notebookId ? readNotebookPlaygroundDraft(notebookId) : [];
         state.activeEditorMap = new Map();
+        state.baseCellSourceMap = new Map();
 
         blocks.forEach((code, codeIndex) => {
           const pre = code.parentElement;
@@ -2925,7 +2942,11 @@
           pre.dataset.noemaCellIndex = String(codeIndex);
           let clearExecutionStatus = () => {};
           const defaultSource = normalizeRunnableSource(code.textContent || "");
-          const restoredSource = savedDraft[codeIndex] !== undefined ? normalizeRunnableSource(savedDraft[codeIndex]) : defaultSource;
+          state.baseCellSourceMap.set(codeIndex, defaultSource);
+          const restoredSource =
+            state.playgroundEnabled && savedDraft[codeIndex] !== undefined
+              ? normalizeRunnableSource(savedDraft[codeIndex])
+              : defaultSource;
           code.textContent = restoredSource;
 
           const wrapper = document.createElement("div");
