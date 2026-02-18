@@ -696,7 +696,11 @@
     .home-metric {
       border-radius: 12px;
       border: 1px solid var(--glass-edge-soft);
-      padding: 10px 11px;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      column-gap: 10px;
       background:
         linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 62%),
         color-mix(in oklab, var(--panel-soft) 86%, transparent);
@@ -705,21 +709,25 @@
     }
 
     .home-metric-label {
-      display: block;
+      display: inline-flex;
+      align-items: center;
       font-size: 11px;
       color: var(--muted);
-      margin-bottom: 4px;
       letter-spacing: .03em;
       text-transform: uppercase;
+      min-width: 0;
     }
 
     .home-metric-value {
-      display: block;
-      font-size: 20px;
-      line-height: 1.1;
-      font-weight: 700;
-      letter-spacing: .01em;
+      display: inline-flex;
+      justify-self: end;
+      text-align: right;
+      font-size: clamp(28px, 2.35vw, 38px);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: .005em;
       color: color-mix(in oklab, var(--text) 88%, white);
+      text-shadow: 0 8px 18px color-mix(in oklab, var(--accent) 28%, transparent);
     }
 
     .home-cta-row {
