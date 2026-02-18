@@ -98,89 +98,230 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import numpy as np
+import matplotlib.pyplot as plt</code></pre>
 <h1 id="スケーリング則">スケーリング則</h1>
-<p>スケーリング則では、モデル呼び出し以前に入力設計と評価設計を固める習慣を作ります。</p>
+<p>LLMの事前学習では、モデルサイズ <code>N</code>、学習トークン数 <code>D</code>、計算資源 <code>C</code> を大きくすると、検証損失がべき乗的に下がる傾向があります。<br>
+このノートでは、実験データからべき乗則を推定し、同一計算資源（isoflops）での最適配分を計算する流れを確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>スケーリング則に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>よく使う近似は次の形です。</p>
+<p><code>L(N, D) ≈ L_inf + a * N^{-alpha} + b * D^{-beta}</code></p>
 <ul>
-<li><strong>トークン</strong>: モデルが処理する最小単位です。日本語では1文字単位とは限りません。</li>
-<li><strong>次トークン確率</strong>: 文脈に対して次に出る候補の確率分布です。生成の中核です。</li>
-<li><strong>コンテキスト</strong>: モデルに渡す入力全体です。指示・資料・履歴が含まれます。</li>
-<li><strong>スケーリング則</strong>: モデルサイズ・データ量・計算量と損失の経験則です。</li>
-<li><strong>計算予算</strong>: 同じ予算下でモデルとデータをどう配分するかが重要です。</li>
+<li><code>L_inf</code>: これ以上は下げにくい下限（不可約損失）</li>
+<li><code>alpha</code>, <code>beta</code>: モデル拡大・データ拡大の効き方</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>まずは <code>N</code> と <code>D</code> をそれぞれ変えた観測データを作り、<code>alpha</code>, <code>beta</code> を推定します。</p>
 
-<h2 id="手を動かす-1-スケーリング則の観測データ">手を動かす 1: スケーリング則の観測データ</h2>
-<p>モデルサイズと損失の関係を見るため、簡易ログを先に作っておきます。</p>
+<pre><code class="language-python"># 観測例（教育用の合成データ）
+N_million = np.array([30, 60, 120, 240, 480, 960], dtype=np.float64)   # million params
+D_billion = np.array([5, 10, 20, 40, 80, 160], dtype=np.float64)        # billion tokens
 
-<pre><code class="language-python">text = &#39;paramsとtoken数を増やすと損失がべき乗的に下がる傾向がある。&#39;
-char_len = len(text)
-space_tokens = text.split()
-rough_tokens = max(1, char_len // 2)
-print(&#39;task = scaling-laws&#39;)
-print(&#39;chars=&#39;, char_len, &#39;space_tokens=&#39;, len(space_tokens), &#39;rough_tokens=&#39;, rough_tokens)</code></pre>
-<p>後続で計算資源配分の判断へつなげます。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+# 実際の単位へ変換
+N_params = N_million * 1e6
+D_tokens = D_billion * 1e9
 
-<h2 id="手を動かす-2-プロンプトを構造化する">手を動かす 2: プロンプトを構造化する</h2>
-<p>次に、指示・制約・出力形式を分離したテンプレートを作ります。曖昧さを減らすための実装技法です。</p>
+# 生成側の真値（未知だと思って推定する）
+L_inf_true = 1.60
+A_true, alpha_true = 3.2, 0.37
+B_true, beta_true = 2.1, 0.29
 
-<pre><code class="language-python">instruction = &#39;勾配降下法を初学者向けに説明する&#39;
-constraints = [&#39;120字以内&#39;, &#39;比喩は1つまで&#39;, &#39;最後に要点を1行でまとめる&#39;]
-prompt = f&quot;指示: {instruction}\n制約: {&#39;; &#39;.join(constraints)}\n出力:&quot;
-print(prompt)
-print(&#39;prompt_chars=&#39;, len(prompt))</code></pre>
-<p>この形にすると、失敗原因を特定しやすくなります。品質改善は原因分離のしやすさで決まります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+# 損失生成では見やすさのため M/B 単位でべき乗を作る
+rng = np.random.default_rng(7)
+L_of_N = L_inf_true + A_true * (N_million ** (-alpha_true)) + rng.normal(0, 0.01, size=N_million.shape)
+L_of_D = L_inf_true + B_true * (D_billion ** (-beta_true)) + rng.normal(0, 0.01, size=D_billion.shape)
 
-<h2 id="数式メモ">数式メモ</h2>
+print(&#39;N sweep losses:&#39;, np.round(L_of_N, 4))
+print(&#39;D sweep losses:&#39;, np.round(L_of_D, 4))
+print(&#39;unit note: N uses params count, D uses token count in isoflops section&#39;)</code></pre>
+<pre><code class="language-python">plt.figure(figsize=(7.2, 3.6))
+plt.subplot(1, 2, 1)
+plt.plot(N_million, L_of_N, marker=&#39;o&#39;)
+plt.xscale(&#39;log&#39;)
+plt.xlabel(&#39;N (million params, log)&#39;)
+plt.ylabel(&#39;validation loss&#39;)
+plt.title(&#39;Loss vs Model Size&#39;)
+
+plt.subplot(1, 2, 2)
+plt.plot(D_billion, L_of_D, marker=&#39;o&#39;, color=&#39;#d77f00&#39;)
+plt.xscale(&#39;log&#39;)
+plt.xlabel(&#39;D (billion tokens, log)&#39;)
+plt.ylabel(&#39;validation loss&#39;)
+plt.title(&#39;Loss vs Data Size&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p><code>L_inf</code> が未知なので、候補値を走査しながら<br>
+<code>log(L - L_inf)</code> と <code>log(x)</code> の一次回帰で指数を推定します。</p>
+<p><code>L_inf</code> は観測損失の最小値より少し小さい値にしかなりえないので、<br>
+その近傍を候補として探索します。</p>
+
+<pre><code class="language-python">def fit_power_with_fixed_floor(x, y, floor):
+    # y ~= floor + A * x^{-exponent}
+    z = y - floor
+    if np.any(z &lt;= 0):
+        return None
+
+    lx = np.log(x)
+    lz = np.log(z)
+    # lz = c + m*lx, where m=-exponent
+    m, c = np.polyfit(lx, lz, 1)
+    pred = floor + np.exp(c) * (x ** m)
+    mse = float(np.mean((pred - y) ** 2))
+    return {
+        &#39;floor&#39;: float(floor),
+        &#39;A&#39;: float(np.exp(c)),
+        &#39;exponent&#39;: float(-m),
+        &#39;mse&#39;: mse,
+        &#39;pred&#39;: pred,
+    }
+
+
+min_obs = float(min(np.min(L_of_N), np.min(L_of_D)))
+floor_candidates = np.linspace(min_obs - 0.25, min_obs - 1e-4, 400)
+
+best = None
+for floor in floor_candidates:
+    fN = fit_power_with_fixed_floor(N_million, L_of_N, floor)
+    fD = fit_power_with_fixed_floor(D_billion, L_of_D, floor)
+    if fN is None or fD is None:
+        continue
+    total_mse = fN[&#39;mse&#39;] + fD[&#39;mse&#39;]
+    if best is None or total_mse &lt; best[&#39;total_mse&#39;]:
+        best = {
+            &#39;L_inf&#39;: float(floor),
+            &#39;N_fit&#39;: fN,
+            &#39;D_fit&#39;: fD,
+            &#39;total_mse&#39;: float(total_mse),
+        }
+
+fit_joint = best
+print(&#39;Shared-floor fit summary:&#39;)
+print(&#39;L_inf =&#39;, round(fit_joint[&#39;L_inf&#39;], 5), &#39;total_mse =&#39;, round(fit_joint[&#39;total_mse&#39;], 7))
+print(&#39;N_fit =&#39;, {k: round(v, 5) for k, v in fit_joint[&#39;N_fit&#39;].items() if k != &#39;pred&#39;})
+print(&#39;D_fit =&#39;, {k: round(v, 5) for k, v in fit_joint[&#39;D_fit&#39;].items() if k != &#39;pred&#39;})</code></pre>
+<pre><code class="language-python">plt.figure(figsize=(7.2, 3.5))
+plt.subplot(1, 2, 1)
+plt.scatter(N_million, L_of_N, label=&#39;observed&#39;)
+plt.plot(N_million, fit_joint[&#39;N_fit&#39;][&#39;pred&#39;], label=&#39;power fit&#39;, color=&#39;#cc3344&#39;)
+plt.xscale(&#39;log&#39;)
+plt.xlabel(&#39;N (M params)&#39;)
+plt.ylabel(&#39;loss&#39;)
+plt.title(f&quot;alpha≈{fit_joint[&#39;N_fit&#39;][&#39;exponent&#39;]:.3f}&quot;)
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.scatter(D_billion, L_of_D, label=&#39;observed&#39;)
+plt.plot(D_billion, fit_joint[&#39;D_fit&#39;][&#39;pred&#39;], label=&#39;power fit&#39;, color=&#39;#cc3344&#39;)
+plt.xscale(&#39;log&#39;)
+plt.xlabel(&#39;D (B tokens)&#39;)
+plt.ylabel(&#39;loss&#39;)
+plt.title(f&quot;beta≈{fit_joint[&#39;D_fit&#39;][&#39;exponent&#39;]:.3f}&quot;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>次に isoflops を考えます。<br>
+デコーダ型学習の粗い近似として <code>C ≈ 6ND</code>（<code>N</code>: パラメータ数, <code>D</code>: 学習トークン数）を使います。</p>
+<p><code>D = C/(6N)</code> を <code>L(N, D)</code> に代入すると<br>
+<code>f(N) = aN^{-alpha} + b(C/6)^{-beta}N^{beta}</code> になり、<br>
+これを <code>df/dN = 0</code> で解くと <code>N*</code> と <code>D*</code> が得られます。</p>
+
+<pre><code class="language-python"># 共有L_infで推定した係数を使って、L(N,D)=L_inf+aN^-alpha+bD^-beta を最適化
+L_inf = fit_joint[&#39;L_inf&#39;]
+a_fit, alpha = fit_joint[&#39;N_fit&#39;][&#39;A&#39;], fit_joint[&#39;N_fit&#39;][&#39;exponent&#39;]
+b_fit, beta = fit_joint[&#39;D_fit&#39;][&#39;A&#39;], fit_joint[&#39;D_fit&#39;][&#39;exponent&#39;]
+
+# a_fit,b_fit は N(M params), D(B tokens) の単位で推定されているので
+# isoflops (N: params, D: tokens) へ合わせて係数を変換する
+# (N/1e6)^-alpha = (1e6^alpha) * N^-alpha
+# (D/1e9)^-beta  = (1e9^beta)  * D^-beta
+a_raw = a_fit * (1e6 ** alpha)
+b_raw = b_fit * (1e9 ** beta)
+
+
+def optimal_N_D_for_compute(C, a, alpha, b, beta):
+    # C = 6ND -&gt; D = C/(6N)
+    # minimize f(N)=aN^-alpha + b(C/6)^-beta N^beta
+    numer = a * alpha
+    denom = b * beta
+    N_star = (numer / denom) ** (1.0 / (alpha + beta)) * (C / 6.0) ** (beta / (alpha + beta))
+    D_star = C / (6.0 * N_star)
+    return N_star, D_star
+
+
+# C の単位は FLOPs 相当の抽象値（ここでは比較目的）
+C_values = np.logspace(18, 22, 9)
+N_star = []
+D_star = []
+for C in C_values:
+    n, d = optimal_N_D_for_compute(C, a_raw, alpha, b_raw, beta)
+    N_star.append(n)
+    D_star.append(d)
+N_star = np.array(N_star)
+D_star = np.array(D_star)
+
+print(&#39;first 4 optimal pairs (N*, D*):&#39;)
+for i in range(4):
+    print(f&quot;C={C_values[i]:.1e} -&gt; N*={N_star[i]/1e6:.2f}M params, D*={D_star[i]/1e9:.2f}B tokens&quot;)</code></pre>
+<pre><code class="language-python">plt.figure(figsize=(7.2, 3.6))
+plt.plot(C_values, N_star / 1e6, marker=&#39;o&#39;, label=&#39;optimal N* (M params)&#39;)
+plt.plot(C_values, D_star / 1e9, marker=&#39;s&#39;, label=&#39;optimal D* (B tokens)&#39;)
+plt.xscale(&#39;log&#39;)
+plt.yscale(&#39;log&#39;)
+plt.xlabel(&#39;Compute C (log)&#39;)
+plt.ylabel(&#39;Optimal scale (log)&#39;)
+plt.title(&#39;Isoflops-optimal allocation&#39;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>実務でありがちな失敗は、計算資源が同じなのに</p>
+<ul>
+<li>モデルだけ大きくしてデータ不足（undertrained）</li>
+<li>データだけ増やしてモデル不足（underparameterized）</li>
+</ul>
+<p>になることです。下で同一 <code>C</code> に対する損失差を比較します。</p>
+
+<pre><code class="language-python">def approx_loss(N, D, L_inf, a, alpha, b, beta):
+    return L_inf + a * (N ** (-alpha)) + b * (D ** (-beta))
+
+
+ratios = [0.5, 1.0, 2.0]  # Nを最適比の何倍にするか
+example_C = 1e20
+n_opt, d_opt = optimal_N_D_for_compute(example_C, a_raw, alpha, b_raw, beta)
+
+print(f&#39;compute C={example_C:.1e}&#39;)
+print(f&#39;optimal N={n_opt/1e6:.2f}M params, D={d_opt/1e9:.2f}B tokens&#39;)
+
+for r in ratios:
+    n = n_opt * r
+    d = example_C / (6.0 * n)
+    L = approx_loss(n, d, L_inf, a_raw, alpha, b_raw, beta)
+    label = &#39;optimal&#39; if abs(r - 1.0) &lt; 1e-9 else f&#39;N x {r}&#39;
+    print(f&#39;{label:8s}: N={n/1e6:8.2f}M, D={d/1e9:8.2f}B, approx loss={L:.5f}&#39;)</code></pre>
+<p>スケーリング則は万能ではありません。<br>
+データ品質、ドメインミスマッチ、最適化設定、アーキテクチャ変更で指数や下限は変わります。<br>
+それでも、実験計画の初期段階で「どこに計算資源を使うか」を決める強力な指針になります。</p>
+
+<pre><code class="language-python"># 価格の粗い見積もり（仮定値）
+train_flops = 3.0e22
+hardware_tflops = 250.0   # 1 GPUあたり
+num_gpus = 64
+utilization = 0.35
+
+seconds = train_flops / (hardware_tflops * 1e12 * num_gpus * utilization)
+hours = seconds / 3600
+
+print(&#39;Estimated wall-clock hours:&#39;, round(hours, 2))
+
+usd_per_gpu_hour = 1.8
+cost = hours * num_gpus * usd_per_gpu_hour
+print(&#39;Estimated training cost (USD, rough):&#39;, round(cost, 2))</code></pre>
+<p>このノートで押さえたい実務ポイント:</p>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>t</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">p_{\theta}(x_t \mid x_{&lt;t})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>L</mi><mrow><mi>C</mi><mi>E</mi></mrow></msub><mo>=</mo><mo>−</mo><msub><mo>∑</mo><mi>t</mi></msub><mi>log</mi><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>t</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L_{CE} = -\sum_t \log p_{\theta}(x_t \mid x_{&lt;t})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1.0500099999999999em;vertical-align:-0.30001em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">L</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.07153em;">C</span><span class="mord mathit" style="margin-right:0.05764em;">E</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord">−</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
+<li>まず小規模スイープで <code>alpha, beta, L_inf</code> を推定する</li>
+<li>その推定に基づき isoflops で <code>N</code> と <code>D</code> を配分する</li>
+<li>本番では品質劣化要因（データ品質・最適化不安定）を別監視する</li>
 </ol>
-
-<h2 id="手を動かす-3-検索文脈を結合する">手を動かす 3: 検索文脈を結合する</h2>
-<p>ここで RAG の最小形を実装します。質問と関連文を結合し、回答入力を作る流れを確認します。</p>
-
-<pre><code class="language-python">question = &#39;ベルマン方程式を高校生向けに説明して&#39;
-retrieved = [&#39;価値は将来報酬の割引和で定義する&#39;, &#39;現在価値は次状態価値で再帰的に更新できる&#39;]
-context = &#39;\n&#39;.join(f&#39;- {c}&#39; for c in retrieved)
-final_input = f&quot;質問:\n{question}\n\n参考文脈:\n{context}\n\n回答:&quot;
-print(final_input)</code></pre>
-<p>検索文脈を入れる目的は、モデルの記憶に頼りすぎないことです。根拠付き応答を作りやすくなります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="手を動かす-4-評価項目を数値化する">手を動かす 4: 評価項目を数値化する</h2>
-<p>次に、回答を点検するための簡易スコアを定義します。評価軸を言語化すると改善が継続できます。</p>
-
-<pre><code class="language-python">answer = &#39;ベルマン方程式は、今の価値を次の価値で更新する再帰式です。&#39;
-checks = {&#39;length_ok&#39;: len(answer) &lt;= 120, &#39;has_keyword&#39;: &#39;価値&#39; in answer, &#39;has_recurrence&#39;: &#39;再帰&#39; in answer}
-score = sum(1 for v in checks.values() if v) / len(checks)
-print(&#39;checks=&#39;, checks)
-print(&#39;score=&#39;, round(score, 3))</code></pre>
-<p>このような軽量評価でも、改善方向を揃える効果があります。実務ではこの評価軸をチームで共有します。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="手を動かす-5-推論コストを見積もる">手を動かす 5: 推論コストを見積もる</h2>
-<p>最後に、入力と出力の長さから概算コストを計算します。モデル選択は性能だけでなく費用とのバランスが必要です。</p>
-
-<pre><code class="language-python">input_tokens = 320
-output_tokens = 180
-price_per_1k = 0.0012
-cost = (input_tokens + output_tokens) / 1000 * price_per_1k
-print(&#39;estimated_cost=&#39;, round(cost, 6))</code></pre>
-<p>この見積もりを運用前に作ると、スケール時の予算超過を防ぎやすくなります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="この節の要点">この節の要点</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>プロンプトだけで全問題を解決しようとする</li>
-<li>評価指標を決めずに改善を繰り返す</li>
-<li>コストと品質のバランスを見ない</li>
-</ol>
+<p>この3段階を回すと、計算予算の無駄打ちを減らしやすくなります。</p>
 
 </article>
   </main>
