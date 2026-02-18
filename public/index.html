@@ -1092,6 +1092,9 @@
     (function () {
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
+      const ASSISTANT_MIN_WIDTH = 320;
+      const ASSISTANT_MAX_WIDTH = 700;
+      const ASSISTANT_CLOSE_THRESHOLD = 220;
 
       const state = {
         catalog: null,
@@ -1932,7 +1935,14 @@
       function onResize(event) {
         if (!state.resizing) return;
         const diff = state.startX - event.clientX;
-        const next = Math.max(320, Math.min(700, state.startWidth + diff));
+        const rawWidth = state.startWidth + diff;
+        if (rawWidth <= ASSISTANT_CLOSE_THRESHOLD) {
+          document.documentElement.style.setProperty("--assistant-width", `${ASSISTANT_MIN_WIDTH}px`);
+          setChatOpen(false);
+          stopResize();
+          return;
+        }
+        const next = Math.max(ASSISTANT_MIN_WIDTH, Math.min(ASSISTANT_MAX_WIDTH, rawWidth));
         document.documentElement.style.setProperty("--assistant-width", `${next}px`);
       }
 
