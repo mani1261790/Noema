@@ -155,7 +155,7 @@ jobs:
       - name: Validate deployment variables
         run: |
           set -euo pipefail
-          for var_name in FRONTEND_URL STACK_STAGE CREATE_GITHUB_DEPLOY_ROLE GITHUB_REPO GITHUB_REF_PATTERN GITHUB_ENVIRONMENT_NAME QA_MODEL_PROVIDER BEDROCK_REGION OPENAI_MODEL_SMALL NOEMA_INLINE_QA QA_RATE_LIMIT_MAX QA_RATE_LIMIT_WINDOW_MINUTES; do
+          for var_name in STACK_STAGE CREATE_GITHUB_DEPLOY_ROLE GITHUB_REPO GITHUB_REF_PATTERN GITHUB_ENVIRONMENT_NAME QA_MODEL_PROVIDER BEDROCK_REGION OPENAI_MODEL_SMALL NOEMA_INLINE_QA QA_RATE_LIMIT_MAX QA_RATE_LIMIT_WINDOW_MINUTES; do
             if [[ -z "${!var_name:-}" ]]; then
               echo "Missing ${var_name}. Set workflow input or repository/environment variable."
               exit 1
@@ -276,6 +276,23 @@ jobs:
             exit 1
           }
           FRONTEND_URL_NORM="$(trim "${INPUT_FRONTEND_URL}")"
+          if [[ -z "${FRONTEND_URL_NORM}" ]]; then
+            STACK_NAME="noema-${INPUT_STACK_STAGE}"
+            EXISTING_CF_DOMAIN="$(
+              aws cloudformation describe-stacks \
+                --stack-name "${STACK_NAME}" \
+                --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomainName'].OutputValue" \
+                --output text 2>/dev/null || true
+            )"
+            EXISTING_CF_DOMAIN="$(trim "${EXISTING_CF_DOMAIN}")"
+            if [[ -n "${EXISTING_CF_DOMAIN}" ]] && [[ "${EXISTING_CF_DOMAIN}" != "None" ]]; then
+              FRONTEND_URL_NORM="https://${EXISTING_CF_DOMAIN}"
+              echo "frontend_url not provided. Using existing CloudFront domain: ${FRONTEND_URL_NORM}"
+            else
+              echo "frontend_url is required for initial deploy. Set workflow input or NOEMA_FRONTEND_URL."
+              exit 1
+            fi
+          fi
           FRONTEND_URL_NORM="${FRONTEND_URL_NORM%/}"
           BEDROCK_REGION_NORM="$(trim "${INPUT_BEDROCK_REGION}")"
           BEDROCK_MODEL_SMALL_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}")"
