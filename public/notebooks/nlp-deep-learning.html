@@ -98,96 +98,366 @@
 <body>
   <main>
 <article class="prose-noema">
-<h1 id="自然言語処理">自然言語処理</h1>
-<p>自然言語処理は、損失が下がる理由を『式』と『数値変化』の両方で確認する構成です。</p>
-
-<h2 id="概念の土台">概念の土台</h2>
-<p>自然言語処理に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>パラメータ θ</strong>: モデルが学習で更新する重み集合です。予測の形を決めます。</li>
-<li><strong>順伝播</strong>: 入力から出力へ値を流して予測を計算する過程です。</li>
-<li><strong>逆伝播</strong>: 損失から勾配を計算して各パラメータの更新量を求める過程です。</li>
-<li><strong>トークナイズ</strong>: 文字列をモデル入力単位に分割する処理です。</li>
-<li><strong>埋め込み</strong>: 離散トークンを連続ベクトルに写像する表現です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
-
-<h2 id="実験-1-トークン埋め込みの最小計算">実験 1: トークン埋め込みの最小計算</h2>
-<p>NLPの入口として、語IDから埋め込みを引いて合成ベクトルを作ります。</p>
-
 <pre><code class="language-python">import math
-embedding = {0: [0.1, 0.2], 1: [0.4, -0.1], 2: [0.3, 0.5]}
-token_ids = [0, 2, 1]
-vec = [sum(embedding[t][d] for t in token_ids) / len(token_ids) for d in range(2)]
-x = [vec[0], vec[1], 1.0]
-w = [0.7, -0.2, 0.05]
-z = sum(xi * wi for xi, wi in zip(x, w))
-y = 1 / (1 + math.exp(-z))
-print(&#39;task = nlp-deep-learning&#39;, &#39;vec=&#39;, [round(v, 4) for v in vec], &#39;pred=&#39;, round(y, 6))</code></pre>
-<p>埋め込みから予測までの流れを、まず小さく確認します。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+import re
+from collections import Counter
 
-<h2 id="実験-2-損失を計算する">実験 2: 損失を計算する</h2>
-<p>次に、予測値に対する損失を計算します。学習は損失を下げる方向に進むので、損失の意味を言葉で説明できることが重要です。</p>
+import numpy as np
+import matplotlib.pyplot as plt
 
-<pre><code class="language-python">target = 1.0
-eps = 1e-9
-loss = -(target * math.log(y + eps) + (1 - target) * math.log(1 - y + eps))
-print(&#39;loss =&#39;, round(loss, 6))
-print(&#39;error =&#39;, round(target - y, 6))</code></pre>
-<p>損失は『どれだけ外したか』を測る物差しです。物差しがない状態では、改善の方向を決められません。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    TORCH_AVAILABLE = True
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    optim = None
+    TORCH_AVAILABLE = False</code></pre>
+<h1 id="自然言語処理-nlp">自然言語処理（NLP）</h1>
+<p>自然言語処理では、まず文字列を数値列に変換し、その数値列から意味や文脈を学習します。<br>
+このノートでは、トークン化と語彙作成から始めて、次トークン予測、SFT（Supervised Fine-Tuning）用データ整形、LoRA/QLoRAの計算感覚までを順に確認します。</p>
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
+<p>最初の関門はトークン化です。<br>
+同じ文でも、単語単位で切るか、文字単位で切るかで系列長や未知語の扱いが変わります。</p>
+<p>日本語は空白で単語境界が明示されないため、<code>split(' ')</code> は失敗しやすい方法です。<br>
+ここでは、まず失敗例として空白分割を見たあと、文字単位分割と比較します。</p>
+
+<pre><code class="language-python">raw_texts = [
+    &#39;LLMは文脈に応じて次の単語を予測する。&#39;,
+    &#39;SFTでは指示と回答のペアを教師信号にする。&#39;,
+    &#39;モデル評価では正答率だけでなく出力品質も見る。&#39;,
+    &#39;未知語が多いと語彙外トークンが増えて性能が落ちやすい。&#39;,
+    &#39;日本語でも英語でもトークン化の設計は重要。&#39;,
+]
+
+
+def normalize_text(s):
+    s = s.lower()
+    s = re.sub(r&#39;[。､，,.!?！？]&#39;, &#39; &#39;, s)
+    s = re.sub(r&#39;\s+&#39;, &#39; &#39;, s).strip()
+    return s
+
+
+def whitespace_tokenize(s):
+    return normalize_text(s).split(&#39; &#39;)
+
+
+def char_tokenize(s):
+    s = normalize_text(s)
+    s = s.replace(&#39; &#39;, &#39;&#39;)
+    return list(s)
+
+
+ws_tokenized = [whitespace_tokenize(t) for t in raw_texts]
+char_tokenized = [char_tokenize(t) for t in raw_texts]
+
+for i in range(len(raw_texts)):
+    print(f&#39;--- sample {i} ---&#39;)
+    print(&#39;whitespace:&#39;, ws_tokenized[i])
+    print(&#39;char      :&#39;, char_tokenized[i][:20], &#39;...&#39;)
+
+ws_lengths = np.array([len(t) for t in ws_tokenized], dtype=np.int64)
+char_lengths = np.array([len(t) for t in char_tokenized], dtype=np.int64)
+
+print(&#39;\nmean length (whitespace) =&#39;, float(ws_lengths.mean()))
+print(&#39;mean length (char)       =&#39;, float(char_lengths.mean()))
+
+# 以降は外部トークナイザ依存を避けるため、文字単位を使用
+tokenized = char_tokenized</code></pre>
+<pre><code class="language-python">x = np.arange(len(raw_texts))
+width = 0.36
+
+plt.figure(figsize=(7.2, 3.6))
+plt.bar(x - width/2, ws_lengths, width=width, label=&#39;whitespace split&#39;, color=&#39;#7aa2ff&#39;)
+plt.bar(x + width/2, char_lengths, width=width, label=&#39;char split&#39;, color=&#39;#8dd3a7&#39;)
+plt.xticks(x, [f&#39;s{i}&#39; for i in range(len(raw_texts))])
+plt.ylabel(&#39;token count&#39;)
+plt.title(&#39;Token length by tokenization strategy&#39;)
+plt.legend()
+plt.tight_layout()
+plt.show()</code></pre>
+<p>次に語彙（vocabulary）を作って、トークンをIDへ変換します。<br>
+<code>&lt;pad&gt;</code> と <code>&lt;unk&gt;</code> を先頭に置くのは実務でもよくある設計です。</p>
+<p>このノートでは文字単位トークンを使っているので、未知語問題は「未知文字」の形で現れます。</p>
+
+<pre><code class="language-python">counter = Counter(tok for toks in tokenized for tok in toks)
+special_tokens = [&#39;&lt;pad&gt;&#39;, &#39;&lt;unk&gt;&#39;]
+base_vocab = [tok for tok, _ in counter.most_common()]
+vocab = special_tokens + base_vocab
+stoi = {tok: i for i, tok in enumerate(vocab)}
+itos = {i: tok for tok, i in stoi.items()}
+
+
+def encode(tokens):
+    unk = stoi[&#39;&lt;unk&gt;&#39;]
+    return [stoi.get(tok, unk) for tok in tokens]
+
+
+def decode(ids):
+    return [itos.get(i, &#39;&lt;unk&gt;&#39;) for i in ids]
+
+
+encoded = [encode(toks) for toks in tokenized]
+print(&#39;vocab size =&#39;, len(vocab))
+print(&#39;first sample ids =&#39;, encoded[0])
+print(&#39;decoded back      =&#39;, decode(encoded[0]))</code></pre>
+<p>埋め込み（embedding）は、トークンIDを実数ベクトルへ写像する層です。<br>
+意味の近い語が近いベクトルになる現象は、埋め込みを学習した後に現れます。</p>
+<p>下のセルでは、</p>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>z</mi><mo>=</mo><mi>W</mi><mi>x</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z = W x + b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="mord mathit">x</span><span class="mbin">+</span><span class="mord mathit">b</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>θ</mi><mo>←</mo><mi>θ</mi><mo>−</mo><mi>η</mi><mspace width="0.16667em"></mspace><msub><mi mathvariant="normal">∇</mi><mrow><mi>θ</mi></mrow></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\theta \leftarrow \theta - \eta \, \nabla_{\theta} L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mrel">←</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.03588em;">η</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">L</span></span></span></span></li>
+<li>学習前（乱数初期化）の類似度</li>
+<li>小さな共起データで簡易学習した後の類似度<br>
+を比較します。</li>
 </ol>
 
-<h2 id="実験-3-勾配降下法の一歩">実験 3: 勾配降下法の一歩</h2>
-<p>ここで、重みを一回更新する最小実験を行います。更新前後の損失を比較して、学習の方向が正しいかを確認します。</p>
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    torch.manual_seed(0)
 
-<pre><code class="language-python">lr = 0.1
-grad = -(target - y) * y * (1 - y)
-w_new = [wi - lr * grad * xi for wi, xi in zip(w, x)]
-z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + 0.1
-y_new = 1 / (1 + math.exp(-z_new))
-print(&#39;y before/after =&#39;, round(y, 6), round(y_new, 6))</code></pre>
-<p>この更新で損失が下がれば、勾配方向が合理的だったと言えます。下がらないなら学習率や符号を疑います。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    mini_sentences = [
+        &#39;モデル 学習 損失 最適化&#39;,
+        &#39;モデル 訓練 データ 評価&#39;,
+        &#39;文章 単語 文脈 トークン&#39;,
+        &#39;文脈 予測 モデル 生成&#39;,
+        &#39;訓練 最適化 損失 収束&#39;,
+    ]
 
-<h2 id="実験-4-正則化の感覚を作る">実験 4: 正則化の感覚を作る</h2>
-<p>次に、重みが大きくなりすぎることを抑える正則化項を追加します。過学習対策をコードで体験するのが狙いです。</p>
+    word_tokens = [s.split(&#39; &#39;) for s in mini_sentences]
+    w_vocab = sorted(set(tok for toks in word_tokens for tok in toks))
+    w_stoi = {w: i for i, w in enumerate(w_vocab)}
 
-<pre><code class="language-python">l2 = 0.01
-weight_norm = sum(wi * wi for wi in w_new)
-loss_reg = loss + l2 * weight_norm
-print(&#39;weight_norm =&#39;, round(weight_norm, 6))
-print(&#39;regularized loss =&#39;, round(loss_reg, 6))</code></pre>
-<p>正則化は精度を上げる魔法ではなく、汎化の崩れを防ぐ保険です。評価データと合わせて効果を判断してください。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    pairs = []
+    window = 1
+    for toks in word_tokens:
+        ids = [w_stoi[t] for t in toks]
+        for i, center in enumerate(ids):
+            for j in range(max(0, i - window), min(len(ids), i + window + 1)):
+                if i != j:
+                    pairs.append((center, ids[j]))
 
-<h2 id="実験-5-ミニバッチの考え方">実験 5: ミニバッチの考え方</h2>
-<p>最後に、複数サンプルをまとめて扱う発想を確認します。実務では1件ずつよりバッチ処理が主流です。</p>
+    emb = nn.Embedding(len(w_vocab), 16)
+    out = nn.Linear(16, len(w_vocab), bias=False)
+    opt = optim.Adam(list(emb.parameters()) + list(out.parameters()), lr=5e-2)
+    criterion = nn.CrossEntropyLoss()
 
-<pre><code class="language-python">batch = [[0.8, -0.4, 0.2], [0.2, 0.1, -0.3], [0.5, -0.2, 0.7]]
-targets = [1.0, 0.0, 1.0]
-preds = []
-for bx in batch:
-    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + 0.1
-    preds.append(1 / (1 + math.exp(-z_b)))
-print(&#39;preds =&#39;, [round(p, 4) for p in preds])</code></pre>
-<p>ミニバッチを扱えるようになると、計算効率と学習安定性の両面で設計の幅が広がります。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    x_train = torch.tensor([c for c, _ in pairs], dtype=torch.long)
+    y_train = torch.tensor([ctx for _, ctx in pairs], dtype=torch.long)
 
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>学習率が大きすぎて発散する</li>
-<li>検証損失の監視をせず過学習を見逃す</li>
-<li>前処理と活性化の相性を無視する</li>
-</ol>
-<p>自然言語処理 はこのセクションの最終ステップです。先頭ノートから順に再実行し、流れ全体を確認してください。</p>
+    with torch.no_grad():
+        init_vec = emb.weight.clone()
+
+    for _ in range(220):
+        h = emb(x_train)
+        logits = out(h)
+        loss = criterion(logits, y_train)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+    def cos(v1, v2):
+        return float(torch.dot(v1, v2) / (torch.norm(v1) * torch.norm(v2) + 1e-12))
+
+    i_model = w_stoi[&#39;モデル&#39;]
+    i_train = w_stoi[&#39;訓練&#39;]
+    init_sim = cos(init_vec[i_model], init_vec[i_train])
+    trained_sim = cos(emb.weight[i_model].detach(), emb.weight[i_train].detach())
+
+    print(&#39;vocab:&#39;, w_vocab)
+    print(&#39;cos(model, train) before learning =&#39;, round(init_sim, 4))
+    print(&#39;cos(model, train) after learning  =&#39;, round(trained_sim, 4))
+else:
+    rng = np.random.default_rng(0)
+    emb = rng.normal(0, 0.4, size=(6, 8))
+    v1, v2 = emb[0], emb[1]
+    sim = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-12))
+    print(&#39;PyTorch未導入のため学習前ランダム埋め込みのみ表示します。&#39;)
+    print(&#39;random cosine =&#39;, round(sim, 4))</code></pre>
+<p>言語モデル学習では、系列 <code>x_0, x_1, ...</code> に対して<br>
+<code>x_t</code> までを入力として <code>x_{t+1}</code> を予測します。<br>
+損失にはクロスエントロピーを使うのが標準です。</p>
+
+<pre><code class="language-python"># 手計算に近い最小クロスエントロピー例
+logits = np.array([1.2, -0.4, 0.3, 2.0], dtype=np.float64)
+target_id = 3
+
+logits_shift = logits - np.max(logits)
+probs = np.exp(logits_shift) / np.sum(np.exp(logits_shift))
+loss = -math.log(probs[target_id] + 1e-12)
+
+print(&#39;probs =&#39;, np.round(probs, 4))
+print(&#39;target id =&#39;, target_id)
+print(&#39;cross entropy =&#39;, round(loss, 6))</code></pre>
+<p>SFT（Supervised Fine-Tuning）では、<br>
+「指示文（instruction）+ 入力（input）+ 望ましい回答（output）」を1本のテキストに整形して学習します。</p>
+<p>ポイントは、損失をどこに掛けるかです。<br>
+通常は回答本文に損失を掛け、指示部分は <code>ignore_index</code> で除外します。<br>
+また、言語モデル学習では入力と教師ラベルを1トークン右シフトして計算します。</p>
+
+<pre><code class="language-python">sft_examples = [
+    {
+        &#39;instruction&#39;: &#39;次の文を要約してください。&#39;,
+        &#39;input&#39;: &#39;Transformerは系列全体を同時に参照できるため、長距離依存を扱いやすい。&#39;,
+        &#39;output&#39;: &#39;Transformerは長距離依存を扱いやすい。&#39;,
+    },
+    {
+        &#39;instruction&#39;: &#39;用語を説明してください。&#39;,
+        &#39;input&#39;: &#39;SFT&#39;,
+        &#39;output&#39;: &#39;教師ありデータでモデル応答を調整する学習。&#39;,
+    },
+]
+
+
+def format_sft(ex):
+    return (
+        &#39;&lt;system&gt;あなたは丁寧なAIアシスタントです。&lt;/system&gt;\n&#39;
+        f&quot;&lt;user&gt;{ex[&#39;instruction&#39;]}\n{ex[&#39;input&#39;]}&lt;/user&gt;\n&quot;
+        f&quot;&lt;assistant&gt;{ex[&#39;output&#39;]}&lt;/assistant&gt;&quot;
+    )
+
+
+formatted = [format_sft(ex) for ex in sft_examples]
+for i, text in enumerate(formatted):
+    print(f&#39;--- sample {i} ---&#39;)
+    print(text)</code></pre>
+<pre><code class="language-python"># 文字単位の簡易トークナイズで「回答部のみloss」を可視化
+chars = sorted(set(&#39;&#39;.join(formatted)))
+char_vocab = [&#39;&lt;pad&gt;&#39;, &#39;&lt;unk&gt;&#39;] + chars
+c_stoi = {c: i for i, c in enumerate(char_vocab)}
+
+
+def encode_chars(s):
+    unk = c_stoi[&#39;&lt;unk&gt;&#39;]
+    return [c_stoi.get(ch, unk) for ch in s]
+
+
+ignore_index = -100
+for i, text in enumerate(formatted):
+    ids = encode_chars(text)
+
+    start_tag = &#39;&lt;assistant&gt;&#39;
+    end_tag = &#39;&lt;/assistant&gt;&#39;
+    start_pos = text.find(start_tag)
+    end_pos = text.find(end_tag)
+
+    labels = [ignore_index] * len(ids)
+    if start_pos &gt;= 0 and end_pos &gt; start_pos:
+        start = start_pos + len(start_tag)
+        end = end_pos
+        for j in range(start, end):
+            labels[j] = ids[j]
+
+    # 右シフト後に実際に損失へ入るラベルを計算
+    input_ids = ids[:-1]
+    target_ids = labels[1:]
+
+    active = sum(1 for v in target_ids if v != ignore_index)
+    print(f&#39;sample {i}: input_len={len(input_ids)}, supervised_after_shift={active}, ratio={active/max(len(input_ids),1):.3f}&#39;)</code></pre>
+<p>次に、LoRA/QLoRA の計算量感覚を押さえます。<br>
+大きな重み行列 <code>W</code> を丸ごと更新せず、低ランク行列 <code>A, B</code> だけを学習するのがLoRAです。</p>
+<p><code>W' = W + (alpha / r) * BA</code>（<code>A: r x d_in</code>, <code>B: d_out x r</code>）なので、追加パラメータは <code>r*(d_in + d_out)</code> です。<br>
+QLoRAではベース重みを量子化し、LoRA部分だけ高精度で更新します。</p>
+
+<pre><code class="language-python">def lora_param_count(d_in, d_out, rank):
+    full = d_in * d_out
+    lora = rank * (d_in + d_out)
+    return full, lora
+
+
+for rank in [4, 8, 16, 32]:
+    full, lora = lora_param_count(d_in=4096, d_out=4096, rank=rank)
+    print(f&#39;rank={rank:&gt;2d}: full={full:,}, lora={lora:,}, ratio={lora/full:.6f}&#39;)
+
+# QLoRAの直感: baseを4bit量子化し、adapterは通常精度で学習
+base_params = 7_000_000_000
+base_16bit_gb = base_params * 16 / 8 / (1024**3)
+base_4bit_gb = base_params * 4 / 8 / (1024**3)
+print(&#39;\nbase model memory (approx, weights only):&#39;)
+print(&#39;fp16:&#39;, round(base_16bit_gb, 2), &#39;GB&#39;)
+print(&#39;4bit:&#39;, round(base_4bit_gb, 2), &#39;GB&#39;)
+print(&#39;note: optimizer state / activations / metadataは別途必要&#39;)</code></pre>
+<p>最後に、PyTorchで小さな文字レベル言語モデルを学習し、<br>
+次トークン予測とテキスト生成を体験します。</p>
+<p>このセルは教育用の最小例で、実際のLLM学習とは規模も最適化手法も異なります。</p>
+
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    torch.manual_seed(0)
+
+    corpus = [
+        &#39;transformerは文脈を使って次を予測する&#39;,
+        &#39;sftは指示と回答のペアで学習する&#39;,
+        &#39;loraは追加パラメータを小さくできる&#39;,
+        &#39;token化と語彙設計は性能に効く&#39;,
+    ]
+
+    text = &#39;\n&#39;.join(corpus)
+    vocab_chars = sorted(set(text))
+    vocab = [&#39;&lt;unk&gt;&#39;] + vocab_chars
+    stoi = {ch: i for i, ch in enumerate(vocab)}
+    itos = {i: ch for ch, i in stoi.items()}
+    unk_id = stoi[&#39;&lt;unk&gt;&#39;]
+
+    data = torch.tensor([stoi.get(ch, unk_id) for ch in text], dtype=torch.long)
+
+    block_size = 24
+    batch_size = 32
+
+    def get_batch():
+        idx = torch.randint(0, len(data) - block_size - 1, (batch_size,))
+        x = torch.stack([data[i:i+block_size] for i in idx])
+        y = torch.stack([data[i+1:i+block_size+1] for i in idx])
+        return x, y
+
+    class TinyCharLM(nn.Module):
+        def __init__(self, vocab_size, d_model=64):
+            super().__init__()
+            self.token_emb = nn.Embedding(vocab_size, d_model)
+            self.rnn = nn.GRU(d_model, d_model, batch_first=True)
+            self.head = nn.Linear(d_model, vocab_size)
+
+        def forward(self, x):
+            h = self.token_emb(x)
+            out, _ = self.rnn(h)
+            logits = self.head(out)
+            return logits
+
+    model = TinyCharLM(vocab_size=len(vocab), d_model=64)
+    opt = optim.AdamW(model.parameters(), lr=3e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    for step in range(220):
+        xb, yb = get_batch()
+        logits = model(xb)
+        loss = criterion(logits.reshape(-1, len(vocab)), yb.reshape(-1))
+
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+        if step % 55 == 0:
+            print(f&#39;step={step:&gt;3d}, loss={loss.item():.4f}&#39;)
+
+    model.eval()
+    prompt = &#39;sftは？&#39;
+    unknown_count = sum(1 for ch in prompt if ch not in stoi)
+    ids = [stoi.get(ch, unk_id) for ch in prompt]
+    print(&#39;prompt unknown chars replaced with &lt;unk&gt; =&#39;, unknown_count)
+
+    x = torch.tensor(ids, dtype=torch.long).unsqueeze(0)
+
+    for _ in range(40):
+        logits = model(x)
+        next_id = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+        x = torch.cat([x, next_id], dim=1)
+
+    generated = &#39;&#39;.join(itos[i] if i != unk_id else &#39;□&#39; for i in x.squeeze(0).tolist())
+    print(&#39;\nGenerated text:&#39;)
+    print(generated)
+else:
+    print(&#39;PyTorch未導入のため、言語モデル実験セルはスキップしました。&#39;)</code></pre>
+<p>NLPでは、モデル構造だけでなくデータ整形が性能を大きく左右します。<br>
+特にSFTでは、テンプレート設計・損失マスク・系列長管理が品質とコストに直結します。</p>
+<p>このノートで確認した最小実装を基準に、次は評価設計（自動評価+人手評価）へ進むと実務に接続しやすくなります。</p>
 
 </article>
   </main>
