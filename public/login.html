@@ -36,7 +36,11 @@
         radial-gradient(circle at 12% 10%, rgba(120, 174, 191, .18), transparent 42%),
         radial-gradient(circle at 90% 7%, rgba(255, 154, 95, .15), transparent 36%),
         linear-gradient(158deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-2) 100%);
-      padding: 16px;
+      padding:
+        max(16px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
     }
 
     .card {
@@ -213,6 +217,51 @@
 
     .status-link:hover {
       text-decoration: underline;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        display: block;
+      }
+
+      .card {
+        width: 100%;
+        border-radius: 18px;
+        padding: 16px 14px 14px;
+      }
+
+      .back {
+        top: 10px;
+        left: 10px;
+        width: 32px;
+        height: 32px;
+      }
+
+      h1 {
+        margin-left: 40px;
+        font-size: 24px;
+      }
+
+      p {
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      input,
+      .button,
+      .button-ghost {
+        font-size: 16px;
+      }
+
+      .status[data-state="visible"] {
+        max-height: 300px;
+      }
+    }
+
+    @media (max-height: 720px) {
+      body {
+        display: block;
+      }
     }
   </style>
 </head>
