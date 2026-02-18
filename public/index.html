@@ -1399,10 +1399,10 @@
       right: 18px;
       bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
       z-index: 40;
+      width: 48px;
+      height: 48px;
       border-radius: 999px;
-      padding: 12px 16px;
-      font-weight: 700;
-      font-size: 13px;
+      padding: 0;
       display: none;
       border: 1px solid color-mix(in oklab, var(--accent) 44%, var(--glass-edge));
       background:
@@ -1414,9 +1414,27 @@
       backdrop-filter: blur(16px) saturate(145%);
       -webkit-backdrop-filter: blur(16px) saturate(145%);
       box-shadow: 0 12px 24px color-mix(in oklab, var(--accent) 18%, transparent), inset 0 1px 0 rgba(255,255,255,.26);
+      align-items: center;
+      justify-content: center;
     }
 
-    .fab.visible { display: inline-block; }
+    .fab.visible { display: inline-flex; }
+
+    .fab svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .fab .fab-close-icon { display: none; }
+
+    .fab.is-open .fab-open-icon { display: none; }
+    .fab.is-open .fab-close-icon { display: block; }
 
     .mobile-controls {
       display: none;
@@ -1523,6 +1541,27 @@
       justify-content: flex-end;
     }
 
+    .overlay-close {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay-close svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .overlay-scroll {
       min-height: 0;
       overflow: auto;
@@ -1589,15 +1628,25 @@
           10px
           max(58px, calc(env(safe-area-inset-left) + 48px));
       }
-      .header-top { grid-template-columns: 1fr; }
+      .header-top {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
       .header-spacer { display: none; }
       .header-title { font-size: 16px; }
-      .header-actions { justify-content: flex-start; }
+      .header-actions { display: none !important; }
       #download-btn,
       #colab-btn {
         display: none !important;
       }
       .header-title-select { min-width: 100%; max-width: 100%; }
+      .header-title-select {
+        display: none !important;
+      }
+      #reset-playground {
+        display: none !important;
+      }
       #reader {
         padding: 0;
       }
@@ -1623,6 +1672,22 @@
       .chat-mobile-mount .assistant-head-top {
         flex-wrap: wrap;
       }
+      #playground-link-mobile,
+      #admin-link-mobile {
+        display: none !important;
+      }
+      .overlay-actions {
+        position: fixed;
+        top: max(10px, calc(env(safe-area-inset-top) + 4px));
+        left: max(10px, calc(env(safe-area-inset-left) + 4px));
+        right: auto;
+        z-index: 60;
+      }
+      .overlay-actions .button-ghost {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+      }
     }
 
     @media (max-width: 768px) {
@@ -1632,6 +1697,11 @@
           max(10px, env(safe-area-inset-right))
           8px
           max(54px, calc(env(safe-area-inset-left) + 44px));
+      }
+
+      .header-title {
+        width: 100%;
+        text-align: center;
       }
 
       #reader {
@@ -1663,6 +1733,11 @@
       .liquid-nav {
         width: 100%;
         justify-content: center;
+      }
+
+      .mobile-controls .liquid-nav {
+        width: auto;
+        justify-content: flex-start;
       }
 
       .header-actions .liquid-nav {
@@ -1700,8 +1775,8 @@
 
       .fab {
         right: 12px;
-        padding: 10px 14px;
-        font-size: 12px;
+        width: 44px;
+        height: 44px;
       }
 
       .overlay-panel {
@@ -1807,12 +1882,25 @@
     </div>
   </main>
 
-  <button class="fab button" id="chat-fab" type="button">LLMに質問</button>
+  <button class="fab button" id="chat-fab" type="button" aria-label="Assistantを開く" title="Assistant">
+    <svg class="fab-open-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 7.2c0-1.8 1.4-3.2 3.2-3.2h7.6c1.8 0 3.2 1.4 3.2 3.2v5.9c0 1.8-1.4 3.2-3.2 3.2H11l-4.5 3.8v-3.8H8.2C6.4 16.3 5 14.9 5 13.1V7.2Z"></path>
+    </svg>
+    <svg class="fab-close-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6L18 18"></path>
+      <path d="M18 6L6 18"></path>
+    </svg>
+  </button>
 
   <div class="overlay" id="sidebar-overlay">
     <div class="overlay-panel glass-strong">
       <div class="overlay-actions">
-        <button class="button-ghost" id="close-sidebar" type="button">閉じる</button>
+        <button class="button-ghost overlay-close" id="close-sidebar" type="button" aria-label="閉じる">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6L18 18"></path>
+            <path d="M18 6L6 18"></path>
+          </svg>
+        </button>
       </div>
       <div id="sidebar-mobile-list" class="overlay-scroll"></div>
       <a class="button" href="/login">ログイン</a>
@@ -2472,10 +2560,15 @@
         setElementVisibility(el.adminLinkMobile, false);
       }
 
+      function isCompactMobileView() {
+        return window.innerWidth <= 960;
+      }
+
       function renderPlaygroundSidebarControls() {
         const visible = state.loggedIn;
+        const showMobilePrivileged = !isCompactMobileView();
         setElementVisibility(el.playgroundLink, visible);
-        setElementVisibility(el.playgroundLinkMobile, visible);
+        setElementVisibility(el.playgroundLinkMobile, visible && showMobilePrivileged);
         const label = state.playgroundEnabled ? "プレイグラウンド終了" : "プレイグラウンド";
         el.playgroundLink.textContent = label;
         el.playgroundLinkMobile.textContent = label;
@@ -2528,7 +2621,7 @@
           state.isAdmin = Boolean(payload && payload.isAdmin);
           if (state.isAdmin) {
             setElementVisibility(el.adminLink, true);
-            setElementVisibility(el.adminLinkMobile, true);
+            setElementVisibility(el.adminLinkMobile, !isCompactMobileView());
           }
         } catch {
           // keep hidden when check fails
@@ -2550,7 +2643,7 @@
             updateAuthState();
             showHomeDashboard();
           };
-          el.chatFab.classList.add("visible");
+          syncChatFabState();
           void updateAdminVisibility(token);
           if (state.activeNotebook) {
             void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
@@ -2566,9 +2659,10 @@
         state.playgroundEnabled = false;
         applyEditorSourcesForCurrentMode();
         applyPlaygroundModeToCurrentNotebook();
+        closeMobileChatOverlay();
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");
-        el.chatFab.classList.remove("visible");
+        syncChatFabState();
         setElementVisibility(el.adminLink, false);
         setElementVisibility(el.adminLinkMobile, false);
         preloadedNotebookPackages.clear();
@@ -3784,16 +3878,58 @@
         }
       }
 
+      function moveAssistantPanelToShell() {
+        const shell = document.getElementById("shell");
+        if (el.assistantPanel.parentElement !== shell) {
+          shell.appendChild(el.assistantPanel);
+        }
+      }
+
+      function openMobileChatOverlay() {
+        el.chatOverlay.classList.add("visible");
+        el.chatMobileMount.innerHTML = "";
+        el.chatMobileMount.appendChild(el.assistantPanel);
+        el.assistantPanel.style.removeProperty("display");
+      }
+
+      function closeMobileChatOverlay() {
+        el.chatOverlay.classList.remove("visible");
+        moveAssistantPanelToShell();
+        el.assistantPanel.style.removeProperty("display");
+      }
+
+      function syncChatFabState() {
+        const visible = state.loggedIn;
+        el.chatFab.classList.toggle("visible", visible);
+        el.chatFab.classList.toggle("is-open", visible && state.chatOpen);
+        const label = state.chatOpen ? "Assistantを閉じる" : "Assistantを開く";
+        el.chatFab.setAttribute("aria-label", label);
+        el.chatFab.setAttribute("title", label);
+      }
+
       function setChatOpen(open) {
         if (open && !state.loggedIn) {
           window.location.href = "/login";
           return;
         }
 
-        state.chatOpen = open;
-        el.assistantPanel.classList.toggle("hidden", !open);
-        el.resizer.classList.toggle("visible", open && window.innerWidth > 960);
-        el.chatFab.classList.toggle("visible", !open && state.loggedIn);
+        state.chatOpen = Boolean(open);
+        const mobile = window.innerWidth <= 960;
+
+        if (mobile) {
+          if (state.chatOpen) {
+            openMobileChatOverlay();
+          } else {
+            closeMobileChatOverlay();
+          }
+          el.resizer.classList.remove("visible");
+        } else {
+          closeMobileChatOverlay();
+          el.resizer.classList.toggle("visible", state.chatOpen);
+        }
+
+        el.assistantPanel.classList.toggle("hidden", !state.chatOpen);
+        syncChatFabState();
       }
 
       function startResize(event) {
@@ -3989,7 +4125,7 @@
       });
 
       el.chatFab.addEventListener("click", function () {
-        setChatOpen(true);
+        setChatOpen(!state.chatOpen);
       });
 
       el.openSidebar.addEventListener("click", function () {
@@ -4005,11 +4141,7 @@
           window.location.href = "/login";
           return;
         }
-        setChatOpen(true);
-        el.chatOverlay.classList.add("visible");
-        el.chatMobileMount.innerHTML = "";
-        el.chatMobileMount.appendChild(el.assistantPanel);
-        el.assistantPanel.style.display = "flex";
+        setChatOpen(!state.chatOpen);
       });
 
       el.sidebarOverlay.addEventListener("click", function (event) {
@@ -4020,11 +4152,7 @@
 
       el.chatOverlay.addEventListener("click", function (event) {
         if (event.target === el.chatOverlay) {
-          el.chatOverlay.classList.remove("visible");
           setChatOpen(false);
-          if (window.innerWidth <= 960) {
-            document.getElementById("shell").appendChild(el.assistantPanel);
-          }
         }
       });
 
@@ -4036,13 +4164,20 @@
       window.addEventListener("resize", function () {
         if (window.innerWidth <= 960) {
           el.resizer.classList.remove("visible");
-        } else if (state.chatOpen) {
-          el.resizer.classList.add("visible");
-          if (el.assistantPanel.parentElement !== document.getElementById("shell")) {
-            document.getElementById("shell").appendChild(el.assistantPanel);
+          if (state.chatOpen) {
+            openMobileChatOverlay();
           }
-          el.chatOverlay.classList.remove("visible");
+        } else {
+          closeMobileChatOverlay();
+          el.assistantPanel.classList.toggle("hidden", !state.chatOpen);
+          el.resizer.classList.toggle("visible", state.chatOpen);
         }
+        renderPlaygroundSidebarControls();
+        if (state.isAdmin) {
+          setElementVisibility(el.adminLink, true);
+          setElementVisibility(el.adminLinkMobile, !isCompactMobileView());
+        }
+        syncChatFabState();
       });
 
       void init();
