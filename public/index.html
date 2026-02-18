@@ -1534,10 +1534,37 @@
         return rawSource;
       }
 
-      function enhanceCodeBlocks() {
-        const blocks = el.notebookContent.querySelectorAll("pre > code");
+      const EXECUTION_CONTEXT_CHAR_LIMIT = 19000;
 
-        blocks.forEach((code) => {
+      function buildExecutionContext(codeBlocks, uptoIndex) {
+        const parts = [];
+        const modules = new Set();
+        let totalChars = 0;
+
+        for (let i = uptoIndex; i >= 0; i -= 1) {
+          const source = normalizeRunnableSource(codeBlocks[i].textContent || "");
+          if (!source.trim()) continue;
+
+          const chunk = `# --- cell ${i + 1} ---\n${source.trimEnd()}\n`;
+          if (parts.length > 0 && totalChars + chunk.length > EXECUTION_CONTEXT_CHAR_LIMIT) {
+            break;
+          }
+
+          parts.unshift(chunk);
+          totalChars += chunk.length;
+          extractImportedModulesFromSource(source).forEach((moduleName) => modules.add(moduleName));
+        }
+
+        return {
+          source: parts.join("\n"),
+          expectedModules: Array.from(modules)
+        };
+      }
+
+      function enhanceCodeBlocks() {
+        const blocks = Array.from(el.notebookContent.querySelectorAll("pre > code"));
+
+        blocks.forEach((code, codeIndex) => {
           const pre = code.parentElement;
           if (!pre || pre.dataset.noemaRunnable === "1") return;
           pre.dataset.noemaRunnable = "1";
@@ -1568,7 +1595,8 @@
           wrapper.appendChild(output);
 
           button.addEventListener("click", async () => {
-            const source = normalizeRunnableSource(code.textContent || "");
+            const context = buildExecutionContext(blocks, codeIndex);
+            const source = context.source;
             if (!source.trim()) return;
 
             button.disabled = true;
@@ -1577,12 +1605,11 @@
             output.textContent = "AWS Python runtime executing...";
 
             try {
-              const expectedModules = extractImportedModulesFromSource(source);
               const payload = await runPythonOnServer(
                 source,
                 (state.activeNotebook && state.activeNotebook.id) || "unknown-notebook",
                 state.activeSection || "intro",
-                expectedModules
+                context.expectedModules
               );
               output.textContent = renderPythonRunOutput(payload);
             } catch (error) {
