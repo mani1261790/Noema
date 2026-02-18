@@ -759,7 +759,7 @@
         el.editorSaveState.style.color = kind === "error" ? "#ffb7c3" : kind === "success" ? "var(--ok)" : "var(--muted)";
       }
 
-      function normalizeCatalog(chapters) {
+      function normalizeCatalogFromChapters(chapters) {
         const normalized = (Array.isArray(chapters) ? chapters : []).map((chapter, chapterIndex) => ({
           id: String(chapter.id || uid("chapter")),
           title: String(chapter.title || "").trim() || `セクション ${chapterIndex + 1}`,
@@ -778,6 +778,58 @@
         })).sort((a, b) => a.order - b.order);
 
         return reindexChapters(normalized);
+      }
+
+      function normalizeCatalogFromItems(items) {
+        const chapters = [];
+        const byTitle = new Map();
+
+        (Array.isArray(items) ? items : []).forEach((item) => {
+          const chapterTitle = String(item.chapter || "未分類").trim() || "未分類";
+          let chapter = byTitle.get(chapterTitle);
+          if (!chapter) {
+            chapter = {
+              id: uid("chapter"),
+              title: chapterTitle,
+              order: chapters.length + 1,
+              notebooks: []
+            };
+            byTitle.set(chapterTitle, chapter);
+            chapters.push(chapter);
+          }
+
+          const notebookId = String(item.notebookId || item.id || "").trim();
+          if (!notebookId) return;
+
+          chapter.notebooks.push({
+            id: notebookId,
+            title: String(item.title || notebookId).trim() || notebookId,
+            order: Math.max(1, Number(item.sortOrder || item.order || chapter.notebooks.length + 1)),
+            tags: Array.isArray(item.tags) ? item.tags.map((v) => String(v).trim()).filter(Boolean) : [],
+            colabUrl: String(item.colabUrl || "").trim(),
+            videoUrl: String(item.videoUrl || "").trim(),
+            htmlPath: String(item.htmlPath || "")
+          });
+        });
+
+        chapters.forEach((chapter) => {
+          chapter.notebooks.sort((a, b) => a.order - b.order);
+        });
+
+        return reindexChapters(chapters);
+      }
+
+      function normalizeCatalog(payload) {
+        if (payload && Array.isArray(payload.chapters)) {
+          return normalizeCatalogFromChapters(payload.chapters);
+        }
+        if (payload && Array.isArray(payload.items)) {
+          return normalizeCatalogFromItems(payload.items);
+        }
+        if (Array.isArray(payload)) {
+          return normalizeCatalogFromChapters(payload);
+        }
+        return [];
       }
 
       function reindexChapters(chapters) {
@@ -1152,11 +1204,29 @@
         setLine(el.structureStatus, "info", manual ? "構成を保存中..." : "構成を自動保存中...");
 
         try {
-          await api("/api/admin/notebooks", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ chapters: payload })
+          const updates = [];
+          state.chapters.forEach((chapter) => {
+            chapter.notebooks.forEach((notebook, index) => {
+              updates.push({
+                notebookId: notebook.id,
+                title: notebook.title,
+                chapter: chapter.title,
+                sortOrder: index + 1,
+                tags: notebook.tags,
+                colabUrl: notebook.colabUrl,
+                videoUrl: notebook.videoUrl || ""
+              });
+            });
           });
+
+          for (const update of updates) {
+            await api("/api/admin/notebooks", {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(update)
+            });
+          }
+
           state.savingStructure = false;
           state.structureDirty = false;
           state.savedStructureHash = nextHash;
@@ -1304,7 +1374,7 @@
         setLine(el.structureStatus, "info", "教材一覧を読み込み中...");
         try {
           const payload = await api("/api/admin/notebooks", { method: "GET" });
-          state.chapters = normalizeCatalog(payload.chapters || []);
+          state.chapters = normalizeCatalog(payload);
 
           const nextOpenMap = {};
           state.chapters.forEach((chapter) => {
