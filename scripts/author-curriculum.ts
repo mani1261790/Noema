@@ -683,7 +683,7 @@ function defaultPack(chapterTitle: string, notebookTitle: string): TopicPack {
       prerequisite: foundation.prerequisite,
       objective: foundation.objective,
       keyTerms: ["特徴量", "目的変数", "損失関数", "汎化", "過学習"],
-      formulas: ["y_hat = f_theta(x)", "L(theta) = (1/N) * sum_i l(y_hat_i, y_i)"],
+      formulas: ["\\hat{y} = f_{\\theta}(x)", "L(\\theta) = \\frac{1}{N}\\sum_i \\ell(\\hat{y}_i, y_i)"],
       pitfalls: [
         "訓練データと評価データの分布差を見ない",
         "単一スコアだけでモデルを選んでしまう",
@@ -700,7 +700,7 @@ function defaultPack(chapterTitle: string, notebookTitle: string): TopicPack {
       prerequisite: foundation.prerequisite,
       objective: foundation.objective,
       keyTerms: ["順伝播", "逆伝播", "勾配", "損失", "正則化"],
-      formulas: ["z = W*x + b", "theta <- theta - eta * grad_theta L"],
+      formulas: ["z = W x + b", "\\theta \\leftarrow \\theta - \\eta \\, \\nabla_{\\theta} L"],
       pitfalls: [
         "学習率が大きすぎて発散する",
         "検証損失の監視をせず過学習を見逃す",
@@ -717,7 +717,7 @@ function defaultPack(chapterTitle: string, notebookTitle: string): TopicPack {
       prerequisite: foundation.prerequisite,
       objective: foundation.objective,
       keyTerms: ["状態", "行動", "報酬", "価値関数", "方策"],
-      formulas: ["G_t = sum_{k>=0} gamma^k R_{t+k+1}", "Q <- Q + alpha * TD_error"],
+      formulas: ["G_t = \\sum_{k\\ge 0} \\gamma^k R_{t+k+1}", "Q \\leftarrow Q + \\alpha\\,\\delta_{TD}"],
       pitfalls: [
         "探索率が低すぎて行動が固定化する",
         "報酬設計が目的とずれている",
@@ -734,7 +734,7 @@ function defaultPack(chapterTitle: string, notebookTitle: string): TopicPack {
       prerequisite: foundation.prerequisite,
       objective: foundation.objective,
       keyTerms: ["トークン", "事前学習", "微調整", "RAG", "推論最適化"],
-      formulas: ["p_theta(x_t | x_<t)", "L_CE = - sum_t log p_theta(x_t | x_<t)"],
+      formulas: ["p_{\\theta}(x_t \\mid x_{<t})", "L_{CE} = -\\sum_t \\log p_{\\theta}(x_t \\mid x_{<t})"],
       pitfalls: [
         "プロンプトだけで全問題を解決しようとする",
         "評価指標を決めずに改善を繰り返す",
@@ -751,7 +751,7 @@ function defaultPack(chapterTitle: string, notebookTitle: string): TopicPack {
       prerequisite: foundation.prerequisite,
       objective: foundation.objective,
       keyTerms: ["潜在変数", "尤度", "サンプリング", "拡散", "スコア"],
-      formulas: ["p_theta(x) = integral p_theta(x|z) p(z) dz", "score(x) = grad_x log p(x)"],
+      formulas: ["p_{\\theta}(x) = \\int p_{\\theta}(x\\mid z)\\,p(z)\\,dz", "s(x) = \\nabla_x \\log p(x)"],
       pitfalls: [
         "見た目の良さだけで比較してしまう",
         "多様性と品質のトレードオフを観測しない",
@@ -767,7 +767,7 @@ function defaultPack(chapterTitle: string, notebookTitle: string): TopicPack {
     prerequisite: foundation.prerequisite,
     objective: foundation.objective,
     keyTerms: ["状態表現", "遷移モデル", "観測予測", "計画", "ロールアウト"],
-    formulas: ["z_{t+1} = f_theta(z_t, a_t)", "o_hat_{t+1} = g_theta(z_{t+1})"],
+    formulas: ["z_{t+1} = f_{\\theta}(z_t, a_t)", "\\hat{o}_{t+1} = g_{\\theta}(z_{t+1})"],
     pitfalls: [
       "1ステップ誤差だけで安心してしまう",
       "長期予測の誤差爆発を監視しない",
@@ -913,7 +913,7 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
   }
 
   if (id === "image-recognition-yolo") {
-    pack.formulas = ["output_channels = anchors * (5 + classes)", "bbox = (x, y, w, h) + objectness + class_scores"];
+    pack.formulas = ["C_{out} = A\\,(5 + C)", "\\mathrm{bbox} = (x,y,w,h) + o + p_{cls}"];
     pack.modules[0] = unit(
       "YOLO出力テンソルの形",
       "物体検出の実装で最初に混乱しやすいのは出力次元です。最小コードで形を固定して理解します。",
@@ -936,25 +936,25 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
 
   if (id === "bellman-equations") {
     pack.formulas = [
-      "V^pi(s) = sum_a pi(a|s) * sum_{s',r} p(s',r|s,a) * [r + gamma * V^pi(s')]",
-      "V*(s) = max_a sum_{s',r} p(s',r|s,a) * [r + gamma * V*(s')]"
+      "V^{\\pi}(s) = \\sum_a \\pi(a\\mid s)\\sum_{s',r} p(s',r\\mid s,a)\\,[r + \\gamma V^{\\pi}(s')]",
+      "V^*(s) = \\max_a\\sum_{s',r} p(s',r\\mid s,a)\\,[r + \\gamma V^*(s')]"
     ];
   }
 
   if (id === "q-learning") {
-    pack.formulas = ["Q(s,a) <- Q(s,a) + alpha * [r + gamma * max_{a'}Q(s',a') - Q(s,a)]"];
+    pack.formulas = ["Q(s,a) \\leftarrow Q(s,a) + \\alpha[r + \\gamma\\max_{a'}Q(s',a') - Q(s,a)]"];
   }
 
   if (id === "sarsa") {
-    pack.formulas = ["Q(s,a) <- Q(s,a) + alpha * [r + gamma * Q(s',a') - Q(s,a)]"];
+    pack.formulas = ["Q(s,a) \\leftarrow Q(s,a) + \\alpha[r + \\gamma Q(s',a') - Q(s,a)]"];
   }
 
   if (id === "td-lambda" || id === "eligibility-trace-td-lambda") {
-    pack.formulas = ["G_t^lambda = (1-lambda) * sum_{n>=1} lambda^(n-1) * G_t^(n)", "e_t = gamma * lambda * e_{t-1} + grad"];
+    pack.formulas = ["G_t^{\\lambda} = (1-\\lambda)\\sum_{n\\ge1}\\lambda^{n-1}G_t^{(n)}", "e_t = \\gamma\\lambda e_{t-1} + \\nabla_{\\theta}V(s_t)"];
   }
 
   if (id === "transformer-basics") {
-    pack.formulas = ["Attention(Q,K,V) = softmax(QK^T / sqrt(d_k))V", "FFN(x) = W2 * sigma(W1*x + b1) + b2"];
+    pack.formulas = ["\\mathrm{Attention}(Q,K,V) = \\mathrm{softmax}(QK^{\\top}/\\sqrt{d_k})V", "\\mathrm{FFN}(x) = W_2\\sigma(W_1x+b_1)+b_2"];
   }
 
   if (id === "vae") {
@@ -962,15 +962,15 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
   }
 
   if (id === "gan") {
-    pack.formulas = ["min_G max_D E_x[log D(x)] + E_z[log(1 - D(G(z)))]"];
+    pack.formulas = ["\\min_G\\max_D\\mathbb{E}_x[\\log D(x)] + \\mathbb{E}_z[\\log(1 - D(G(z)))]"];
   }
 
   if (id === "score-diffusion-models") {
-    pack.formulas = ["score_t(x) = grad_x log p_t(x)", "dx = f(x,t)dt + g(t)dw"];
+    pack.formulas = ["s_t(x) = \\nabla_x\\log p_t(x)", "dx = f(x,t)\\,dt + g(t)\\,dw"];
   }
 
   if (id === "continuous-diffusion-flow-matching") {
-    pack.formulas = ["dx/dt = v_theta(x,t)", "min_theta E||v_theta(x_t,t)-u_t(x_t)||^2"];
+    pack.formulas = ["\\frac{dx}{dt} = v_{\\theta}(x,t)", "\\min_{\\theta}\\mathbb{E}\\|v_{\\theta}(x_t,t)-u_t(x_t)\\|^2"];
   }
 
   if (id === "llm-efficiency") {
