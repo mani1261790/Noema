@@ -28,7 +28,7 @@
       --glass-edge-soft: rgba(148, 189, 234, .2);
       --glass-highlight: rgba(198, 223, 255, .16);
       --glass-shadow: 0 24px 44px rgba(3, 8, 17, .42);
-      --code-bg: rgba(6, 16, 30, .94);
+      --code-bg: #282c34;
       --code-fg: #d8e8ff;
       --code-border: rgba(116, 171, 232, .26);
       --brand-font: "Space Grotesk", "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
@@ -594,9 +594,7 @@
     .reader-prose h2 { font-size: 1.5rem; }
     .reader-prose p { line-height: 1.85; }
     .reader-prose pre {
-      background:
-        linear-gradient(156deg, rgba(255,255,255,.07), transparent 64%),
-        var(--code-bg);
+      background: var(--code-bg);
       color: var(--code-fg);
       border: 1px solid var(--code-border);
       border-radius: 12px;
@@ -832,9 +830,7 @@
       margin: 0;
       border-radius: 0;
       border: 0;
-      background:
-        linear-gradient(156deg, rgba(255,255,255,.07), transparent 64%),
-        var(--code-bg);
+      background: var(--code-bg);
       color: var(--code-fg);
     }
 
@@ -850,13 +846,17 @@
       line-height: 1.58;
       resize: vertical;
       color: var(--code-fg);
-      background:
-        linear-gradient(156deg, rgba(255,255,255,.07), transparent 64%),
-        var(--code-bg);
+      background: var(--code-bg);
       outline: none;
       tab-size: 2;
       white-space: pre;
       overflow: auto;
+    }
+
+    .reader-prose pre code,
+    .code-runner pre code,
+    #notebook-content .hljs {
+      background: transparent !important;
     }
 
     .code-runner.playground-active pre {
