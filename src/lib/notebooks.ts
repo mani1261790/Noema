@@ -99,7 +99,6 @@ export async function getNotebookHtml(htmlPath: string): Promise<string> {
   const articleEnd = raw.lastIndexOf("</article>");
   const candidate =
     articleStart >= 0 && articleEnd > articleStart ? raw.slice(articleStart, articleEnd + "</article>".length) : raw;
-  const noMathmlCandidate = candidate.replace(/<span class="katex-mathml">[\s\S]*?<\/span>/g, "");
 
   const mathTags = [
     "math",
@@ -128,7 +127,7 @@ export async function getNotebookHtml(htmlPath: string): Promise<string> {
     "mpadded"
   ];
 
-  return sanitizeHtml(noMathmlCandidate, {
+  return sanitizeHtml(candidate, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["article", ...mathTags]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,

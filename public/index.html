@@ -1092,6 +1092,9 @@
     (function () {
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
+      const KATEX_CSS_HREF = "/katex/katex.min.css";
+      // MathJax v3 is Apache-2.0 licensed.
+      const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
       const ASSISTANT_MIN_WIDTH = 320;
       const ASSISTANT_MAX_WIDTH = 700;
       const ASSISTANT_CLOSE_THRESHOLD = 220;
@@ -1147,7 +1150,120 @@
       };
 
       let highlightPromise = null;
+      let katexCssEnsurePromise = null;
+      let mathJaxPromise = null;
       const preloadedNotebookPackages = new Set();
+
+      function hasKatexCssApplied() {
+        const probe = document.createElement("span");
+        probe.className = "katex-mathml";
+        probe.style.position = "absolute";
+        probe.style.visibility = "hidden";
+        probe.style.pointerEvents = "none";
+        document.body.appendChild(probe);
+        const style = window.getComputedStyle(probe);
+        const width = parseFloat(String(style.width || "999"));
+        const height = parseFloat(String(style.height || "999"));
+        const hiddenByKatex = style.position === "absolute" && style.overflow === "hidden" && width <= 2 && height <= 2;
+        probe.remove();
+        return hiddenByKatex;
+      }
+
+      async function ensureKatexStyles() {
+        if (hasKatexCssApplied()) return;
+        if (!katexCssEnsurePromise) {
+          katexCssEnsurePromise = fetch(`${KATEX_CSS_HREF}?v=20260218`, { cache: "no-store" })
+            .then(async (response) => {
+              if (!response.ok) return;
+              const css = await response.text();
+              if (!css.trim()) return;
+              let styleTag = document.getElementById("katex-inline-fallback");
+              if (!styleTag) {
+                styleTag = document.createElement("style");
+                styleTag.id = "katex-inline-fallback";
+                document.head.appendChild(styleTag);
+              }
+              styleTag.textContent = css;
+            })
+            .catch(() => undefined)
+            .finally(() => {
+              katexCssEnsurePromise = null;
+            });
+        }
+        await katexCssEnsurePromise;
+      }
+
+      function isKatexRenderingBroken(container) {
+        const renderedMathml = container.querySelector(".katex .katex-mathml");
+        if (!renderedMathml) return false;
+        const style = window.getComputedStyle(renderedMathml);
+        const width = parseFloat(String(style.width || "999"));
+        const height = parseFloat(String(style.height || "999"));
+        const hiddenByKatex = style.position === "absolute" && style.overflow === "hidden" && width <= 2 && height <= 2;
+        return !hiddenByKatex;
+      }
+
+      function replaceKatexWithTex(container) {
+        let replaced = 0;
+        container.querySelectorAll(".katex").forEach((node) => {
+          const annotation = node.querySelector(".katex-mathml annotation[encoding='application/x-tex']");
+          const tex = annotation && annotation.textContent ? annotation.textContent.trim() : "";
+          if (!tex) return;
+          const displayWrapper =
+            node.parentElement && node.parentElement.classList.contains("katex-display") ? node.parentElement : null;
+          const texNode = document.createTextNode(displayWrapper ? `\n$$\n${tex}\n$$\n` : `$${tex}$`);
+          (displayWrapper || node).replaceWith(texNode);
+          replaced += 1;
+        });
+        return replaced > 0;
+      }
+
+      function hasTexLikeExpression(container) {
+        const text = String(container.textContent || "");
+        return /(\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\])/.test(text);
+      }
+
+      async function ensureMathJax() {
+        if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {
+          return window.MathJax;
+        }
+        if (!mathJaxPromise) {
+          window.MathJax = window.MathJax || {
+            tex: {
+              inlineMath: [["$", "$"], ["\\(", "\\)"]],
+              displayMath: [["$$", "$$"], ["\\[", "\\]"]]
+            },
+            options: {
+              skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+            },
+            svg: {
+              fontCache: "global"
+            }
+          };
+
+          mathJaxPromise = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = MATHJAX_SRC;
+            script.async = true;
+            script.onload = () => resolve(window.MathJax);
+            script.onerror = () => reject(new Error("MathJax load failed"));
+            document.head.appendChild(script);
+          });
+        }
+        return mathJaxPromise;
+      }
+
+      async function renderMathFallback(container) {
+        if (!hasTexLikeExpression(container)) return;
+        try {
+          const mathJax = await ensureMathJax();
+          if (mathJax && typeof mathJax.typesetPromise === "function") {
+            await mathJax.typesetPromise([container]);
+          }
+        } catch {
+          // no-op fallback
+        }
+      }
 
       function parseJwt(token) {
         try {
@@ -1660,6 +1776,19 @@
           const htmlText = await response.text();
           el.notebookContent.innerHTML = extractArticle(htmlText);
           el.notebookContent.classList.add("reader-prose");
+          await ensureKatexStyles();
+          const katexBroken = isKatexRenderingBroken(el.notebookContent);
+          if (katexBroken) {
+            const convertedFromBrokenKatex = replaceKatexWithTex(el.notebookContent);
+            if (convertedFromBrokenKatex) {
+              await renderMathFallback(el.notebookContent);
+            }
+          } else if (!hasKatexCssApplied()) {
+            const convertedFromBrokenKatex = replaceKatexWithTex(el.notebookContent);
+            if (convertedFromBrokenKatex) {
+              await renderMathFallback(el.notebookContent);
+            }
+          }
           state.sectionIds = extractSectionIds(el.notebookContent);
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();

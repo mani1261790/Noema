@@ -45,10 +45,6 @@ function normalizeMathDelimiters(value: string): string {
     .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`);
 }
 
-function stripKatexMathmlLayer(value: string): string {
-  return value.replace(/<span class="katex-mathml">[\s\S]*?<\/span>/g, "");
-}
-
 function normalizeCodeText(value: string): string {
   const hasRealNewline = value.includes("\n");
   if (hasRealNewline) return value;
@@ -208,7 +204,7 @@ export function notebookToHtml(input: NotebookFile): string {
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
-      pieces.push(stripKatexMathmlLayer(markdownRenderer.render(normalizeMathDelimiters(text))));
+      pieces.push(markdownRenderer.render(normalizeMathDelimiters(text)));
       continue;
     }
 
