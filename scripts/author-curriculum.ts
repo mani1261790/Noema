@@ -1032,11 +1032,31 @@ function openingBlock(chapterTitle: string, notebookTitle: string, pack: TopicPa
   ].join("\n");
 }
 
+function shouldRenderAsMath(formula: string): boolean {
+  const text = formula.trim();
+  if (!text) return false;
+  if (/[ぁ-んァ-ヶ一-龯]/.test(text)) return false;
+  return /[=<>_^{}()]/.test(text) || /\b(sum|min|max|log|theta|gamma|lambda|pi|ELBO|Attention|KL|grad|dx|dt)\b/i.test(text);
+}
+
+function toMathMarkdown(formula: string): string {
+  const text = formula.trim();
+  if (!shouldRenderAsMath(text)) {
+    return text;
+  }
+
+  const normalized = text
+    .replace(/<-/g, "\\leftarrow ")
+    .replace(/>=/g, "\\ge ")
+    .replace(/<=/g, "\\le ");
+  return `$${normalized}$`;
+}
+
 function formulaBlock(pack: TopicPack, profile: NarrativeProfile): string {
   return [
     `## ${profile.formulaHeading}`,
     "",
-    ...pack.formulas.map((formula, idx) => `${idx + 1}. ${formula}`)
+    ...pack.formulas.map((formula, idx) => `${idx + 1}. ${toMathMarkdown(formula)}`)
   ].join("\n");
 }
 
@@ -1209,7 +1229,7 @@ function runExpertCodexReview(
         [
           profile.formulaHeading,
           "",
-          ...missingFormulas.map((formula, idx) => `${idx + 1}. ${formula}`),
+          ...missingFormulas.map((formula, idx) => `${idx + 1}. ${toMathMarkdown(formula)}`),
           "",
           "不足していた式を追記しました。各式がどのコード行に対応するかをメモして確認してください。"
         ].join("\n")

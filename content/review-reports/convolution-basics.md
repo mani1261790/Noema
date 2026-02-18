@@ -7,4 +7,9 @@
 初学者（高校〜学部初年相当）を想定し、可能な限り長く、体系的に書く。
 
 ## Review Loop Logs
-- round 1: no findings
+- round 1: 式の不足を追記
+- round 2: 式の不足を追記
+- round 3: 式の不足を追記
+- round 4: 式の不足を追記
+- round 5: 式の不足を追記
+- round 6: 式の不足を追記
