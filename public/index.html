@@ -1962,7 +1962,7 @@
         </button>
       </div>
       <div id="sidebar-mobile-list" class="overlay-scroll"></div>
-      <a class="button" href="/login">ログイン</a>
+      <a class="button" id="login-link-mobile" href="/login">ログイン</a>
       <button class="button-ghost footer-link is-hidden" id="playground-link-mobile" type="button">プレイグラウンド</button>
       <a class="button-ghost footer-link is-hidden" id="admin-link-mobile" href="/admin.html">管理画面</a>
     </div>
@@ -2035,6 +2035,7 @@
         clearSelection: document.getElementById("clear-selection"),
         brandHome: document.getElementById("brand-home"),
         loginLink: document.getElementById("login-link"),
+        loginLinkMobile: document.getElementById("login-link-mobile"),
         playgroundLink: document.getElementById("playground-link"),
         playgroundLinkMobile: document.getElementById("playground-link-mobile"),
         resetPlayground: document.getElementById("reset-playground"),
@@ -2695,14 +2696,18 @@
         state.userScopeKey = token ? resolveUserScopeKey(token) : "";
 
         if (state.loggedIn) {
-          el.loginLink.textContent = "ログアウト";
-          el.loginLink.href = "#";
-          el.loginLink.onclick = function (event) {
-            event.preventDefault();
-            localStorage.removeItem(TOKEN_KEY);
-            updateAuthState();
-            showHomeDashboard();
-          };
+          [el.loginLink, el.loginLinkMobile].forEach((link) => {
+            if (!link) return;
+            link.textContent = "ログアウト";
+            link.href = "#";
+            link.onclick = function (event) {
+              event.preventDefault();
+              localStorage.removeItem(TOKEN_KEY);
+              setSidebarOverlayOpen(false);
+              updateAuthState();
+              showHomeDashboard();
+            };
+          });
           syncChatFabState();
           void updateAdminVisibility(token);
           if (state.activeNotebook) {
@@ -2733,9 +2738,12 @@
           state.playgroundSaveTimer = null;
         }
 
-        el.loginLink.textContent = "ログイン";
-        el.loginLink.href = "/login";
-        el.loginLink.onclick = null;
+        [el.loginLink, el.loginLinkMobile].forEach((link) => {
+          if (!link) return;
+          link.textContent = "ログイン";
+          link.href = "/login";
+          link.onclick = null;
+        });
         renderPlaygroundSidebarControls();
         renderPlaygroundHeaderControls();
       }
@@ -3965,7 +3973,7 @@
       }
 
       function syncChatFabState() {
-        const visible = state.loggedIn;
+        const visible = state.loggedIn && (!state.chatOpen || isCompactMobileView());
         el.chatFab.classList.toggle("visible", visible);
         const label = state.chatOpen ? "Assistantを閉じる" : "Assistantを開く";
         el.chatFab.setAttribute("aria-label", label);
