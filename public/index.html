@@ -964,6 +964,18 @@
       transform: translateX(1px);
     }
 
+    .run-code .run-done-icon,
+    .run-code .run-fail-icon {
+      width: 12px;
+      height: 12px;
+      display: none;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .run-code.is-running .run-icon {
       display: none;
     }
@@ -979,6 +991,39 @@
     }
 
     .run-code.is-running .run-spinner {
+      display: block;
+    }
+
+    .run-code.is-done {
+      color: color-mix(in oklab, #7fe0a9 82%, var(--text));
+      border-color: color-mix(in oklab, #7fe0a9 52%, var(--border));
+      background:
+        linear-gradient(148deg, color-mix(in oklab, #7fe0a9 22%, transparent), transparent 64%),
+        color-mix(in oklab, var(--panel-soft) 90%, transparent);
+    }
+
+    .run-code.is-done .run-icon {
+      display: none;
+    }
+
+    .run-code.is-done .run-done-icon {
+      display: block;
+      transform: translateY(-.2px);
+    }
+
+    .run-code.is-failed {
+      color: color-mix(in oklab, #ff9ea8 82%, var(--text));
+      border-color: color-mix(in oklab, #ff9ea8 56%, var(--border));
+      background:
+        linear-gradient(148deg, color-mix(in oklab, #ff9ea8 20%, transparent), transparent 64%),
+        color-mix(in oklab, var(--panel-soft) 90%, transparent);
+    }
+
+    .run-code.is-failed .run-icon {
+      display: none;
+    }
+
+    .run-code.is-failed .run-fail-icon {
       display: block;
     }
 
@@ -2848,6 +2893,7 @@
           if (!pre || pre.dataset.noemaRunnable === "1") return;
           pre.dataset.noemaRunnable = "1";
           pre.dataset.noemaCellIndex = String(codeIndex);
+          let clearExecutionStatus = () => {};
           const defaultSource = normalizeRunnableSource(code.textContent || "");
           const restoredSource = savedDraft[codeIndex] !== undefined ? normalizeRunnableSource(savedDraft[codeIndex]) : defaultSource;
           code.textContent = restoredSource;
@@ -2875,6 +2921,7 @@
           editor.addEventListener("input", () => {
             autosizeCodeEditor(editor);
             code.textContent = normalizeRunnableSource(editor.value || "");
+            clearExecutionStatus();
             queueHighlightForBlock(code);
             schedulePlaygroundAutosave();
           });
@@ -2888,6 +2935,7 @@
             editor.selectionStart = editor.selectionEnd = start + 2;
             autosizeCodeEditor(editor);
             code.textContent = normalizeRunnableSource(editor.value || "");
+            clearExecutionStatus();
             queueHighlightForBlock(code);
             schedulePlaygroundAutosave();
           });
@@ -2900,7 +2948,14 @@
           button.type = "button";
           button.setAttribute("aria-label", "Run code");
           button.setAttribute("title", "Run");
-          button.innerHTML = '<svg class="run-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2.2L10 6 3 9.8V2.2Z"></path></svg><span class="run-spinner" aria-hidden="true"></span>';
+          button.innerHTML =
+            '<svg class="run-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2.2L10 6 3 9.8V2.2Z"></path></svg>' +
+            '<svg class="run-done-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.2L4.7 9 10 3"></path></svg>' +
+            '<svg class="run-fail-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3L9 9M9 3L3 9"></path></svg>' +
+            '<span class="run-spinner" aria-hidden="true"></span>';
+          clearExecutionStatus = () => {
+            button.classList.remove("is-done", "is-failed");
+          };
           rail.appendChild(button);
 
           const output = document.createElement("pre");
@@ -2913,6 +2968,7 @@
             if (!source.trim()) return;
 
             button.disabled = true;
+            button.classList.remove("is-done", "is-failed");
             button.classList.add("is-running");
             output.classList.add("visible");
             output.textContent = "AWS Python runtime executing...";
@@ -2925,8 +2981,15 @@
                 context.expectedModules
               );
               output.textContent = renderPythonRunOutput(payload);
+              const runtimeFailed = Boolean(payload && typeof payload.error === "string" && payload.error.trim());
+              if (runtimeFailed) {
+                button.classList.add("is-failed");
+              } else {
+                button.classList.add("is-done");
+              }
             } catch (error) {
               output.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+              button.classList.add("is-failed");
             } finally {
               button.disabled = false;
               button.classList.remove("is-running");
