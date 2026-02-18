@@ -1420,14 +1420,58 @@
 
     .mobile-controls {
       display: none;
-      border-bottom: 1px solid var(--glass-edge-soft);
-      padding: 8px;
-      justify-content: flex-start;
-      background:
-        linear-gradient(180deg, color-mix(in oklab, var(--glass-highlight) 20%, transparent), transparent 58%),
-        color-mix(in srgb, var(--panel-soft) 74%, transparent);
-      backdrop-filter: blur(14px) saturate(140%);
-      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      position: fixed;
+      top: max(10px, calc(env(safe-area-inset-top) + 4px));
+      left: max(10px, calc(env(safe-area-inset-left) + 4px));
+      z-index: 45;
+      pointer-events: none;
+    }
+
+    .mobile-controls .liquid-nav {
+      width: auto;
+      pointer-events: auto;
+      gap: 0;
+      padding: 6px;
+    }
+
+    .mobile-hamburger {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mobile-hamburger svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .mobile-chat-trigger {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mobile-chat-trigger svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .overlay {
@@ -1517,25 +1561,52 @@
 
     @media (max-width: 960px) {
       .layout {
-        height: auto;
+        height: 100dvh;
         min-height: 100dvh;
-        padding:
-          max(8px, env(safe-area-inset-top))
-          max(8px, env(safe-area-inset-right))
-          max(8px, env(safe-area-inset-bottom))
-          max(8px, env(safe-area-inset-left));
+        max-width: none;
+        padding: 0;
       }
-      .shell { grid-template-columns: 1fr; }
+      .shell {
+        grid-template-columns: 1fr;
+        gap: 0;
+        height: 100dvh;
+      }
       .sidebar { display: none; }
       .resizer { display: none !important; }
       .assistant { display: none; }
       .mobile-controls { display: flex; }
-      .main { border-radius: 18px; }
+      .main {
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        min-height: 100dvh;
+      }
+      .header {
+        padding:
+          max(10px, env(safe-area-inset-top))
+          max(12px, env(safe-area-inset-right))
+          10px
+          max(58px, calc(env(safe-area-inset-left) + 48px));
+      }
       .header-top { grid-template-columns: 1fr; }
       .header-spacer { display: none; }
       .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
+      #download-btn,
+      #colab-btn {
+        display: none !important;
+      }
       .header-title-select { min-width: 100%; max-width: 100%; }
+      #reader {
+        padding: 0;
+      }
+      #reader-card {
+        max-width: none;
+        margin: 0;
+        padding: 12px;
+        border-radius: 0;
+      }
       .home-grid { grid-template-columns: 1fr; }
       .home-hero-top { flex-direction: column; }
       .home-orbit { display: none; }
@@ -1556,15 +1627,19 @@
 
     @media (max-width: 768px) {
       .header {
-        padding: 8px 10px;
+        padding:
+          max(8px, env(safe-area-inset-top))
+          max(10px, env(safe-area-inset-right))
+          8px
+          max(54px, calc(env(safe-area-inset-left) + 44px));
       }
 
       #reader {
-        padding: 8px;
+        padding: 0;
       }
 
       #reader-card {
-        padding: 12px 10px;
+        padding: 10px;
       }
 
       .home-hero-shell {
@@ -1602,15 +1677,15 @@
 
     @media (max-width: 560px) {
       .main {
-        border-radius: 14px;
+        border-radius: 0;
       }
 
-      .mobile-controls {
-        padding: 6px;
+      .mobile-controls .liquid-nav {
+        padding: 5px;
       }
 
       .header-title {
-        font-size: 15px;
+        font-size: 14px;
       }
 
       .home-title {
@@ -1655,8 +1730,18 @@
       <section class="main glass-strong">
         <div class="mobile-controls">
           <div class="liquid-nav">
-            <button class="nav-item" id="open-sidebar" type="button">教材メニュー</button>
-            <button class="nav-item" id="open-chat-mobile" type="button">Assistant</button>
+            <button class="nav-item mobile-hamburger" id="open-sidebar" type="button" aria-label="教材メニュー">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7H20"></path>
+                <path d="M4 12H20"></path>
+                <path d="M4 17H20"></path>
+              </svg>
+            </button>
+            <button class="nav-item mobile-chat-trigger" id="open-chat-mobile" type="button" aria-label="Assistant">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 7.2c0-1.8 1.4-3.2 3.2-3.2h7.6c1.8 0 3.2 1.4 3.2 3.2v5.9c0 1.8-1.4 3.2-3.2 3.2H11l-4.5 3.8v-3.8H8.2C6.4 16.3 5 14.9 5 13.1V7.2Z"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -3936,6 +4021,7 @@
       el.chatOverlay.addEventListener("click", function (event) {
         if (event.target === el.chatOverlay) {
           el.chatOverlay.classList.remove("visible");
+          setChatOpen(false);
           if (window.innerWidth <= 960) {
             document.getElementById("shell").appendChild(el.assistantPanel);
           }
