@@ -591,7 +591,7 @@
       border: 1px solid var(--code-border);
       border-radius: 12px;
       padding: 12px;
-      overflow: auto;
+      overflow: visible;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
@@ -827,21 +827,29 @@
       font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
       font-size: 12px;
       line-height: 1.58;
+      overflow: visible;
     }
 
     .code-editor-surface {
       position: relative;
       min-width: 0;
+      display: grid;
+      align-items: start;
     }
 
     .code-editor-surface pre {
       pointer-events: auto;
     }
 
+    .code-editor-surface pre,
+    .code-editor-surface .code-editor {
+      grid-area: 1 / 1;
+      min-width: 0;
+    }
+
     .code-editor {
       display: none;
-      position: absolute;
-      inset: 0;
+      position: relative;
       width: 100%;
       min-height: 100%;
       border: 0;
@@ -856,8 +864,9 @@
       background: transparent;
       outline: none;
       tab-size: 2;
-      white-space: pre;
-      overflow: auto;
+      white-space: pre-wrap;
+      overflow: hidden;
+      overflow-wrap: break-word;
       z-index: 2;
       -webkit-text-fill-color: transparent;
       text-shadow: 0 0 0 transparent;
@@ -867,6 +876,9 @@
     .code-runner pre code,
     #notebook-content .hljs {
       background: transparent !important;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      word-break: normal;
     }
 
     .code-runner.playground-active .code-editor {
@@ -1785,6 +1797,11 @@
         wrappers.forEach((wrapper) => {
           wrapper.classList.toggle("playground-active", state.playgroundEnabled);
         });
+        if (state.playgroundEnabled) {
+          Array.from(state.activeEditorMap.values()).forEach((editor) => {
+            autosizeCodeEditor(editor);
+          });
+        }
       }
 
       function renderPlaygroundHeaderControls() {
@@ -2307,6 +2324,12 @@
         blockHighlightTimers.set(block, nextTimer);
       }
 
+      function autosizeCodeEditor(editor) {
+        if (!editor) return;
+        editor.style.height = "0px";
+        editor.style.height = `${Math.max(editor.scrollHeight, 80)}px`;
+      }
+
       function normalizeRunnableSource(rawSource) {
         if (!rawSource) return "";
         // nbconvertの出力によっては改行が "\n" の2文字で入るため、実行前に正規化する。
@@ -2390,13 +2413,10 @@
           editor.setAttribute("aria-label", `Editable code cell ${codeIndex + 1}`);
           editor.value = restoredSource;
           editor.addEventListener("input", () => {
+            autosizeCodeEditor(editor);
             code.textContent = normalizeRunnableSource(editor.value || "");
             queueHighlightForBlock(code);
             schedulePlaygroundAutosave();
-          });
-          editor.addEventListener("scroll", () => {
-            pre.scrollTop = editor.scrollTop;
-            pre.scrollLeft = editor.scrollLeft;
           });
           editor.addEventListener("keydown", (event) => {
             if (event.key !== "Tab") return;
@@ -2406,10 +2426,12 @@
             const next = `${editor.value.slice(0, start)}  ${editor.value.slice(end)}`;
             editor.value = next;
             editor.selectionStart = editor.selectionEnd = start + 2;
+            autosizeCodeEditor(editor);
             code.textContent = normalizeRunnableSource(editor.value || "");
             queueHighlightForBlock(code);
             schedulePlaygroundAutosave();
           });
+          autosizeCodeEditor(editor);
           state.activeEditorMap.set(codeIndex, editor);
           editorSurface.appendChild(editor);
 
