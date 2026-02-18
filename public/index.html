@@ -310,6 +310,18 @@
       width: 100%;
     }
 
+    .search-icon {
+      width: 14px;
+      height: 14px;
+      display: block;
+      stroke: var(--muted);
+      stroke-width: 1.8;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .88;
+    }
+
     #sidebar-list,
     #sidebar-mobile-list {
       min-height: 0;
@@ -763,6 +775,11 @@
     .home-cta,
     .home-cta-ghost {
       min-width: 170px;
+    }
+
+    .home-recent-continue {
+      width: 100%;
+      margin-top: 4px;
     }
 
     .home-dashboard-grid {
@@ -1538,6 +1555,19 @@
       padding: 11px 12px;
     }
 
+    #reset-playground {
+      color: #ff3b30;
+      border-color: color-mix(in oklab, #ff3b30 42%, var(--glass-edge-soft));
+    }
+
+    #reset-playground:hover {
+      color: #ff453a;
+      border-color: color-mix(in oklab, #ff453a 58%, var(--glass-edge-soft));
+      background:
+        linear-gradient(145deg, color-mix(in oklab, #ff453a 18%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+    }
+
     .send-icon-btn {
       width: 42px;
       height: 42px;
@@ -2036,7 +2066,10 @@
       <aside class="sidebar glass-strong" id="sidebar-desktop">
         <h1><a class="brand-link" id="brand-home" href="/">Noema</a></h1>
         <label class="search">
-          <span class="icon-muted">⌕</span>
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="M20 20L16.2 16.2"></path>
+          </svg>
           <input id="sidebar-search" placeholder="教材を検索" />
         </label>
         <div id="sidebar-list"></div>
@@ -2050,7 +2083,7 @@
       <section class="main glass-strong">
         <div class="mobile-controls">
           <div class="liquid-nav">
-            <button class="nav-item mobile-assistant-trigger" id="open-chat-mobile" type="button" aria-label="Assistantを開く">
+            <button class="nav-item mobile-assistant-trigger is-hidden" id="open-chat-mobile" type="button" aria-label="Assistantを開く">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M5 7.2c0-1.8 1.4-3.2 3.2-3.2h7.6c1.8 0 3.2 1.4 3.2 3.2v5.9c0 1.8-1.4 3.2-3.2 3.2H11l-4.5 3.8v-3.8H8.2C6.4 16.3 5 14.9 5 13.1V7.2Z"></path>
               </svg>
@@ -2114,7 +2147,6 @@
               </button>
             </div>
           </div>
-          <p class="assistant-subtitle">現在のノート文脈を優先して回答します。</p>
         </div>
 
         <div id="chat-log" class="glass-soft"></div>
@@ -2868,11 +2900,11 @@
       }
 
       function renderPlaygroundHeaderControls() {
-        const showControls = state.loggedIn && state.playgroundEnabled && !!state.activeNotebook;
-        el.headerTitle.classList.toggle("is-hidden", showControls);
-        el.headerTitleSelect.classList.toggle("is-hidden", !showControls);
-        el.resetPlayground.classList.toggle("is-hidden", !showControls);
-        el.headerTitleSelect.disabled = !showControls;
+        const showReset = state.loggedIn && state.playgroundEnabled && !!state.activeNotebook;
+        el.headerTitle.classList.remove("is-hidden");
+        el.headerTitleSelect.classList.add("is-hidden");
+        el.headerTitleSelect.disabled = true;
+        el.resetPlayground.classList.toggle("is-hidden", !showReset);
       }
 
       function setElementVisibility(target, visible) {
@@ -3146,7 +3178,6 @@
         el.downloadBtn.href = `/notebooks/${nb.id}.ipynb`;
         el.downloadBtn.setAttribute("download", `${nb.id}.ipynb`);
         el.colabBtn.href = nb.colabUrl || "#";
-        populateHeaderNotebookSelect();
         renderPlaygroundHeaderControls();
       }
 
@@ -3159,8 +3190,8 @@
         const assistantStateLabel = state.loggedIn ? "有効" : "ログインで有効化";
         const isMobileHome = isCompactMobileView();
         const heroLead = isMobileHome
-          ? "今の進捗を見ながら、次に学ぶノートへそのまま移動できます。"
-          : "進捗を可視化しながら、読む・実行する・質問するを同じ画面で回して理解を積み上げます。";
+          ? "学習履歴を確認して、次のノートへ移動できます。"
+          : "学習の進み具合を確認しながら、ノート学習を進められます。";
 
         const notebookMeta = new Map();
         chapters.forEach((chapter) => {
@@ -3278,7 +3309,6 @@
                 <article class="home-insight-card glass-soft">
                   <span class="home-insight-label">Next Notebook</span>
                   <strong class="home-insight-title">${escapeHtml(nextNotebookLabel)}</strong>
-                  <p class="home-insight-copy">${nextNotebook ? "未閲覧ノートを優先して表示しています。" : "次は復習として任意のノートを開いてください。"}</p>
                 </article>
                 <article class="home-insight-card glass-soft">
                   <span class="home-insight-label">Recent Activity</span>
@@ -3287,12 +3317,9 @@
                       ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
                       : '<p class="home-insight-copy">まだ進捗データがありません。最初の教材を開くと履歴が表示されます。</p>'
                   }
+                  <button class="button home-recent-continue" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
                 </article>
               </section>
-              <div class="home-cta-row">
-                <button class="button home-cta" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
-                <button class="button-ghost home-cta-ghost" type="button" data-home-action="assistant">${state.loggedIn ? "Assistantを開く" : "ログインして質問する"}</button>
-              </div>
             </section>
           </section>
         `;
@@ -3304,17 +3331,6 @@
             if (openTargetId) {
               void selectNotebook(openTargetId);
             }
-          });
-        }
-
-        const assistantButton = el.notebookContent.querySelector('[data-home-action="assistant"]');
-        if (assistantButton) {
-          assistantButton.addEventListener("click", function () {
-            if (!state.loggedIn) {
-              window.location.href = "/login";
-              return;
-            }
-            setChatOpen(true);
           });
         }
 
@@ -4026,7 +4042,7 @@
 
       function renderMessages() {
         if (!state.messages.length) {
-          el.chatLog.innerHTML = '<p class="muted-empty">質問を入力して送信してください。</p>';
+          el.chatLog.innerHTML = "";
           return;
         }
 
@@ -4339,8 +4355,11 @@
       }
 
       function syncChatFabState() {
-        const visible = state.loggedIn && (!state.chatOpen || isCompactMobileView());
+        const visible = state.loggedIn && !!state.activeNotebook && (!state.chatOpen || isCompactMobileView());
         el.chatFab.classList.toggle("visible", visible);
+        if (el.openChatMobile) {
+          el.openChatMobile.classList.toggle("is-hidden", !(state.loggedIn && !!state.activeNotebook));
+        }
         const label = state.chatOpen ? "Assistantを閉じる" : "Assistantを開く";
         el.chatFab.setAttribute("aria-label", label);
         el.chatFab.setAttribute("title", label);
@@ -4418,6 +4437,9 @@
       }
 
       function showHomeDashboard() {
+        if (state.chatOpen) {
+          setChatOpen(false);
+        }
         state.activeNotebook = null;
         state.sectionIds = [];
         state.activeSection = "intro";
@@ -4430,6 +4452,7 @@
         renderSections();
         renderSelectionCard();
         renderHomeDashboard();
+        syncChatFabState();
         const url = new URL(window.location.href);
         url.searchParams.delete("notebookId");
         window.history.replaceState(null, "", url.toString());

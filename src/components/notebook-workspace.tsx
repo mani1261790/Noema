@@ -267,7 +267,19 @@ export function NotebookWorkspace({ chapters, initialNotebook, initialHtml, init
 
       <div className="px-2 pb-3">
         <label className="glass-input flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
-          <span className="text-muted">⌕</span>
+          <svg
+            aria-hidden="true"
+            className="h-3.5 w-3.5 text-[var(--muted)]"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.8"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20L16.2 16.2" />
+          </svg>
           <input
             className="w-full bg-transparent text-sm outline-none"
             onChange={(event) => setSidebarQuery(event.target.value)}
