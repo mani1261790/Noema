@@ -2186,10 +2186,23 @@
         el.headerTitleSelect.disabled = !showControls;
       }
 
+      function setElementVisibility(target, visible) {
+        if (!target) return;
+        target.classList.toggle("is-hidden", !visible);
+        target.setAttribute("aria-hidden", visible ? "false" : "true");
+      }
+
+      function hidePrivilegedSidebarControls() {
+        setElementVisibility(el.playgroundLink, false);
+        setElementVisibility(el.playgroundLinkMobile, false);
+        setElementVisibility(el.adminLink, false);
+        setElementVisibility(el.adminLinkMobile, false);
+      }
+
       function renderPlaygroundSidebarControls() {
         const visible = state.loggedIn;
-        el.playgroundLink.classList.toggle("is-hidden", !visible);
-        el.playgroundLinkMobile.classList.toggle("is-hidden", !visible);
+        setElementVisibility(el.playgroundLink, visible);
+        setElementVisibility(el.playgroundLinkMobile, visible);
         const label = state.playgroundEnabled ? "プレイグラウンド終了" : "プレイグラウンド";
         el.playgroundLink.textContent = label;
         el.playgroundLinkMobile.textContent = label;
@@ -2231,8 +2244,8 @@
       async function updateAdminVisibility(token) {
         const seq = ++state.authCheckSeq;
         state.isAdmin = false;
-        el.adminLink.classList.add("is-hidden");
-        el.adminLinkMobile.classList.add("is-hidden");
+        setElementVisibility(el.adminLink, false);
+        setElementVisibility(el.adminLinkMobile, false);
 
         try {
           const response = await fetch(`${API_BASE}/api/me`, {
@@ -2245,8 +2258,8 @@
 
           state.isAdmin = Boolean(payload && payload.isAdmin);
           if (state.isAdmin) {
-            el.adminLink.classList.remove("is-hidden");
-            el.adminLinkMobile.classList.remove("is-hidden");
+            setElementVisibility(el.adminLink, true);
+            setElementVisibility(el.adminLinkMobile, true);
           }
         } catch {
           // keep hidden when check fails
@@ -2254,6 +2267,7 @@
       }
 
       function updateAuthState() {
+        hidePrivilegedSidebarControls();
         const token = getToken();
         state.loggedIn = Boolean(token);
         state.userScopeKey = token ? resolveUserScopeKey(token) : "";
@@ -2264,6 +2278,11 @@
           el.loginLink.onclick = function (event) {
             event.preventDefault();
             localStorage.removeItem(TOKEN_KEY);
+            state.loggedIn = false;
+            state.isAdmin = false;
+            state.playgroundEnabled = false;
+            hidePrivilegedSidebarControls();
+            renderPlaygroundHeaderControls();
             window.location.href = "/";
           };
           el.chatFab.classList.add("visible");
@@ -2284,8 +2303,8 @@
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");
         el.chatFab.classList.remove("visible");
-        el.adminLink.classList.add("is-hidden");
-        el.adminLinkMobile.classList.add("is-hidden");
+        setElementVisibility(el.adminLink, false);
+        setElementVisibility(el.adminLinkMobile, false);
         preloadedNotebookPackages.clear();
         state.activeEditorMap = new Map();
         if (state.playgroundSaveTimer) {
