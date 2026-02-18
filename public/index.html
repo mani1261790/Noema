@@ -1111,6 +1111,28 @@
       margin-bottom: 8px;
     }
 
+    .assistant-mobile-close {
+      display: none;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 999px;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .assistant-mobile-close svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
     .assistant-title {
       font-weight: 700;
       font-size: 22px;
@@ -1653,7 +1675,18 @@
         border-radius: 18px;
       }
       .chat-mobile-mount .assistant-head-top {
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+      }
+      .chat-mobile-mount .assistant-head-top .liquid-nav {
+        grid-column: 1 / -1;
+        width: auto;
+        justify-self: start;
+      }
+      .chat-mobile-mount .assistant-mobile-close {
+        display: inline-flex;
       }
       #playground-link-mobile,
       #admin-link-mobile {
@@ -1839,6 +1872,12 @@
               <button class="nav-item" id="new-chat" type="button">New</button>
               <button class="nav-item" id="chat-history" type="button">History</button>
             </div>
+            <button class="button-ghost assistant-mobile-close" id="assistant-mobile-close" type="button" aria-label="Assistantを閉じる">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6L18 18"></path>
+                <path d="M18 6L6 18"></path>
+              </svg>
+            </button>
           </div>
           <p class="assistant-subtitle">現在のノート文脈を優先して回答します。</p>
         </div>
@@ -1962,6 +2001,7 @@
         adminLinkMobile: document.getElementById("admin-link-mobile"),
         newChat: document.getElementById("new-chat"),
         chatHistory: document.getElementById("chat-history"),
+        assistantMobileClose: document.getElementById("assistant-mobile-close"),
         sidebarOverlay: document.getElementById("sidebar-overlay"),
         chatOverlay: document.getElementById("chat-overlay"),
         openSidebar: document.getElementById("open-sidebar"),
@@ -4101,6 +4141,12 @@
       el.chatHistory.addEventListener("click", function () {
         void loadQuestionHistory();
       });
+
+      if (el.assistantMobileClose) {
+        el.assistantMobileClose.addEventListener("click", function () {
+          setChatOpen(false);
+        });
+      }
 
       el.chatFab.addEventListener("click", function () {
         setChatOpen(!state.chatOpen);
