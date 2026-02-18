@@ -294,6 +294,27 @@ jobs:
             fi
           fi
           FRONTEND_URL_NORM="${FRONTEND_URL_NORM%/}"
+          COGNITO_DOMAIN_PREFIX_NORM="$(trim "${INPUT_COGNITO_DOMAIN_PREFIX}")"
+          if [[ -z "${COGNITO_DOMAIN_PREFIX_NORM}" ]]; then
+            STACK_NAME="noema-${INPUT_STACK_STAGE}"
+            EXISTING_COGNITO_DOMAIN="$(
+              aws cloudformation describe-stacks \
+                --stack-name "${STACK_NAME}" \
+                --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" \
+                --output text 2>/dev/null || true
+            )"
+            EXISTING_COGNITO_DOMAIN="$(trim "${EXISTING_COGNITO_DOMAIN}")"
+            if [[ -n "${EXISTING_COGNITO_DOMAIN}" ]] && [[ "${EXISTING_COGNITO_DOMAIN}" != "None" ]]; then
+              COGNITO_DOMAIN_PREFIX_NORM="${EXISTING_COGNITO_DOMAIN}"
+              echo "cognito_domain_prefix not provided. Reusing existing Cognito domain prefix: ${COGNITO_DOMAIN_PREFIX_NORM}"
+            fi
+          fi
+          COGNITO_DOMAIN_PREFIX_NORM="${COGNITO_DOMAIN_PREFIX_NORM//[$'\t\r\n ']/}"
+          if [[ -n "${COGNITO_DOMAIN_PREFIX_NORM}" ]] && [[ ! "${COGNITO_DOMAIN_PREFIX_NORM}" =~ ^[a-z0-9-]{1,63}$ ]]; then
+            echo "Invalid cognito_domain_prefix: ${COGNITO_DOMAIN_PREFIX_NORM}"
+            echo "Allowed pattern: lowercase letters, numbers, hyphen (1-63 chars)"
+            exit 1
+          fi
           BEDROCK_REGION_NORM="$(trim "${INPUT_BEDROCK_REGION}")"
           BEDROCK_MODEL_SMALL_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}")"
           BEDROCK_MODEL_MID_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_MID}")"
@@ -328,8 +349,8 @@ jobs:
           if [[ -n "${INPUT_ALARM_EMAIL}" ]]; then
             ctx_args+=(-c "alarmEmail=${INPUT_ALARM_EMAIL}")
           fi
-          if [[ -n "${INPUT_COGNITO_DOMAIN_PREFIX}" ]]; then
-            ctx_args+=(-c "cognitoDomainPrefix=${INPUT_COGNITO_DOMAIN_PREFIX}")
+          if [[ -n "${COGNITO_DOMAIN_PREFIX_NORM}" ]]; then
+            ctx_args+=(-c "cognitoDomainPrefix=${COGNITO_DOMAIN_PREFIX_NORM}")
           fi
           if [[ "${INPUT_CREATE_GITHUB_DEPLOY_ROLE}" == "true" ]]; then
             if [[ -z "${INPUT_GITHUB_REPO}" ]]; then
