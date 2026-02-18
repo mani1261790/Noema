@@ -448,14 +448,14 @@
       gap: 8px;
     }
 
-    .sidebar-footer .button,
-    .sidebar-footer .button-ghost {
+    .sidebar-footer .button:not(.is-hidden),
+    .sidebar-footer .button-ghost:not(.is-hidden) {
       display: block;
       width: 100%;
       text-align: center;
     }
 
-    .footer-link {
+    .footer-link:not(.is-hidden) {
       display: block;
       text-align: center;
     }
@@ -2218,6 +2218,7 @@
       function setElementVisibility(target, visible) {
         if (!target) return;
         target.classList.toggle("is-hidden", !visible);
+        target.hidden = !visible;
         target.setAttribute("aria-hidden", visible ? "false" : "true");
       }
 
@@ -2303,12 +2304,8 @@
           el.loginLink.onclick = function (event) {
             event.preventDefault();
             localStorage.removeItem(TOKEN_KEY);
-            state.loggedIn = false;
-            state.isAdmin = false;
-            state.playgroundEnabled = false;
-            hidePrivilegedSidebarControls();
-            renderPlaygroundHeaderControls();
-            window.location.href = "/";
+            updateAuthState();
+            showHomeDashboard();
           };
           el.chatFab.classList.add("visible");
           void updateAdminVisibility(token);
