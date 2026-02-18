@@ -98,97 +98,320 @@
 <body>
   <main>
 <article class="prose-noema">
-<h1 id="transformer">Transformer</h1>
-<p>Transformerは、損失が下がる理由を『式』と『数値変化』の両方で確認する構成です。</p>
-
-<h2 id="概念の土台">概念の土台</h2>
-<p>Transformerに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>パラメータ θ</strong>: モデルが学習で更新する重み集合です。予測の形を決めます。</li>
-<li><strong>順伝播</strong>: 入力から出力へ値を流して予測を計算する過程です。</li>
-<li><strong>逆伝播</strong>: 損失から勾配を計算して各パラメータの更新量を求める過程です。</li>
-<li><strong>自己注意 (Self-Attention)</strong>: 系列内の各位置が他位置を参照して重み付けする仕組みです。</li>
-<li><strong>Q/K/V</strong>: 注意計算で使う3種類の射影ベクトルです。関連度を計算します。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
-
-<h2 id="観察-1-自己注意の最小例">観察 1: 自己注意の最小例</h2>
-<p>Transformerの核心である注意重みを、2トークンの最小例で計算します。</p>
-
 <pre><code class="language-python">import math
-query = [1.0, 0.0]
-key = [0.8, 0.6]
-value = [0.3, 0.9]
-score = sum(q * k for q, k in zip(query, key)) / math.sqrt(2)
-weight = math.exp(score) / (math.exp(score) + math.exp(0.0))
-x = [weight, 1 - weight, 1.0]
-w = [value[0], value[1], 0.0]
-z = sum(xi * wi for xi, wi in zip(x, w))
-y = 1 / (1 + math.exp(-z))
-print(&#39;task = transformer-basics&#39;, &#39;attn=&#39;, round(weight, 6), &#39;mix=&#39;, round(z, 6))</code></pre>
-<p>この注意重みの計算が、系列依存を扱う中心操作です。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+import numpy as np
+import matplotlib.pyplot as plt
 
-<h2 id="観察-2-損失を計算する">観察 2: 損失を計算する</h2>
-<p>次に、予測値に対する損失を計算します。学習は損失を下げる方向に進むので、損失の意味を言葉で説明できることが重要です。</p>
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    TORCH_AVAILABLE = True
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    optim = None
+    TORCH_AVAILABLE = False</code></pre>
+<h1 id="transformer-gpt-vit-mae">Transformer（GPT / ViT / MAE）</h1>
+<p>Transformerの中心は自己注意です。系列中の各要素が、ほかの要素をどれくらい参照すべきかを重みとして計算し、文脈に応じた表現を作ります。<br>
+このノートでは、まず自己注意の式を最小コードで確認し、次にGPTの因果マスク、ViTのパッチ化、MAEのマスク再構成へ進みます。最後にVAEとの違いも整理します。</p>
 
-<pre><code class="language-python">target = 1.0
-eps = 1e-9
-loss = -(target * math.log(y + eps) + (1 - target) * math.log(1 - y + eps))
-print(&#39;loss =&#39;, round(loss, 6))
-print(&#39;error =&#39;, round(target - y, 6))</code></pre>
-<p>損失は『どれだけ外したか』を測る物差しです。物差しがない状態では、改善の方向を決められません。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<p>自己注意では、入力埋め込み <code>X</code> から <code>Q, K, V</code> を作り、次で重みを計算します。</p>
+<p><code>Attention(Q, K, V) = softmax((QK^T) / sqrt(d_k)) V</code></p>
+<p>ここで <code>X</code> の形状を <code>(T, d_model)</code>、射影行列 <code>W_Q, W_K, W_V</code> を <code>(d_model, d_k)</code> とすると、<br>
+<code>Q, K, V</code> の形状は <code>(T, d_k)</code> になります。<br>
+要素で見ると <code>score_{i,j} = (q_i ・ k_j) / sqrt(d_k)</code> で、行ごとに <code>softmax</code> して <code>V</code> を重み付き和します。</p>
+<p><code>Q</code> は「何を探しているか」、<code>K</code> は「何を持っているか」、<code>V</code> は「実際に受け渡す情報」と見ると理解しやすくなります。</p>
 
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">n</mi></mrow><mo>(</mo><mi>Q</mi><mo separator="true">,</mo><mi>K</mi><mo separator="true">,</mo><mi>V</mi><mo>)</mo><mo>=</mo><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">f</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">x</mi></mrow><mo>(</mo><mi>Q</mi><msup><mi>K</mi><mrow><mi mathvariant="normal">⊤</mi></mrow></msup><mi mathvariant="normal">/</mi><msqrt><mrow><msub><mi>d</mi><mi>k</mi></msub></mrow></msqrt><mo>)</mo><mi>V</mi></mrow><annotation encoding="application/x-tex">\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^{\top}/\sqrt{d_k})V</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.8572200000000001em;"></span><span class="strut bottom" style="height:1.10722em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathrm">A</span><span class="mord mathrm">t</span><span class="mord mathrm">t</span><span class="mord mathrm">e</span><span class="mord mathrm">n</span><span class="mord mathrm">t</span><span class="mord mathrm">i</span><span class="mord mathrm">o</span><span class="mord mathrm">n</span></span><span class="mopen">(</span><span class="mord mathit">Q</span><span class="mpunct">,</span><span class="mord mathit" style="margin-right:0.07153em;">K</span><span class="mpunct">,</span><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord textstyle uncramped"><span class="mord mathrm">s</span><span class="mord mathrm">o</span><span class="mord mathrm" style="margin-right:0.07778em;">f</span><span class="mord mathrm">t</span><span class="mord mathrm">m</span><span class="mord mathrm">a</span><span class="mord mathrm">x</span></span><span class="mopen">(</span><span class="mord mathit">Q</span><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">K</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">⊤</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">/</span><span class="sqrt mord"><span class="sqrt-sign" style="top:-0.017220000000000013em;"><span class="style-wrap reset-textstyle textstyle uncramped">√</span></span><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="mord textstyle cramped"><span class="mord"><span class="mord mathit">d</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span><span style="top:-0.77722em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="reset-textstyle textstyle uncramped sqrt-line"></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mord mathit" style="margin-right:0.22222em;">V</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mrow><mi mathvariant="normal">F</mi><mi mathvariant="normal">F</mi><mi mathvariant="normal">N</mi></mrow><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msub><mi>W</mi><mn>2</mn></msub><mi>σ</mi><mo>(</mo><msub><mi>W</mi><mn>1</mn></msub><mi>x</mi><mo>+</mo><msub><mi>b</mi><mn>1</mn></msub><mo>)</mo><mo>+</mo><msub><mi>b</mi><mn>2</mn></msub></mrow><annotation encoding="application/x-tex">\mathrm{FFN}(x) = W_2\sigma(W_1x+b_1)+b_2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathrm">F</span><span class="mord mathrm">F</span><span class="mord mathrm">N</span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.13889em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit" style="margin-right:0.03588em;">σ</span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.13889em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">x</span><span class="mbin">+</span><span class="mord"><span class="mord mathit">b</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mbin">+</span><span class="mord"><span class="mord mathit">b</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-</ol>
+<pre><code class="language-python">def softmax_rowwise(x):
+    x = x - np.max(x, axis=-1, keepdims=True)
+    exp_x = np.exp(x)
+    return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
 
-<h2 id="観察-3-勾配降下法の一歩">観察 3: 勾配降下法の一歩</h2>
-<p>ここで、重みを一回更新する最小実験を行います。更新前後の損失を比較して、学習の方向が正しいかを確認します。</p>
 
-<pre><code class="language-python">lr = 0.1
-grad = -(target - y) * y * (1 - y)
-w_new = [wi - lr * grad * xi for wi, xi in zip(w, x)]
-z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + 0.1
-y_new = 1 / (1 + math.exp(-z_new))
-print(&#39;y before/after =&#39;, round(y, 6), round(y_new, 6))</code></pre>
-<p>この更新で損失が下がれば、勾配方向が合理的だったと言えます。下がらないなら学習率や符号を疑います。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+# 4トークン, 埋め込み次元3の玩具例
+X = np.array([
+    [1.0, 0.2, 0.0],   # token 0
+    [0.9, 0.1, 0.1],   # token 1
+    [0.1, 0.8, 0.2],   # token 2
+    [0.0, 0.7, 1.0],   # token 3
+], dtype=np.float64)
 
-<h2 id="観察-4-正則化の感覚を作る">観察 4: 正則化の感覚を作る</h2>
-<p>次に、重みが大きくなりすぎることを抑える正則化項を追加します。過学習対策をコードで体験するのが狙いです。</p>
+W_Q = np.array([[0.8, 0.0, 0.1], [0.2, 0.9, 0.1], [0.1, 0.2, 0.7]])
+W_K = np.array([[0.7, 0.1, 0.1], [0.1, 0.8, 0.2], [0.2, 0.1, 0.6]])
+W_V = np.array([[1.0, 0.2, 0.0], [0.1, 0.9, 0.1], [0.0, 0.2, 0.8]])
 
-<pre><code class="language-python">l2 = 0.01
-weight_norm = sum(wi * wi for wi in w_new)
-loss_reg = loss + l2 * weight_norm
-print(&#39;weight_norm =&#39;, round(weight_norm, 6))
-print(&#39;regularized loss =&#39;, round(loss_reg, 6))</code></pre>
-<p>正則化は精度を上げる魔法ではなく、汎化の崩れを防ぐ保険です。評価データと合わせて効果を判断してください。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+Q = X @ W_Q
+K = X @ W_K
+V = X @ W_V
 
-<h2 id="観察-5-ミニバッチの考え方">観察 5: ミニバッチの考え方</h2>
-<p>最後に、複数サンプルをまとめて扱う発想を確認します。実務では1件ずつよりバッチ処理が主流です。</p>
+scores = (Q @ K.T) / math.sqrt(Q.shape[-1])
+weights = softmax_rowwise(scores)
+context = weights @ V
 
-<pre><code class="language-python">batch = [[0.8, -0.4, 0.2], [0.2, 0.1, -0.3], [0.5, -0.2, 0.7]]
-targets = [1.0, 0.0, 1.0]
-preds = []
-for bx in batch:
-    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + 0.1
-    preds.append(1 / (1 + math.exp(-z_b)))
-print(&#39;preds =&#39;, [round(p, 4) for p in preds])</code></pre>
-<p>ミニバッチを扱えるようになると、計算効率と学習安定性の両面で設計の幅が広がります。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&#39;attention weights:&#39;)
+print(np.round(weights, 4))
+print(&#39;\ncontext vectors:&#39;)
+print(np.round(context, 4))</code></pre>
+<pre><code class="language-python">plt.figure(figsize=(5.0, 4.2))
+plt.imshow(weights, cmap=&#39;Blues&#39;)
+plt.colorbar(label=&#39;attention weight&#39;)
+plt.xticks(range(len(X)), [f&#39;k{j}&#39; for j in range(len(X))])
+plt.yticks(range(len(X)), [f&#39;q{i}&#39; for i in range(len(X))])
+plt.title(&#39;Self-Attention Weight Matrix&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>GPTのような自己回帰モデルでは、未来トークンを見ないように因果マスク（causal mask）を入れます。<br>
+<code>j &gt; i</code>（未来位置）をマスクし、スコアを <code>-∞</code> 相当に落として <code>softmax</code> 後の重みをほぼ0にします。</p>
+<p>下のコードでは、同じ入力で「マスクなし」と「マスクあり」を比較します。</p>
 
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>学習率が大きすぎて発散する</li>
-<li>検証損失の監視をせず過学習を見逃す</li>
-<li>前処理と活性化の相性を無視する</li>
-</ol>
+<pre><code class="language-python">def causal_masked_attention(Q, K, V):
+    T, d = Q.shape
+    scores = (Q @ K.T) / math.sqrt(d)
+    mask = np.triu(np.ones((T, T), dtype=bool), k=1)  # future positions
+    scores_masked = scores.copy()
+    scores_masked[mask] = -np.inf
+    w = softmax_rowwise(scores_masked)
+    return w @ V, w
+
+
+context_full = softmax_rowwise((Q @ K.T) / math.sqrt(Q.shape[-1])) @ V
+context_causal, w_causal = causal_masked_attention(Q, K, V)
+
+print(&#39;full attention (token 1):&#39;, np.round(context_full[1], 4))
+print(&#39;causal attention (token 1):&#39;, np.round(context_causal[1], 4))
+print(&#39;\ncausal weight matrix:&#39;)
+print(np.round(w_causal, 4))</code></pre>
+<p>位置情報がないと、Transformerは順序を区別できません。<br>
+よく使われる方法のひとつが正弦波位置エンコーディングです。</p>
+
+<pre><code class="language-python">def sinusoidal_positional_encoding(seq_len, d_model):
+    pe = np.zeros((seq_len, d_model), dtype=np.float64)
+    pos = np.arange(seq_len)[:, None]
+    i = np.arange(d_model)[None, :]
+    angle_rates = 1.0 / np.power(10000, (2 * (i // 2)) / d_model)
+    angles = pos * angle_rates
+
+    pe[:, 0::2] = np.sin(angles[:, 0::2])
+    pe[:, 1::2] = np.cos(angles[:, 1::2])
+    return pe
+
+
+pe = sinusoidal_positional_encoding(seq_len=24, d_model=16)
+print(&#39;positional encoding shape:&#39;, pe.shape)
+
+plt.figure(figsize=(7.2, 3.6))
+plt.imshow(pe.T, aspect=&#39;auto&#39;, cmap=&#39;coolwarm&#39;)
+plt.colorbar(label=&#39;value&#39;)
+plt.xlabel(&#39;position&#39;)
+plt.ylabel(&#39;channel&#39;)
+plt.title(&#39;Sinusoidal Positional Encoding&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>ViT（Vision Transformer）は画像を小さなパッチ列に分割し、各パッチをトークンとして扱います。<br>
+以下では 8x8 の画像を 2x2 パッチへ分割し、パッチ埋め込みを作る最小例を示します。</p>
+<p>実際のViTでは、パッチトークンに位置埋め込みを必ず加えます。</p>
+
+<pre><code class="language-python">def patchify(image, patch_size=2):
+    h, w = image.shape
+    assert h % patch_size == 0 and w % patch_size == 0
+    patches = []
+    for y in range(0, h, patch_size):
+        for x in range(0, w, patch_size):
+            p = image[y:y+patch_size, x:x+patch_size].reshape(-1)
+            patches.append(p)
+    return np.stack(patches, axis=0)
+
+
+img = np.arange(64, dtype=np.float64).reshape(8, 8) / 63.0
+patches = patchify(img, patch_size=2)  # (16, 4)
+
+W_patch = np.random.default_rng(0).normal(0, 0.4, size=(4, 6))
+patch_tokens = patches @ W_patch  # (16, 6)
+
+# 実際のViTは学習可能な位置埋め込みを加える
+pos_embed = np.random.default_rng(1).normal(0, 0.1, size=patch_tokens.shape)
+patch_tokens = patch_tokens + pos_embed
+
+# CLSトークンも通常は学習可能ベクトル（ここでは最小例として0初期化）
+cls_token = np.zeros((1, 6), dtype=np.float64)
+vit_tokens = np.concatenate([cls_token, patch_tokens], axis=0)  # (17, 6)
+
+print(&#39;image shape      :&#39;, img.shape)
+print(&#39;patches shape    :&#39;, patches.shape)
+print(&#39;patch token shape:&#39;, patch_tokens.shape)
+print(&#39;ViT token shape  :&#39;, vit_tokens.shape, &#39;(CLS + patches)&#39;)
+
+plt.figure(figsize=(3.8, 3.8))
+plt.imshow(img, cmap=&#39;gray&#39;)
+plt.title(&#39;Toy image (8x8)&#39;)
+plt.axis(&#39;off&#39;)
+plt.show()</code></pre>
+<p>MAE（Masked Autoencoder）は、パッチの一部を隠して復元する自己教師あり学習です。<br>
+ViTと違い、学習時には可視パッチだけをエンコーダに入れるため、計算効率を上げやすい設計です。</p>
+<p>完全な流れは<br>
+<code>visible patches -&gt; encoder -&gt; (mask tokenで長さ復元) -&gt; decoder -&gt; masked patchesの再構成誤差</code><br>
+です。下のセルはこの流れを最小化して追うデモです。</p>
+
+<pre><code class="language-python">def make_random_mask(n_tokens, mask_ratio=0.75, seed=0):
+    rng = np.random.default_rng(seed)
+    n_mask = int(n_tokens * mask_ratio)
+    perm = rng.permutation(n_tokens)
+    mask_idx = perm[:n_mask]
+    keep_idx = np.sort(perm[n_mask:])
+    return keep_idx, np.sort(mask_idx)
+
+
+n_patches = patches.shape[0]
+keep_idx, mask_idx = make_random_mask(n_patches, mask_ratio=0.75, seed=1)
+kept_tokens = patch_tokens[keep_idx]
+
+print(&#39;all patches :&#39;, n_patches)
+print(&#39;kept patches:&#39;, len(keep_idx), &#39;indices=&#39;, keep_idx)
+print(&#39;masked      :&#39;, len(mask_idx), &#39;indices=&#39;, mask_idx)
+print(&#39;encoder input token shape (without CLS):&#39;, kept_tokens.shape)
+
+# デコーダ入力側で元の長さに戻す（masked位置にはmask tokenを置く）
+mask_token = np.zeros((len(mask_idx), patch_tokens.shape[1]))
+decoder_input = np.zeros_like(patch_tokens)
+decoder_input[keep_idx] = kept_tokens
+decoder_input[mask_idx] = mask_token
+
+# 最小デモ: 線形デコーダでパッチを復元し、masked部分のみ誤差を計算
+W_rec = np.random.default_rng(2).normal(0, 0.3, size=(patch_tokens.shape[1], patches.shape[1]))
+recon_patches = decoder_input @ W_rec
+masked_recon_mse = np.mean((recon_patches[mask_idx] - patches[mask_idx]) ** 2)
+print(&#39;masked reconstruction MSE (toy):&#39;, round(float(masked_recon_mse), 6))
+
+masked_view = img.copy()
+patch_size = 2
+for idx in mask_idx:
+    gy = idx // (img.shape[1] // patch_size)
+    gx = idx % (img.shape[1] // patch_size)
+    y0, x0 = gy * patch_size, gx * patch_size
+    masked_view[y0:y0+patch_size, x0:x0+patch_size] = 0.0
+
+fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.4))
+axes[0].imshow(img, cmap=&#39;gray&#39;, vmin=0, vmax=1)
+axes[0].set_title(&#39;original&#39;)
+axes[0].axis(&#39;off&#39;)
+axes[1].imshow(masked_view, cmap=&#39;gray&#39;, vmin=0, vmax=1)
+axes[1].set_title(&#39;MAE masking (75%)&#39;)
+axes[1].axis(&#39;off&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>VAEも再構成を使いますが、MAEと目的が異なります。<br>
+VAEは潜在変数 <code>z</code> の確率分布を学ぶ生成モデルで、<br>
+損失は <code>再構成誤差 + β * KL</code> です。</p>
+<p>一方MAEは、主に表現学習を目的に「隠したパッチの再構成」を解きます。<br>
+下のセルはVAE損失のうち、KL項と再構成項の最小計算デモです。</p>
+
+<pre><code class="language-python"># VAEの再パラメータ化トリックと損失項の最小計算
+mu = np.array([0.2, -0.4, 0.1], dtype=np.float64)
+logvar = np.array([-0.2, 0.3, -0.5], dtype=np.float64)
+
+rng = np.random.default_rng(42)
+eps = rng.normal(0.0, 1.0, size=mu.shape)
+std = np.exp(0.5 * logvar)
+z = mu + std * eps
+
+# KL項
+kl = -0.5 * np.sum(1 + logvar - mu**2 - np.exp(logvar))
+
+# 再構成項（ここではMSEの玩具例）
+x_true = np.array([0.9, 0.2, 0.7], dtype=np.float64)
+x_recon = np.array([0.8, 0.3, 0.6], dtype=np.float64)
+recon_loss = np.mean((x_true - x_recon) ** 2)
+
+beta = 1.0
+vae_loss = recon_loss + beta * kl
+
+print(&#39;mu    =&#39;, np.round(mu, 4))
+print(&#39;logvar=&#39;, np.round(logvar, 4))
+print(&#39;z sample =&#39;, np.round(z, 4))
+print(&#39;recon loss =&#39;, round(float(recon_loss), 6))
+print(&#39;KL(q(z|x) || p(z)) =&#39;, round(float(kl), 6))
+print(&#39;VAE loss = recon + beta*KL =&#39;, round(float(vae_loss), 6))</code></pre>
+<p>最後に、PyTorchで小さなDecoder-only Transformer（GPT型）を学習し、<br>
+「次トークン予測」が実際に動くことを確認します。</p>
+<p>ここでは次トークンが直前2トークンに依存する列を使い、文脈参照が必要な設定にしています。<br>
+実装は簡略化のため <code>TransformerEncoderLayer + 因果マスク</code> で、GPT型の挙動を再現します。</p>
+
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    torch.manual_seed(0)
+
+    vocab_size = 20
+    seq_len = 14
+    d_model = 48
+
+    def sample_batch(batch_size=64):
+        # Fibonacci-like modulo sequence: x_t = (x_{t-1} + x_{t-2}) mod vocab
+        seq = torch.zeros(batch_size, seq_len + 1, dtype=torch.long)
+        seq[:, 0] = torch.randint(0, vocab_size, (batch_size,))
+        seq[:, 1] = torch.randint(0, vocab_size, (batch_size,))
+        for t in range(2, seq_len + 1):
+            seq[:, t] = (seq[:, t - 1] + seq[:, t - 2]) % vocab_size
+        return seq[:, :-1], seq[:, 1:]
+
+    class TinyGPT(nn.Module):
+        def __init__(self, vocab_size, d_model=48, nhead=4, num_layers=2, seq_len=14):
+            super().__init__()
+            self.seq_len = seq_len
+            self.token_emb = nn.Embedding(vocab_size, d_model)
+            self.pos_emb = nn.Parameter(torch.zeros(1, seq_len, d_model))
+            layer = nn.TransformerEncoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=4 * d_model,
+                dropout=0.0,
+                batch_first=True,
+                activation=&#39;gelu&#39;,
+            )
+            self.encoder = nn.TransformerEncoder(layer, num_layers=num_layers)
+            self.norm = nn.LayerNorm(d_model)
+            self.head = nn.Linear(d_model, vocab_size)
+
+        def forward(self, x):
+            bsz, t = x.shape
+            h = self.token_emb(x) + self.pos_emb[:, :t, :]
+            mask = torch.triu(torch.ones(t, t, device=x.device), diagonal=1).bool()
+            h = self.encoder(h, mask=mask)
+            h = self.norm(h)
+            return self.head(h)
+
+    model = TinyGPT(vocab_size=vocab_size, d_model=d_model, nhead=4, num_layers=2, seq_len=seq_len)
+    optimizer = optim.AdamW(model.parameters(), lr=3e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    for step in range(180):
+        x, y = sample_batch(batch_size=64)
+        logits = model(x)
+
+        # t=0 の予測は初期2トークン中1つ目だけでは不確定なので除外
+        loss = criterion(logits[:, 1:, :].reshape(-1, vocab_size), y[:, 1:].reshape(-1))
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if step % 45 == 0:
+            print(f&#39;step={step:&gt;3d}, loss={loss.item():.4f}&#39;)
+
+    model.eval()
+    seed = torch.tensor([[3, 7]], dtype=torch.long)
+    generated = seed.clone()
+    for _ in range(10):
+        cur = generated[:, -seq_len:]
+        logits = model(cur)
+        next_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+        generated = torch.cat([generated, next_token], dim=1)
+
+    print(&#39;generated tokens:&#39;, generated.squeeze(0).tolist())
+else:
+    print(&#39;PyTorch未導入のためGPTミニ実験セルはスキップしました。&#39;)</code></pre>
+<p>Transformerを使うときは、「どのトークン集合を作るか」が設計の中心になります。<br>
+文章なら単語列、画像ならパッチ列、MAEなら可視パッチ列です。<br>
+同じ自己注意の枠組みでも、トークン化と目的関数を変えることでGPT/ViT/MAEのように振る舞いが変わります。</p>
 
 </article>
   </main>
