@@ -1112,6 +1112,8 @@
         messages: [],
         busy: false,
         loggedIn: false,
+        isAdmin: false,
+        authCheckSeq: 0,
         resizing: false,
         startX: 0,
         startWidth: 400
@@ -1286,6 +1288,31 @@
         return token;
       }
 
+      async function updateAdminVisibility(token) {
+        const seq = ++state.authCheckSeq;
+        state.isAdmin = false;
+        el.adminLink.classList.add("is-hidden");
+        el.adminLinkMobile.classList.add("is-hidden");
+
+        try {
+          const response = await fetch(`${API_BASE}/api/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) return;
+
+          const payload = await response.json();
+          if (seq !== state.authCheckSeq) return;
+
+          state.isAdmin = Boolean(payload && payload.isAdmin);
+          if (state.isAdmin) {
+            el.adminLink.classList.remove("is-hidden");
+            el.adminLinkMobile.classList.remove("is-hidden");
+          }
+        } catch {
+          // keep hidden when check fails
+        }
+      }
+
       function updateAuthState() {
         const token = getToken();
         state.loggedIn = Boolean(token);
@@ -1299,14 +1326,15 @@
             window.location.href = "/";
           };
           el.chatFab.classList.add("visible");
-          el.adminLink.classList.remove("is-hidden");
-          el.adminLinkMobile.classList.remove("is-hidden");
+          void updateAdminVisibility(token);
           if (state.activeNotebook) {
             void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
           }
           return;
         }
 
+        state.authCheckSeq += 1;
+        state.isAdmin = false;
         state.chatOpen = false;
         el.assistantPanel.classList.add("hidden");
         el.resizer.classList.remove("visible");

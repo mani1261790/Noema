@@ -86,6 +86,15 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     return json(401, { error: "Unauthorized" });
   }
 
+  if (route === "GET /api/me") {
+    return json(200, {
+      userId: user.userId,
+      email: user.email,
+      groups: user.groups,
+      isAdmin: isAdmin(user)
+    });
+  }
+
   if (route === "POST /api/questions") {
     const payload = parseAskQuestionInput(event);
     if (!payload) {
