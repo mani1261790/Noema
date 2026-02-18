@@ -1579,6 +1579,10 @@
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
       const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
+      const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
+      const KEEP_LATEST_REVISIONS = 10;
+      const CONFLICT_RETENTION_DAYS = 30;
+      const UNREFERENCED_BASE_RETENTION_DAYS = 14;
       const KATEX_CSS_HREF = "/katex/katex.min.css";
       // MathJax v3 is Apache-2.0 licensed.
       const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
@@ -1801,48 +1805,283 @@
         return `${PLAYGROUND_DRAFT_KEY_PREFIX}:${state.userScopeKey}`;
       }
 
+      function createEmptyPlaygroundStore() {
+        return {
+          schemaVersion: PLAYGROUND_STORE_SCHEMA_VERSION,
+          notebooks: {},
+          bases: {},
+          conflicts: []
+        };
+      }
+
+      function toValidIsoString(raw, fallbackIso) {
+        const text = String(raw || "").trim();
+        if (!text) return fallbackIso;
+        const time = Date.parse(text);
+        if (Number.isNaN(time)) return fallbackIso;
+        return new Date(time).toISOString();
+      }
+
+      function toEpochMillis(isoString, fallbackMs) {
+        const ms = Date.parse(String(isoString || ""));
+        if (!Number.isNaN(ms)) return ms;
+        if (Number.isFinite(Number(fallbackMs))) return Number(fallbackMs);
+        return Date.now();
+      }
+
+      function normalizeCellArray(cells) {
+        if (!Array.isArray(cells)) return [];
+        return cells.map((cell) => String(cell));
+      }
+
+      function hashFNV1a(text) {
+        let hash = 2166136261;
+        for (let i = 0; i < text.length; i += 1) {
+          hash ^= text.charCodeAt(i);
+          hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        return (hash >>> 0).toString(16).padStart(8, "0");
+      }
+
+      function makeBaseId(cells) {
+        const normalized = normalizeCellArray(cells);
+        const signature = normalized.join("\u241E");
+        return `base:${hashFNV1a(signature)}:${normalized.length}`;
+      }
+
+      function makeRevisionId() {
+        const randomPart = Math.random().toString(36).slice(2, 10);
+        return `rev:${Date.now().toString(36)}:${randomPart}`;
+      }
+
+      function sameCells(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i += 1) {
+          if (a[i] !== b[i]) return false;
+        }
+        return true;
+      }
+
+      function ensureBaseSnapshot(store, cells, createdAtIso) {
+        const normalizedCells = normalizeCellArray(cells);
+        const baseId = makeBaseId(normalizedCells);
+        if (!store.bases[baseId]) {
+          store.bases[baseId] = {
+            cells: normalizedCells,
+            createdAt: createdAtIso
+          };
+        }
+        return baseId;
+      }
+
+      function latestCellsFromEntry(store, entry) {
+        if (!entry || !Array.isArray(entry.revisions) || entry.revisions.length === 0) return [];
+        const latest = entry.revisions[entry.revisions.length - 1];
+        if (!latest || !latest.baseId) return [];
+        const base = store.bases[latest.baseId];
+        if (!base) return [];
+        return normalizeCellArray(base.cells);
+      }
+
+      function prunePlaygroundStore(store) {
+        const nowMs = Date.now();
+        const conflictRetentionMs = CONFLICT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+        const unreferencedBaseRetentionMs = UNREFERENCED_BASE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+        Object.keys(store.notebooks).forEach((notebookId) => {
+          const entry = store.notebooks[notebookId];
+          if (!entry || !Array.isArray(entry.revisions)) {
+            delete store.notebooks[notebookId];
+            return;
+          }
+          entry.revisions.sort((a, b) => toEpochMillis(a.createdAt, nowMs) - toEpochMillis(b.createdAt, nowMs));
+          if (entry.revisions.length > KEEP_LATEST_REVISIONS) {
+            entry.revisions = entry.revisions.slice(-KEEP_LATEST_REVISIONS);
+          }
+          if (entry.revisions.length === 0) {
+            delete store.notebooks[notebookId];
+          }
+        });
+
+        const keptConflicts = [];
+        if (Array.isArray(store.conflicts)) {
+          store.conflicts.forEach((conflict) => {
+            const createdAtMs = toEpochMillis(conflict.createdAt, nowMs);
+            if (!createdAtMs || nowMs - createdAtMs > conflictRetentionMs) return;
+            keptConflicts.push(conflict);
+          });
+        }
+        store.conflicts = keptConflicts;
+
+        const referencedBaseIds = new Set();
+        Object.values(store.notebooks).forEach((entry) => {
+          if (!entry || !Array.isArray(entry.revisions)) return;
+          entry.revisions.forEach((revision) => {
+            if (revision && typeof revision.baseId === "string" && revision.baseId) {
+              referencedBaseIds.add(revision.baseId);
+            }
+          });
+        });
+        store.conflicts.forEach((conflict) => {
+          if (conflict && typeof conflict.baseId === "string" && conflict.baseId) {
+            referencedBaseIds.add(conflict.baseId);
+          }
+        });
+
+        Object.keys(store.bases).forEach((baseId) => {
+          if (referencedBaseIds.has(baseId)) return;
+          const base = store.bases[baseId];
+          const createdAtMs = toEpochMillis(base && base.createdAt, nowMs);
+          if (!createdAtMs || nowMs - createdAtMs > unreferencedBaseRetentionMs) {
+            delete store.bases[baseId];
+          }
+        });
+
+        return store;
+      }
+
+      function normalizePlaygroundStore(rawStore) {
+        const fallbackIso = new Date().toISOString();
+        const normalized = createEmptyPlaygroundStore();
+        const parsed = rawStore && typeof rawStore === "object" ? rawStore : {};
+
+        if (parsed.schemaVersion === PLAYGROUND_STORE_SCHEMA_VERSION) {
+          const bases = parsed.bases && typeof parsed.bases === "object" ? parsed.bases : {};
+          Object.entries(bases).forEach(([baseId, baseValue]) => {
+            if (!baseId) return;
+            const record = baseValue && typeof baseValue === "object" ? baseValue : {};
+            const cells = normalizeCellArray(record.cells);
+            normalized.bases[baseId] = {
+              cells,
+              createdAt: toValidIsoString(record.createdAt, fallbackIso)
+            };
+          });
+
+          const notebooks = parsed.notebooks && typeof parsed.notebooks === "object" ? parsed.notebooks : {};
+          Object.entries(notebooks).forEach(([notebookId, notebookValue]) => {
+            if (!notebookId) return;
+            const record = notebookValue && typeof notebookValue === "object" ? notebookValue : {};
+            const revisions = Array.isArray(record.revisions) ? record.revisions : [];
+            const normalizedRevisions = revisions
+              .map((revision) => {
+                const item = revision && typeof revision === "object" ? revision : {};
+                const baseId = String(item.baseId || "").trim();
+                if (!baseId || !normalized.bases[baseId]) return null;
+                return {
+                  id: String(item.id || makeRevisionId()),
+                  baseId,
+                  createdAt: toValidIsoString(item.createdAt, fallbackIso)
+                };
+              })
+              .filter(Boolean);
+            if (normalizedRevisions.length) {
+              normalized.notebooks[notebookId] = {
+                revisions: normalizedRevisions
+              };
+            }
+          });
+
+          normalized.conflicts = Array.isArray(parsed.conflicts)
+            ? parsed.conflicts
+                .map((conflict) => {
+                  const item = conflict && typeof conflict === "object" ? conflict : {};
+                  const notebookId = String(item.notebookId || "").trim();
+                  if (!notebookId) return null;
+                  const baseId = String(item.baseId || "").trim();
+                  return {
+                    id: String(item.id || `conflict:${makeRevisionId()}`),
+                    notebookId,
+                    baseId: baseId || undefined,
+                    reason: String(item.reason || "unknown"),
+                    createdAt: toValidIsoString(item.createdAt, fallbackIso)
+                  };
+                })
+                .filter(Boolean)
+            : [];
+          return prunePlaygroundStore(normalized);
+        }
+
+        Object.entries(parsed).forEach(([notebookId, notebookValue]) => {
+          if (!notebookId || notebookId === "schemaVersion" || notebookId === "notebooks" || notebookId === "bases" || notebookId === "conflicts") {
+            return;
+          }
+          const record = notebookValue && typeof notebookValue === "object" ? notebookValue : {};
+          const cells = normalizeCellArray(record.cells);
+          const createdAt = toValidIsoString(record.updatedAt, fallbackIso);
+          const baseId = ensureBaseSnapshot(normalized, cells, createdAt);
+          normalized.notebooks[notebookId] = {
+            revisions: [
+              {
+                id: makeRevisionId(),
+                baseId,
+                createdAt
+              }
+            ]
+          };
+        });
+
+        return prunePlaygroundStore(normalized);
+      }
+
       function readPlaygroundStore() {
         const key = getPlaygroundStorageKey();
-        if (!key) return {};
+        if (!key) return createEmptyPlaygroundStore();
+        const serialized = localStorage.getItem(key) || "";
+        let parsed = {};
         try {
-          const parsed = JSON.parse(localStorage.getItem(key) || "{}");
-          if (parsed && typeof parsed === "object") return parsed;
+          parsed = serialized ? JSON.parse(serialized) : {};
         } catch {}
-        return {};
+        const normalized = normalizePlaygroundStore(parsed);
+        try {
+          const normalizedSerialized = JSON.stringify(normalized);
+          if (serialized !== normalizedSerialized) {
+            localStorage.setItem(key, normalizedSerialized);
+          }
+        } catch {}
+        return normalized;
       }
 
       function writePlaygroundStore(nextStore) {
         const key = getPlaygroundStorageKey();
         if (!key) return;
         try {
-          localStorage.setItem(key, JSON.stringify(nextStore));
+          const normalized = normalizePlaygroundStore(nextStore);
+          localStorage.setItem(key, JSON.stringify(normalized));
         } catch {}
       }
 
       function readNotebookPlaygroundDraft(notebookId) {
         if (!notebookId) return [];
         const store = readPlaygroundStore();
-        const entry = store[notebookId];
-        if (!entry || !Array.isArray(entry.cells)) return [];
-        return entry.cells.map((cell) => String(cell));
+        const entry = store.notebooks[notebookId];
+        return latestCellsFromEntry(store, entry);
       }
 
       function writeNotebookPlaygroundDraft(notebookId, cells) {
         if (!notebookId) return;
-        const normalized = Array.isArray(cells) ? cells.map((cell) => String(cell)) : [];
+        const normalized = normalizeCellArray(cells);
         const store = readPlaygroundStore();
-        store[notebookId] = {
-          cells: normalized,
-          updatedAt: new Date().toISOString()
-        };
+        const entry = store.notebooks[notebookId] || { revisions: [] };
+        const latestCells = latestCellsFromEntry(store, entry);
+        if (sameCells(latestCells, normalized)) return;
+
+        const createdAt = new Date().toISOString();
+        const baseId = ensureBaseSnapshot(store, normalized, createdAt);
+        entry.revisions = Array.isArray(entry.revisions) ? entry.revisions : [];
+        entry.revisions.push({
+          id: makeRevisionId(),
+          baseId,
+          createdAt
+        });
+        store.notebooks[notebookId] = entry;
         writePlaygroundStore(store);
       }
 
       function clearNotebookPlaygroundDraft(notebookId) {
         if (!notebookId) return;
         const store = readPlaygroundStore();
-        if (!(notebookId in store)) return;
-        delete store[notebookId];
+        if (!(notebookId in store.notebooks)) return;
+        delete store.notebooks[notebookId];
         writePlaygroundStore(store);
       }
 
