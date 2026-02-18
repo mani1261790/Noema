@@ -99,96 +99,147 @@
   <main>
 <article class="prose-noema">
 <h1 id="scikit-learnとxgboostの使い方">scikit-learnとXGBoostの使い方</h1>
-<p>scikit-learnとXGBoostの使い方では、式を暗記するより、計算の意味をコードで検証する姿勢を優先します。</p>
+<p>scikit-learn は、前処理・学習・評価を統一された API で扱えるライブラリです。<br>
+XGBoost は勾配ブースティングを高速かつ高精度に実装した手法で、タブularデータで強力な選択肢になります。</p>
+<p>このノートでは、まず scikit-learn の基本フローを固め、その上で XGBoost を同じ問題に適用して比較します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>scikit-learnとXGBoostの使い方に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>特徴量</strong>: モデルが予測に使う入力変数です。列の作り方が精度に直結します。</li>
-<li><strong>目的変数</strong>: 当てたい値です。回帰では連続値、分類ではラベルになります。</li>
-<li><strong>損失関数</strong>: 予測のずれを数値化する関数です。学習はこの値を下げる方向に進みます。</li>
-<li><strong>fit/predict</strong>: fit で学習し、predict で推論するのが標準インターフェースです。</li>
-<li><strong>勾配ブースティング</strong>: 弱学習器を逐次追加して誤差を減らす手法群です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-<h2 id="手を動かす-1-scikit-learn最小実行">手を動かす 1: scikit-learn最小実行</h2>
-<p>ライブラリを使った実装は中身理解の後に行います。ここでは API の最小単位を確認します。</p>
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix
 
-<pre><code class="language-python">x = [1, 2, 3, 4, 5]
-y = [3, 5, 7, 9, 11]
-pairs = list(zip(x, y))
-print(&#39;pairs =&#39;, pairs)
 try:
-    from sklearn.linear_model import LinearRegression
+    from xgboost import XGBClassifier
+    XGBOOST_AVAILABLE = True
 except ModuleNotFoundError:
-    print(&#39;scikit-learn is not installed&#39;)
+    XGBClassifier = None
+    XGBOOST_AVAILABLE = False
+
+sns.set_theme(style=&quot;whitegrid&quot;, context=&quot;notebook&quot;)</code></pre>
+<h2 id="1-scikit-learnの基本フロー">1. scikit-learnの基本フロー</h2>
+<p>ここでは乳がんデータセットを使って、<br>
+<code>データ分割 → パイプライン定義 → 学習 → 評価</code> を一気通貫で実行します。</p>
+<p>評価指標は Accuracy と ROC-AUC を使います。<br>
+Accuracy は分類の正解率、ROC-AUC は分類しきい値を動かしたときの識別性能（順位づけの上手さ）を見ます。</p>
+
+<pre><code class="language-python">cancer = load_breast_cancer(as_frame=True)
+X = cancer.data
+y = cancer.target
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+baseline = Pipeline([
+    (&quot;scaler&quot;, StandardScaler()),
+    (&quot;model&quot;, LogisticRegression(max_iter=2000, random_state=42)),
+])
+
+baseline.fit(X_train, y_train)
+pred = baseline.predict(X_test)
+proba = baseline.predict_proba(X_test)[:, 1]
+
+print(f&quot;accuracy: {accuracy_score(y_test, pred):.3f}&quot;)
+print(f&quot;roc_auc : {roc_auc_score(y_test, proba):.3f}&quot;)</code></pre>
+<p>混同行列を確認すると、単純な精度だけでは見えない誤分類の偏りを把握できます。</p>
+
+<pre><code class="language-python">cm = confusion_matrix(y_test, pred)
+fig, ax = plt.subplots(figsize=(4.5, 4))
+sns.heatmap(cm, annot=True, fmt=&quot;d&quot;, cmap=&quot;Greens&quot;, cbar=False, ax=ax)
+ax.set_title(&quot;Logistic Regression Confusion Matrix&quot;)
+ax.set_xlabel(&quot;Predicted&quot;)
+ax.set_ylabel(&quot;Actual&quot;)
+plt.show()</code></pre>
+<h2 id="2-交差検証とハイパーパラメータ探索">2. 交差検証とハイパーパラメータ探索</h2>
+<p>分割1回の評価だけでは偶然の影響が残るので、交差検証で安定性を見ます。<br>
+その後、<code>GridSearchCV</code> で <code>C</code> を探索します。</p>
+<p>ここでの流れは次の通りです。</p>
+<ul>
+<li>まず CV で、モデル設定が全体として安定しているかを確認</li>
+<li>次に訓練データ側で GridSearch を実行し、テストデータは最後まで未使用に保つ</li>
+</ul>
+<p>こうすることで、チューニング結果を過度に楽観視しにくくなります。</p>
+
+<pre><code class="language-python">cv_scores = cross_val_score(
+    baseline,
+    X,
+    y,
+    cv=5,
+    scoring=&quot;roc_auc&quot;,
+)
+print(&quot;CV ROC-AUC (5-fold):&quot;, np.round(cv_scores, 4))
+print(&quot;mean:&quot;, cv_scores.mean())</code></pre>
+<pre><code class="language-python">search = GridSearchCV(
+    estimator=Pipeline([
+        (&quot;scaler&quot;, StandardScaler()),
+        (&quot;model&quot;, LogisticRegression(max_iter=2000, random_state=42)),
+    ]),
+    param_grid={
+        &quot;model__C&quot;: [0.01, 0.1, 1.0, 3.0, 10.0],
+    },
+    cv=5,
+    scoring=&quot;roc_auc&quot;,
+    n_jobs=-1,
+)
+search.fit(X_train, y_train)
+
+best_lr = search.best_estimator_
+best_pred = best_lr.predict(X_test)
+best_proba = best_lr.predict_proba(X_test)[:, 1]
+
+print(&quot;best params:&quot;, search.best_params_)
+print(f&quot;tuned accuracy: {accuracy_score(y_test, best_pred):.3f}&quot;)
+print(f&quot;tuned roc_auc : {roc_auc_score(y_test, best_proba):.3f}&quot;)</code></pre>
+<h2 id="3-xgboostを同じ問題に適用する">3. XGBoostを同じ問題に適用する</h2>
+<p>XGBoost が利用可能な環境では、同じ学習データで性能比較します。<br>
+XGBoost は木ベースなので、今回の設定では標準化を必須としません。</p>
+
+<pre><code class="language-python">if XGBOOST_AVAILABLE:
+    xgb = XGBClassifier(
+        n_estimators=300,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        eval_metric=&quot;logloss&quot;,
+        random_state=42,
+    )
+    xgb.fit(X_train, y_train)
+
+    xgb_pred = xgb.predict(X_test)
+    xgb_proba = xgb.predict_proba(X_test)[:, 1]
+
+    print(f&quot;xgb accuracy: {accuracy_score(y_test, xgb_pred):.3f}&quot;)
+    print(f&quot;xgb roc_auc : {roc_auc_score(y_test, xgb_proba):.3f}&quot;)
 else:
-    X = [[1], [2], [3], [4]]
-    y = [2, 4, 6, 8]
-    model = LinearRegression().fit(X, y)
-    print(&#39;coef =&#39;, model.coef_[0], &#39;intercept =&#39;, model.intercept_)</code></pre>
-<p>API を最小例で確認してから本番データへ移ると、デバッグの切り分けがしやすくなります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    print(&quot;xgboost がインストールされていないため、このセルはスキップされました。&quot;)</code></pre>
+<p>XGBoost を使えた場合は、重要特徴量を見て学習がどこに注目したかを確認します。</p>
 
-<h2 id="手を動かす-2-単回帰を手で計算する">手を動かす 2: 単回帰を手で計算する</h2>
-<p>次に、最小二乗法の係数を手計算で求めます。既存ライブラリを使う前に中身を一度体験すると理解が安定します。</p>
-
-<pre><code class="language-python">x_bar = sum(x) / len(x)
-y_bar = sum(y) / len(y)
-num = sum((xi - x_bar) * (yi - y_bar) for xi, yi in pairs)
-den = sum((xi - x_bar) ** 2 for xi in x)
-w1 = num / den; w0 = y_bar - w1 * x_bar
-print(&#39;w0, w1 =&#39;, round(w0, 4), round(w1, 4))</code></pre>
-<p>式の記号は抽象的に見えますが、コードでは平均・差分・和に分解されます。難しい式ほど、実装で部品に分けて確認するのが有効です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="数式メモ">数式メモ</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{y} = f_{\theta}(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi><mo>(</mo><mi>θ</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mn>1</mn></mrow><mrow><mi>N</mi></mrow></mfrac><msub><mo>∑</mo><mi>i</mi></msub><mi mathvariant="normal">ℓ</mi><mo>(</mo><msub><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mi>i</mi></msub><mo separator="true">,</mo><msub><mi>y</mi><mi>i</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L(\theta) = \frac{1}{N}\sum_i \ell(\hat{y}_i, y_i)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.845108em;"></span><span class="strut bottom" style="height:1.190108em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord mathit">L</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.10903em;">N</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">ℓ</span><span class="mopen">(</span><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
-
-<h2 id="手を動かす-3-予測と誤差を見る">手を動かす 3: 予測と誤差を見る</h2>
-<p>ここで、求めた係数で予測を出し、誤差を数値化します。モデル改善は誤差の観察から始まります。</p>
-
-<pre><code class="language-python">pred = [w0 + w1 * xi for xi in x]
-residual = [yi - pi for yi, pi in zip(y, pred)]
-mse = sum((r ** 2) for r in residual) / len(residual)
-print(&#39;pred =&#39;, pred)
-print(&#39;mse =&#39;, round(mse, 8))</code></pre>
-<p>誤差を観察するときは、平均値だけでなく個別の残差も見てください。偏りがあると、モデル構造の見直しが必要になります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="手を動かす-4-特徴量を拡張する">手を動かす 4: 特徴量を拡張する</h2>
-<p>次に、特徴量を追加したときに表現力がどう変わるかを確認します。特徴量設計は精度に直接効く実装作業です。</p>
-
-<pre><code class="language-python">x2 = [xi ** 2 for xi in x]
-feature = list(zip(x, x2))
-print(&#39;feature sample =&#39;, feature[:3])
-scaled_x = [(xi - x_bar) / (max(x) - min(x)) for xi in x]
-print(&#39;scaled_x =&#39;, [round(v, 4) for v in scaled_x])</code></pre>
-<p>特徴量を増やすと表現力は上がりますが、同時に過学習リスクも増えます。増やす理由を説明できる特徴だけを採用する姿勢が重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="手を動かす-5-評価分割を体験する">手を動かす 5: 評価分割を体験する</h2>
-<p>最後に、学習と評価を分ける意味をコードで確かめます。分割しない評価は自己採点に近く、実運用の性能を過大評価しがちです。</p>
-
-<pre><code class="language-python">train_x, test_x = x[:3], x[3:]
-train_y, test_y = y[:3], y[3:]
-pred_test = [w0 + w1 * xi for xi in test_x]
-mae_test = sum(abs(yi - pi) for yi, pi in zip(test_y, pred_test)) / len(test_y)
-print(&#39;test mae =&#39;, round(mae_test, 6))</code></pre>
-<p>検証データでの誤差が急に悪化したら、モデルより先にデータ分布の差を疑ってください。この視点は実務で非常に重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="この節の要点">この節の要点</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>訓練データと評価データの分布差を見ない</li>
-<li>単一スコアだけでモデルを選んでしまう</li>
-<li>前処理の漏れを評価後に気づく</li>
-</ol>
+<pre><code class="language-python">if XGBOOST_AVAILABLE:
+    importances = pd.Series(xgb.feature_importances_, index=X.columns).sort_values(ascending=False).head(12)
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    sns.barplot(x=importances.values, y=importances.index, orient=&quot;h&quot;, ax=ax)
+    ax.set_title(&quot;Top 12 Feature Importances (XGBoost)&quot;)
+    ax.set_xlabel(&quot;importance&quot;)
+    ax.set_ylabel(&quot;feature&quot;)
+    plt.tight_layout()
+    plt.show()
+else:
+    print(&quot;xgboost 未導入のため、重要特徴量の表示をスキップしました。&quot;)</code></pre>
+<h2 id="4-使い分けの実務メモ">4. 使い分けの実務メモ</h2>
+<ul>
+<li>scikit-learn: 実験の土台を作るのが速く、比較実験を回しやすい</li>
+<li>XGBoost: 表形式データで高い精度を狙いやすい</li>
+</ul>
+<p>まず scikit-learn で前処理と評価設計を固め、<br>
+次に XGBoost を含む複数モデルを同一条件で比較する流れが実践的です。</p>
 
 </article>
   </main>

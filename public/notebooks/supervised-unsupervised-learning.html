@@ -99,89 +99,167 @@
   <main>
 <article class="prose-noema">
 <h1 id="教師あり学習と教師なし学習">教師あり学習と教師なし学習</h1>
-<p>教師あり学習と教師なし学習では、式を暗記するより、計算の意味をコードで検証する姿勢を優先します。</p>
+<p>機械学習の入口で最初に分かれるのが「正解ラベルがあるかどうか」です。<br>
+教師あり学習は、入力と正解の対応を学んで予測する枠組みです。教師なし学習は、正解がないデータから構造やまとまりを見つけます。</p>
+<p>このノートでは、同じような数値データを使って両者を比較し、<br>
+どんな問いにどちらを使うべきかを、コードと結果の対応で確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>教師あり学習と教師なし学習に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import make_classification, make_blobs, load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, silhouette_score
+
+sns.set_theme(style=&quot;whitegrid&quot;, context=&quot;notebook&quot;)</code></pre>
+<h2 id="教師あり学習-ラベルありデータで予測する">教師あり学習: ラベルありデータで予測する</h2>
+<p>まずは二値分類データを作り、<code>0</code> と <code>1</code> を予測する問題を作ります。<br>
+ここでは「ラベルがある」ことが重要で、モデルはこのラベルを目標に学習します。</p>
+
+<pre><code class="language-python">X, y = make_classification(
+    n_samples=600,
+    n_features=6,
+    n_informative=4,
+    n_redundant=1,
+    class_sep=1.2,
+    random_state=42,
+)
+
+feature_names = [f&quot;x{i}&quot; for i in range(X.shape[1])]
+df_cls = pd.DataFrame(X, columns=feature_names)
+df_cls[&quot;label&quot;] = y
+
+df_cls.head()</code></pre>
+<p>学習時に訓練データと評価データを分けるのは、汎化性能を確認するためです。<br>
+評価データを分けずに性能を見ると、実運用での精度を過大評価しやすくなります。</p>
+
+<pre><code class="language-python">X_train, X_test, y_train, y_test = train_test_split(
+    df_cls[feature_names],
+    df_cls[&quot;label&quot;],
+    test_size=0.25,
+    random_state=42,
+    stratify=df_cls[&quot;label&quot;],
+)
+
+clf = Pipeline([
+    (&quot;scaler&quot;, StandardScaler()),
+    (&quot;model&quot;, LogisticRegression(max_iter=1000, random_state=42)),
+])
+clf.fit(X_train, y_train)
+
+pred = clf.predict(X_test)
+acc = accuracy_score(y_test, pred)
+print(f&quot;test accuracy: {acc:.3f}&quot;)</code></pre>
+<p>分類では、正解率だけでなく混同行列を確認すると、<br>
+どのクラスで間違っているかを具体的に把握できます。</p>
+
+<pre><code class="language-python">cm = confusion_matrix(y_test, pred)
+fig, ax = plt.subplots(figsize=(4.5, 4))
+sns.heatmap(cm, annot=True, fmt=&quot;d&quot;, cmap=&quot;Blues&quot;, cbar=False, ax=ax)
+ax.set_title(&quot;Confusion Matrix&quot;)
+ax.set_xlabel(&quot;Predicted&quot;)
+ax.set_ylabel(&quot;Actual&quot;)
+plt.show()
+
+print(classification_report(y_test, pred, digits=3))</code></pre>
+<p>標準化の有無で精度がどう変わるかを見ると、<br>
+前処理がモデル性能に与える影響を体感できます。</p>
+
+<pre><code class="language-python">clf_no_scale = LogisticRegression(max_iter=1000, random_state=42)
+clf_no_scale.fit(X_train, y_train)
+pred_no_scale = clf_no_scale.predict(X_test)
+
+acc_no_scale = accuracy_score(y_test, pred_no_scale)
+print(f&quot;without scaling: {acc_no_scale:.3f}&quot;)
+print(f&quot;with scaling   : {acc:.3f}&quot;)</code></pre>
+<h2 id="教師なし学習-ラベルなしデータで構造を見つける">教師なし学習: ラベルなしデータで構造を見つける</h2>
+<p>次はクラスタリングです。ここでは学習時に正解ラベルを使いません。<br>
+「似た点を同じグループにまとめる」こと自体が目的になります。</p>
+
+<pre><code class="language-python">X_blob, _ = make_blobs(
+    n_samples=450,
+    centers=3,
+    cluster_std=1.2,
+    n_features=2,
+    random_state=42,
+)
+
+fig, ax = plt.subplots(figsize=(5, 4))
+ax.scatter(X_blob[:, 0], X_blob[:, 1], s=18, alpha=0.8)
+ax.set_title(&quot;Unlabeled Data for Clustering&quot;)
+ax.set_xlabel(&quot;feature 1&quot;)
+ax.set_ylabel(&quot;feature 2&quot;)
+plt.show()</code></pre>
+<p>クラスタ数 <code>k</code> は先に与える必要があります。<br>
+<code>inertia</code> と <code>silhouette</code> を併せて見ると、極端な <code>k</code> を避けやすくなります。</p>
 <ul>
-<li><strong>特徴量</strong>: モデルが予測に使う入力変数です。列の作り方が精度に直結します。</li>
-<li><strong>目的変数</strong>: 当てたい値です。回帰では連続値、分類ではラベルになります。</li>
-<li><strong>損失関数</strong>: 予測のずれを数値化する関数です。学習はこの値を下げる方向に進みます。</li>
-<li><strong>教師あり学習</strong>: 正解ラベル付きデータから入力→出力の対応を学ぶ方法です。</li>
-<li><strong>教師なし学習</strong>: ラベルなしデータから構造や類似性を抽出する方法です。</li>
+<li>inertia: 各点と所属クラスタ中心の距離二乗和（小さいほどまとまりが良い）</li>
+<li>silhouette: クラスタ内の近さとクラスタ間の離れ具合のバランス（-1〜1で高いほど良い）</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>inertia は <code>k</code> を増やすと下がりやすいので、silhouette とセットで判断するのが実践的です。</p>
 
-<h2 id="観察-1-教師あり-教師なしの比較用データ">観察 1: 教師あり・教師なしの比較用データ</h2>
-<p>同じ系列を、ラベルあり/なしの2つの見方で扱う準備をします。</p>
+<pre><code class="language-python">rows = []
+for k in range(2, 8):
+    km = KMeans(n_clusters=k, n_init=20, random_state=42)
+    labels = km.fit_predict(X_blob)
+    rows.append({
+        &quot;k&quot;: k,
+        &quot;inertia&quot;: km.inertia_,
+        &quot;silhouette&quot;: silhouette_score(X_blob, labels)
+    })
 
-<pre><code class="language-python">x = [1, 2, 3, 6, 7, 8]
-y = [1.0, 1.8, 2.7, 6.5, 7.1, 8.2]
-pairs = list(zip(x, y))
-labels = [&#39;A&#39;, &#39;A&#39;, &#39;A&#39;, &#39;B&#39;, &#39;B&#39;, &#39;B&#39;]
-print(&#39;task = supervised-unsupervised-learning&#39;)
-print(&#39;pairs =&#39;, pairs, &#39;labels =&#39;, labels)</code></pre>
-<p>この準備で、予測問題とクラスタ問題の違いを同じ土台で比較できます。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+k_report = pd.DataFrame(rows)
+k_report</code></pre>
+<p>ここでは <code>k=3</code> を選んで可視化します。<br>
+教師ありと違い、評価は「正解と一致したか」ではなく、点群のまとまりの良さで判断します。</p>
 
-<h2 id="観察-2-単回帰を手で計算する">観察 2: 単回帰を手で計算する</h2>
-<p>次に、最小二乗法の係数を手計算で求めます。既存ライブラリを使う前に中身を一度体験すると理解が安定します。</p>
+<pre><code class="language-python">kmeans = KMeans(n_clusters=3, n_init=20, random_state=42)
+cluster_id = kmeans.fit_predict(X_blob)
+centers = kmeans.cluster_centers_
 
-<pre><code class="language-python">x_bar = sum(x) / len(x)
-y_bar = sum(y) / len(y)
-num = sum((xi - x_bar) * (yi - y_bar) for xi, yi in pairs)
-den = sum((xi - x_bar) ** 2 for xi in x)
-w1 = num / den; w0 = y_bar - w1 * x_bar
-print(&#39;w0, w1 =&#39;, round(w0, 4), round(w1, 4))</code></pre>
-<p>式の記号は抽象的に見えますが、コードでは平均・差分・和に分解されます。難しい式ほど、実装で部品に分けて確認するのが有効です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+fig, ax = plt.subplots(figsize=(5.5, 4.2))
+scatter = ax.scatter(X_blob[:, 0], X_blob[:, 1], c=cluster_id, cmap=&quot;tab10&quot;, s=22, alpha=0.8)
+ax.scatter(centers[:, 0], centers[:, 1], c=&quot;black&quot;, marker=&quot;X&quot;, s=140, label=&quot;centers&quot;)
+ax.legend(loc=&quot;best&quot;)
+ax.set_title(&quot;KMeans Clustering (k=3)&quot;)
+ax.set_xlabel(&quot;feature 1&quot;)
+ax.set_ylabel(&quot;feature 2&quot;)
+plt.show()</code></pre>
+<p>教師なし学習の代表例として次元圧縮も確認します。<br>
+PCA は「情報の分散が大きい方向」を優先して、特徴量を少数次元へ圧縮します。</p>
+<p>PCA は特徴量スケールに影響されるため、先に標準化してから実行するのが基本です。<br>
+出力される <code>explained_variance_ratio_</code> は、各主成分が全体の分散の何割を説明しているかを表します。</p>
 
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{y} = f_{\theta}(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi><mo>(</mo><mi>θ</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mn>1</mn></mrow><mrow><mi>N</mi></mrow></mfrac><msub><mo>∑</mo><mi>i</mi></msub><mi mathvariant="normal">ℓ</mi><mo>(</mo><msub><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mi>i</mi></msub><mo separator="true">,</mo><msub><mi>y</mi><mi>i</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L(\theta) = \frac{1}{N}\sum_i \ell(\hat{y}_i, y_i)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.845108em;"></span><span class="strut bottom" style="height:1.190108em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord mathit">L</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.10903em;">N</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">ℓ</span><span class="mopen">(</span><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
+<pre><code class="language-python">iris = load_iris(as_frame=True)
+X_iris = iris.data
+y_iris = iris.target
 
-<h2 id="観察-3-予測と誤差を見る">観察 3: 予測と誤差を見る</h2>
-<p>ここで、求めた係数で予測を出し、誤差を数値化します。モデル改善は誤差の観察から始まります。</p>
+X_iris_scaled = StandardScaler().fit_transform(X_iris)
+pca = PCA(n_components=2, random_state=42)
+X_iris_2d = pca.fit_transform(X_iris_scaled)
 
-<pre><code class="language-python">pred = [w0 + w1 * xi for xi in x]
-residual = [yi - pi for yi, pi in zip(y, pred)]
-mse = sum((r ** 2) for r in residual) / len(residual)
-print(&#39;pred =&#39;, pred)
-print(&#39;mse =&#39;, round(mse, 8))</code></pre>
-<p>誤差を観察するときは、平均値だけでなく個別の残差も見てください。偏りがあると、モデル構造の見直しが必要になります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+pca_df = pd.DataFrame(X_iris_2d, columns=[&quot;PC1&quot;, &quot;PC2&quot;])
+pca_df[&quot;species&quot;] = y_iris.map({0: &quot;setosa&quot;, 1: &quot;versicolor&quot;, 2: &quot;virginica&quot;})
 
-<h2 id="観察-4-特徴量を拡張する">観察 4: 特徴量を拡張する</h2>
-<p>次に、特徴量を追加したときに表現力がどう変わるかを確認します。特徴量設計は精度に直接効く実装作業です。</p>
+fig, ax = plt.subplots(figsize=(6, 4.5))
+sns.scatterplot(data=pca_df, x=&quot;PC1&quot;, y=&quot;PC2&quot;, hue=&quot;species&quot;, ax=ax)
+ax.set_title(&quot;PCA Projection of Iris&quot;)
+plt.show()
 
-<pre><code class="language-python">x2 = [xi ** 2 for xi in x]
-feature = list(zip(x, x2))
-print(&#39;feature sample =&#39;, feature[:3])
-scaled_x = [(xi - x_bar) / (max(x) - min(x)) for xi in x]
-print(&#39;scaled_x =&#39;, [round(v, 4) for v in scaled_x])</code></pre>
-<p>特徴量を増やすと表現力は上がりますが、同時に過学習リスクも増えます。増やす理由を説明できる特徴だけを採用する姿勢が重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-5-評価分割を体験する">観察 5: 評価分割を体験する</h2>
-<p>最後に、学習と評価を分ける意味をコードで確かめます。分割しない評価は自己採点に近く、実運用の性能を過大評価しがちです。</p>
-
-<pre><code class="language-python">train_x, test_x = x[:3], x[3:]
-train_y, test_y = y[:3], y[3:]
-pred_test = [w0 + w1 * xi for xi in test_x]
-mae_test = sum(abs(yi - pi) for yi, pi in zip(test_y, pred_test)) / len(test_y)
-print(&#39;test mae =&#39;, round(mae_test, 6))</code></pre>
-<p>検証データでの誤差が急に悪化したら、モデルより先にデータ分布の差を疑ってください。この視点は実務で非常に重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>訓練データと評価データの分布差を見ない</li>
-<li>単一スコアだけでモデルを選んでしまう</li>
-<li>前処理の漏れを評価後に気づく</li>
-</ol>
+print(&quot;explained variance ratio:&quot;, pca.explained_variance_ratio_)</code></pre>
+<h2 id="まとめ">まとめ</h2>
+<ul>
+<li>教師あり学習: ラベルを使って予測器を作る（分類・回帰）</li>
+<li>教師なし学習: ラベルなしデータから構造を見つける（クラスタリング・次元圧縮）</li>
+</ul>
+<p>実務では、教師なしでデータの構造を把握してから、教師ありで予測モデルを構築する流れもよく使われます。</p>
 
 </article>
   </main>
