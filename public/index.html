@@ -2889,15 +2889,64 @@
         const notebookCount = notebooks.length;
         const firstNotebookId = notebooks[0]?.id || "";
         const assistantStateLabel = state.loggedIn ? "有効" : "ログインで有効化";
+        const isMobileHome = isCompactMobileView();
+        const heroLead = isMobileHome
+          ? "右下のドックから教材メニューとAssistantを切り替えながら、短いサイクルで理解を積み上げます。"
+          : "機械学習・LLM・強化学習を、ノートを実行しながら段階的に学べます。サイドバーから教材を選び、詰まったら Assistant にそのまま質問してください。";
+        const homeCards = isMobileHome
+          ? [
+              {
+                icon: "01",
+                title: "モバイル導線で迷わない",
+                text: "右下ドックのメニューから教材一覧、Assistantアイコンから質問へ。画面遷移を最小化して学習を続けられます。"
+              },
+              {
+                icon: "02",
+                title: "コードを即時に検証",
+                text: "ノート内コードはその場で実行できます。実行結果を見ながら説明に戻る流れを崩しません。"
+              },
+              {
+                icon: "03",
+                title: "選択箇所を直接質問",
+                text: "気になる本文を選択して質問すると、該当文脈を優先して回答。スマホでもピンポイントに疑問を解消できます。"
+              }
+            ]
+          : [
+              {
+                icon: "01",
+                title: "読むだけで終わらない",
+                text: "教材本文のコードはページ内で実行できます。値を変えて挙動を観察し、概念をその場で検証できます。"
+              },
+              {
+                icon: "02",
+                title: "文脈付きで質問",
+                text: "本文を選択して質問すると、その選択箇所を文脈に含めて回答します。曖昧な質問でも意図が伝わりやすくなります。"
+              },
+              {
+                icon: "03",
+                title: "学習サイクルを高速化",
+                text: "読む・試す・質問するを同じ画面で繰り返し、理解を段階的に深められます。"
+              }
+            ];
+        const cardsHtml = homeCards
+          .map(
+            (card) => `
+              <article class="home-card glass-soft">
+                <div class="home-card-head"><span class="home-card-icon">${card.icon}</span><strong>${escapeHtml(card.title)}</strong></div>
+                <p>${escapeHtml(card.text)}</p>
+              </article>
+            `
+          )
+          .join("");
 
         el.notebookContent.innerHTML = `
-          <section class="home-stage">
+          <section class="home-stage ${isMobileHome ? "home-stage-mobile" : ""}">
             <section class="home-hero-shell glass-soft">
               <div class="home-hero-top">
                 <div>
-                  <p class="home-kicker">Noema Learning Hub</p>
+                  <p class="home-kicker">${isMobileHome ? "Noema Mobile Learning" : "Noema Learning Hub"}</p>
                   <h3 class="home-title">教材トップ</h3>
-                  <p class="home-lead">機械学習・LLM・強化学習を、ノートを実行しながら段階的に学べます。サイドバーから教材を選び、詰まったら Assistant にそのまま質問してください。</p>
+                  <p class="home-lead">${heroLead}</p>
                 </div>
                 <div class="home-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
               </div>
@@ -2916,27 +2965,12 @@
                 </article>
               </div>
               <div class="home-cta-row">
-                <button class="button home-cta" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>最初の教材を開く</button>
+                <button class="button home-cta" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${isMobileHome ? "最初の教材を開く" : "最初の教材を開く"}</button>
                 <button class="button-ghost home-cta-ghost" type="button" data-home-action="assistant">${state.loggedIn ? "Assistantを開く" : "ログインして質問する"}</button>
               </div>
             </section>
             <section class="home-grid">
-              <article class="home-card glass-soft">
-                <div class="home-card-head"><span class="home-card-icon">01</span><strong>読むだけで終わらない</strong></div>
-                <p>教材本文のコードはページ内で実行できます。値を変えて挙動を観察し、概念をその場で検証できます。</p>
-              </article>
-              <article class="home-card glass-soft">
-                <div class="home-card-head"><span class="home-card-icon">02</span><strong>文脈付きで質問</strong></div>
-                <p>本文を選択して質問すると、その選択箇所を文脈に含めて回答します。曖昧な質問でも意図が伝わりやすくなります。</p>
-              </article>
-              <article class="home-card glass-soft">
-                <div class="home-card-head"><span class="home-card-icon">03</span><strong>Colab で再現</strong></div>
-                <p>ヘッダーの Colab ボタンから外部実行環境へ遷移可能。ローカル依存なしで再現性の高い確認ができます。</p>
-              </article>
-              <article class="home-card glass-soft">
-                <div class="home-card-head"><span class="home-card-icon">04</span><strong>管理と学習を分離</strong></div>
-                <p>教材閲覧は軽く、管理作業は管理画面へ集約。学習導線を崩さずにコンテンツ更新を継続できます。</p>
-              </article>
+              ${cardsHtml}
             </section>
           </section>
         `;
@@ -4259,6 +4293,9 @@
           setElementVisibility(el.adminLinkMobile, !isCompactMobileView());
         }
         syncChatFabState();
+        if (!state.activeNotebook) {
+          renderHomeDashboard();
+        }
       });
 
       void init();
