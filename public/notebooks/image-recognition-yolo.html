@@ -99,97 +99,381 @@
   <main>
 <article class="prose-noema">
 <h1 id="画像認識-yoloを含む">画像認識（YOLOを含む）</h1>
-<p>画像認識（YOLOを含む）は、損失が下がる理由を『式』と『数値変化』の両方で確認する構成です。</p>
-
-<h2 id="概念の土台">概念の土台</h2>
-<p>画像認識（YOLOを含む）に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>画像認識には大きく3種類あります。</p>
 <ul>
-<li><strong>パラメータ θ</strong>: モデルが学習で更新する重み集合です。予測の形を決めます。</li>
-<li><strong>順伝播</strong>: 入力から出力へ値を流して予測を計算する過程です。</li>
-<li><strong>逆伝播</strong>: 損失から勾配を計算して各パラメータの更新量を求める過程です。</li>
-<li><strong>バウンディングボックス</strong>: 物体位置を矩形で表す予測形式です。</li>
-<li><strong>IoU</strong>: 予測矩形と正解矩形の重なり率です。検出評価の基礎です。</li>
-<li><strong>NMS</strong>: 重複検出を抑える後処理です。</li>
+<li>画像分類: 画像全体に1つのラベルを付ける</li>
+<li>物体検出: 物体の位置（バウンディングボックス）とクラスを出す</li>
+<li>セグメンテーション: 画素ごとにクラスを出す</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>このノートでは、物体検出を中心に、YOLOで必要になる計算を順に確認します。<br>
+最後に、CNNバックボーンとViTバックボーンの関係も整理します。</p>
 
-<h2 id="観察-1-yolo出力テンソルの形">観察 1: YOLO出力テンソルの形</h2>
-<p>物体検出の実装で最初に混乱しやすいのは出力次元です。最小コードで形を固定して理解します。</p>
+<pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
 
-<pre><code class="language-python">import math
-grid_h, grid_w, anchors, classes = 13, 13, 3, 80
-channels = anchors * (5 + classes)
-print(&#39;output shape =&#39;, (grid_h, grid_w, channels))
-print(&#39;per_anchor_dim =&#39;, 5 + classes)
-print(&#39;total_boxes =&#39;, grid_h * grid_w * anchors)
-x = [0.8, -0.4, 0.2]
-w = [0.3, -0.6, 0.5]
-z = sum(xi * wi for xi, wi in zip(x, w)) + 0.1
-y = 1 / (1 + math.exp(-z))
-print(&#39;seed probability =&#39;, round(y, 4))</code></pre>
-<p>次元を先に理解すると、後続のデコード実装で起こるインデックスバグを大幅に減らせます。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+try:
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    TORCH_AVAILABLE = True
+except ModuleNotFoundError:
+    torch = None
+    nn = None
+    optim = None
+    TORCH_AVAILABLE = False
 
-<h2 id="観察-2-損失を計算する">観察 2: 損失を計算する</h2>
-<p>次に、予測値に対する損失を計算します。学習は損失を下げる方向に進むので、損失の意味を言葉で説明できることが重要です。</p>
+np.random.seed(42)</code></pre>
+<p>まずは、バウンディングボックスの表現を統一します。</p>
+<p>このノートでは画像座標を使います。原点は左上 <code>(0, 0)</code>、<code>x</code> は右向き、<code>y</code> は下向きに増えます。<br>
+<code>xyxy</code> は <code>(x1, y1, x2, y2)</code>、<code>xywh</code> は <code>(cx, cy, w, h)</code> です。</p>
+<p>ここでは <code>xyxy</code>（左上x, 左上y, 右下x, 右下y）と <code>xywh</code>（中心x, 中心y, 幅, 高さ）を相互変換する関数を用意します。</p>
 
-<pre><code class="language-python">target = 1.0
-eps = 1e-9
-loss = -(target * math.log(y + eps) + (1 - target) * math.log(1 - y + eps))
-print(&#39;loss =&#39;, round(loss, 6))
-print(&#39;error =&#39;, round(target - y, 6))</code></pre>
-<p>損失は『どれだけ外したか』を測る物差しです。物差しがない状態では、改善の方向を決められません。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">def xywh_to_xyxy(box_xywh):
+    cx, cy, w, h = box_xywh
+    x1 = cx - w / 2
+    y1 = cy - h / 2
+    x2 = cx + w / 2
+    y2 = cy + h / 2
+    return np.array([x1, y1, x2, y2], dtype=np.float64)
 
-<h2 id="計算の対応表">計算の対応表</h2>
+
+def xyxy_to_xywh(box_xyxy):
+    x1, y1, x2, y2 = box_xyxy
+    cx = (x1 + x2) / 2
+    cy = (y1 + y2) / 2
+    w = max(0.0, x2 - x1)
+    h = max(0.0, y2 - y1)
+    return np.array([cx, cy, w, h], dtype=np.float64)</code></pre>
+<pre><code class="language-python">sample_xywh = np.array([40.0, 30.0, 28.0, 18.0])
+converted = xywh_to_xyxy(sample_xywh)
+back = xyxy_to_xywh(converted)
+
+print(&#39;xywh -&gt; xyxy:&#39;, np.round(converted, 3))
+print(&#39;xyxy -&gt; xywh:&#39;, np.round(back, 3))</code></pre>
+<p>IoU（Intersection over Union）は、予測ボックスと正解ボックスの重なり具合を測る指標です。</p>
+<p><code>IoU = 重なり面積 / (予測面積 + 正解面積 - 重なり面積)</code> で定義します。<br>
+<code>IoU=1</code> に近いほど一致、<code>IoU=0</code> に近いほど不一致です。<br>
+物体検出では「当たったかどうか」の判定や AP/mAP 計算で中心的に使います。</p>
+
+<pre><code class="language-python">def iou_xyxy(box_a, box_b):
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+
+    inter_x1 = max(ax1, bx1)
+    inter_y1 = max(ay1, by1)
+    inter_x2 = min(ax2, bx2)
+    inter_y2 = min(ay2, by2)
+
+    inter_w = max(0.0, inter_x2 - inter_x1)
+    inter_h = max(0.0, inter_y2 - inter_y1)
+    inter_area = inter_w * inter_h
+
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    union = area_a + area_b - inter_area
+
+    return 0.0 if union &lt;= 0 else inter_area / union
+
+
+gt = np.array([20.0, 20.0, 60.0, 52.0])
+p1 = np.array([18.0, 24.0, 62.0, 54.0])
+p2 = np.array([45.0, 20.0, 80.0, 48.0])
+
+print(&#39;IoU(pred1, gt):&#39;, round(iou_xyxy(p1, gt), 4))
+print(&#39;IoU(pred2, gt):&#39;, round(iou_xyxy(p2, gt), 4))</code></pre>
+<pre><code class="language-python">canvas = np.zeros((80, 100), dtype=np.float64)
+
+fig, ax = plt.subplots(figsize=(6.6, 4.0))
+ax.imshow(canvas, cmap=&#39;gray&#39;, vmin=0, vmax=1)
+
+
+def draw_box(ax, b, color, label):
+    x1, y1, x2, y2 = b
+    rect = plt.Rectangle((x1, y1), x2 - x1, y2 - y1, fill=False, edgecolor=color, linewidth=2)
+    ax.add_patch(rect)
+    ax.text(x1, y1 - 2, label, color=color, fontsize=9)
+
+
+draw_box(ax, gt, &#39;lime&#39;, &#39;gt&#39;)
+draw_box(ax, p1, &#39;cyan&#39;, &#39;pred1&#39;)
+draw_box(ax, p2, &#39;orange&#39;, &#39;pred2&#39;)
+ax.set_title(&#39;Bounding Boxes and Overlap&#39;)
+ax.axis(&#39;off&#39;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>物体検出では近い位置に重複予測が出やすいため、NMS（Non-Maximum Suppression）で重複を間引きます。<br>
+スコア順に見て、IoUが高いボックスを抑制するのが基本です。</p>
+<p>下は単一クラスを想定した最小実装です。マルチクラスではクラスごとにNMSを行います。</p>
+
+<pre><code class="language-python">def nms(boxes, scores, iou_thresh=0.5):
+    boxes = np.asarray(boxes, dtype=np.float64)
+    scores = np.asarray(scores, dtype=np.float64)
+
+    order = np.argsort(scores)[::-1]
+    keep = []
+
+    while len(order) &gt; 0:
+        i = order[0]
+        keep.append(i)
+
+        rest = order[1:]
+        remaining = []
+        for j in rest:
+            if iou_xyxy(boxes[i], boxes[j]) &lt; iou_thresh:
+                remaining.append(j)
+        order = np.array(remaining, dtype=int)
+
+    return keep
+
+
+boxes = np.array([
+    [16, 18, 58, 50],
+    [18, 20, 60, 52],
+    [44, 18, 79, 47],
+    [10, 40, 36, 70],
+], dtype=np.float64)
+
+scores = np.array([0.86, 0.91, 0.63, 0.58])
+keep_idx = nms(boxes, scores, iou_thresh=0.45)
+
+print(&#39;keep index:&#39;, keep_idx)
+print(&#39;kept boxes:&#39;)
+print(boxes[keep_idx])</code></pre>
+<p>次に YOLO の出力テンソルを見ます。</p>
+<p>ここでは簡略版として、<code>S x S</code> グリッドの各セルに <code>B</code> 個のボックスと <code>C</code> クラス確率を持つ形式を使います。<br>
+例えば <code>image_size=96, S=6</code> なら1セルは <code>16x16</code> ピクセルです。<br>
+<code>B=2, C=3</code> なら各セルの出力次元は <code>2*5+3=13</code> なので、全体出力は <code>(6, 6, 13)</code> です。</p>
+<p>テンソルは「数字を並べた箱」、アンカーは「各セルに用意した基準ボックスの型」です。<br>
+物体中心が入ったセルを担当セルと呼び、そのセル内で最も適したアンカー1本に教師信号を与えます。</p>
+
+<pre><code class="language-python">def iou_on_wh(box_wh, anchor_wh):
+    # 中心を一致させ、幅と高さだけで形状の近さを測るIoU（アンカー選択用）
+    bw, bh = box_wh
+    aw, ah = anchor_wh
+    inter = min(bw, aw) * min(bh, ah)
+    union = bw * bh + aw * ah - inter
+    return inter / (union + 1e-12)
+
+
+def encode_yolo_target(gt_box_xyxy, class_id, image_size=96, S=6, B=2, C=3, anchors_wh=None):
+    # target shape: (S, S, B*5 + C)
+    # per anchor: (tx, ty, tw, th, obj)
+    target = np.zeros((S, S, B * 5 + C), dtype=np.float64)
+
+    # anchors_wh are normalized by image size (w,h in 0~1)
+    if anchors_wh is None:
+        if B == 2:
+            anchors_wh = np.array([[0.25, 0.25], [0.45, 0.45]], dtype=np.float64)
+        else:
+            sizes = np.linspace(0.2, 0.5, B)
+            anchors_wh = np.stack([sizes, sizes], axis=1)
+
+    gt_xywh = xyxy_to_xywh(gt_box_xyxy)
+    cx, cy, w, h = gt_xywh
+
+    cell_size = image_size / S
+    col = min(S - 1, int(cx // cell_size))
+    row = min(S - 1, int(cy // cell_size))
+
+    # cell_x, cell_y: relative position inside the cell (0~1)
+    # cell_w, cell_h: normalized by image_size (0~1)
+    # NOTE: この教材では tw/th の anchor-relative 変換(log比)を省略した簡略形を使う
+    cell_x = (cx / cell_size) - col
+    cell_y = (cy / cell_size) - row
+    cell_w = w / image_size
+    cell_h = h / image_size
+
+    ious = np.array([iou_on_wh((cell_w, cell_h), a) for a in anchors_wh], dtype=np.float64)
+    anchor_idx = int(np.argmax(ious))
+
+    start = anchor_idx * 5
+    target[row, col, start:start + 5] = np.array([cell_x, cell_y, cell_w, cell_h, 1.0])
+    target[row, col, B * 5 + class_id] = 1.0
+
+    return target, (row, col, anchor_idx), anchors_wh
+
+
+gt_box = np.array([24.0, 30.0, 58.0, 66.0])
+target, responsible, anchors = encode_yolo_target(gt_box, class_id=1, image_size=96, S=6, B=2, C=3)
+
+row, col, anchor_idx = responsible
+print(&#39;responsible (row, col, anchor):&#39;, responsible)
+print(&#39;anchors (normalized w,h):&#39;, np.round(anchors, 3))
+print(&#39;cell vector:&#39;, np.round(target[row, col], 4))</code></pre>
+<p>YOLO学習では、座標・objectness（そのボックスに物体が存在する確率）・クラスの3種類の誤差を同時に最小化します。</p>
+<p>下の簡易損失は実装理解用で、最新YOLOの実装そのものではありません。<br>
+形状は <code>pred_boxes: (S, S, B, 5)</code>, <code>obj_mask: (S, S, B)</code> を使います。</p>
+
+<pre><code class="language-python">def yolo_loss_components(pred, target, S=6, B=2, C=3, lambda_coord=5.0, lambda_noobj=0.5):
+    pred = pred.copy()
+    target = target.copy()
+
+    # pred_boxes/tgt_boxes: (S,S,B,5)  where 5=(tx,ty,tw,th,obj)
+    pred_boxes = pred[..., :B * 5].reshape(S, S, B, 5)
+    tgt_boxes = target[..., :B * 5].reshape(S, S, B, 5)
+
+    # class logits/targets: (S,S,C)
+    pred_cls = pred[..., B * 5:]
+    tgt_cls = target[..., B * 5:]
+
+    # Per-anchor masks
+    obj_mask = tgt_boxes[..., 4]                 # (S,S,B)
+    noobj_mask = 1.0 - obj_mask                  # (S,S,B)
+
+    # Coordinate and objectness losses apply on responsible anchors
+    coord_loss = np.sum(obj_mask[..., None] * (pred_boxes[..., :4] - tgt_boxes[..., :4]) ** 2)
+    obj_loss = np.sum(obj_mask * (pred_boxes[..., 4] - tgt_boxes[..., 4]) ** 2)
+
+    # No-object penalty applies to non-responsible anchors too
+    noobj_loss = np.sum(noobj_mask * (pred_boxes[..., 4] - tgt_boxes[..., 4]) ** 2)
+
+    # Class loss is cell-level (if any anchor in that cell has object)
+    cell_obj_mask = np.max(obj_mask, axis=2, keepdims=True)  # (S,S,1)
+    cls_loss = np.sum(cell_obj_mask * (pred_cls - tgt_cls) ** 2)
+
+    total = lambda_coord * coord_loss + obj_loss + lambda_noobj * noobj_loss + cls_loss
+
+    return {
+        &#39;coord_loss&#39;: float(coord_loss),
+        &#39;obj_loss&#39;: float(obj_loss),
+        &#39;noobj_loss&#39;: float(noobj_loss),
+        &#39;cls_loss&#39;: float(cls_loss),
+        &#39;total&#39;: float(total),
+    }
+
+
+S, B, C = 6, 2, 3
+# これは学習ループではなく、損失の性質を比較するためのダミー予測
+pred_far = np.random.uniform(low=0.0, high=1.0, size=(S, S, B * 5 + C))
+pred_near = np.clip(target + np.random.normal(0.0, 0.05, size=(S, S, B * 5 + C)), 0.0, 1.0)
+
+loss_far = yolo_loss_components(pred_far, target, S=S, B=B, C=C)
+loss_near = yolo_loss_components(pred_near, target, S=S, B=B, C=C)
+
+print(&#39;--- far prediction ---&#39;)
+for k, v in loss_far.items():
+    print(k, round(v, 4))
+
+print(&#39;--- near-to-target prediction ---&#39;)
+for k, v in loss_near.items():
+    print(k, round(v, 4))</code></pre>
+<p>次に、検出評価で使う AP（Average Precision）の最小実装を確認します。<br>
+ここでは1クラス・1画像群の簡易版で、IoU閾値を超えて未対応GTならTPとします。</p>
+<p>この実装は教育目的の VOC2007 11点補間APです。<br>
+実務では、複数クラス平均かつ IoU <code>0.50:0.95</code> の COCO mAP がよく使われます。</p>
+
+<pre><code class="language-python">def average_precision_from_pr(precision, recall):
+    # VOC2007 11-point interpolation (educational)
+    ap = 0.0
+    for t in np.linspace(0, 1, 11):
+        p = np.max(precision[recall &gt;= t]) if np.any(recall &gt;= t) else 0.0
+        ap += p / 11.0
+    return float(ap)
+
+
+def evaluate_ap_single_class(pred_boxes, pred_scores, gt_boxes, iou_thresh=0.5):
+    order = np.argsort(pred_scores)[::-1]
+    matched = np.zeros(len(gt_boxes), dtype=bool)
+
+    tp = []
+    fp = []
+
+    for idx in order:
+        pb = pred_boxes[idx]
+        best_iou = 0.0
+        best_gt = -1
+        for g_i, gb in enumerate(gt_boxes):
+            iou = iou_xyxy(pb, gb)
+            if iou &gt; best_iou:
+                best_iou = iou
+                best_gt = g_i
+
+        if best_iou &gt;= iou_thresh and best_gt &gt;= 0 and not matched[best_gt]:
+            tp.append(1)
+            fp.append(0)
+            matched[best_gt] = True
+        else:
+            tp.append(0)
+            fp.append(1)
+
+    tp = np.cumsum(tp)
+    fp = np.cumsum(fp)
+    precision = tp / np.maximum(tp + fp, 1e-12)
+    recall = tp / max(len(gt_boxes), 1)
+
+    ap = average_precision_from_pr(precision, recall)
+    return precision, recall, ap
+
+
+gt_boxes_eval = np.array([
+    [20, 18, 54, 50],
+    [58, 26, 86, 58],
+], dtype=np.float64)
+
+pred_boxes_eval = np.array([
+    [19, 19, 52, 49],  # TP
+    [60, 24, 88, 60],  # TP
+    [15, 12, 30, 26],  # FP
+    [57, 24, 85, 57],  # duplicate near second GT -&gt; FP
+], dtype=np.float64)
+
+pred_scores_eval = np.array([0.93, 0.87, 0.44, 0.73])
+
+precision, recall, ap = evaluate_ap_single_class(pred_boxes_eval, pred_scores_eval, gt_boxes_eval, iou_thresh=0.5)
+print(&#39;precision:&#39;, np.round(precision, 4))
+print(&#39;recall   :&#39;, np.round(recall, 4))
+print(&#39;VOC07 AP@0.5 (11-point):&#39;, round(ap, 4))</code></pre>
+<p>ここまでの計算を踏まえ、実モデル側の設計を整理します。</p>
+<ul>
+<li>初期YOLO〜YOLOv5系: CNNバックボーン中心で高速</li>
+<li>最近の派生: ViT/Transformer系バックボーンを組み合わせる例も増加</li>
+</ul>
+<p>ViTは長距離依存を扱いやすく、CNNは局所性と計算効率に強みがあります。<br>
+実務では精度・速度・メモリ制約で使い分けます。</p>
+<p>次の最小PyTorch例は、YOLO本体そのものではなく、<br>
+「バックボーン特徴を <code>S*S*(B*5+C)</code> に写像してYOLO形式に整形する流れ」を示すデモです。</p>
+
+<pre><code class="language-python">if TORCH_AVAILABLE:
+    torch.manual_seed(42)
+
+    class TinyYoloHeadDemo(nn.Module):
+        def __init__(self, S=6, B=2, C=3):
+            super().__init__()
+            self.S, self.B, self.C = S, B, C
+            self.backbone = nn.Sequential(
+                nn.Conv2d(1, 8, 3, padding=1),
+                nn.ReLU(),
+                nn.MaxPool2d(2),
+                nn.Conv2d(8, 16, 3, padding=1),
+                nn.ReLU(),
+                nn.AdaptiveAvgPool2d((1, 1)),
+            )
+            self.head = nn.Linear(16, S * S * (B * 5 + C))
+
+        def forward(self, x):
+            feat = self.backbone(x).flatten(1)
+            out = self.head(feat)
+            return out.view(-1, self.S, self.S, self.B * 5 + self.C)
+
+    model = TinyYoloHeadDemo(S=6, B=2, C=3)
+    n_params = sum(p.numel() for p in model.parameters())
+    print(&#39;TinyYoloHeadDemo params:&#39;, n_params)
+
+    x_dummy = torch.randn(4, 1, 64, 64)
+    out_dummy = model(x_dummy)
+    print(&#39;output shape:&#39;, tuple(out_dummy.shape))
+    print(&#39;NOTE: 形状理解用デモのため、実YOLOの空間ヘッド実装とは異なります。&#39;)
+else:
+    print(&#39;PyTorch未導入のため、TinyYoloHeadDemo例はスキップしました。&#39;)</code></pre>
+<p>YOLOを学ぶときは、次の順で確認すると迷いにくくなります。</p>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>C</mi><mrow><mi>o</mi><mi>u</mi><mi>t</mi></mrow></msub><mo>=</mo><mi>A</mi><mspace width="0.16667em"></mspace><mo>(</mo><mn>5</mn><mo>+</mo><mi>C</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">C_{out} = A\,(5 + C)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">C</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.07153em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">o</span><span class="mord mathit">u</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord mathit">A</span><span class="mord mspace thinspace"></span><span class="mopen">(</span><span class="mord mathrm">5</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.07153em;">C</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mrow><mi mathvariant="normal">b</mi><mi mathvariant="normal">b</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">x</mi></mrow><mo>=</mo><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>y</mi><mo separator="true">,</mo><mi>w</mi><mo separator="true">,</mo><mi>h</mi><mo>)</mo><mo>+</mo><mi>o</mi><mo>+</mo><msub><mi>p</mi><mrow><mi>c</mi><mi>l</mi><mi>s</mi></mrow></msub></mrow><annotation encoding="application/x-tex">\mathrm{bbox} = (x,y,w,h) + o + p_{cls}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathrm">b</span><span class="mord mathrm">b</span><span class="mord mathrm">o</span><span class="mord mathrm">x</span></span><span class="mrel">=</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="mpunct">,</span><span class="mord mathit" style="margin-right:0.02691em;">w</span><span class="mpunct">,</span><span class="mord mathit">h</span><span class="mclose">)</span><span class="mbin">+</span><span class="mord mathit">o</span><span class="mbin">+</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">c</span><span class="mord mathit" style="margin-right:0.01968em;">l</span><span class="mord mathit">s</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
+<li>ボックス表現（<code>xyxy</code> / <code>xywh</code>）</li>
+<li>IoU と NMS</li>
+<li>ターゲットエンコード（担当セル）</li>
+<li>損失の内訳（座標・objectness・クラス）</li>
+<li>AP/mAP の評価</li>
 </ol>
-
-<h2 id="観察-3-勾配降下法の一歩">観察 3: 勾配降下法の一歩</h2>
-<p>ここで、重みを一回更新する最小実験を行います。更新前後の損失を比較して、学習の方向が正しいかを確認します。</p>
-
-<pre><code class="language-python">lr = 0.1
-grad = -(target - y) * y * (1 - y)
-w_new = [wi - lr * grad * xi for wi, xi in zip(w, x)]
-z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + 0.1
-y_new = 1 / (1 + math.exp(-z_new))
-print(&#39;y before/after =&#39;, round(y, 6), round(y_new, 6))</code></pre>
-<p>この更新で損失が下がれば、勾配方向が合理的だったと言えます。下がらないなら学習率や符号を疑います。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-4-正則化の感覚を作る">観察 4: 正則化の感覚を作る</h2>
-<p>次に、重みが大きくなりすぎることを抑える正則化項を追加します。過学習対策をコードで体験するのが狙いです。</p>
-
-<pre><code class="language-python">l2 = 0.01
-weight_norm = sum(wi * wi for wi in w_new)
-loss_reg = loss + l2 * weight_norm
-print(&#39;weight_norm =&#39;, round(weight_norm, 6))
-print(&#39;regularized loss =&#39;, round(loss_reg, 6))</code></pre>
-<p>正則化は精度を上げる魔法ではなく、汎化の崩れを防ぐ保険です。評価データと合わせて効果を判断してください。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-5-ミニバッチの考え方">観察 5: ミニバッチの考え方</h2>
-<p>最後に、複数サンプルをまとめて扱う発想を確認します。実務では1件ずつよりバッチ処理が主流です。</p>
-
-<pre><code class="language-python">batch = [[0.8, -0.4, 0.2], [0.2, 0.1, -0.3], [0.5, -0.2, 0.7]]
-targets = [1.0, 0.0, 1.0]
-preds = []
-for bx in batch:
-    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + 0.1
-    preds.append(1 / (1 + math.exp(-z_b)))
-print(&#39;preds =&#39;, [round(p, 4) for p in preds])</code></pre>
-<p>ミニバッチを扱えるようになると、計算効率と学習安定性の両面で設計の幅が広がります。</p>
-<p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>学習率が大きすぎて発散する</li>
-<li>検証損失の監視をせず過学習を見逃す</li>
-<li>前処理と活性化の相性を無視する</li>
-</ol>
+<p>この5点を押さえると、YOLO系論文や実装の差分を追いやすくなります。</p>
 
 </article>
   </main>
