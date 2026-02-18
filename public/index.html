@@ -504,53 +504,35 @@
       text-overflow: ellipsis;
     }
 
-    .header-actions {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .playground-controls {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 999px;
-      border: 1px solid var(--glass-edge-soft);
-      background:
-        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 42%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 88%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 6px 10px;
-    }
-
-    .playground-label {
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
-
-    #playground-notebook-select {
-      min-width: 240px;
-      max-width: 360px;
+    .header-title-select {
+      min-width: min(58vw, 560px);
+      max-width: min(58vw, 560px);
       border: 1px solid var(--glass-edge-soft);
       border-radius: 999px;
       background:
         linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 34%, transparent), transparent 64%),
         color-mix(in oklab, var(--panel-soft) 80%, transparent);
       color: var(--text);
-      font-size: 12px;
-      padding: 6px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      padding: 7px 12px;
       outline: none;
       cursor: pointer;
+      text-align: center;
+      text-overflow: ellipsis;
     }
 
-    #playground-notebook-select:focus-visible {
+    .header-title-select:focus-visible {
       box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 28%, transparent);
+    }
+
+    .header-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     #reader {
@@ -603,6 +585,9 @@
     .reader-prose pre {
       background: var(--code-bg);
       color: var(--code-fg);
+      font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.58;
       border: 1px solid var(--code-border);
       border-radius: 12px;
       padding: 12px;
@@ -839,25 +824,43 @@
       border: 0;
       background: var(--code-bg);
       color: var(--code-fg);
+      font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.58;
+    }
+
+    .code-editor-surface {
+      position: relative;
+      min-width: 0;
+    }
+
+    .code-editor-surface pre {
+      pointer-events: auto;
     }
 
     .code-editor {
       display: none;
+      position: absolute;
+      inset: 0;
       width: 100%;
-      min-height: 160px;
+      min-height: 100%;
       border: 0;
       margin: 0;
       padding: 12px;
       font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
       font-size: 12px;
       line-height: 1.58;
-      resize: vertical;
-      color: var(--code-fg);
-      background: var(--code-bg);
+      resize: none;
+      color: transparent;
+      caret-color: var(--code-fg);
+      background: transparent;
       outline: none;
       tab-size: 2;
       white-space: pre;
       overflow: auto;
+      z-index: 2;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 0 transparent;
     }
 
     .reader-prose pre code,
@@ -866,12 +869,12 @@
       background: transparent !important;
     }
 
-    .code-runner.playground-active pre {
-      display: none;
-    }
-
     .code-runner.playground-active .code-editor {
       display: block;
+    }
+
+    .code-runner.playground-active .code-editor-surface pre {
+      pointer-events: none;
     }
 
     .code-runner.playground-active .code-runner-shell {
@@ -1354,7 +1357,7 @@
       .header-spacer { display: none; }
       .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
-      #playground-notebook-select { min-width: 200px; max-width: 260px; }
+      .header-title-select { min-width: 100%; max-width: 100%; }
       .home-grid { grid-template-columns: 1fr; }
       .home-hero-top { flex-direction: column; }
       .home-orbit { display: none; }
@@ -1400,11 +1403,8 @@
           <div class="header-top">
             <div class="header-spacer" aria-hidden="true"></div>
             <h2 class="header-title" id="header-title">読み込み中...</h2>
+            <select class="header-title-select is-hidden" id="header-title-select" aria-label="ノート選択"></select>
             <div class="header-actions">
-              <div class="playground-controls is-hidden" id="playground-controls">
-                <label class="playground-label" for="playground-notebook-select">Notebook</label>
-                <select id="playground-notebook-select"></select>
-              </div>
               <div class="liquid-nav">
                 <a class="nav-item" id="download-btn" href="#">Download</a>
                 <a class="nav-item" id="colab-btn" href="#" target="_blank" rel="noreferrer">Colabで実行</a>
@@ -1520,6 +1520,7 @@
         sidebarMobileList: document.getElementById("sidebar-mobile-list"),
         sidebarSearch: document.getElementById("sidebar-search"),
         headerTitle: document.getElementById("header-title"),
+        headerTitleSelect: document.getElementById("header-title-select"),
         downloadBtn: document.getElementById("download-btn"),
         colabBtn: document.getElementById("colab-btn"),
         notebookContent: document.getElementById("notebook-content"),
@@ -1536,8 +1537,6 @@
         loginLink: document.getElementById("login-link"),
         playgroundLink: document.getElementById("playground-link"),
         playgroundLinkMobile: document.getElementById("playground-link-mobile"),
-        playgroundControls: document.getElementById("playground-controls"),
-        playgroundNotebookSelect: document.getElementById("playground-notebook-select"),
         resetPlayground: document.getElementById("reset-playground"),
         adminLink: document.getElementById("admin-link"),
         adminLinkMobile: document.getElementById("admin-link-mobile"),
@@ -1556,6 +1555,7 @@
       let katexCssEnsurePromise = null;
       let mathJaxPromise = null;
       const preloadedNotebookPackages = new Set();
+      const blockHighlightTimers = new WeakMap();
 
       function hasKatexCssApplied() {
         const probe = document.createElement("span");
@@ -1789,9 +1789,10 @@
 
       function renderPlaygroundHeaderControls() {
         const showControls = state.loggedIn && state.playgroundEnabled && !!state.activeNotebook;
-        el.playgroundControls.classList.toggle("is-hidden", !showControls);
+        el.headerTitle.classList.toggle("is-hidden", showControls);
+        el.headerTitleSelect.classList.toggle("is-hidden", !showControls);
         el.resetPlayground.classList.toggle("is-hidden", !showControls);
-        el.playgroundNotebookSelect.disabled = !showControls;
+        el.headerTitleSelect.disabled = !showControls;
       }
 
       function renderPlaygroundSidebarControls() {
@@ -1803,7 +1804,7 @@
         el.playgroundLinkMobile.textContent = label;
       }
 
-      function populatePlaygroundNotebookSelect() {
+      function populateHeaderNotebookSelect() {
         const chapters = notebookList();
         const options = [];
         chapters.forEach((chapter) => {
@@ -1813,9 +1814,9 @@
             );
           });
         });
-        el.playgroundNotebookSelect.innerHTML = options.join("");
+        el.headerTitleSelect.innerHTML = options.join("");
         if (state.activeNotebook) {
-          el.playgroundNotebookSelect.value = state.activeNotebook.id;
+          el.headerTitleSelect.value = state.activeNotebook.id;
         }
       }
 
@@ -2035,7 +2036,7 @@
         el.downloadBtn.href = `/notebooks/${nb.id}.ipynb`;
         el.downloadBtn.setAttribute("download", `${nb.id}.ipynb`);
         el.colabBtn.href = nb.colabUrl || "#";
-        populatePlaygroundNotebookSelect();
+        populateHeaderNotebookSelect();
         renderPlaygroundHeaderControls();
       }
 
@@ -2282,6 +2283,30 @@
         } catch {}
       }
 
+      async function applySyntaxHighlightToBlock(block) {
+        try {
+          const hljs = await ensureHighlightLibrary();
+          if (!hljs) return;
+          if (!block.className.includes("language-")) {
+            block.classList.add("language-python");
+          }
+          hljs.highlightElement(block);
+        } catch {}
+      }
+
+      function queueHighlightForBlock(block) {
+        if (!block) return;
+        const currentTimer = blockHighlightTimers.get(block);
+        if (currentTimer) {
+          clearTimeout(currentTimer);
+        }
+        const nextTimer = setTimeout(() => {
+          blockHighlightTimers.delete(block);
+          void applySyntaxHighlightToBlock(block);
+        }, 90);
+        blockHighlightTimers.set(block, nextTimer);
+      }
+
       function normalizeRunnableSource(rawSource) {
         if (!rawSource) return "";
         // nbconvertの出力によっては改行が "\n" の2文字で入るため、実行前に正規化する。
@@ -2355,7 +2380,10 @@
           rail.className = "code-runner-rail";
           shell.appendChild(rail);
 
-          shell.appendChild(pre);
+          const editorSurface = document.createElement("div");
+          editorSurface.className = "code-editor-surface";
+          shell.appendChild(editorSurface);
+          editorSurface.appendChild(pre);
 
           const editor = document.createElement("textarea");
           editor.className = "code-editor";
@@ -2363,10 +2391,27 @@
           editor.value = restoredSource;
           editor.addEventListener("input", () => {
             code.textContent = normalizeRunnableSource(editor.value || "");
+            queueHighlightForBlock(code);
+            schedulePlaygroundAutosave();
+          });
+          editor.addEventListener("scroll", () => {
+            pre.scrollTop = editor.scrollTop;
+            pre.scrollLeft = editor.scrollLeft;
+          });
+          editor.addEventListener("keydown", (event) => {
+            if (event.key !== "Tab") return;
+            event.preventDefault();
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const next = `${editor.value.slice(0, start)}  ${editor.value.slice(end)}`;
+            editor.value = next;
+            editor.selectionStart = editor.selectionEnd = start + 2;
+            code.textContent = normalizeRunnableSource(editor.value || "");
+            queueHighlightForBlock(code);
             schedulePlaygroundAutosave();
           });
           state.activeEditorMap.set(codeIndex, editor);
-          shell.appendChild(editor);
+          editorSurface.appendChild(editor);
 
           const button = document.createElement("button");
           button.className = "run-code";
@@ -2878,8 +2923,8 @@
         })();
       });
 
-      el.playgroundNotebookSelect.addEventListener("change", function () {
-        const notebookId = String(el.playgroundNotebookSelect.value || "").trim();
+      el.headerTitleSelect.addEventListener("change", function () {
+        const notebookId = String(el.headerTitleSelect.value || "").trim();
         if (!notebookId || (state.activeNotebook && state.activeNotebook.id === notebookId)) return;
         void selectNotebook(notebookId);
       });
