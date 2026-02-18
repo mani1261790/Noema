@@ -839,6 +839,8 @@
 
     .code-editor-surface pre {
       pointer-events: auto;
+      position: relative;
+      z-index: 1;
     }
 
     .code-editor-surface pre,
@@ -868,6 +870,7 @@
       overflow: hidden;
       overflow-wrap: break-word;
       z-index: 2;
+      pointer-events: auto;
       -webkit-text-fill-color: transparent;
       text-shadow: 0 0 0 transparent;
     }
@@ -2295,6 +2298,10 @@
             if (!block.className.includes("language-")) {
               block.classList.add("language-python");
             }
+            if (block.dataset && block.dataset.highlighted) {
+              delete block.dataset.highlighted;
+            }
+            block.classList.remove("hljs");
             hljs.highlightElement(block);
           });
         } catch {}
@@ -2307,6 +2314,10 @@
           if (!block.className.includes("language-")) {
             block.classList.add("language-python");
           }
+          if (block.dataset && block.dataset.highlighted) {
+            delete block.dataset.highlighted;
+          }
+          block.classList.remove("hljs");
           hljs.highlightElement(block);
         } catch {}
       }
