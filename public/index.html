@@ -564,29 +564,140 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
     }
 
-    .home-hero {
+    .home-stage {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .home-hero-shell {
+      border-radius: 18px;
       padding: 16px;
-      border-radius: 14px;
-      margin-bottom: 12px;
-      background:
-        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 56%, transparent), transparent 50%),
-        color-mix(in oklab, var(--panel-soft) 84%, transparent);
       border: 1px solid var(--glass-edge-soft);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background:
+        radial-gradient(circle at 8% 10%, color-mix(in oklab, var(--glass-highlight) 68%, transparent), transparent 34%),
+        radial-gradient(circle at 86% 12%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 38%),
+        linear-gradient(150deg, color-mix(in oklab, var(--panel-soft) 82%, transparent), color-mix(in oklab, var(--panel-strong) 64%, transparent));
+      backdrop-filter: blur(18px) saturate(145%);
+      -webkit-backdrop-filter: blur(18px) saturate(145%);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 62%, transparent);
     }
 
-    .home-hero h3 {
+    .home-hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .home-kicker {
       margin: 0 0 6px;
-      font-size: 24px;
-      line-height: 1.2;
+      font-size: 11px;
+      color: color-mix(in oklab, var(--muted) 86%, white);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      font-weight: 700;
     }
 
-    .home-hero p {
+    .home-title {
+      margin: 0 0 8px;
+      font-family: var(--brand-font);
+      font-size: 34px;
+      line-height: 1.05;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+
+    .home-lead {
       margin: 0;
       color: var(--muted);
-      line-height: 1.75;
+      line-height: 1.78;
       font-size: 14px;
+      max-width: 64ch;
+    }
+
+    .home-orbit {
+      position: relative;
+      width: 92px;
+      height: 92px;
+      flex: 0 0 92px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 70%, transparent);
+    }
+
+    .home-orbit span {
+      position: absolute;
+      border-radius: 999px;
+      border: 1px dashed color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
+      inset: 10px;
+      animation: orbit-spin 11s linear infinite;
+    }
+
+    .home-orbit span:nth-child(2) {
+      inset: 22px;
+      animation-duration: 8s;
+      animation-direction: reverse;
+    }
+
+    .home-orbit span:nth-child(3) {
+      inset: 34px;
+      animation-duration: 6s;
+    }
+
+    @keyframes orbit-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .home-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .home-metric {
+      border-radius: 12px;
+      border: 1px solid var(--glass-edge-soft);
+      padding: 10px 11px;
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 86%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .home-metric-label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+
+    .home-metric-value {
+      display: block;
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 700;
+      letter-spacing: .01em;
+      color: color-mix(in oklab, var(--text) 88%, white);
+    }
+
+    .home-cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .home-cta,
+    .home-cta-ghost {
+      min-width: 170px;
     }
 
     .home-grid {
@@ -597,21 +708,52 @@
     }
 
     .home-card {
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 12px;
       font-size: 13px;
       background:
-        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 48%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 82%, transparent);
+        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 56%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 84%, transparent);
       border: 1px solid var(--glass-edge-soft);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
+      display: grid;
+      gap: 8px;
+    }
+
+    .home-card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .home-card-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--accent) 26%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 90%, transparent);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 64%, transparent);
+      color: color-mix(in oklab, var(--text) 86%, white);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .home-card strong {
+      font-size: 14px;
+      line-height: 1.35;
+      letter-spacing: .01em;
     }
 
     .home-card p {
-      margin: 6px 0 0;
+      margin: 0;
       color: var(--muted);
-      line-height: 1.7;
+      line-height: 1.72;
     }
 
     .code-runner {
@@ -1130,6 +1272,9 @@
       .header-title { font-size: 16px; }
       .header-actions { justify-content: flex-start; }
       .home-grid { grid-template-columns: 1fr; }
+      .home-hero-top { flex-direction: column; }
+      .home-orbit { display: none; }
+      .home-metrics { grid-template-columns: 1fr; }
       .chapter-items { max-height: min(52vh, 460px); }
     }
 
@@ -1635,30 +1780,83 @@
       }
 
       function renderHomeDashboard() {
+        const chapters = notebookList();
+        const notebooks = chapters.flatMap((chapter) => chapter.notebooks);
+        const chapterCount = chapters.length;
+        const notebookCount = notebooks.length;
+        const firstNotebookId = notebooks[0]?.id || "";
+        const assistantStateLabel = state.loggedIn ? "有効" : "ログインで有効化";
+
         el.notebookContent.innerHTML = `
-          <section class="home-hero glass-soft">
-            <h3>学習サイトへようこそ</h3>
-            <p>左のサイドバーから教材を選ぶと、ここにノート本文が表示されます。ログインすると右下からLLM質問機能も使えます。</p>
-          </section>
-          <section class="home-grid">
-            <article class="home-card glass-soft">
-              <strong>1. ノートを選択</strong>
-              <p>章アコーディオンを開き、学習したい教材をクリックして読み始めてください。</p>
-            </article>
-            <article class="home-card glass-soft">
-              <strong>2. コードをその場で実行</strong>
-              <p>コードブロック右上の <code>Run</code> ボタンで、ページ内で Python を実行できます。</p>
-            </article>
-            <article class="home-card glass-soft">
-              <strong>3. Colabで検証</strong>
-              <p>上部の Colab ボタンから実運用に近い環境で再現できます。</p>
-            </article>
-            <article class="home-card glass-soft">
-              <strong>4. LLMに質問</strong>
-              <p>本文を選択して質問すると、選択箇所を文脈に含めて回答させられます。</p>
-            </article>
+          <section class="home-stage">
+            <section class="home-hero-shell glass-soft">
+              <div class="home-hero-top">
+                <div>
+                  <p class="home-kicker">Noema Learning Hub</p>
+                  <h3 class="home-title">教材トップ</h3>
+                  <p class="home-lead">機械学習・LLM・強化学習を、ノートを実行しながら段階的に学べます。サイドバーから教材を選び、詰まったら Assistant にそのまま質問してください。</p>
+                </div>
+                <div class="home-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+              </div>
+              <div class="home-metrics">
+                <article class="home-metric">
+                  <span class="home-metric-label">Sections</span>
+                  <span class="home-metric-value">${chapterCount}</span>
+                </article>
+                <article class="home-metric">
+                  <span class="home-metric-label">Notebooks</span>
+                  <span class="home-metric-value">${notebookCount}</span>
+                </article>
+                <article class="home-metric">
+                  <span class="home-metric-label">Assistant</span>
+                  <span class="home-metric-value">${assistantStateLabel}</span>
+                </article>
+              </div>
+              <div class="home-cta-row">
+                <button class="button home-cta" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>最初の教材を開く</button>
+                <button class="button-ghost home-cta-ghost" type="button" data-home-action="assistant">${state.loggedIn ? "Assistantを開く" : "ログインして質問する"}</button>
+              </div>
+            </section>
+            <section class="home-grid">
+              <article class="home-card glass-soft">
+                <div class="home-card-head"><span class="home-card-icon">01</span><strong>読むだけで終わらない</strong></div>
+                <p>教材本文のコードはページ内で実行できます。値を変えて挙動を観察し、概念をその場で検証できます。</p>
+              </article>
+              <article class="home-card glass-soft">
+                <div class="home-card-head"><span class="home-card-icon">02</span><strong>文脈付きで質問</strong></div>
+                <p>本文を選択して質問すると、その選択箇所を文脈に含めて回答します。曖昧な質問でも意図が伝わりやすくなります。</p>
+              </article>
+              <article class="home-card glass-soft">
+                <div class="home-card-head"><span class="home-card-icon">03</span><strong>Colab で再現</strong></div>
+                <p>ヘッダーの Colab ボタンから外部実行環境へ遷移可能。ローカル依存なしで再現性の高い確認ができます。</p>
+              </article>
+              <article class="home-card glass-soft">
+                <div class="home-card-head"><span class="home-card-icon">04</span><strong>管理と学習を分離</strong></div>
+                <p>教材閲覧は軽く、管理作業は管理画面へ集約。学習導線を崩さずにコンテンツ更新を継続できます。</p>
+              </article>
+            </section>
           </section>
         `;
+
+        const startButton = el.notebookContent.querySelector('[data-home-action="start"]');
+        if (startButton) {
+          startButton.addEventListener("click", function () {
+            if (firstNotebookId) {
+              void selectNotebook(firstNotebookId);
+            }
+          });
+        }
+
+        const assistantButton = el.notebookContent.querySelector('[data-home-action="assistant"]');
+        if (assistantButton) {
+          assistantButton.addEventListener("click", function () {
+            if (!state.loggedIn) {
+              window.location.href = "/login";
+              return;
+            }
+            setChatOpen(true);
+          });
+        }
       }
 
       function extractImportedModulesFromSource(source) {
