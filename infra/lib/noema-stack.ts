@@ -508,6 +508,20 @@ export class NoemaStack extends Stack {
       authorizer: jwtAuthorizer
     });
 
+    // Safety net: keep admin/question/runtime APIs reachable even if a specific method route drifts.
+    api.addRoutes({
+      path: "/api/{proxy+}",
+      methods: [
+        apigwv2.HttpMethod.GET,
+        apigwv2.HttpMethod.POST,
+        apigwv2.HttpMethod.PUT,
+        apigwv2.HttpMethod.PATCH,
+        apigwv2.HttpMethod.DELETE
+      ],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
     const apiErrorsAlarm = new cloudwatch.Alarm(this, "ApiErrorsAlarm", {
       alarmName: `${prefix}-api-errors`,
       metric: apiFunction.metricErrors({

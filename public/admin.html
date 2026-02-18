@@ -709,6 +709,11 @@
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
+          if (/load failed|failed to fetch/i.test(message)) {
+            throw new Error(
+              "API通信がブラウザで遮断されました。API Gatewayのルート不足(GET /api/admin/notebooks 等)かCORS不整合の可能性があります。Deploy Infraを最新コミットで再実行してください。"
+            );
+          }
           throw new Error(`APIに接続できませんでした: ${message}`);
         }
 

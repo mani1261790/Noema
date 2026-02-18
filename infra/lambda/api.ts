@@ -51,8 +51,10 @@ function notebookIdFromEvent(event: APIGatewayProxyEventV2): string {
 }
 
 function routeKey(event: APIGatewayProxyEventV2): string {
-  if (event.requestContext.routeKey && event.requestContext.routeKey !== "$default") {
-    return event.requestContext.routeKey;
+  const contextRouteKey = event.requestContext.routeKey;
+  // Prefer concrete route keys, but for templated/greedy routes fall back to the raw path.
+  if (contextRouteKey && contextRouteKey !== "$default" && !contextRouteKey.includes("{")) {
+    return contextRouteKey;
   }
 
   return `${event.requestContext.http.method} ${event.rawPath}`;
