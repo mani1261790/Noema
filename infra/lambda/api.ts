@@ -14,6 +14,7 @@ import {
   maybeInlineProcess,
   parseAdminNotebookPatchInput,
   parseAdminNotebookLlmPatchInput,
+  parseAdminNotebookPreviewInput,
   parseAdminNotebookPutInput,
   parseAdminPatchInput,
   parseAskQuestionInput,
@@ -22,6 +23,7 @@ import {
   patchAdminNotebook,
   putAdminNotebook,
   proposeAdminNotebookPatch,
+  previewAdminNotebook,
   patchAdminAnswer,
   preloadPythonRuntime,
   runPythonRuntime,
@@ -227,6 +229,22 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   if (route === "GET /api/admin/notebooks") {
     const result = await listAdminNotebooks();
     return json(200, result);
+  }
+
+  if (route === "POST /api/admin/notebooks/preview") {
+    const payload = parseAdminNotebookPreviewInput(event);
+    if (!payload) {
+      return json(400, { error: "ipynbRaw is required (<= 3MB)." });
+    }
+
+    try {
+      const result = await previewAdminNotebook(payload, user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes("Invalid ipynb") ? 400 : 500;
+      return json(status, { error: message });
+    }
   }
 
   if (route === "PATCH /api/admin/notebooks") {

@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Noema Admin</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
   <style>
     :root {
       color-scheme: dark;
@@ -260,6 +261,12 @@
       align-items: center;
     }
 
+    .header-actions .button-ghost.is-active {
+      border-color: color-mix(in oklab, var(--accent) 66%, white);
+      color: color-mix(in oklab, #f5fbff 88%, var(--text));
+      background: rgba(32, 62, 92, .58);
+    }
+
     .editor-meta {
       border-bottom: 1px solid var(--border);
       padding: 8px 14px;
@@ -306,6 +313,11 @@
       gap: 10px;
     }
 
+    .editor-workspace {
+      min-height: 0;
+      display: grid;
+    }
+
     .ipynb-editor {
       width: 100%;
       height: 100%;
@@ -320,6 +332,67 @@
       line-height: 1.62;
       resize: none;
       outline: none;
+    }
+
+    .preview-surface {
+      width: 100%;
+      height: 100%;
+      min-height: 68vh;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(10, 22, 38, .78);
+      color: var(--text);
+      overflow: auto;
+      padding: 16px;
+    }
+
+    .preview-surface .prose-noema {
+      color: var(--text);
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    .preview-surface .prose-noema h1,
+    .preview-surface .prose-noema h2,
+    .preview-surface .prose-noema h3 {
+      line-height: 1.35;
+      margin: 1.6em 0 .7em;
+      letter-spacing: .01em;
+    }
+
+    .preview-surface .prose-noema h1 { font-size: 1.65rem; }
+    .preview-surface .prose-noema h2 { font-size: 1.35rem; }
+    .preview-surface .prose-noema h3 { font-size: 1.15rem; }
+
+    .preview-surface .prose-noema p,
+    .preview-surface .prose-noema ul,
+    .preview-surface .prose-noema ol {
+      margin: .6em 0;
+      color: color-mix(in oklab, var(--text) 92%, #d8e8ff);
+    }
+
+    .preview-surface .prose-noema ul,
+    .preview-surface .prose-noema ol {
+      padding-left: 1.4em;
+    }
+
+    .preview-surface .prose-noema pre {
+      margin: .8em 0 1.1em;
+      border: 1px solid rgba(145, 183, 227, .35);
+      border-radius: 12px;
+      background: rgba(7, 15, 28, .78);
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .preview-surface .prose-noema code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      font-size: 12px;
+    }
+
+    .preview-empty {
+      color: var(--muted);
+      font-size: 13px;
     }
 
     .ipynb-editor:focus,
@@ -613,6 +686,7 @@
         <a class="back" href="/" aria-label="トップへ戻る">‹</a>
         <h1 class="editor-title" id="editor-title">ノート未選択</h1>
         <div class="header-actions">
+          <button class="button-ghost" id="view-toggle-btn" type="button">HTMLプレビュー</button>
           <button class="button" id="manual-save-btn" type="button">保存</button>
           <button class="button-ghost" id="reload-notebook-btn" type="button">再読込</button>
         </div>
@@ -674,7 +748,12 @@
         </section>
 
         <section class="editor-panel">
-          <textarea class="ipynb-editor" id="ipynb-editor" spellcheck="false" placeholder="ここに ipynb JSON が表示されます"></textarea>
+          <div class="editor-workspace">
+            <textarea class="ipynb-editor" id="ipynb-editor" spellcheck="false" placeholder="ここに ipynb JSON が表示されます"></textarea>
+            <article class="preview-surface" id="render-preview" hidden>
+              <p class="preview-empty">プレビューを表示するには、上部のボタンを押してください。</p>
+            </article>
+          </div>
           <section class="patch-diff-panel glass-soft" id="patch-diff-panel" hidden>
             <div class="patch-diff-head">
               <strong>提案差分 (unified diff)</strong>
@@ -710,9 +789,11 @@
         editorMeta: document.getElementById("editor-meta"),
         editorSaveState: document.getElementById("editor-save-state"),
         editorStatus: document.getElementById("editor-status"),
+        viewToggleBtn: document.getElementById("view-toggle-btn"),
         manualSaveBtn: document.getElementById("manual-save-btn"),
         reloadNotebookBtn: document.getElementById("reload-notebook-btn"),
         ipynbEditor: document.getElementById("ipynb-editor"),
+        renderPreview: document.getElementById("render-preview"),
         metaNotebookId: document.getElementById("meta-notebook-id"),
         metaTitle: document.getElementById("meta-title"),
         metaChapter: document.getElementById("meta-chapter"),
@@ -746,7 +827,10 @@
         savingStructure: false,
         savingNotebook: false,
         patchGenerating: false,
-        patchProposal: null
+        patchProposal: null,
+        editorMode: "json",
+        previewRefreshTimer: 0,
+        previewRequestSeq: 0
       };
 
       function escapeHtml(value) {
@@ -851,6 +935,84 @@
       function setEditorSaveState(message, kind) {
         el.editorSaveState.textContent = message || "";
         el.editorSaveState.style.color = kind === "error" ? "#ffb7c3" : kind === "success" ? "var(--ok)" : "var(--muted)";
+      }
+
+      function renderPreviewHtml(html, messageIfEmpty) {
+        const body = String(html || "").trim();
+        if (!body) {
+          el.renderPreview.innerHTML = `<p class="preview-empty">${escapeHtml(messageIfEmpty || "プレビューを表示できません。")}</p>`;
+          return;
+        }
+        el.renderPreview.innerHTML = body;
+      }
+
+      async function refreshPreview() {
+        if (state.editorMode !== "preview") return;
+
+        const raw = String(el.ipynbEditor.value || "");
+        if (!raw.trim()) {
+          renderPreviewHtml("", "ipynbが空です。");
+          return;
+        }
+
+        try {
+          JSON.parse(raw);
+        } catch {
+          renderPreviewHtml("", "JSONが不正なためプレビューできません。");
+          return;
+        }
+
+        const requestSeq = ++state.previewRequestSeq;
+        renderPreviewHtml("", "プレビューを生成中...");
+
+        try {
+          const payload = await api("/api/admin/notebooks/preview", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              notebookId: state.activeNotebookId || undefined,
+              ipynbRaw: raw
+            })
+          });
+
+          if (requestSeq !== state.previewRequestSeq) return;
+          renderPreviewHtml(payload.html || "", "プレビュー結果が空です。");
+        } catch (error) {
+          if (requestSeq !== state.previewRequestSeq) return;
+          const message = error instanceof Error ? error.message : String(error);
+          renderPreviewHtml("", `プレビュー生成失敗: ${message}`);
+        }
+      }
+
+      function schedulePreviewRefresh() {
+        if (state.editorMode !== "preview") return;
+        if (state.previewRefreshTimer) {
+          window.clearTimeout(state.previewRefreshTimer);
+        }
+        state.previewRefreshTimer = window.setTimeout(() => {
+          void refreshPreview();
+        }, 350);
+      }
+
+      function setEditorMode(mode) {
+        const normalized = mode === "preview" ? "preview" : "json";
+        state.editorMode = normalized;
+        const isPreview = normalized === "preview";
+
+        el.ipynbEditor.hidden = isPreview;
+        el.renderPreview.hidden = !isPreview;
+        el.viewToggleBtn.textContent = isPreview ? "JSON編集" : "HTMLプレビュー";
+        el.viewToggleBtn.classList.toggle("is-active", isPreview);
+
+        if (isPreview) {
+          void refreshPreview();
+        } else {
+          if (state.previewRefreshTimer) {
+            window.clearTimeout(state.previewRefreshTimer);
+            state.previewRefreshTimer = 0;
+          }
+          state.previewRequestSeq += 1;
+        }
       }
 
       function setPatchStatus(kind, message) {
@@ -1564,6 +1726,7 @@
           state.ipynbRaw = "";
           state.ipynbSavedRaw = "";
           el.ipynbEditor.value = "";
+          renderPreviewHtml("", "ノートを選択してください。");
           clearPatchProposal();
           renderHeaderMeta();
           setEditorSaveState("自動保存: 待機中", "info");
@@ -1603,6 +1766,7 @@
           el.ipynbEditor.value = state.ipynbRaw;
 
           renderCatalog();
+          schedulePreviewRefresh();
           setEditorSaveState("自動保存: 待機中", "info");
           setEditorStatus(`${normalized} を読み込みました。`, "success");
         } catch (loadError) {
@@ -1763,6 +1927,9 @@
         el.reloadNotebookBtn.addEventListener("click", function () {
           void setActiveNotebook(state.activeNotebookId);
         });
+        el.viewToggleBtn.addEventListener("click", function () {
+          setEditorMode(state.editorMode === "json" ? "preview" : "json");
+        });
         el.patchGenerateBtn.addEventListener("click", function () {
           void generatePatchProposal();
         });
@@ -1776,6 +1943,7 @@
         el.ipynbEditor.addEventListener("input", function () {
           state.ipynbRaw = String(el.ipynbEditor.value || "");
           renderPatchProposal();
+          schedulePreviewRefresh();
           markNotebookDirty("ノート本文を変更しました。自動保存します...");
         });
 
@@ -1822,6 +1990,7 @@
 
       requireLogin();
       bindTopLevelEvents();
+      setEditorMode("json");
       renderPatchProposal();
       void loadCatalog();
     })();

@@ -116,6 +116,11 @@ type AdminNotebookLlmPatchInput = {
   selectedText?: string;
 };
 
+type AdminNotebookPreviewInput = {
+  notebookId?: string;
+  ipynbRaw: string;
+};
+
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
 const MAX_CHUNK_CHARACTERS = 1_200;
 
@@ -1753,6 +1758,27 @@ export async function proposeAdminNotebookPatch(
   };
 }
 
+export async function previewAdminNotebook(input: AdminNotebookPreviewInput, user: AuthUser) {
+  if (input.notebookId) {
+    await putAccessLog(user.userId, input.notebookId, "ADMIN_NOTEBOOK_PREVIEW");
+  }
+
+  let notebookJson: NotebookFile;
+  try {
+    notebookJson = JSON.parse(input.ipynbRaw) as NotebookFile;
+  } catch {
+    throw new Error("Invalid ipynb JSON");
+  }
+
+  const canonical = canonicalizeNotebookFile(notebookJson);
+  const html = notebookToHtml(canonical);
+
+  return {
+    html,
+    generatedAt: nowIso()
+  };
+}
+
 export async function putAdminNotebook(notebookId: string, input: AdminNotebookPutInput): Promise<boolean> {
   const existing = await getNotebook(notebookId);
   if (!existing) return false;
@@ -2648,6 +2674,22 @@ export function parseAdminNotebookLlmPatchInput(event: APIGatewayProxyEventV2): 
   return {
     instruction,
     selectedText
+  };
+}
+
+export function parseAdminNotebookPreviewInput(event: APIGatewayProxyEventV2): AdminNotebookPreviewInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const ipynbRaw = asString(payload.ipynbRaw);
+  if (!ipynbRaw.trim() || ipynbRaw.length > 3_000_000) {
+    return null;
+  }
+
+  const notebookId = asString(payload.notebookId).trim();
+  return {
+    notebookId: notebookId || undefined,
+    ipynbRaw
   };
 }
 

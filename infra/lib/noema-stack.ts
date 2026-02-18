@@ -495,6 +495,13 @@ export class NoemaStack extends Stack {
     });
 
     api.addRoutes({
+      path: "/api/admin/notebooks/preview",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
       path: "/api/admin/notebooks/{notebookId}",
       methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.PUT, apigwv2.HttpMethod.DELETE],
       integration: apiIntegration,
