@@ -5,6 +5,7 @@ import { canonicalizeNotebookFile, notebookToHtml, type NotebookFile } from "../
 const NOTEBOOK_SOURCE_DIR = path.join(process.cwd(), "content", "notebooks");
 const OUTPUT_DIR = path.join(process.cwd(), "public", "notebooks");
 const HIGHLIGHT_OUTPUT_DIR = path.join(process.cwd(), "public", "highlight");
+const KATEX_OUTPUT_DIR = path.join(process.cwd(), "public", "katex");
 const CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
 const CATALOG_OUTPUT_PATH = path.join(process.cwd(), "public", "catalog.json");
 
@@ -17,7 +18,7 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
   <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <link rel="stylesheet" href="/katex/katex.min.css" />
   <style>
     :root {
       --bg-0: #f3f8fb;
@@ -137,9 +138,31 @@ async function copyHighlightAssets() {
   console.log(`Copied: ${jsOutput}`);
 }
 
+async function copyKatexAssets() {
+  const katexCssSource = path.join(process.cwd(), "node_modules", "katex", "dist", "katex.min.css");
+  const katexFontsSourceDir = path.join(process.cwd(), "node_modules", "katex", "dist", "fonts");
+  const katexCssOutput = path.join(KATEX_OUTPUT_DIR, "katex.min.css");
+  const katexFontsOutputDir = path.join(KATEX_OUTPUT_DIR, "fonts");
+
+  await fs.mkdir(KATEX_OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(katexFontsOutputDir, { recursive: true });
+  await fs.copyFile(katexCssSource, katexCssOutput);
+
+  const fontFiles = await fs.readdir(katexFontsSourceDir);
+  await Promise.all(
+    fontFiles.map((file) =>
+      fs.copyFile(path.join(katexFontsSourceDir, file), path.join(katexFontsOutputDir, file))
+    )
+  );
+
+  console.log(`Copied: ${katexCssOutput}`);
+  console.log(`Copied: ${katexFontsOutputDir}`);
+}
+
 async function main() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   await copyHighlightAssets();
+  await copyKatexAssets();
 
   const files = await fs.readdir(NOTEBOOK_SOURCE_DIR);
   const notebookFiles = files.filter((file) => file.endsWith(".ipynb"));
