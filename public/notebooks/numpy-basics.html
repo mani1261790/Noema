@@ -99,95 +99,96 @@
   <main>
 <article class="prose-noema">
 <h1 id="numpyの使い方">NumPyの使い方</h1>
-<p>NumPyの使い方で身につける狙いは、書いたコードを『読んで説明できる』状態にすることです。</p>
+<p>NumPy は、数値データを高速に扱うための配列ライブラリです。Python のリストよりも、<br>
+<code>同じ型の数値を大量に計算する</code> 場面で強みを発揮します。</p>
+<p>このノートでは、配列の形（shape）と演算規則（broadcast）を軸に、分析でよく使う操作を一通り確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>NumPyの使い方に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>変数</strong>: 値に名前を付ける箱です。計算結果を後で再利用するために使います。</li>
-<li><strong>型</strong>: 値の種類です。数値・文字列・リストなどで、使える操作が変わります。</li>
-<li><strong>関数</strong>: 入力を受けて出力を返す処理のまとまりです。再利用と可読性のために使います。</li>
-<li><strong>ndarray</strong>: NumPyの多次元配列です。高速な数値計算の基本構造です。</li>
-<li><strong>ブロードキャスト</strong>: 形の異なる配列を規則に従って自動拡張し演算する仕組みです。</li>
-<li><strong>軸 (axis)</strong>: どの次元方向に集約・演算するかを指定する引数です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<pre><code class="language-python">import numpy as np</code></pre>
+<p>まずは <code>ndarray</code> の基本です。shape と dtype を見る習慣をつけると、<br>
+行列計算のエラー原因を早く特定できます。</p>
 
-<h2 id="手を動かす-1-numpy配列の生成と演算">手を動かす 1: NumPy配列の生成と演算</h2>
-<p>このノートでは Python リストとの差を体感するため、NumPy のベクトル演算を最初に実行します。</p>
+<pre><code class="language-python">a = np.array([1, 2, 3, 4], dtype=np.float64)
+b = np.array([[10, 20], [30, 40], [50, 60]])
 
-<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
-labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
-paired = list(zip(labels, scores))
-print(&#39;paired =&#39;, paired)
-try:
-    import numpy as np
-except ModuleNotFoundError:
-    print(&#39;numpy is not installed&#39;)
-else:
-    a = np.array([1, 2, 3])
-    b = np.array([10, 20, 30])
-    print(&#39;a+b =&#39;, a + b)
-    print(&#39;a*b =&#39;, a * b)</code></pre>
-<p>要素ごとの演算が自然に書ける点が NumPy の強みです。行列計算に進む前の入口として重要です。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&quot;a:&quot;, a)
+print(&quot;a.shape:&quot;, a.shape, &quot;a.dtype:&quot;, a.dtype)
+print(&quot;b:\n&quot;, b)
+print(&quot;b.shape:&quot;, b.shape, &quot;b.dtype:&quot;, b.dtype)</code></pre>
+<p>要素ごとの演算は NumPy の基本です。四則演算・比較演算を配列全体に対して直接書けます。</p>
 
-<h2 id="手を動かす-2-条件で分ける">手を動かす 2: 条件で分ける</h2>
-<p>次に、条件分岐で情報を分類します。分類は機械学習の前処理でも頻出なので、早い段階で手を慣らしておきます。</p>
+<pre><code class="language-python">x = np.array([1.0, 2.0, 3.0, 4.0])
+y = np.array([2.0, 4.0, 6.0, 8.0])
 
-<pre><code class="language-python">passed = []
-for name, score in paired:
-    if score &gt;= 70:
-        passed.append(name)
-print(&#39;passed =&#39;, passed)</code></pre>
-<p>このコードは単純ですが、評価基準を変更したときの影響範囲が読みやすい形になっています。基準値を一箇所に集約すると保守しやすくなります。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&quot;x + y:&quot;, x + y)
+print(&quot;x * y:&quot;, x * y)
+print(&quot;x / y:&quot;, x / y)
+print(&quot;x &gt;= 2.5:&quot;, x &gt;= 2.5)</code></pre>
+<p>ブロードキャストは「次元が違っても計算できるように拡張する」仕組みです。<br>
+ここでは <code>matrix.shape == (3, 3)</code> と <code>offset.shape == (3,)</code> ですが、<br>
+NumPy は <code>offset</code> を各行に複製した形として解釈し、行ごとに加算します。</p>
 
-<h2 id="数式メモ">数式メモ</h2>
-<ol>
-<li>厳密な式より、入力 -&gt; 変換 -&gt; 出力の流れを言語化することが中心です。</li>
-</ol>
+<pre><code class="language-python">matrix = np.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
+offset = np.array([10., 20., 30.])
 
-<h2 id="手を動かす-3-関数で再利用する">手を動かす 3: 関数で再利用する</h2>
-<p>同じ処理を繰り返すときは、関数で意味を名前にします。名前付けは可読性の中心で、後から読む自分を助ける実装でもあります。</p>
+print(&quot;matrix.shape:&quot;, matrix.shape)
+print(&quot;offset.shape:&quot;, offset.shape)
+print(&quot;matrix + offset:\n&quot;, matrix + offset)</code></pre>
+<p>インデキシングは、行列から欲しい部分を抜き出すための必須スキルです。<br>
+スライスとブールマスクを使えるようになると、前処理がかなり書きやすくなります。</p>
+<p>ブールマスクは <code>True/False</code> の配列で、<code>True</code> の位置の要素だけを取り出します。</p>
 
-<pre><code class="language-python">def normalize(xs):
-    lo, hi = min(xs), max(xs)
-    span = hi - lo if hi != lo else 1
-    return [(x - lo) / span for x in xs]
-print(&#39;normalized =&#39;, normalize(scores))</code></pre>
-<p>ここで大切なのは、ゼロ除算のような例外条件を先に潰すことです。初学者は正常系だけを考えがちですが、異常系を一行でも書くとコードの寿命が伸びます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">arr = np.arange(1, 13).reshape(3, 4)
+print(&quot;arr:\n&quot;, arr)
+print(&quot;2行目:&quot;, arr[1])
+print(&quot;1〜2行, 2〜4列:\n&quot;, arr[0:2, 1:4])
 
-<h2 id="手を動かす-4-辞書で意味を持たせる">手を動かす 4: 辞書で意味を持たせる</h2>
-<p>配列だけでは意味が曖昧になるとき、辞書でキーを明示します。キーは設計者の意図を運ぶラベルです。</p>
+mask = arr % 2 == 0
+print(&quot;mask:\n&quot;, mask)
+print(&quot;偶数だけ:&quot;, arr[mask])</code></pre>
+<p>集約操作（sum, mean, max）は <code>axis</code> を意識するのがポイントです。<br>
+<code>axis=0</code> は列方向、<code>axis=1</code> は行方向の集約を意味します。</p>
 
-<pre><code class="language-python">records = [{&#39;name&#39;: n, &#39;score&#39;: s} for n, s in paired]
-top = max(records, key=lambda r: r[&#39;score&#39;])
-avg = sum(r[&#39;score&#39;] for r in records) / len(records)
-print(&#39;top =&#39;, top)
-print(&#39;avg =&#39;, round(avg, 2))</code></pre>
-<p>辞書形式にすると、列の追加や削除に強くなります。機械学習の特徴量を増減するときにも同じ考え方が使えます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">scores = np.array([[72, 88, 65], [91, 77, 84], [68, 79, 95]])
 
-<h2 id="手を動かす-5-小さな検証を自動化する">手を動かす 5: 小さな検証を自動化する</h2>
-<p>最後に、期待する性質を <code>assert</code> で固定します。これはテストの最小形で、理解の確認にも使えます。</p>
+print(&quot;全体平均:&quot;, scores.mean())
+print(&quot;科目ごとの平均(axis=0):&quot;, scores.mean(axis=0))
+print(&quot;学生ごとの合計(axis=1):&quot;, scores.sum(axis=1))</code></pre>
+<p>線形代数の演算は、ニューラルネットワークの実装理解にも直結します。<br>
+<code>@</code> 演算子で行列積を書けます。</p>
 
-<pre><code class="language-python">normalized = normalize(scores)
-assert len(normalized) == len(scores)
-assert min(normalized) &gt;= 0.0
-assert max(normalized) &lt;= 1.0
-print(&#39;checks passed&#39;)</code></pre>
-<p>コードを読むだけでなく、実行して仮説を確認する流れを作ると学習効率が上がります。以後の章でもこの確認ループを維持してください。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">W = np.array([[0.2, -0.3], [0.4, 0.1], [0.5, -0.2]])
+x = np.array([1.0, 2.0, -1.0])
+b = np.array([0.1, -0.2])
 
-<h2 id="この節の要点">この節の要点</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>型が想定と違っていても気づかず処理が進んでしまう</li>
-<li>条件分岐の境界値を検証しない</li>
-<li>同じロジックを複数箇所にコピペして保守不能になる</li>
-</ol>
+logits = x @ W + b
+print(&quot;logits:&quot;, logits)</code></pre>
+<p>乱数生成では、再現性のためにシード固定を先に行うのが実務上の基本です。</p>
+
+<pre><code class="language-python">rng = np.random.default_rng(seed=42)
+samples = rng.normal(loc=0.0, scale=1.0, size=(5, 3))
+
+print(samples)
+print(&quot;列平均:&quot;, samples.mean(axis=0))</code></pre>
+<p>最後に、標準化（平均0・分散1）を NumPy で実装します。<br>
+これは多くの機械学習アルゴリズムで前処理として使います。</p>
+
+<pre><code class="language-python">features = np.array([
+    [160, 55],
+    [170, 68],
+    [175, 70],
+    [180, 80],
+], dtype=np.float64)
+
+mu = features.mean(axis=0)
+sigma = features.std(axis=0)
+scaled = (features - mu) / sigma
+
+print(&quot;mu:&quot;, mu)
+print(&quot;sigma:&quot;, sigma)
+print(&quot;scaled:\n&quot;, scaled)
+print(&quot;scaled mean:&quot;, scaled.mean(axis=0))</code></pre>
+<p>NumPy は「配列の形を正しく管理しながらまとめて計算する」ための道具です。<br>
+shape と axis を都度確認する癖が、バグを減らす最短ルートです。</p>
 
 </article>
   </main>

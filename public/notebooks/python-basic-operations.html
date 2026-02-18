@@ -99,86 +99,109 @@
   <main>
 <article class="prose-noema">
 <h1 id="基本的なpythonの操作">基本的なPythonの操作</h1>
-<p>基本的なPythonの操作で身につける狙いは、書いたコードを『読んで説明できる』状態にすることです。</p>
+<p>Python は「手順を短く、読みやすく書く」ことに向いた言語です。機械学習の前処理や分析では、<br>
+大量のデータに対して同じ操作を繰り返す場面が多く、まずは <code>値の持ち方</code> と <code>処理の分岐</code> を確実に押さえることが重要です。</p>
+<p>このノートでは、変数・コレクション・条件分岐・反復・関数までを、実際に値を確認しながら進めます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>基本的なPythonの操作に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<pre><code class="language-python">import math
+from collections import Counter</code></pre>
+<p><code>type</code> は「いま持っている値の性質」を確認する基本ツールです。Python は動的型付けなので、<br>
+コードを書いている途中でも型を観察しながら進めるとミスを減らせます。</p>
+
+<pre><code class="language-python">name = &quot;Noema&quot;
+students = 32
+completion_ratio = 0.45
+
+print(type(name), type(students), type(completion_ratio))
+print(f&quot;{name}: {students}人, 完了率 {completion_ratio:.0%}&quot;)</code></pre>
+<p>リスト・辞書・集合は、用途が異なる 3 つの基本コンテナです。</p>
 <ul>
-<li><strong>変数</strong>: 値に名前を付ける箱です。計算結果を後で再利用するために使います。</li>
-<li><strong>型</strong>: 値の種類です。数値・文字列・リストなどで、使える操作が変わります。</li>
-<li><strong>関数</strong>: 入力を受けて出力を返す処理のまとまりです。再利用と可読性のために使います。</li>
-<li><strong>条件分岐</strong>: 条件が真か偽かで実行経路を切り替える仕組みです。</li>
-<li><strong>反復</strong>: 同じ処理を複数回回す仕組みです。for と while を使います。</li>
+<li>リスト: 順序を保って並べたい</li>
+<li>辞書: キーで高速に参照したい</li>
+<li>集合: 重複を除いて要素の存在を扱いたい</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>同じデータでも、目的に応じて構造を選ぶとコードが一気に読みやすくなります。</p>
 
-<h2 id="実験-1-データを持つ">実験 1: データを持つ</h2>
-<p>最初に、変数とリストを使ってデータの入れ物を明確にします。ここでは値を『覚える』だけでなく、あとで再利用できる形に置くことが狙いです。</p>
+<pre><code class="language-python">scores = [72, 88, 65, 91, 88]
+profile = {&quot;name&quot;: &quot;Aiko&quot;, &quot;grade&quot;: 1, &quot;club&quot;: &quot;AI&quot;}
+unique_scores = set(scores)
 
-<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
-labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
-paired = list(zip(labels, scores))
-print(&#39;paired =&#39;, paired)
-print(&#39;count =&#39;, len(scores))</code></pre>
-<p>この段階で確認すべき点は、データが『どの順序で』保持されるかです。後続の処理では順序ズレがバグの原因になりやすいので、最初に形を固定しておきます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&quot;scores:&quot;, scores)
+print(&quot;profile[&#39;club&#39;]:&quot;, profile[&quot;club&quot;])
+print(&quot;unique_scores:&quot;, unique_scores)</code></pre>
+<p>インデックスとスライスは、配列の一部を抜き出すときの標準手段です。<br>
+とくに <code>start:end</code> は end を含まないので、境界のミスに注意します。</p>
 
-<h2 id="実験-2-条件で分ける">実験 2: 条件で分ける</h2>
-<p>次に、条件分岐で情報を分類します。分類は機械学習の前処理でも頻出なので、早い段階で手を慣らしておきます。</p>
+<pre><code class="language-python">print(&quot;先頭:&quot;, scores[0])
+print(&quot;末尾:&quot;, scores[-1])
+print(&quot;2番目から4番目手前:&quot;, scores[1:4])
+print(&quot;2個おき:&quot;, scores[::2])</code></pre>
+<p><code>if / elif / else</code> は条件分岐、<code>for</code> は反復処理です。<br>
+点数に応じてラベルを付ける処理を実装すると、分岐とループの関係が見えます。</p>
+<p>出力では <code>zip(scores, labels)</code> を使っています。<code>zip</code> は同じ位置の要素を組にして、<br>
+<code>(score, label)</code> のタプル列を作る関数です。</p>
 
-<pre><code class="language-python">passed = []
-for name, score in paired:
-    if score &gt;= 70:
-        passed.append(name)
-print(&#39;passed =&#39;, passed)</code></pre>
-<p>このコードは単純ですが、評価基準を変更したときの影響範囲が読みやすい形になっています。基準値を一箇所に集約すると保守しやすくなります。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">labels = []
+for score in scores:
+    if score &gt;= 90:
+        labels.append(&quot;A&quot;)
+    elif score &gt;= 75:
+        labels.append(&quot;B&quot;)
+    else:
+        labels.append(&quot;C&quot;)
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li>厳密な式より、入力 -&gt; 変換 -&gt; 出力の流れを言語化することが中心です。</li>
-</ol>
+print(list(zip(scores, labels)))</code></pre>
+<p>リスト内包表記は、単純な変換を短く安全に書くための記法です。<br>
+まず通常の <code>for</code> を書いて意味を確認し、次に内包表記へ圧縮する流れが初心者には理解しやすいです。</p>
 
-<h2 id="実験-3-関数で再利用する">実験 3: 関数で再利用する</h2>
-<p>同じ処理を繰り返すときは、関数で意味を名前にします。名前付けは可読性の中心で、後から読む自分を助ける実装でもあります。</p>
+<pre><code class="language-python"># 通常の for
+squared_for = []
+for x in range(1, 6):
+    squared_for.append(x * x)
 
-<pre><code class="language-python">def normalize(xs):
-    lo, hi = min(xs), max(xs)
-    span = hi - lo if hi != lo else 1
-    return [(x - lo) / span for x in xs]
-print(&#39;normalized =&#39;, normalize(scores))</code></pre>
-<p>ここで大切なのは、ゼロ除算のような例外条件を先に潰すことです。初学者は正常系だけを考えがちですが、異常系を一行でも書くとコードの寿命が伸びます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+# 内包表記
+squared_comp = [x * x for x in range(1, 6)]
 
-<h2 id="実験-4-辞書で意味を持たせる">実験 4: 辞書で意味を持たせる</h2>
-<p>配列だけでは意味が曖昧になるとき、辞書でキーを明示します。キーは設計者の意図を運ぶラベルです。</p>
+print(squared_for)
+print(squared_comp)</code></pre>
+<p>関数は「処理に名前をつけて再利用する」ための仕組みです。<br>
+入力を引数、出力を戻り値として明確にすると、分析コードの保守が楽になります。</p>
 
-<pre><code class="language-python">records = [{&#39;name&#39;: n, &#39;score&#39;: s} for n, s in paired]
-top = max(records, key=lambda r: r[&#39;score&#39;])
-avg = sum(r[&#39;score&#39;] for r in records) / len(records)
-print(&#39;top =&#39;, top)
-print(&#39;avg =&#39;, round(avg, 2))</code></pre>
-<p>辞書形式にすると、列の追加や削除に強くなります。機械学習の特徴量を増減するときにも同じ考え方が使えます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">def summarize_scores(values):
+    count = len(values)
+    avg = sum(values) / count
+    best = max(values)
+    worst = min(values)
+    return {&quot;count&quot;: count, &quot;avg&quot;: avg, &quot;best&quot;: best, &quot;worst&quot;: worst}
 
-<h2 id="実験-5-小さな検証を自動化する">実験 5: 小さな検証を自動化する</h2>
-<p>最後に、期待する性質を <code>assert</code> で固定します。これはテストの最小形で、理解の確認にも使えます。</p>
+summary = summarize_scores(scores)
+print(summary)</code></pre>
+<p>例外処理は「壊れる可能性がある場所」を明示するために使います。<br>
+数値変換の失敗を握りつぶすのではなく、<code>except</code> で理由を扱う習慣をつけると、後でデバッグしやすくなります。</p>
 
-<pre><code class="language-python">normalized = normalize(scores)
-assert len(normalized) == len(scores)
-assert min(normalized) &gt;= 0.0
-assert max(normalized) &lt;= 1.0
-print(&#39;checks passed&#39;)</code></pre>
-<p>コードを読むだけでなく、実行して仮説を確認する流れを作ると学習効率が上がります。以後の章でもこの確認ループを維持してください。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">raw_inputs = [&quot;12&quot;, &quot;7&quot;, &quot;oops&quot;, &quot;20&quot;]
+parsed = []
 
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>型が想定と違っていても気づかず処理が進んでしまう</li>
-<li>条件分岐の境界値を検証しない</li>
-<li>同じロジックを複数箇所にコピペして保守不能になる</li>
-</ol>
+for item in raw_inputs:
+    try:
+        parsed.append(int(item))
+    except ValueError:
+        print(f&quot;変換失敗: {item}&quot;)
+
+print(&quot;parsed:&quot;, parsed)</code></pre>
+<p>最後に、ここまでの要素を合わせた小さな分析パターンを確認します。<br>
+文字列ラベルの頻度集計や平均値の算出は、機械学習の前処理でも頻出です。</p>
+<p><code>Counter</code> は「値ごとの出現回数」を数えるためのクラスで、<br>
+<code>Counter(labels)</code> のように渡すと <code>{'A': 回数, 'B': 回数, ...}</code> を返します。</p>
+
+<pre><code class="language-python">label_counter = Counter(labels)
+avg_score = sum(scores) / len(scores)
+std_score = math.sqrt(sum((x - avg_score) ** 2 for x in scores) / len(scores))
+
+print(&quot;label count:&quot;, label_counter)
+print(f&quot;average={avg_score:.2f}, std={std_score:.2f}&quot;)</code></pre>
+<p>Python 基礎で大切なのは、文法暗記よりも「どの構造で値を持つか」「分岐と反復をどう組み合わせるか」を自然に選べることです。<br>
+このノートのコードを少し書き換えながら、どの変更で出力がどう変わるかを確認してみてください。</p>
 
 </article>
   </main>

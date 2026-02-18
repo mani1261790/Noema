@@ -99,94 +99,107 @@
   <main>
 <article class="prose-noema">
 <h1 id="pandasの使い方">Pandasの使い方</h1>
-<p>Pandasの使い方で身につける狙いは、書いたコードを『読んで説明できる』状態にすることです。</p>
+<p>Pandas は、表形式データ（行と列）を扱うためのライブラリです。<br>
+CSV の読み込み、欠損値処理、集計、結合といった分析前処理の中心になります。</p>
+<p>このノートでは、実務で頻出する <code>選択 → 加工 → 集計 → 結合</code> の流れを一通り体験します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>Pandasの使い方に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd</code></pre>
+<p>まずは DataFrame を手で作って、行・列の見方を掴みます。</p>
+
+<pre><code class="language-python">df = pd.DataFrame({
+    &quot;student&quot;: [&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;, &quot;E&quot;],
+    &quot;grade&quot;: [1, 1, 2, 2, 2],
+    &quot;math&quot;: [72, 88, 91, 67, 79],
+    &quot;english&quot;: [75, 90, 85, 70, 82],
+    &quot;club&quot;: [&quot;AI&quot;, &quot;Art&quot;, &quot;AI&quot;, &quot;Sports&quot;, &quot;AI&quot;],
+})
+
+df</code></pre>
+<p>列選択と条件抽出は、Pandas の最も基本的な操作です。</p>
+
+<pre><code class="language-python">print(df[[&quot;student&quot;, &quot;math&quot;]])
+print(&quot;---&quot;)
+print(df[df[&quot;math&quot;] &gt;= 80])</code></pre>
+<p>新しい列を追加するときは、計算式を明示的に書きます。<br>
+ここでは合計点と判定ラベルを作ります。</p>
+<p><code>np.where(condition, true_value, false_value)</code> は、<br>
+各行ごとに条件を判定して値を返すベクトル化された分岐です。</p>
+
+<pre><code class="language-python">df[&quot;total&quot;] = df[&quot;math&quot;] + df[&quot;english&quot;]
+df[&quot;pass&quot;] = np.where(df[&quot;total&quot;] &gt;= 160, &quot;pass&quot;, &quot;retry&quot;)
+
+df</code></pre>
+<p><code>groupby</code> は「同じカテゴリごとに集計する」操作です。<br>
+クラブ別の平均点を見ると、分布の傾向をつかめます。</p>
+<p><code>agg</code> の <code>students=(&quot;student&quot;, &quot;count&quot;)</code> は、<br>
+「出力列名を students にして、student 列へ count 集計をかける」という意味です。<br>
+<code>as_index=False</code> を指定しているので、集計キーの <code>club</code> を列として残したまま結果を扱えます。</p>
+
+<pre><code class="language-python">club_summary = (
+    df.groupby(&quot;club&quot;, as_index=False)
+      .agg(
+          students=(&quot;student&quot;, &quot;count&quot;),
+          math_mean=(&quot;math&quot;, &quot;mean&quot;),
+          english_mean=(&quot;english&quot;, &quot;mean&quot;),
+      )
+)
+
+club_summary</code></pre>
+<p>欠損値（NaN）は実データで必ず出ます。<br>
+埋め方を決める前に、どこが欠損しているかを確認するのが先です。</p>
+
+<pre><code class="language-python">df_missing = df.copy()
+df_missing.loc[2, &quot;english&quot;] = np.nan
+
+print(df_missing)
+print(&quot;--- 欠損数 ---&quot;)
+print(df_missing.isna().sum())</code></pre>
+<p>今回はシンプルに列平均で埋めます。実務では、意味を踏まえて中央値やモデル補完を選びます。</p>
+
+<pre><code class="language-python">filled = df_missing.copy()
+filled[&quot;english&quot;] = filled[&quot;english&quot;].fillna(filled[&quot;english&quot;].mean())
+filled</code></pre>
+<p>表の結合（merge）は分析の中核です。キー列を揃えてから結合します。<br>
+ここでは <code>how=&quot;left&quot;</code> を使い、左側（成績表）の行を必ず残しながら、<br>
+一致する <code>student</code> があればプロフィール列を付与します。一致しない場合は NaN になります。</p>
+
+<pre><code class="language-python">profile = pd.DataFrame({
+    &quot;student&quot;: [&quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;, &quot;E&quot;],
+    &quot;city&quot;: [&quot;Tokyo&quot;, &quot;Osaka&quot;, &quot;Nagoya&quot;, &quot;Fukuoka&quot;, &quot;Tokyo&quot;],
+    &quot;hours&quot;: [6.5, 4.0, 7.0, 3.5, 5.0],
+})
+
+merged = pd.merge(df, profile, on=&quot;student&quot;, how=&quot;left&quot;)
+merged</code></pre>
+<p>縦持ち・横持ちの変換もよく使います。<code>melt</code> で縦持ちにすると可視化しやすくなります。</p>
 <ul>
-<li><strong>変数</strong>: 値に名前を付ける箱です。計算結果を後で再利用するために使います。</li>
-<li><strong>型</strong>: 値の種類です。数値・文字列・リストなどで、使える操作が変わります。</li>
-<li><strong>関数</strong>: 入力を受けて出力を返す処理のまとまりです。再利用と可読性のために使います。</li>
-<li><strong>DataFrame</strong>: 表形式データを行列として扱う構造です。列ごとに型を持てます。</li>
-<li><strong>インデックス</strong>: 行ラベルです。抽出や結合の基準として働きます。</li>
-<li><strong>欠損値</strong>: 値が未観測のセルです。学習前に補完・除外の方針が必要です。</li>
+<li><code>id_vars</code>: そのまま残す識別列（ここでは student, club）</li>
+<li><code>value_vars</code>: 積み上げて1列にまとめる列（ここでは math, english）</li>
+<li><code>var_name</code>, <code>value_name</code>: 変換後の列名（ここでは subject, score）</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
 
-<h2 id="観察-1-dataframeを作って集計する">観察 1: DataFrameを作って集計する</h2>
-<p>表形式データを扱うときは DataFrame を中心に考えます。まず最小例で列操作を体験します。</p>
+<pre><code class="language-python">long_df = merged.melt(
+    id_vars=[&quot;student&quot;, &quot;club&quot;],
+    value_vars=[&quot;math&quot;, &quot;english&quot;],
+    var_name=&quot;subject&quot;,
+    value_name=&quot;score&quot;
+)
 
-<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
-labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
-paired = list(zip(labels, scores))
-print(&#39;paired =&#39;, paired)
-try:
-    import pandas as pd
-except ModuleNotFoundError:
-    print(&#39;pandas is not installed&#39;)
-else:
-    df = pd.DataFrame({&#39;name&#39;: [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;], &#39;score&#39;: [72, 88, 95]})
-    print(df)
-    print(&#39;mean score =&#39;, df[&#39;score&#39;].mean())</code></pre>
-<p>列ごとに意味を持った処理を書けるので、前処理の可読性と再利用性が上がります。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+long_df.head(10)</code></pre>
+<p>日付列を持つデータでは、<code>datetime</code> に変換してから月単位などで集計します。</p>
 
-<h2 id="観察-2-条件で分ける">観察 2: 条件で分ける</h2>
-<p>次に、条件分岐で情報を分類します。分類は機械学習の前処理でも頻出なので、早い段階で手を慣らしておきます。</p>
+<pre><code class="language-python">sales = pd.DataFrame({
+    &quot;date&quot;: [&quot;2026-01-02&quot;, &quot;2026-01-14&quot;, &quot;2026-02-03&quot;, &quot;2026-02-10&quot;, &quot;2026-03-01&quot;],
+    &quot;amount&quot;: [120, 95, 140, 110, 180]
+})
 
-<pre><code class="language-python">passed = []
-for name, score in paired:
-    if score &gt;= 70:
-        passed.append(name)
-print(&#39;passed =&#39;, passed)</code></pre>
-<p>このコードは単純ですが、評価基準を変更したときの影響範囲が読みやすい形になっています。基準値を一箇所に集約すると保守しやすくなります。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li>厳密な式より、入力 -&gt; 変換 -&gt; 出力の流れを言語化することが中心です。</li>
-</ol>
-
-<h2 id="観察-3-関数で再利用する">観察 3: 関数で再利用する</h2>
-<p>同じ処理を繰り返すときは、関数で意味を名前にします。名前付けは可読性の中心で、後から読む自分を助ける実装でもあります。</p>
-
-<pre><code class="language-python">def normalize(xs):
-    lo, hi = min(xs), max(xs)
-    span = hi - lo if hi != lo else 1
-    return [(x - lo) / span for x in xs]
-print(&#39;normalized =&#39;, normalize(scores))</code></pre>
-<p>ここで大切なのは、ゼロ除算のような例外条件を先に潰すことです。初学者は正常系だけを考えがちですが、異常系を一行でも書くとコードの寿命が伸びます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-4-辞書で意味を持たせる">観察 4: 辞書で意味を持たせる</h2>
-<p>配列だけでは意味が曖昧になるとき、辞書でキーを明示します。キーは設計者の意図を運ぶラベルです。</p>
-
-<pre><code class="language-python">records = [{&#39;name&#39;: n, &#39;score&#39;: s} for n, s in paired]
-top = max(records, key=lambda r: r[&#39;score&#39;])
-avg = sum(r[&#39;score&#39;] for r in records) / len(records)
-print(&#39;top =&#39;, top)
-print(&#39;avg =&#39;, round(avg, 2))</code></pre>
-<p>辞書形式にすると、列の追加や削除に強くなります。機械学習の特徴量を増減するときにも同じ考え方が使えます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-5-小さな検証を自動化する">観察 5: 小さな検証を自動化する</h2>
-<p>最後に、期待する性質を <code>assert</code> で固定します。これはテストの最小形で、理解の確認にも使えます。</p>
-
-<pre><code class="language-python">normalized = normalize(scores)
-assert len(normalized) == len(scores)
-assert min(normalized) &gt;= 0.0
-assert max(normalized) &lt;= 1.0
-print(&#39;checks passed&#39;)</code></pre>
-<p>コードを読むだけでなく、実行して仮説を確認する流れを作ると学習効率が上がります。以後の章でもこの確認ループを維持してください。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>型が想定と違っていても気づかず処理が進んでしまう</li>
-<li>条件分岐の境界値を検証しない</li>
-<li>同じロジックを複数箇所にコピペして保守不能になる</li>
-</ol>
+sales[&quot;date&quot;] = pd.to_datetime(sales[&quot;date&quot;])
+sales[&quot;month&quot;] = sales[&quot;date&quot;].dt.to_period(&quot;M&quot;)
+monthly = sales.groupby(&quot;month&quot;, as_index=False)[&quot;amount&quot;].sum()
+monthly</code></pre>
+<p>Pandas では、何をキーに行を合わせるか、どの列を残すかを明確にすると処理が安定します。<br>
+前処理はモデル以前の品質を決めるので、読みやすい集計コードを意識して書くのが重要です。</p>
 
 </article>
   </main>

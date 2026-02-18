@@ -99,96 +99,105 @@
   <main>
 <article class="prose-noema">
 <h1 id="matplotlibとseabornの使い方">MatplotlibとSeabornの使い方</h1>
-<p>MatplotlibとSeabornの使い方で身につける狙いは、書いたコードを『読んで説明できる』状態にすることです。</p>
+<p>可視化は「数表だけでは見えない傾向」を発見するための手段です。<br>
+Matplotlib は柔軟な描画基盤、Seaborn は統計可視化を短いコードで書くための拡張です。</p>
+<p>このノートでは、折れ線・散布図・ヒストグラム・カテゴリ比較を実データ風の例で確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>MatplotlibとSeabornの使い方に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>変数</strong>: 値に名前を付ける箱です。計算結果を後で再利用するために使います。</li>
-<li><strong>型</strong>: 値の種類です。数値・文字列・リストなどで、使える操作が変わります。</li>
-<li><strong>関数</strong>: 入力を受けて出力を返す処理のまとまりです。再利用と可読性のために使います。</li>
-<li><strong>可視化</strong>: データの分布や関係を図で確認する工程です。仮説検証の入り口です。</li>
-<li><strong>軸スケール</strong>: 線形・対数などの軸設定で見える傾向が変わる点に注意します。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-<h2 id="手を動かす-1-可視化の最小実験">手を動かす 1: 可視化の最小実験</h2>
-<p>可視化は説明用ではなく診断用にも使います。まずは線形傾向を目視で確認します。</p>
+sns.set_theme(style=&quot;whitegrid&quot;, context=&quot;notebook&quot;)</code></pre>
+<p>まずは折れ線グラフ。時系列の増減を見るときに使います。</p>
 
-<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
-labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
-paired = list(zip(labels, scores))
-print(&#39;paired =&#39;, paired)
-try:
-    import matplotlib.pyplot as plt
-except ModuleNotFoundError:
-    print(&#39;matplotlib is not installed&#39;)
-else:
-    x = [1, 2, 3, 4]
-    y = [2, 3, 5, 8]
-    plt.plot(x, y, marker=&#39;o&#39;)
-    plt.title(&#39;trend check&#39;)
-    plt.show()</code></pre>
-<p>数値だけでは見落とす外れ値や非線形性を、可視化で早期に発見できます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">days = np.arange(1, 11)
+loss = np.array([1.8, 1.5, 1.3, 1.15, 1.05, 0.96, 0.90, 0.86, 0.82, 0.79])
 
-<h2 id="手を動かす-2-条件で分ける">手を動かす 2: 条件で分ける</h2>
-<p>次に、条件分岐で情報を分類します。分類は機械学習の前処理でも頻出なので、早い段階で手を慣らしておきます。</p>
+fig, ax = plt.subplots(figsize=(6, 3.5))
+ax.plot(days, loss, marker=&quot;o&quot;, linewidth=2)
+ax.set_title(&quot;Training Loss&quot;)
+ax.set_xlabel(&quot;Epoch&quot;)
+ax.set_ylabel(&quot;Loss&quot;)
+plt.show()</code></pre>
+<p>散布図は、2 変数の関係を見るときの第一選択です。<br>
+ここでは「学習時間が増えると点数が上がる」という仮想データを作るために、<br>
+<code>uniform</code> で学習時間、<code>normal</code> でノイズを発生させています。</p>
 
-<pre><code class="language-python">passed = []
-for name, score in paired:
-    if score &gt;= 70:
-        passed.append(name)
-print(&#39;passed =&#39;, passed)</code></pre>
-<p>このコードは単純ですが、評価基準を変更したときの影響範囲が読みやすい形になっています。基準値を一箇所に集約すると保守しやすくなります。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">rng = np.random.default_rng(7)
+hours = rng.uniform(1, 8, size=80)
+score = 52 + hours * 6 + rng.normal(0, 6, size=80)
 
-<h2 id="数式メモ">数式メモ</h2>
-<ol>
-<li>厳密な式より、入力 -&gt; 変換 -&gt; 出力の流れを言語化することが中心です。</li>
-</ol>
+fig, ax = plt.subplots(figsize=(5.5, 4))
+ax.scatter(hours, score, alpha=0.75)
+ax.set_title(&quot;Study Hours vs Score&quot;)
+ax.set_xlabel(&quot;Hours&quot;)
+ax.set_ylabel(&quot;Score&quot;)
+plt.show()</code></pre>
+<p>ヒストグラムは分布の形を確認するために使います。ビン数を変えると見え方が変わる点も重要です。</p>
 
-<h2 id="手を動かす-3-関数で再利用する">手を動かす 3: 関数で再利用する</h2>
-<p>同じ処理を繰り返すときは、関数で意味を名前にします。名前付けは可読性の中心で、後から読む自分を助ける実装でもあります。</p>
+<pre><code class="language-python">fig, axes = plt.subplots(1, 2, figsize=(10, 3.5), sharey=True)
+axes[0].hist(score, bins=8, color=&quot;#4C78A8&quot;, alpha=0.85)
+axes[0].set_title(&quot;bins=8&quot;)
+axes[1].hist(score, bins=20, color=&quot;#F58518&quot;, alpha=0.85)
+axes[1].set_title(&quot;bins=20&quot;)
+for ax in axes:
+    ax.set_xlabel(&quot;Score&quot;)
+axes[0].set_ylabel(&quot;Count&quot;)
+plt.tight_layout()
+plt.show()</code></pre>
+<p>カテゴリ比較では、箱ひげ図や棒グラフが便利です。Seaborn はこの部分を短く書けます。</p>
+<p>この例では <code>np.repeat</code> でクラスラベルを増やし、<br>
+<code>np.concatenate</code> でクラスごとに分布の違うスコア列を連結して、<br>
+「クラスごとのばらつき」を比較できる形にしています。</p>
 
-<pre><code class="language-python">def normalize(xs):
-    lo, hi = min(xs), max(xs)
-    span = hi - lo if hi != lo else 1
-    return [(x - lo) / span for x in xs]
-print(&#39;normalized =&#39;, normalize(scores))</code></pre>
-<p>ここで大切なのは、ゼロ除算のような例外条件を先に潰すことです。初学者は正常系だけを考えがちですが、異常系を一行でも書くとコードの寿命が伸びます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">df = pd.DataFrame({
+    &quot;class&quot;: np.repeat([&quot;A&quot;, &quot;B&quot;, &quot;C&quot;], repeats=30),
+    &quot;score&quot;: np.concatenate([
+        rng.normal(70, 7, size=30),
+        rng.normal(78, 6, size=30),
+        rng.normal(74, 8, size=30),
+    ])
+})
 
-<h2 id="手を動かす-4-辞書で意味を持たせる">手を動かす 4: 辞書で意味を持たせる</h2>
-<p>配列だけでは意味が曖昧になるとき、辞書でキーを明示します。キーは設計者の意図を運ぶラベルです。</p>
+fig, ax = plt.subplots(figsize=(6, 4))
+sns.boxplot(data=df, x=&quot;class&quot;, y=&quot;score&quot;, ax=ax)
+ax.set_title(&quot;Score Distribution by Class&quot;)
+plt.show()</code></pre>
+<p>複数系列の比較は、<code>hue</code> を使うと情報を整理しやすくなります。<br>
+この例では baseline と improved を同じ軸で比較し、<br>
+improved の曲線がより早く高い精度に到達しているかを読むのがポイントです。</p>
 
-<pre><code class="language-python">records = [{&#39;name&#39;: n, &#39;score&#39;: s} for n, s in paired]
-top = max(records, key=lambda r: r[&#39;score&#39;])
-avg = sum(r[&#39;score&#39;] for r in records) / len(records)
-print(&#39;top =&#39;, top)
-print(&#39;avg =&#39;, round(avg, 2))</code></pre>
-<p>辞書形式にすると、列の追加や削除に強くなります。機械学習の特徴量を増減するときにも同じ考え方が使えます。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">df2 = pd.DataFrame({
+    &quot;week&quot;: np.tile(np.arange(1, 7), 2),
+    &quot;accuracy&quot;: np.concatenate([
+        np.array([0.61, 0.66, 0.70, 0.74, 0.77, 0.79]),
+        np.array([0.58, 0.64, 0.69, 0.72, 0.75, 0.78]),
+    ]),
+    &quot;model&quot;: [&quot;baseline&quot;] * 6 + [&quot;improved&quot;] * 6,
+})
 
-<h2 id="手を動かす-5-小さな検証を自動化する">手を動かす 5: 小さな検証を自動化する</h2>
-<p>最後に、期待する性質を <code>assert</code> で固定します。これはテストの最小形で、理解の確認にも使えます。</p>
+fig, ax = plt.subplots(figsize=(6, 3.8))
+sns.lineplot(data=df2, x=&quot;week&quot;, y=&quot;accuracy&quot;, hue=&quot;model&quot;, marker=&quot;o&quot;, ax=ax)
+ax.set_ylim(0.55, 0.82)
+ax.set_title(&quot;Validation Accuracy&quot;)
+plt.show()</code></pre>
+<p>相関行列ヒートマップは、特徴量同士の関係を俯瞰するときに便利です。</p>
 
-<pre><code class="language-python">normalized = normalize(scores)
-assert len(normalized) == len(scores)
-assert min(normalized) &gt;= 0.0
-assert max(normalized) &lt;= 1.0
-print(&#39;checks passed&#39;)</code></pre>
-<p>コードを読むだけでなく、実行して仮説を確認する流れを作ると学習効率が上がります。以後の章でもこの確認ループを維持してください。</p>
-<p>この節では、変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">feature_df = pd.DataFrame({
+    &quot;math&quot;: rng.normal(75, 10, size=120),
+    &quot;english&quot;: rng.normal(73, 9, size=120),
+    &quot;science&quot;: rng.normal(70, 11, size=120),
+    &quot;study_hours&quot;: rng.normal(4.5, 1.2, size=120),
+})
 
-<h2 id="この節の要点">この節の要点</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>型が想定と違っていても気づかず処理が進んでしまう</li>
-<li>条件分岐の境界値を検証しない</li>
-<li>同じロジックを複数箇所にコピペして保守不能になる</li>
-</ol>
-<p>MatplotlibとSeabornの使い方 はこのセクションの最終ステップです。先頭ノートから順に再実行し、流れ全体を確認してください。</p>
+corr = feature_df.corr(numeric_only=True)
+fig, ax = plt.subplots(figsize=(5, 4.2))
+sns.heatmap(corr, annot=True, cmap=&quot;Blues&quot;, vmin=-1, vmax=1, ax=ax)
+ax.set_title(&quot;Correlation Matrix&quot;)
+plt.show()</code></pre>
+<p>可視化では、見た目を整える前に「何を比較したいか」を先に決めることが重要です。<br>
+目的が定まると、グラフ種類・軸・色分けの選択がぶれにくくなります。</p>
 
 </article>
   </main>
