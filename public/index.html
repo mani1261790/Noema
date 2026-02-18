@@ -794,11 +794,9 @@
       border: 1px solid var(--glass-edge-soft);
       border-radius: 12px;
       overflow: hidden;
-      background:
-        linear-gradient(145deg, color-mix(in oklab, var(--glass-highlight) 28%, transparent), transparent 64%),
-        color-mix(in oklab, var(--panel-soft) 76%, transparent);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      background: var(--code-bg);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
     }
 
     .code-runner-shell {
@@ -810,8 +808,7 @@
     .code-runner-rail {
       border-right: 1px solid var(--border);
       background:
-        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 26%, transparent), transparent 70%),
-        color-mix(in oklab, var(--panel-strong) 86%, transparent);
+        linear-gradient(180deg, color-mix(in oklab, var(--panel-strong) 92%, transparent), color-mix(in oklab, var(--panel-strong) 84%, transparent));
       display: flex;
       align-items: flex-start;
       justify-content: center;
@@ -836,6 +833,8 @@
       display: grid;
       align-items: start;
       isolation: isolate;
+      background: var(--code-bg);
+      overflow: hidden;
     }
 
     .code-editor-surface pre {
