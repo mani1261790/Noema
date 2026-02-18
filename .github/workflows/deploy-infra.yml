@@ -1,6 +1,11 @@
 name: Deploy Infra
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/deploy-infra.yml"
   workflow_dispatch:
     inputs:
       aws_region:
@@ -102,6 +107,31 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ inputs.aws_region || vars.NOEMA_AWS_REGION || 'ap-northeast-3' }}
+      STACK_STAGE: ${{ inputs.stack_stage || vars.NOEMA_STACK_STAGE || 'prod' }}
+      FRONTEND_URL: ${{ inputs.frontend_url || vars.NOEMA_FRONTEND_URL }}
+      ALARM_EMAIL: ${{ inputs.alarm_email || vars.NOEMA_ALARM_EMAIL || '' }}
+      COGNITO_DOMAIN_PREFIX: ${{ inputs.cognito_domain_prefix || vars.NOEMA_COGNITO_DOMAIN_PREFIX || '' }}
+      CREATE_GITHUB_DEPLOY_ROLE: ${{ inputs.create_github_deploy_role || vars.NOEMA_CREATE_GITHUB_DEPLOY_ROLE || 'true' }}
+      GITHUB_REPO: ${{ inputs.github_repo || vars.NOEMA_GITHUB_REPO || 'mani1261790/Noema' }}
+      GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern || vars.NOEMA_GITHUB_REF_PATTERN || 'refs/heads/main' }}
+      GITHUB_ENVIRONMENT_NAME: ${{ inputs.github_environment_name || vars.NOEMA_GITHUB_ENVIRONMENT_NAME || 'production' }}
+      QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider || vars.NOEMA_QA_MODEL_PROVIDER || 'auto' }}
+      BEDROCK_REGION: ${{ inputs.bedrock_region || vars.NOEMA_BEDROCK_REGION || 'us-east-1' }}
+      BEDROCK_MODEL_SMALL: ${{ inputs.bedrock_model_small || vars.NOEMA_BEDROCK_MODEL_SMALL || '' }}
+      BEDROCK_MODEL_MID: ${{ inputs.bedrock_model_mid || vars.NOEMA_BEDROCK_MODEL_MID || '' }}
+      BEDROCK_MODEL_LARGE: ${{ inputs.bedrock_model_large || vars.NOEMA_BEDROCK_MODEL_LARGE || '' }}
+      OPENAI_MODEL_SMALL: ${{ inputs.openai_model_small || vars.NOEMA_OPENAI_MODEL_SMALL || 'gpt-5-nano' }}
+      OPENAI_MODEL_MID: ${{ inputs.openai_model_mid || vars.NOEMA_OPENAI_MODEL_MID || '' }}
+      OPENAI_MODEL_LARGE: ${{ inputs.openai_model_large || vars.NOEMA_OPENAI_MODEL_LARGE || '' }}
+      OPENAI_API_KEY_SSM_PARAMETER: ${{ inputs.openai_api_key_ssm_parameter || vars.NOEMA_OPENAI_API_KEY_SSM_PARAMETER || '' }}
+      ADMIN_EMAILS: ${{ inputs.admin_emails || vars.NOEMA_ADMIN_EMAILS || '' }}
+      NOEMA_INLINE_QA: ${{ inputs.noema_inline_qa || vars.NOEMA_INLINE_QA || 'false' }}
+      QA_RATE_LIMIT_MAX: ${{ inputs.qa_rate_limit_max || vars.NOEMA_QA_RATE_LIMIT_MAX || '6' }}
+      QA_RATE_LIMIT_WINDOW_MINUTES: ${{ inputs.qa_rate_limit_window_minutes || vars.NOEMA_QA_RATE_LIMIT_WINDOW_MINUTES || '1' }}
+      RUN_CDK_BOOTSTRAP: ${{ inputs.run_cdk_bootstrap || vars.NOEMA_RUN_CDK_BOOTSTRAP || 'false' }}
     defaults:
       run:
         working-directory: infra
@@ -120,38 +150,48 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ inputs.aws_region }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Validate deployment variables
+        run: |
+          set -euo pipefail
+          for var_name in FRONTEND_URL STACK_STAGE CREATE_GITHUB_DEPLOY_ROLE GITHUB_REPO GITHUB_REF_PATTERN GITHUB_ENVIRONMENT_NAME QA_MODEL_PROVIDER BEDROCK_REGION OPENAI_MODEL_SMALL NOEMA_INLINE_QA QA_RATE_LIMIT_MAX QA_RATE_LIMIT_WINDOW_MINUTES; do
+            if [[ -z "${!var_name:-}" ]]; then
+              echo "Missing ${var_name}. Set workflow input or repository/environment variable."
+              exit 1
+            fi
+          done
 
       - name: Install dependencies
         run: npm ci
 
       - name: CDK bootstrap
-        if: ${{ inputs.run_cdk_bootstrap == 'true' }}
+        if: ${{ env.RUN_CDK_BOOTSTRAP == 'true' }}
         run: npx cdk bootstrap
 
       - name: CDK deploy
         env:
-          INPUT_STACK_STAGE: ${{ inputs.stack_stage }}
-          INPUT_FRONTEND_URL: ${{ inputs.frontend_url }}
-          INPUT_ALARM_EMAIL: ${{ inputs.alarm_email }}
-          INPUT_COGNITO_DOMAIN_PREFIX: ${{ inputs.cognito_domain_prefix }}
-          INPUT_CREATE_GITHUB_DEPLOY_ROLE: ${{ inputs.create_github_deploy_role }}
-          INPUT_GITHUB_REPO: ${{ inputs.github_repo }}
-          INPUT_GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern }}
-          INPUT_GITHUB_ENVIRONMENT_NAME: ${{ inputs.github_environment_name }}
-          INPUT_QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider }}
-          INPUT_BEDROCK_REGION: ${{ inputs.bedrock_region }}
-          INPUT_BEDROCK_MODEL_SMALL: ${{ inputs.bedrock_model_small }}
-          INPUT_BEDROCK_MODEL_MID: ${{ inputs.bedrock_model_mid }}
-          INPUT_BEDROCK_MODEL_LARGE: ${{ inputs.bedrock_model_large }}
-          INPUT_OPENAI_MODEL_SMALL: ${{ inputs.openai_model_small }}
-          INPUT_OPENAI_MODEL_MID: ${{ inputs.openai_model_mid }}
-          INPUT_OPENAI_MODEL_LARGE: ${{ inputs.openai_model_large }}
-          INPUT_OPENAI_API_KEY_SSM_PARAMETER: ${{ inputs.openai_api_key_ssm_parameter }}
-          INPUT_ADMIN_EMAILS: ${{ inputs.admin_emails }}
-          INPUT_NOEMA_INLINE_QA: ${{ inputs.noema_inline_qa }}
-          INPUT_QA_RATE_LIMIT_MAX: ${{ inputs.qa_rate_limit_max }}
-          INPUT_QA_RATE_LIMIT_WINDOW_MINUTES: ${{ inputs.qa_rate_limit_window_minutes }}
+          INPUT_STACK_STAGE: ${{ env.STACK_STAGE }}
+          INPUT_FRONTEND_URL: ${{ env.FRONTEND_URL }}
+          INPUT_ALARM_EMAIL: ${{ env.ALARM_EMAIL }}
+          INPUT_COGNITO_DOMAIN_PREFIX: ${{ env.COGNITO_DOMAIN_PREFIX }}
+          INPUT_CREATE_GITHUB_DEPLOY_ROLE: ${{ env.CREATE_GITHUB_DEPLOY_ROLE }}
+          INPUT_GITHUB_REPO: ${{ env.GITHUB_REPO }}
+          INPUT_GITHUB_REF_PATTERN: ${{ env.GITHUB_REF_PATTERN }}
+          INPUT_GITHUB_ENVIRONMENT_NAME: ${{ env.GITHUB_ENVIRONMENT_NAME }}
+          INPUT_QA_MODEL_PROVIDER: ${{ env.QA_MODEL_PROVIDER }}
+          INPUT_BEDROCK_REGION: ${{ env.BEDROCK_REGION }}
+          INPUT_BEDROCK_MODEL_SMALL: ${{ env.BEDROCK_MODEL_SMALL }}
+          INPUT_BEDROCK_MODEL_MID: ${{ env.BEDROCK_MODEL_MID }}
+          INPUT_BEDROCK_MODEL_LARGE: ${{ env.BEDROCK_MODEL_LARGE }}
+          INPUT_OPENAI_MODEL_SMALL: ${{ env.OPENAI_MODEL_SMALL }}
+          INPUT_OPENAI_MODEL_MID: ${{ env.OPENAI_MODEL_MID }}
+          INPUT_OPENAI_MODEL_LARGE: ${{ env.OPENAI_MODEL_LARGE }}
+          INPUT_OPENAI_API_KEY_SSM_PARAMETER: ${{ env.OPENAI_API_KEY_SSM_PARAMETER }}
+          INPUT_ADMIN_EMAILS: ${{ env.ADMIN_EMAILS }}
+          INPUT_NOEMA_INLINE_QA: ${{ env.NOEMA_INLINE_QA }}
+          INPUT_QA_RATE_LIMIT_MAX: ${{ env.QA_RATE_LIMIT_MAX }}
+          INPUT_QA_RATE_LIMIT_WINDOW_MINUTES: ${{ env.QA_RATE_LIMIT_WINDOW_MINUTES }}
           DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
         run: |
           set -euo pipefail
