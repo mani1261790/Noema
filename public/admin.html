@@ -361,6 +361,83 @@
       font-size: 13px;
     }
 
+    .editor-block {
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .editor-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .editor-textarea {
+      width: 100%;
+      min-height: 320px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      background: rgba(10, 22, 38, .78);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      line-height: 1.6;
+      outline: none;
+    }
+
+    .editor-textarea:focus {
+      border-color: color-mix(in oklab, var(--accent) 70%, white);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .questions {
+      max-height: 320px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+      padding-right: 2px;
+    }
+
+    .question-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(14, 29, 47, .76);
+      padding: 9px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .question-meta {
+      color: var(--muted);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+
+    .question-text {
+      font-size: 12px;
+      line-height: 1.5;
+      color: color-mix(in oklab, var(--text) 90%, white);
+      white-space: pre-wrap;
+    }
+
+    .question-answer {
+      width: 100%;
+      min-height: 72px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      background: rgba(12, 25, 42, .72);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+      outline: none;
+    }
+
     @media (max-width: 1180px) {
       .main-grid { grid-template-columns: 1fr; min-height: auto; }
       .form-grid, .nb-grid { grid-template-columns: 1fr; }
@@ -424,6 +501,30 @@
         <div class="meta">ドラッグ&ドロップでノートを並び替え/セクション移動できます。空セクションはノートを入れて保存したときのみ永続反映されます。</div>
         <div class="status" id="list-status" data-visible="false" data-kind="info"></div>
         <div class="chapters" id="chapters"></div>
+
+        <section class="editor-block">
+          <div class="list-head">
+            <h2>ipynb 編集</h2>
+            <div class="head-actions">
+              <button class="button-ghost" id="editor-reload-btn" type="button">再読込</button>
+              <button class="button" id="editor-save-btn" type="button">保存</button>
+            </div>
+          </div>
+          <div class="editor-meta" id="editor-meta">ノートを選択してください。</div>
+          <textarea class="editor-textarea" id="editor-textarea" placeholder="ノートを選択すると ipynb JSON が表示されます。"></textarea>
+          <div class="status" id="editor-status" data-visible="false" data-kind="info"></div>
+        </section>
+
+        <section class="editor-block">
+          <div class="list-head">
+            <h2>質問ログ</h2>
+            <div class="head-actions">
+              <button class="button-ghost" id="questions-refresh-btn" type="button">更新</button>
+            </div>
+          </div>
+          <div class="questions" id="questions"></div>
+          <div class="status" id="questions-status" data-visible="false" data-kind="info"></div>
+        </section>
       </section>
     </div>
   </main>
@@ -443,12 +544,26 @@
       const addSectionBtn = document.getElementById("add-section-btn");
       const saveLayoutBtn = document.getElementById("save-layout-btn");
       const chaptersEl = document.getElementById("chapters");
+      const editorMetaEl = document.getElementById("editor-meta");
+      const editorTextareaEl = document.getElementById("editor-textarea");
+      const editorStatusEl = document.getElementById("editor-status");
+      const editorSaveBtn = document.getElementById("editor-save-btn");
+      const editorReloadBtn = document.getElementById("editor-reload-btn");
+      const questionsEl = document.getElementById("questions");
+      const questionsStatusEl = document.getElementById("questions-status");
+      const questionsRefreshBtn = document.getElementById("questions-refresh-btn");
 
       const state = {
         sections: [],
         notebooksById: {},
         draggingNotebookId: "",
-        dirtyLayout: false
+        dirtyLayout: false,
+        activeNotebookId: "",
+        ipynbRaw: "",
+        ipynbLoadedNotebookId: "",
+        ipynbDirty: false,
+        ipynbSaveTimer: 0,
+        questions: []
       };
 
       function uid(prefix) {
@@ -613,6 +728,44 @@
         countLabelEl.textContent = `${state.sections.length} sections / ${notebookCount} notebooks`;
       }
 
+      function findNotebookLocation(notebookId) {
+        for (const section of state.sections) {
+          const idx = section.notebookIds.indexOf(notebookId);
+          if (idx >= 0) {
+            return { section, index: idx };
+          }
+        }
+        return null;
+      }
+
+      function ensureActiveNotebook() {
+        if (state.activeNotebookId && notebookById(state.activeNotebookId)) return;
+        for (const section of state.sections) {
+          if (section.notebookIds.length > 0) {
+            state.activeNotebookId = section.notebookIds[0];
+            return;
+          }
+        }
+        state.activeNotebookId = "";
+      }
+
+      function renderEditorMeta(extra) {
+        const notebookId = state.activeNotebookId;
+        const notebook = notebookById(notebookId);
+        const location = notebookId ? findNotebookLocation(notebookId) : null;
+        if (!notebook || !location) {
+          editorMetaEl.textContent = "ノートを選択してください。";
+          if (extra) {
+            setStatus(editorStatusEl, "info", extra);
+          }
+          return;
+        }
+        editorMetaEl.textContent = `${notebook.notebookId} | ${location.section.title} / ${location.index + 1}番`;
+        if (extra) {
+          setStatus(editorStatusEl, "info", extra);
+        }
+      }
+
       function cardTemplate(notebookId, sectionId, indexInSection) {
         const nb = notebookById(notebookId);
         if (!nb) return "";
@@ -639,6 +792,7 @@
               <div class="meta full">順序: ${indexInSection + 1} / HTML: ${escapeHtml(nb.htmlPath || "")}</div>
             </div>
             <div class="nb-actions">
+              <button class="button-ghost" data-action="edit-ipynb" type="button">ipynb編集</button>
               <button class="button-ghost" data-action="save-notebook" type="button">保存</button>
               <button class="button-danger" data-action="delete-notebook" type="button">削除</button>
             </div>
@@ -900,6 +1054,168 @@
         }
       }
 
+      async function loadNotebookEditor(notebookId) {
+        const normalizedId = String(notebookId || "").trim();
+        state.activeNotebookId = normalizedId;
+        ensureActiveNotebook();
+        renderEditorMeta("ipynbを読み込み中...");
+
+        if (!state.activeNotebookId) {
+          state.ipynbRaw = "";
+          state.ipynbLoadedNotebookId = "";
+          state.ipynbDirty = false;
+          editorTextareaEl.value = "";
+          setStatus(editorStatusEl, "info", "ノートを選択してください。");
+          return;
+        }
+
+        try {
+          const payload = await api(`/api/admin/notebooks/${encodeURIComponent(state.activeNotebookId)}`, { method: "GET" });
+          state.ipynbRaw = String(payload.ipynbRaw || "");
+          state.ipynbLoadedNotebookId = state.activeNotebookId;
+          state.ipynbDirty = false;
+          editorTextareaEl.value = state.ipynbRaw;
+          setStatus(editorStatusEl, "success", `読み込みました: ${state.activeNotebookId}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setStatus(editorStatusEl, "error", message);
+        } finally {
+          renderEditorMeta();
+        }
+      }
+
+      async function saveNotebookEditor(manual) {
+        const notebookId = state.activeNotebookId;
+        const notebook = notebookById(notebookId);
+        const location = findNotebookLocation(notebookId);
+        if (!notebook || !location) {
+          setStatus(editorStatusEl, "error", "保存対象のノートが見つかりません。");
+          return;
+        }
+
+        const raw = String(editorTextareaEl.value || "");
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          setStatus(editorStatusEl, "error", "JSON形式が不正です。修正後に保存してください。");
+          return;
+        }
+        if (!parsed || typeof parsed !== "object") {
+          setStatus(editorStatusEl, "error", "ipynb JSON が不正です。");
+          return;
+        }
+
+        editorSaveBtn.disabled = true;
+        if (manual) {
+          setStatus(editorStatusEl, "info", `保存中... (${notebookId})`);
+        }
+
+        try {
+          await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              title: notebook.title,
+              chapter: location.section.title,
+              sortOrder: location.index + 1,
+              tags: notebook.tags,
+              colabUrl: notebook.colabUrl,
+              videoUrl: notebook.videoUrl,
+              ipynbRaw: raw
+            })
+          });
+
+          state.ipynbRaw = raw;
+          state.ipynbLoadedNotebookId = notebookId;
+          state.ipynbDirty = false;
+          setStatus(editorStatusEl, "success", `保存しました: ${notebookId}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          setStatus(editorStatusEl, "error", message);
+        } finally {
+          editorSaveBtn.disabled = false;
+        }
+      }
+
+      function scheduleNotebookEditorSave() {
+        if (state.ipynbSaveTimer) {
+          window.clearTimeout(state.ipynbSaveTimer);
+        }
+        state.ipynbSaveTimer = window.setTimeout(() => {
+          void saveNotebookEditor(false);
+        }, 1400);
+      }
+
+      function renderQuestions() {
+        if (!Array.isArray(state.questions) || state.questions.length === 0) {
+          questionsEl.innerHTML = '<div class="empty">質問ログはまだありません。</div>';
+          return;
+        }
+
+        questionsEl.innerHTML = state.questions
+          .map((item) => {
+            const when = item.createdAt ? new Date(item.createdAt).toLocaleString() : "";
+            const user = item.user && item.user.email ? item.user.email : "unknown";
+            return `
+              <article class="question-card" data-question-id="${escapeHtml(item.id || "")}">
+                <div class="question-meta">${escapeHtml(user)} | ${escapeHtml(when)} | ${escapeHtml(item.notebookId || "")}#${escapeHtml(item.sectionId || "")}</div>
+                <div class="question-text">Q: ${escapeHtml(item.questionText || "")}</div>
+                <textarea class="question-answer">${escapeHtml(item.answerText || "")}</textarea>
+                <div class="nb-actions">
+                  <button class="button-ghost" data-action="save-answer" type="button">回答を保存</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+
+        questionsEl.querySelectorAll("[data-action='save-answer']").forEach((button) => {
+          button.addEventListener("click", async function () {
+            const card = button.closest("[data-question-id]");
+            if (!card) return;
+            const questionId = card.getAttribute("data-question-id") || "";
+            const textarea = card.querySelector(".question-answer");
+            const answerText = String(textarea ? textarea.value : "").trim();
+            if (!questionId || !answerText) {
+              setStatus(questionsStatusEl, "error", "questionId と answerText は必須です。");
+              return;
+            }
+
+            button.disabled = true;
+            setStatus(questionsStatusEl, "info", `保存中... (${questionId})`);
+            try {
+              await api("/api/admin/questions", {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ questionId, answerText })
+              });
+              setStatus(questionsStatusEl, "success", `保存しました: ${questionId}`);
+              await loadQuestions();
+            } catch (error) {
+              setStatus(questionsStatusEl, "error", error instanceof Error ? error.message : String(error));
+            } finally {
+              button.disabled = false;
+            }
+          });
+        });
+      }
+
+      async function loadQuestions() {
+        setStatus(questionsStatusEl, "info", "質問ログを読み込み中...");
+        try {
+          const payload = await api("/api/admin/questions", { method: "GET" });
+          state.questions = Array.isArray(payload.items) ? payload.items : [];
+          renderQuestions();
+          setStatus(questionsStatusEl, "success", "質問ログを更新しました。");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          state.questions = [];
+          renderQuestions();
+          setStatus(questionsStatusEl, "error", message);
+        }
+      }
+
       function bindEventsAfterRender() {
         chaptersEl.querySelectorAll("[data-role='section-title']").forEach((input) => {
           input.addEventListener("input", function () {
@@ -941,6 +1257,16 @@
         });
 
         chaptersEl.querySelectorAll(".nb-card").forEach((card) => {
+          card.addEventListener("click", function (event) {
+            const target = event.target;
+            if (target && target.closest && target.closest("button")) {
+              return;
+            }
+            const notebookId = card.getAttribute("data-notebook-id") || "";
+            if (!notebookId || notebookId === state.activeNotebookId) return;
+            void loadNotebookEditor(notebookId);
+          });
+
           card.addEventListener("dragstart", function (event) {
             state.draggingNotebookId = card.getAttribute("data-notebook-id") || "";
             card.classList.add("dragging");
@@ -965,6 +1291,12 @@
 
           card.querySelector("[data-action='save-notebook']")?.addEventListener("click", function () {
             void saveSingleNotebook(card, this);
+          });
+
+          card.querySelector("[data-action='edit-ipynb']")?.addEventListener("click", function () {
+            const notebookId = card.getAttribute("data-notebook-id") || "";
+            if (!notebookId) return;
+            void loadNotebookEditor(notebookId);
           });
 
           card.querySelector("[data-action='delete-notebook']")?.addEventListener("click", function () {
@@ -1000,10 +1332,16 @@
       async function loadNotebooks() {
         setStatus(listStatusEl, "info", "教材一覧を読み込み中...");
         try {
+          const previousActive = state.activeNotebookId;
           const payload = await api("/api/admin/notebooks", { method: "GET" });
           const items = Array.isArray(payload.items) ? payload.items : [];
           buildStateFromItems(items);
+          if (previousActive && notebookById(previousActive)) {
+            state.activeNotebookId = previousActive;
+          }
+          ensureActiveNotebook();
           renderChapters();
+          void loadNotebookEditor(state.activeNotebookId);
           setStatus(listStatusEl, "success", "教材一覧を更新しました。");
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -1064,6 +1402,24 @@
         void loadNotebooks();
       });
 
+      editorReloadBtn.addEventListener("click", function () {
+        void loadNotebookEditor(state.activeNotebookId);
+      });
+
+      editorSaveBtn.addEventListener("click", function () {
+        void saveNotebookEditor(true);
+      });
+
+      editorTextareaEl.addEventListener("input", function () {
+        state.ipynbDirty = true;
+        setStatus(editorStatusEl, "info", "未保存の変更があります...");
+        scheduleNotebookEditorSave();
+      });
+
+      questionsRefreshBtn.addEventListener("click", function () {
+        void loadQuestions();
+      });
+
       logoutBtn.addEventListener("click", function () {
         localStorage.removeItem(TOKEN_KEY);
         window.location.href = "/login";
@@ -1071,6 +1427,7 @@
 
       requireLogin();
       void loadNotebooks();
+      void loadQuestions();
     })();
   </script>
 </body>

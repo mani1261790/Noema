@@ -16,7 +16,7 @@ import {
   UpdateCommand
 } from "@aws-sdk/lib-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
@@ -99,6 +99,16 @@ type AdminNotebookPatchInput = {
   tags?: string[];
   colabUrl?: string;
   videoUrl?: string;
+};
+
+type AdminNotebookPutInput = {
+  title?: string;
+  chapter?: string;
+  sortOrder?: number;
+  tags?: string[];
+  colabUrl?: string;
+  videoUrl?: string;
+  ipynbRaw?: string;
 };
 
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
@@ -186,6 +196,15 @@ const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
+
+async function streamBodyToString(body: unknown): Promise<string> {
+  if (!body || typeof body !== "object") return "";
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of body as AsyncIterable<Uint8Array>) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
 
 function normalizeEmailAddress(value: string): string {
   return value.trim().toLowerCase();
@@ -1331,6 +1350,137 @@ export async function listAdminNotebooks() {
   };
 }
 
+function chunksToFallbackIpynbRaw(chunks: NotebookChunk[]): string {
+  return `${JSON.stringify(
+    {
+      cells: chunks.map((chunk) => ({
+        cell_type: "markdown",
+        source: [chunk.content]
+      }))
+    },
+    null,
+    2
+  )}\n`;
+}
+
+async function loadStoredNotebookIpynbRaw(notebookId: string, fallbackChunks: NotebookChunk[]): Promise<string> {
+  if (NOTEBOOK_BUCKET) {
+    try {
+      const response = await s3.send(
+        new GetObjectCommand({
+          Bucket: NOTEBOOK_BUCKET,
+          Key: `notebooks/${notebookId}.ipynb`
+        })
+      );
+      const raw = await streamBodyToString(response.Body);
+      if (raw.trim()) {
+        try {
+          const parsed = JSON.parse(raw) as NotebookFile;
+          const canonical = canonicalizeNotebookFile(parsed);
+          return `${JSON.stringify(canonical, null, 2)}\n`;
+        } catch {
+          return raw;
+        }
+      }
+    } catch {
+      // fall through to chunk-based fallback
+    }
+  }
+
+  const fallback = chunksToFallbackIpynbRaw(fallbackChunks);
+  try {
+    const parsed = JSON.parse(fallback) as NotebookFile;
+    const canonical = canonicalizeNotebookFile(parsed);
+    return `${JSON.stringify(canonical, null, 2)}\n`;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function getAdminNotebookDetail(notebookId: string) {
+  const existing = await getNotebook(notebookId);
+  if (!existing) return null;
+
+  const ipynbRaw = await loadStoredNotebookIpynbRaw(notebookId, existing.chunks ?? []);
+
+  return {
+    notebook: {
+      id: existing.notebookId,
+      title: existing.title,
+      chapter: existing.chapter,
+      sortOrder: existing.sortOrder,
+      tags: existing.tags ?? [],
+      colabUrl: existing.colabUrl,
+      videoUrl: existing.videoUrl || "",
+      htmlPath: existing.htmlPath,
+      updatedAt: existing.updatedAt || ""
+    },
+    ipynbRaw
+  };
+}
+
+export async function putAdminNotebook(notebookId: string, input: AdminNotebookPutInput): Promise<boolean> {
+  const existing = await getNotebook(notebookId);
+  if (!existing) return false;
+
+  const title = input.title?.trim() || existing.title;
+  const chapter = input.chapter?.trim() || existing.chapter;
+  const sortOrder =
+    input.sortOrder !== undefined && Number.isFinite(input.sortOrder)
+      ? Math.max(1, Math.floor(input.sortOrder))
+      : existing.sortOrder;
+  const tags = Array.isArray(input.tags) ? input.tags : existing.tags ?? [];
+  const colabUrl = input.colabUrl?.trim() || existing.colabUrl;
+  const videoUrl = input.videoUrl !== undefined ? input.videoUrl.trim() : existing.videoUrl || "";
+
+  let htmlPath = existing.htmlPath;
+  let chunks = existing.chunks ?? [];
+
+  if (typeof input.ipynbRaw === "string") {
+    let notebookJson: NotebookFile;
+    try {
+      notebookJson = JSON.parse(input.ipynbRaw) as NotebookFile;
+    } catch {
+      throw new Error("Invalid ipynb JSON");
+    }
+
+    const canonicalNotebook = canonicalizeNotebookFile(notebookJson);
+    const canonicalRaw = `${JSON.stringify(canonicalNotebook, null, 2)}\n`;
+    const html = notebookToHtml(canonicalNotebook);
+    chunks = extractChunks(canonicalNotebook);
+
+    const stored = await saveNotebookArtifacts(notebookId, html, canonicalRaw);
+    htmlPath = stored.htmlPath;
+  }
+
+  const baseItem: Omit<NotebookRecord, "chunks"> = {
+    notebookId,
+    title,
+    chapter,
+    chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
+    sortOrder,
+    tags,
+    htmlPath,
+    colabUrl,
+    videoUrl: videoUrl || undefined,
+    createdAt: existing.createdAt || nowIso(),
+    updatedAt: nowIso()
+  };
+  const compactedChunks = compactChunksForDynamo(baseItem, chunks);
+
+  await ddb.send(
+    new PutCommand({
+      TableName: NOTEBOOKS_TABLE,
+      Item: {
+        ...baseItem,
+        chunks: compactedChunks
+      }
+    })
+  );
+
+  return true;
+}
+
 export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promise<boolean> {
   const existing = await getNotebook(input.notebookId);
   if (!existing) return false;
@@ -2146,5 +2296,53 @@ export function parseAdminNotebookPatchInput(event: APIGatewayProxyEventV2): Adm
   }
 
   if (!changed) return null;
+  return result;
+}
+
+export function parseAdminNotebookPutInput(event: APIGatewayProxyEventV2): AdminNotebookPutInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const result: AdminNotebookPutInput = {};
+
+  if ("title" in payload) {
+    const title = asString(payload.title).trim();
+    if (!title) return null;
+    result.title = title;
+  }
+
+  if ("chapter" in payload) {
+    const chapter = asString(payload.chapter).trim();
+    if (!chapter) return null;
+    result.chapter = chapter;
+  }
+
+  if ("order" in payload || "sortOrder" in payload) {
+    const rawOrder = payload.sortOrder ?? payload.order;
+    const parsed = Number(rawOrder);
+    if (!Number.isFinite(parsed)) return null;
+    result.sortOrder = Math.max(1, Math.floor(parsed));
+  }
+
+  if ("tags" in payload) {
+    result.tags = normalizeNotebookTags(payload.tags) ?? [];
+  }
+
+  if ("colabUrl" in payload) {
+    const colabUrl = asString(payload.colabUrl).trim();
+    if (!colabUrl) return null;
+    result.colabUrl = colabUrl;
+  }
+
+  if ("videoUrl" in payload) {
+    result.videoUrl = asString(payload.videoUrl);
+  }
+
+  if ("ipynbRaw" in payload) {
+    const ipynbRaw = asString(payload.ipynbRaw);
+    if (!ipynbRaw.trim()) return null;
+    result.ipynbRaw = ipynbRaw;
+  }
+
   return result;
 }

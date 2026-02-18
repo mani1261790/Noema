@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "
 import {
   askQuestion,
   deleteAdminNotebook,
+  getAdminNotebookDetail,
   getAuthUser,
   getQuestionAnswer,
   isAdmin,
@@ -12,11 +13,13 @@ import {
   listQuestionHistory,
   maybeInlineProcess,
   parseAdminNotebookPatchInput,
+  parseAdminNotebookPutInput,
   parseAdminPatchInput,
   parseAskQuestionInput,
   parsePythonRuntimeInput,
   parsePythonRuntimePreloadInput,
   patchAdminNotebook,
+  putAdminNotebook,
   patchAdminAnswer,
   preloadPythonRuntime,
   runPythonRuntime,
@@ -234,6 +237,44 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     return json(200, { ok: true });
+  }
+
+  if (route === "GET /api/admin/notebooks/{notebookId}" || /^GET \/api\/admin\/notebooks\/[^/]+$/.test(route)) {
+    const notebookId = notebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const result = await getAdminNotebookDetail(notebookId);
+    if (!result) {
+      return json(404, { error: "Not found" });
+    }
+
+    return json(200, result);
+  }
+
+  if (route === "PUT /api/admin/notebooks/{notebookId}" || /^PUT \/api\/admin\/notebooks\/[^/]+$/.test(route)) {
+    const notebookId = notebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const payload = parseAdminNotebookPutInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request body" });
+    }
+
+    try {
+      const ok = await putAdminNotebook(notebookId, payload);
+      if (!ok) {
+        return json(404, { error: "Not found" });
+      }
+      return json(200, { ok: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes("Invalid ipynb") ? 400 : 500;
+      return json(status, { error: message });
+    }
   }
 
   if (route === "DELETE /api/admin/notebooks/{notebookId}" || /^DELETE \/api\/admin\/notebooks\/[^/]+$/.test(route)) {

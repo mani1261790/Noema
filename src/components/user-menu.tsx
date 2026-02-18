@@ -15,7 +15,7 @@ export function UserMenu({ name, role }: Props) {
         {name ?? "User"} ({role})
       </span>
       {role === "ADMIN" ? (
-        <Link className="glass-button-ghost rounded-md px-3 py-1" href="/admin">
+        <Link className="glass-button-ghost rounded-md px-3 py-1" href="/admin.html">
           管理
         </Link>
       ) : null}
