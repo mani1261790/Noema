@@ -1462,26 +1462,43 @@
     .mobile-controls {
       display: none;
       position: fixed;
-      top: max(10px, calc(env(safe-area-inset-top) + 4px));
-      left: max(10px, calc(env(safe-area-inset-left) + 4px));
-      z-index: 45;
+      right: max(74px, calc(env(safe-area-inset-right) + 64px));
+      bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+      z-index: 79;
       pointer-events: none;
     }
 
     .mobile-controls .liquid-nav {
-      width: auto;
+      width: 48px;
+      height: 48px;
       pointer-events: auto;
       gap: 0;
-      padding: 6px;
+      padding: 0;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid color-mix(in oklab, var(--glass-highlight) 44%, var(--glass-edge));
+      background:
+        radial-gradient(circle at 28% 22%, color-mix(in oklab, var(--glass-highlight) 84%, transparent), transparent 56%),
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 60%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 84%, transparent);
+      backdrop-filter: blur(20px) saturate(165%);
+      -webkit-backdrop-filter: blur(20px) saturate(165%);
+      box-shadow:
+        0 16px 28px color-mix(in oklab, var(--shadow) 38%, transparent),
+        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 92%, transparent),
+        inset 0 -1px 0 color-mix(in oklab, var(--glass-edge-soft) 72%, transparent);
     }
 
     .mobile-hamburger {
-      width: 38px;
-      height: 38px;
+      width: 100%;
+      height: 100%;
       padding: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      border-radius: 999px;
     }
 
     .mobile-hamburger svg {
@@ -1627,9 +1644,9 @@
       .header {
         padding:
           max(10px, env(safe-area-inset-top))
-          max(58px, calc(env(safe-area-inset-right) + 48px))
+          max(12px, env(safe-area-inset-right))
           10px
-          max(58px, calc(env(safe-area-inset-left) + 48px));
+          max(12px, env(safe-area-inset-left));
       }
       .header-top {
         display: block;
@@ -1694,14 +1711,13 @@
       }
       .overlay-actions {
         position: fixed;
-        top: max(10px, calc(env(safe-area-inset-top) + 4px));
-        left: max(10px, calc(env(safe-area-inset-left) + 4px));
-        right: auto;
-        z-index: 60;
+        right: max(74px, calc(env(safe-area-inset-right) + 64px));
+        bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+        z-index: 81;
       }
       .overlay-actions .button-ghost {
-        width: 38px;
-        height: 38px;
+        width: 48px;
+        height: 48px;
         padding: 0;
       }
     }
@@ -1710,9 +1726,9 @@
       .header {
         padding:
           max(8px, env(safe-area-inset-top))
-          max(54px, calc(env(safe-area-inset-right) + 44px))
+          max(10px, env(safe-area-inset-right))
           8px
-          max(54px, calc(env(safe-area-inset-left) + 44px));
+          max(10px, env(safe-area-inset-left));
       }
 
       .header-title {
@@ -1753,8 +1769,8 @@
       }
 
       .mobile-controls .liquid-nav {
-        width: auto;
-        justify-content: flex-start;
+        width: 48px;
+        justify-content: center;
       }
 
       .header-actions .liquid-nav {
@@ -1773,7 +1789,13 @@
       }
 
       .mobile-controls .liquid-nav {
-        padding: 5px;
+        width: 44px;
+        height: 44px;
+      }
+
+      .mobile-controls {
+        right: max(62px, calc(env(safe-area-inset-right) + 52px));
+        bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
       }
 
       .header-title {
@@ -1792,12 +1814,23 @@
 
       .fab {
         right: 12px;
+        bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
         width: 44px;
         height: 44px;
       }
 
       .overlay-panel {
         width: 100%;
+      }
+
+      .overlay-actions {
+        right: max(62px, calc(env(safe-area-inset-right) + 52px));
+        bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
+      }
+
+      .overlay-actions .button-ghost {
+        width: 44px;
+        height: 44px;
       }
     }
   </style>
