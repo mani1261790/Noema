@@ -1587,6 +1587,7 @@
         activeSection: "intro",
         selectedText: "",
         selectedSection: "",
+        selectedContext: null,
         chatOpen: false,
         messages: [],
         busy: false,
@@ -2593,6 +2594,7 @@
         }
         state.selectedText = "";
         state.selectedSection = "";
+        state.selectedContext = null;
         state.sectionIds = ["intro"];
 
         renderSidebar();
@@ -2648,15 +2650,92 @@
           return null;
         }
 
+        const findCodeNode = (node) => {
+          let current = node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+          while (current && current !== el.notebookContent) {
+            if (current.tagName === "CODE" && current.parentElement && current.parentElement.tagName === "PRE") {
+              return current;
+            }
+            current = current.parentElement;
+          }
+          return null;
+        };
+
+        const startCodeNode = findCodeNode(range.startContainer);
+        const endCodeNode = findCodeNode(range.endContainer);
+        const isSameCodeBlock = startCodeNode && endCodeNode && startCodeNode === endCodeNode;
+
         let node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+        let sectionId = "";
         while (node && node !== el.notebookContent) {
           if (node.id) {
-            return { text, sectionId: node.id };
+            sectionId = node.id;
+            break;
           }
           node = node.parentElement;
         }
 
-        return { text, sectionId: "" };
+        if (isSameCodeBlock) {
+          const pre = startCodeNode.parentElement;
+          const rawIndex = pre?.dataset?.noemaCellIndex;
+          const cellIndex = Number.isFinite(Number(rawIndex)) ? Number(rawIndex) : -1;
+          const currentCode = cellIndex >= 0 && state.activeEditorMap.get(cellIndex)
+            ? String(state.activeEditorMap.get(cellIndex).value || "")
+            : String(startCodeNode.textContent || "");
+
+          const codeText = normalizeRunnableSource(currentCode);
+          const segmentRange = document.createRange();
+          segmentRange.setStart(startCodeNode, 0);
+          segmentRange.setEnd(range.startContainer, range.startOffset);
+          const beforeTextLength = segmentRange.toString().length;
+          const selectedLength = range.toString().length;
+          const startOffset = Math.max(0, Math.min(beforeTextLength, codeText.length));
+          const endOffset = Math.max(startOffset, Math.min(startOffset + selectedLength, codeText.length));
+
+          const before = codeText.slice(0, startOffset);
+          const selected = codeText.slice(startOffset, endOffset) || text;
+          const lineStart = before.split(/\r?\n/).length;
+          const lineEnd = (before + selected).split(/\r?\n/).length;
+          const lines = codeText.split(/\r?\n/);
+          const contextStart = Math.max(1, lineStart - 3);
+          const contextEnd = Math.min(lines.length, lineEnd + 3);
+          const contextSnippet = lines.slice(contextStart - 1, contextEnd).join("\n");
+
+          return {
+            text: selected || text,
+            sectionId: sectionId || `code-cell-${Math.max(cellIndex, 0)}`,
+            selectionType: "code",
+            codeCellIndex: cellIndex,
+            lineStart,
+            lineEnd,
+            contextSnippet
+          };
+        }
+
+        return { text, sectionId, selectionType: "text" };
+      }
+
+      function buildQuestionTextWithSelection(questionText, selection) {
+        if (!selection || !selection.text) return questionText;
+        if (selection.selectionType !== "code") {
+          return `${questionText}\n\n[Selection]\n${selection.text}`;
+        }
+
+        const notebookId = state.activeNotebook ? state.activeNotebook.id : "unknown-notebook";
+        const cellLabel =
+          Number.isFinite(selection.codeCellIndex) && selection.codeCellIndex >= 0
+            ? String(selection.codeCellIndex + 1)
+            : "unknown";
+        const lineLabel =
+          Number.isFinite(selection.lineStart) && Number.isFinite(selection.lineEnd)
+            ? `${selection.lineStart}-${selection.lineEnd}`
+            : "unknown";
+        const context = String(selection.contextSnippet || "").trim();
+        const contextBlock = context
+          ? `\n\n[CodeContext]\n\`\`\`python\n${context}\n\`\`\``
+          : "";
+
+        return `${questionText}\n\n[SelectionType]\ncode\n[NotebookId]\n${notebookId}\n[CodeCell]\n${cellLabel}\n[SelectedLines]\n${lineLabel}\n[SelectedCode]\n\`\`\`python\n${selection.text}\n\`\`\`${contextBlock}`;
       }
 
       function renderSelectionCard() {
@@ -2667,6 +2746,16 @@
         }
 
         el.selectionCard.style.display = "flex";
+        if (state.selectedContext && state.selectedContext.selectionType === "code") {
+          const cell =
+            Number.isFinite(state.selectedContext.codeCellIndex) && state.selectedContext.codeCellIndex >= 0
+              ? state.selectedContext.codeCellIndex + 1
+              : "?";
+          const lineStart = Number.isFinite(state.selectedContext.lineStart) ? state.selectedContext.lineStart : "?";
+          const lineEnd = Number.isFinite(state.selectedContext.lineEnd) ? state.selectedContext.lineEnd : "?";
+          el.selectionText.textContent = `[code cell ${cell}, lines ${lineStart}-${lineEnd}] ${state.selectedText}`;
+          return;
+        }
         el.selectionText.textContent = state.selectedText;
       }
 
@@ -2835,13 +2924,14 @@
 
         const selection = captureSelection();
         if (selection) {
+          state.selectedContext = selection;
           state.selectedText = selection.text;
           state.selectedSection = selection.sectionId || "";
           renderSelectionCard();
         }
 
         const sectionId = state.selectedSection || state.activeSection || "intro";
-        const questionText = state.selectedText ? `${text}\n\n[Selection]\n${state.selectedText}` : text;
+        const questionText = buildQuestionTextWithSelection(text, state.selectedContext);
 
         pushMessage("user", text);
         el.chatInput.value = "";
@@ -3026,6 +3116,7 @@
         state.activeSection = "intro";
         state.selectedText = "";
         state.selectedSection = "";
+        state.selectedContext = null;
         state.activeEditorMap = new Map();
         renderSidebar();
         renderHeader();
@@ -3145,6 +3236,7 @@
       el.clearSelection.addEventListener("click", function () {
         state.selectedText = "";
         state.selectedSection = "";
+        state.selectedContext = null;
         renderSelectionCard();
       });
 
