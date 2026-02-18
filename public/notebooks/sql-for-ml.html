@@ -99,96 +99,416 @@
   <main>
 <article class="prose-noema">
 <h1 id="機械学習のためのsql">機械学習のためのSQL</h1>
-<p>機械学習のためのSQLでは、式を暗記するより、計算の意味をコードで検証する姿勢を優先します。</p>
+<p>機械学習では、モデル選択より前にデータを正しく整形することが重要です。<br>
+実務ではその整形の多くを SQL で行います。SQL で作った特徴量は再現しやすく、学習環境と本番環境の差も小さくできます。</p>
+<p>このノートでは、ECサービスの行動データを題材に、SQL の基本操作から、リークを避けた特徴量テーブル作成までを一気通貫で確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>機械学習のためのSQLに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<pre><code class="language-python">import sqlite3
+from datetime import datetime, timedelta
+from random import Random
+from textwrap import dedent</code></pre>
+<p>まずはメモリ上にデータベースを作り、<code>users</code>, <code>events</code>, <code>orders</code> の3テーブルを定義します。<br>
+<code>events</code> は行動ログ、<code>orders</code> は購入履歴、<code>users</code> は属性情報です。</p>
+
+<pre><code class="language-python">conn = sqlite3.connect(&quot;:memory:&quot;)
+conn.row_factory = sqlite3.Row
+cur = conn.cursor()
+
+cur.executescript(
+    dedent(
+        &quot;&quot;&quot;
+        CREATE TABLE users (
+            user_id INTEGER PRIMARY KEY,
+            signup_date TEXT NOT NULL,
+            plan TEXT NOT NULL,
+            country TEXT NOT NULL
+        );
+
+        CREATE TABLE events (
+            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_time TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            session_seconds INTEGER NOT NULL,
+            clicks INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        );
+
+        CREATE TABLE orders (
+            order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            order_time TEXT NOT NULL,
+            amount REAL NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        );
+        &quot;&quot;&quot;
+    )
+)
+conn.commit()</code></pre>
+<pre><code class="language-python">def q(sql: str, params=()):
+    return conn.execute(dedent(sql), params).fetchall()
+
+
+def show(rows, limit=8):
+    rows = list(rows)
+    if not rows:
+        print(&quot;(no rows)&quot;)
+        return
+    cols = rows[0].keys()
+    print(&quot; | &quot;.join(cols))
+    print(&quot;-&quot; * 100)
+    for r in rows[:limit]:
+        print(&quot; | &quot;.join(str(r[c]) for c in cols))
+    if len(rows) &gt; limit:
+        print(f&quot;... ({len(rows)} rows total)&quot;)</code></pre>
+<p>以降は次の2つの関数を使います。</p>
 <ul>
-<li><strong>特徴量</strong>: モデルが予測に使う入力変数です。列の作り方が精度に直結します。</li>
-<li><strong>目的変数</strong>: 当てたい値です。回帰では連続値、分類ではラベルになります。</li>
-<li><strong>損失関数</strong>: 予測のずれを数値化する関数です。学習はこの値を下げる方向に進みます。</li>
-<li><strong>JOIN</strong>: 複数テーブルをキーで結合して学習用の表を作る操作です。</li>
-<li><strong>GROUP BY</strong>: 集約単位を指定して統計量を作る操作です。特徴量作成で多用します。</li>
+<li><code>q(sql, params)</code>: SQLを実行して結果行を返す</li>
+<li><code>show(rows)</code>: 結果を見やすく表示する</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>例: <code>show(q(&quot;SELECT COUNT(*) AS n FROM users&quot;))</code></p>
 
-<h2 id="検証-1-sqlで集計する">検証 1: SQLで集計する</h2>
-<p>機械学習の前段では SQL 集計が非常に重要です。メモリDBで実行し、前処理の入口を確認します。</p>
+<p>次に、分析用の疑似データを生成します。セルを3つに分けて、<br>
+<code>ユーザー生成 → イベント生成 → 注文生成</code> の順で作ります。</p>
 
-<pre><code class="language-python">x = [1, 2, 3, 4, 5]
-y = [3, 5, 7, 9, 11]
-pairs = list(zip(x, y))
-print(&#39;pairs =&#39;, pairs)
-import sqlite3
-con = sqlite3.connect(&#39;:memory:&#39;)
-cur = con.cursor()
-cur.execute(&#39;create table sales(day text, amount int)&#39;)
-cur.executemany(&#39;insert into sales values (?, ?)&#39;, [(&#39;2026-01-01&#39;, 120), (&#39;2026-01-02&#39;, 150), (&#39;2026-01-03&#39;, 90)])
-avg_amount = cur.execute(&#39;select avg(amount) from sales&#39;).fetchone()[0]
-print(&#39;avg_amount =&#39;, round(avg_amount, 3))
-con.close()</code></pre>
-<p>SQL で作る特徴量は再現しやすく、運用時のデータパイプラインにも直接つながります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">rng = Random(42)
+start = datetime(2024, 1, 1)
+end = datetime(2024, 6, 30)
 
-<h2 id="検証-2-単回帰を手で計算する">検証 2: 単回帰を手で計算する</h2>
-<p>次に、最小二乗法の係数を手計算で求めます。既存ライブラリを使う前に中身を一度体験すると理解が安定します。</p>
+plans = [&quot;free&quot;, &quot;pro&quot;, &quot;team&quot;]
+plan_weights = [0.62, 0.30, 0.08]
+countries = [&quot;JP&quot;, &quot;US&quot;, &quot;IN&quot;, &quot;DE&quot;, &quot;FR&quot;]
 
-<pre><code class="language-python">x_bar = sum(x) / len(x)
-y_bar = sum(y) / len(y)
-num = sum((xi - x_bar) * (yi - y_bar) for xi, yi in pairs)
-den = sum((xi - x_bar) ** 2 for xi in x)
-w1 = num / den; w0 = y_bar - w1 * x_bar
-print(&#39;w0, w1 =&#39;, round(w0, 4), round(w1, 4))</code></pre>
-<p>式の記号は抽象的に見えますが、コードでは平均・差分・和に分解されます。難しい式ほど、実装で部品に分けて確認するのが有効です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+n_users = 320
+for user_id in range(1, n_users + 1):
+    signup = start + timedelta(days=rng.randint(0, 80))
+    plan = rng.choices(plans, weights=plan_weights, k=1)[0]
+    country = rng.choice(countries)
+    cur.execute(
+        &quot;INSERT INTO users (user_id, signup_date, plan, country) VALUES (?, ?, ?, ?)&quot;,
+        (user_id, signup.date().isoformat(), plan, country),
+    )
 
-<h2 id="定義の確認">定義の確認</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{y} = f_{\theta}(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>L</mi><mo>(</mo><mi>θ</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mn>1</mn></mrow><mrow><mi>N</mi></mrow></mfrac><msub><mo>∑</mo><mi>i</mi></msub><mi mathvariant="normal">ℓ</mi><mo>(</mo><msub><mover accent="true"><mrow><mi>y</mi></mrow><mo>^</mo></mover><mi>i</mi></msub><mo separator="true">,</mo><msub><mi>y</mi><mi>i</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L(\theta) = \frac{1}{N}\sum_i \ell(\hat{y}_i, y_i)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.845108em;"></span><span class="strut bottom" style="height:1.190108em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord mathit">L</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.10903em;">N</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">ℓ</span><span class="mopen">(</span><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">i</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
+conn.commit()</code></pre>
+<pre><code class="language-python">for row in q(&quot;SELECT user_id, plan, signup_date FROM users&quot;):
+    user_id = row[&quot;user_id&quot;]
+    plan = row[&quot;plan&quot;]
+    signup_dt = datetime.fromisoformat(row[&quot;signup_date&quot;])
 
-<h2 id="検証-3-予測と誤差を見る">検証 3: 予測と誤差を見る</h2>
-<p>ここで、求めた係数で予測を出し、誤差を数値化します。モデル改善は誤差の観察から始まります。</p>
+    base_events = 20 if plan == &quot;free&quot; else 34 if plan == &quot;pro&quot; else 46
+    n_events = max(8, int(rng.gauss(base_events, 6)))
 
-<pre><code class="language-python">pred = [w0 + w1 * xi for xi in x]
-residual = [yi - pi for yi, pi in zip(y, pred)]
-mse = sum((r ** 2) for r in residual) / len(residual)
-print(&#39;pred =&#39;, pred)
-print(&#39;mse =&#39;, round(mse, 8))</code></pre>
-<p>誤差を観察するときは、平均値だけでなく個別の残差も見てください。偏りがあると、モデル構造の見直しが必要になります。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    for _ in range(n_events):
+        day_offset = rng.randint(0, 178)
+        event_dt = signup_dt + timedelta(days=day_offset, hours=rng.randint(0, 23), minutes=rng.randint(0, 59))
+        if event_dt &gt; end:
+            continue
 
-<h2 id="検証-4-特徴量を拡張する">検証 4: 特徴量を拡張する</h2>
-<p>次に、特徴量を追加したときに表現力がどう変わるかを確認します。特徴量設計は精度に直接効く実装作業です。</p>
+        if plan == &quot;free&quot;:
+            clicks = max(0, int(rng.gauss(2.2, 1.4)))
+            session_seconds = max(20, int(rng.gauss(130, 70)))
+        elif plan == &quot;pro&quot;:
+            clicks = max(0, int(rng.gauss(4.8, 2.0)))
+            session_seconds = max(30, int(rng.gauss(220, 90)))
+        else:
+            clicks = max(0, int(rng.gauss(6.5, 2.4)))
+            session_seconds = max(40, int(rng.gauss(290, 110)))
 
-<pre><code class="language-python">x2 = [xi ** 2 for xi in x]
-feature = list(zip(x, x2))
-print(&#39;feature sample =&#39;, feature[:3])
-scaled_x = [(xi - x_bar) / (max(x) - min(x)) for xi in x]
-print(&#39;scaled_x =&#39;, [round(v, 4) for v in scaled_x])</code></pre>
-<p>特徴量を増やすと表現力は上がりますが、同時に過学習リスクも増えます。増やす理由を説明できる特徴だけを採用する姿勢が重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+        event_type = rng.choices(
+            [&quot;page_view&quot;, &quot;search&quot;, &quot;add_to_cart&quot;],
+            weights=[0.62, 0.25, 0.13],
+            k=1,
+        )[0]
 
-<h2 id="検証-5-評価分割を体験する">検証 5: 評価分割を体験する</h2>
-<p>最後に、学習と評価を分ける意味をコードで確かめます。分割しない評価は自己採点に近く、実運用の性能を過大評価しがちです。</p>
+        cur.execute(
+            &quot;&quot;&quot;
+            INSERT INTO events (user_id, event_time, event_type, session_seconds, clicks)
+            VALUES (?, ?, ?, ?, ?)
+            &quot;&quot;&quot;,
+            (user_id, event_dt.isoformat(sep=&quot; &quot;), event_type, session_seconds, clicks),
+        )
 
-<pre><code class="language-python">train_x, test_x = x[:3], x[3:]
-train_y, test_y = y[:3], y[3:]
-pred_test = [w0 + w1 * xi for xi in test_x]
-mae_test = sum(abs(yi - pi) for yi, pi in zip(test_y, pred_test)) / len(test_y)
-print(&#39;test mae =&#39;, round(mae_test, 6))</code></pre>
-<p>検証データでの誤差が急に悪化したら、モデルより先にデータ分布の差を疑ってください。この視点は実務で非常に重要です。</p>
-<p>この節では、特徴量 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+conn.commit()</code></pre>
+<pre><code class="language-python">activity = q(
+    &quot;&quot;&quot;
+    SELECT
+        u.user_id,
+        u.plan,
+        u.signup_date,
+        COALESCE(COUNT(e.event_id), 0) AS event_count,
+        COALESCE(SUM(e.clicks), 0) AS total_clicks
+    FROM users u
+    LEFT JOIN events e ON u.user_id = e.user_id
+    GROUP BY u.user_id, u.plan, u.signup_date
+    &quot;&quot;&quot;
+)
 
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>訓練データと評価データの分布差を見ない</li>
-<li>単一スコアだけでモデルを選んでしまう</li>
-<li>前処理の漏れを評価後に気づく</li>
-</ol>
-<p>機械学習のためのSQL はこのセクションの最終ステップです。先頭ノートから順に再実行し、流れ全体を確認してください。</p>
+for r in activity:
+    user_id = r[&quot;user_id&quot;]
+    plan = r[&quot;plan&quot;]
+    signup_dt = datetime.fromisoformat(r[&quot;signup_date&quot;])
+    total_clicks = r[&quot;total_clicks&quot;]
+    event_count = r[&quot;event_count&quot;]
+
+    base_prob = 0.02
+    if plan == &quot;pro&quot;:
+        base_prob += 0.08
+    if plan == &quot;team&quot;:
+        base_prob += 0.12
+    base_prob += min(0.35, total_clicks / 380.0)
+    base_prob += min(0.20, event_count / 420.0)
+
+    n_orders = 0
+    for _ in range(3):
+        if rng.random() &lt; base_prob:
+            n_orders += 1
+
+    min_order_dt = signup_dt + timedelta(days=1)
+    max_order_dt = min(end, signup_dt + timedelta(days=180))
+    if min_order_dt &gt; max_order_dt:
+        continue
+
+    total_seconds = int((max_order_dt - min_order_dt).total_seconds())
+
+    for _ in range(n_orders):
+        offset_sec = rng.randint(0, total_seconds)
+        order_dt = min_order_dt + timedelta(seconds=offset_sec)
+
+        mean_amount = 38 if plan == &quot;free&quot; else 74 if plan == &quot;pro&quot; else 130
+        amount = max(8, round(rng.gauss(mean_amount, mean_amount * 0.35), 2))
+
+        cur.execute(
+            &quot;INSERT INTO orders (user_id, order_time, amount) VALUES (?, ?, ?)&quot;,
+            (user_id, order_dt.isoformat(sep=&quot; &quot;), amount),
+        )
+
+conn.commit()</code></pre>
+<pre><code class="language-python">table_counts = q(
+    &quot;&quot;&quot;
+    SELECT &#39;users&#39; AS table_name, COUNT(*) AS n FROM users
+    UNION ALL
+    SELECT &#39;events&#39; AS table_name, COUNT(*) AS n FROM events
+    UNION ALL
+    SELECT &#39;orders&#39; AS table_name, COUNT(*) AS n FROM orders
+    &quot;&quot;&quot;
+)
+show(table_counts)</code></pre>
+<p>ここから SQL の基本操作を確認します。<br>
+まずは <code>WHERE</code> と <code>ORDER BY</code> で、特定ユーザーのイベント履歴を時系列に取得します。</p>
+
+<pre><code class="language-python">rows = q(
+    &quot;&quot;&quot;
+    SELECT user_id, event_time, event_type, session_seconds, clicks
+    FROM events
+    WHERE user_id = ?
+    ORDER BY event_time
+    LIMIT 10
+    &quot;&quot;&quot;,
+    (12,),
+)
+show(rows)</code></pre>
+<p>次に <code>GROUP BY</code> でユーザー単位の集計を作ります。<br>
+この集計はそのまま特徴量の候補になります。</p>
+
+<pre><code class="language-python">agg = q(
+    &quot;&quot;&quot;
+    SELECT
+        user_id,
+        COUNT(*) AS n_events,
+        SUM(clicks) AS total_clicks,
+        AVG(session_seconds) AS avg_session_seconds
+    FROM events
+    GROUP BY user_id
+    HAVING COUNT(*) &gt;= 18
+    ORDER BY total_clicks DESC
+    LIMIT 10
+    &quot;&quot;&quot;
+)
+show(agg)</code></pre>
+<p><code>JOIN</code> と <code>CASE WHEN</code> を使うと、属性と行動を組み合わせた特徴量を作れます。<br>
+この例では、ある時点（<code>asof_ts</code>）より前90日間の購入金額を集計し、プランを数値化します。</p>
+
+<pre><code class="language-python">asof_ts = &#39;2024-05-01 00:00:00&#39;
+
+joined = q(
+    &quot;&quot;&quot;
+    WITH spend_90 AS (
+      SELECT
+          user_id,
+          SUM(amount) AS spend_90d
+      FROM orders
+      WHERE order_time &gt;= datetime(:asof_ts, &#39;-90 day&#39;)
+        AND order_time &lt; :asof_ts
+      GROUP BY user_id
+    )
+    SELECT
+        u.user_id,
+        u.plan,
+        CASE WHEN u.plan = &#39;free&#39; THEN 0 ELSE 1 END AS paid_flag,
+        COALESCE(s.spend_90d, 0) AS spend_90d
+    FROM users u
+    LEFT JOIN spend_90 s ON u.user_id = s.user_id
+    ORDER BY spend_90d DESC
+    LIMIT 12
+    &quot;&quot;&quot;,
+    {&quot;asof_ts&quot;: asof_ts},
+)
+show(joined)</code></pre>
+<p>ここから機械学習用テーブルを作ります。</p>
+<p>時点の定義:</p>
+<ul>
+<li><code>snapshot</code>: 予測時点</li>
+<li>特徴量窓: <code>snapshot</code> より前30日</li>
+<li>ラベル窓: <code>snapshot</code> 以上かつ <code>snapshot+30日</code> 未満</li>
+</ul>
+
+<pre><code class="language-python">snapshot = &#39;2024-05-01 00:00:00&#39;
+horizon_days = 30
+
+feature_sql = &quot;&quot;&quot;
+WITH event_30d AS (
+    SELECT
+        user_id,
+        COUNT(*) AS events_30d,
+        SUM(clicks) AS clicks_30d,
+        AVG(session_seconds) AS avg_session_30d,
+        MAX(event_time) AS last_event_time
+    FROM events
+    WHERE event_time &lt; :snapshot
+      AND event_time &gt;= datetime(:snapshot, &#39;-30 day&#39;)
+    GROUP BY user_id
+),
+order_90d AS (
+    SELECT
+        user_id,
+        SUM(amount) AS spend_90d
+    FROM orders
+    WHERE order_time &lt; :snapshot
+      AND order_time &gt;= datetime(:snapshot, &#39;-90 day&#39;)
+    GROUP BY user_id
+),
+label_window AS (
+    SELECT
+        user_id,
+        CASE WHEN COUNT(*) &gt; 0 THEN 1 ELSE 0 END AS purchased_30d
+    FROM orders
+    WHERE order_time &gt;= :snapshot
+      AND order_time &lt; datetime(:snapshot, &#39;+&#39; || :horizon_days || &#39; day&#39;)
+    GROUP BY user_id
+)
+SELECT
+    u.user_id,
+    u.country,
+    CASE WHEN u.plan = &#39;free&#39; THEN 0 ELSE 1 END AS paid_flag,
+    COALESCE(e.events_30d, 0) AS events_30d,
+    COALESCE(e.clicks_30d, 0) AS clicks_30d,
+    COALESCE(e.avg_session_30d, 0) AS avg_session_30d,
+    -- イベントがないユーザーは signup_date を最終行動日として扱う
+    CAST((julianday(:snapshot) - julianday(COALESCE(e.last_event_time, u.signup_date))) AS INTEGER) AS days_since_last_event,
+    COALESCE(o.spend_90d, 0) AS spend_90d,
+    COALESCE(l.purchased_30d, 0) AS label
+FROM users u
+LEFT JOIN event_30d e ON u.user_id = e.user_id
+LEFT JOIN order_90d o ON u.user_id = o.user_id
+LEFT JOIN label_window l ON u.user_id = l.user_id
+ORDER BY u.user_id
+&quot;&quot;&quot;</code></pre>
+<pre><code class="language-python">feature_rows = q(feature_sql, {&quot;snapshot&quot;: snapshot, &quot;horizon_days&quot;: horizon_days})
+show(feature_rows, limit=12)
+print(&#39;rows:&#39;, len(feature_rows))</code></pre>
+<pre><code class="language-python">label_dist_sql = f&quot;&quot;&quot;
+WITH base AS (
+{feature_sql}
+)
+SELECT
+    label,
+    COUNT(*) AS n_users,
+    ROUND(AVG(events_30d), 2) AS avg_events_30d,
+    ROUND(AVG(spend_90d), 2) AS avg_spend_90d
+FROM base
+GROUP BY label
+ORDER BY label
+&quot;&quot;&quot;
+
+label_dist = q(label_dist_sql, {&quot;snapshot&quot;: snapshot, &quot;horizon_days&quot;: horizon_days})
+show(label_dist)</code></pre>
+<p>次に、リークの例を確認します。<br>
+比較を明確にするため、窓幅はどちらも30日に固定し、未来を含むかどうかだけを変えます。</p>
+
+<pre><code class="language-python">clean_stats_sql = f&quot;&quot;&quot;
+WITH base AS (
+{feature_sql}
+)
+SELECT label, ROUND(AVG(events_30d), 2) AS avg_events
+FROM base
+GROUP BY label
+ORDER BY label
+&quot;&quot;&quot;
+
+leaky_stats_sql = &quot;&quot;&quot;
+WITH event_30d_leaky AS (
+    SELECT
+        user_id,
+        COUNT(*) AS events_30d
+    FROM events
+    WHERE event_time &gt;= :snapshot
+      -- NG: snapshot以降（未来）のイベントを特徴量に含める
+      AND event_time &lt; datetime(:snapshot, &#39;+&#39; || :horizon_days || &#39; day&#39;)
+    GROUP BY user_id
+),
+label_window AS (
+    SELECT
+        user_id,
+        CASE WHEN COUNT(*) &gt; 0 THEN 1 ELSE 0 END AS label
+    FROM orders
+    WHERE order_time &gt;= :snapshot
+      AND order_time &lt; datetime(:snapshot, &#39;+&#39; || :horizon_days || &#39; day&#39;)
+    GROUP BY user_id
+)
+SELECT
+    COALESCE(l.label, 0) AS label,
+    ROUND(AVG(COALESCE(e.events_30d, 0)), 2) AS avg_events
+FROM users u
+LEFT JOIN event_30d_leaky e ON u.user_id = e.user_id
+LEFT JOIN label_window l ON u.user_id = l.user_id
+GROUP BY COALESCE(l.label, 0)
+ORDER BY label
+&quot;&quot;&quot;
+
+clean_stats = q(clean_stats_sql, {&quot;snapshot&quot;: snapshot, &quot;horizon_days&quot;: horizon_days})
+leaky_stats = q(leaky_stats_sql, {&quot;snapshot&quot;: snapshot, &quot;horizon_days&quot;: horizon_days})
+
+print(&#39;clean feature mean by label&#39;)
+show(clean_stats)
+print(&#39;leaky feature mean by label&#39;)
+show(leaky_stats)</code></pre>
+<p>最後に、学習用テーブルを分割できる形へ整えます。<br>
+<code>%</code> は余り演算子で、<code>x % 5</code> は 0〜4 の fold 番号を作ります。<br>
+ここでは分かりやすさ優先で <code>user_id % 5</code> を使います（実務ではハッシュ関数を使うことが多いです）。</p>
+
+<pre><code class="language-python">dataset_fold_sql = f&quot;&quot;&quot;
+WITH base AS (
+{feature_sql}
+)
+SELECT
+    user_id,
+    paid_flag,
+    events_30d,
+    clicks_30d,
+    avg_session_30d,
+    days_since_last_event,
+    spend_90d,
+    label,
+    (user_id % 5) AS fold_id
+FROM base
+ORDER BY user_id
+&quot;&quot;&quot;
+
+dataset_with_fold = q(dataset_fold_sql, {&quot;snapshot&quot;: snapshot, &quot;horizon_days&quot;: horizon_days})
+show(dataset_with_fold, limit=12)</code></pre>
+<p>SQL は機械学習パイプラインの前工程ではなく、学習品質を決める中核です。<br>
+特に重要なのは、ラベル時点と特徴量時点の境界を明示し、未来情報を混ぜないことです。</p>
+<p>モデルを変える前に、SQL で作る学習テーブルが「本番時点でも再現可能か」を必ず確認してください。</p>
 
 </article>
   </main>
