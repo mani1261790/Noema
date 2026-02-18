@@ -121,6 +121,10 @@ type AdminNotebookPreviewInput = {
   ipynbRaw: string;
 };
 
+type NotebookColabSessionInput = {
+  ipynbRaw: string;
+};
+
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
 const MAX_CHUNK_CHARACTERS = 1_200;
 
@@ -2581,6 +2585,52 @@ export async function preloadPythonRuntime(input: PythonRuntimePreloadInput, use
   };
 }
 
+export async function createNotebookColabSession(
+  notebookId: string,
+  input: NotebookColabSessionInput,
+  user: AuthUser
+): Promise<{ notebookPath: string }> {
+  if (!NOTEBOOK_BUCKET) {
+    throw new Error("NOTEBOOK_BUCKET is not configured.");
+  }
+
+  const existing = await getNotebook(notebookId);
+  if (!existing) {
+    throw new Error("Notebook not found.");
+  }
+
+  let notebookJson: NotebookFile;
+  try {
+    notebookJson = JSON.parse(input.ipynbRaw) as NotebookFile;
+  } catch {
+    throw new Error("Invalid ipynb JSON");
+  }
+
+  const canonical = canonicalizeNotebookFile(notebookJson);
+  const canonicalRaw = `${JSON.stringify(canonical, null, 2)}\n`;
+  if (canonicalRaw.length > 3_000_000) {
+    throw new Error("Invalid ipynb JSON");
+  }
+
+  const nonce = crypto.randomBytes(24).toString("hex");
+  const key = `colab-temp/${nonce}.ipynb`;
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: NOTEBOOK_BUCKET,
+      Key: key,
+      Body: canonicalRaw,
+      ContentType: "application/x-ipynb+json",
+      CacheControl: "no-store"
+    })
+  );
+
+  await putAccessLog(user.userId, notebookId, "CREATE_COLAB_SESSION_NOTEBOOK");
+  return {
+    notebookPath: `/${key}`
+  };
+}
+
 export function parseAskQuestionInput(event: APIGatewayProxyEventV2): AskQuestionInput | null {
   const payload = parseJson<unknown>(event);
   return validateAskQuestionInput(payload);
@@ -2715,6 +2765,18 @@ export function parseAdminNotebookPreviewInput(event: APIGatewayProxyEventV2): A
     notebookId: notebookId || undefined,
     ipynbRaw
   };
+}
+
+export function parseNotebookColabSessionInput(event: APIGatewayProxyEventV2): NotebookColabSessionInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const ipynbRaw = asString(payload.ipynbRaw);
+  if (!ipynbRaw.trim() || ipynbRaw.length > 3_000_000) {
+    return null;
+  }
+
+  return { ipynbRaw };
 }
 
 export function parseAdminNotebookPutInput(event: APIGatewayProxyEventV2): AdminNotebookPutInput | null {

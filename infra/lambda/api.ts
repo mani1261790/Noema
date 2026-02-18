@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import {
   askQuestion,
+  createNotebookColabSession,
   deleteAdminNotebook,
   getAdminNotebookDetail,
   getAuthUser,
@@ -18,6 +19,7 @@ import {
   parseAdminNotebookPutInput,
   parseAdminPatchInput,
   parseAskQuestionInput,
+  parseNotebookColabSessionInput,
   parsePythonRuntimeInput,
   parsePythonRuntimePreloadInput,
   patchAdminNotebook,
@@ -49,6 +51,18 @@ function notebookIdFromEvent(event: APIGatewayProxyEventV2): string {
   const segments = (event.rawPath || "").split("/").filter(Boolean);
   if (segments.length >= 4 && segments[0] === "api" && segments[1] === "admin" && segments[2] === "notebooks") {
     return decodeURIComponent(segments[3]);
+  }
+
+  return "";
+}
+
+function publicNotebookIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.notebookId?.trim();
+  if (fromParams) return fromParams;
+
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  if (segments.length >= 3 && segments[0] === "api" && segments[1] === "notebooks") {
+    return decodeURIComponent(segments[2]);
   }
 
   return "";
@@ -197,6 +211,37 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return json(500, { error: message });
+    }
+  }
+
+  if (
+    route === "POST /api/notebooks/{notebookId}/colab-session" ||
+    /^POST \/api\/notebooks\/[^/]+\/colab-session$/.test(route)
+  ) {
+    const notebookId = publicNotebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const payload = parseNotebookColabSessionInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request", details: "ipynbRaw is required (<= 3MB)." });
+    }
+
+    try {
+      const result = await createNotebookColabSession(notebookId, payload, user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const statusCode =
+        message === "Notebook not found."
+          ? 404
+          : message === "NOTEBOOK_BUCKET is not configured."
+            ? 500
+            : message.includes("Invalid ipynb")
+              ? 400
+              : 500;
+      return json(statusCode, { error: message });
     }
   }
 

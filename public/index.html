@@ -1608,7 +1608,8 @@
         playgroundEnabled: false,
         userScopeKey: "",
         activeEditorMap: new Map(),
-        playgroundSaveTimer: null
+        playgroundSaveTimer: null,
+        colabSessionBusy: false
       };
 
       const el = {
@@ -2437,6 +2438,126 @@
         return rawSource;
       }
 
+      function textToSourceLines(text) {
+        if (!text) return [];
+        const lines = String(text).split("\n");
+        return lines.map((line, index) => (index < lines.length - 1 ? `${line}\n` : line));
+      }
+
+      function applyEditedSourcesToIpynb(ipynb, editedSources) {
+        const notebook = ipynb && typeof ipynb === "object" ? ipynb : null;
+        const cells = notebook && Array.isArray(notebook.cells) ? notebook.cells : null;
+        if (!cells) {
+          throw new Error("Invalid ipynb format");
+        }
+
+        let codeCellIndex = 0;
+        cells.forEach((cell) => {
+          if (!cell || typeof cell !== "object" || cell.cell_type !== "code") return;
+          const nextSource = editedSources[codeCellIndex];
+          if (nextSource !== undefined) {
+            const normalized = normalizeRunnableSource(String(nextSource));
+            if (Array.isArray(cell.source)) {
+              cell.source = textToSourceLines(normalized);
+            } else {
+              cell.source = normalized;
+            }
+          }
+          codeCellIndex += 1;
+        });
+      }
+
+      function openInNewTab(url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+
+      function navigateTab(tabRef, url) {
+        if (tabRef && typeof tabRef.location !== "undefined") {
+          tabRef.location.assign(url);
+          return;
+        }
+        openInNewTab(url);
+      }
+
+      async function openColabWithPlaygroundDraft() {
+        if (!state.activeNotebook || state.colabSessionBusy) return;
+        const notebookId = state.activeNotebook.id;
+        const fallbackColabUrl = state.activeNotebook.colabUrl || "https://colab.research.google.com/";
+        const token = getToken();
+        if (!token) {
+          openInNewTab(fallbackColabUrl);
+          return;
+        }
+
+        const editedSources = collectEditableCellSources().map((source) => normalizeRunnableSource(source));
+        if (!editedSources.length) {
+          openInNewTab(fallbackColabUrl);
+          return;
+        }
+
+        const pendingTab = window.open("about:blank", "_blank", "noopener,noreferrer");
+        state.colabSessionBusy = true;
+        const originalLabel = el.colabBtn.textContent || "Colabで実行";
+        el.colabBtn.textContent = "Colab 準備中...";
+        el.colabBtn.setAttribute("aria-disabled", "true");
+
+        try {
+          const ipynbResponse = await fetch(`/notebooks/${encodeURIComponent(notebookId)}.ipynb`, { cache: "no-cache" });
+          if (!ipynbResponse.ok) {
+            throw new Error("ノートブックの取得に失敗しました。");
+          }
+          const ipynbRaw = await ipynbResponse.text();
+          const notebookJson = JSON.parse(ipynbRaw);
+          applyEditedSourcesToIpynb(notebookJson, editedSources);
+
+          const sessionResponse = await fetch(
+            `${API_BASE}/api/notebooks/${encodeURIComponent(notebookId)}/colab-session`,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                ipynbRaw: `${JSON.stringify(notebookJson, null, 2)}\n`
+              })
+            }
+          );
+
+          let payload = {};
+          try {
+            payload = await sessionResponse.json();
+          } catch {
+            payload = {};
+          }
+
+          if (!sessionResponse.ok) {
+            const message =
+              payload && typeof payload.error === "string"
+                ? payload.error
+                : "Colab 用ノートの作成に失敗しました。";
+            throw new Error(message);
+          }
+
+          const notebookPath =
+            payload && typeof payload.notebookPath === "string" ? payload.notebookPath.trim() : "";
+          if (!notebookPath.startsWith("/")) {
+            throw new Error("Colab 用ノートのURLが不正です。");
+          }
+
+          const notebookUrl = `${window.location.origin}${notebookPath}`;
+          const colabUrl = `https://colab.research.google.com/?url=${encodeURIComponent(notebookUrl)}`;
+          navigateTab(pendingTab, colabUrl);
+        } catch (error) {
+          console.warn("Open Colab with playground draft failed", error);
+          navigateTab(pendingTab, fallbackColabUrl);
+        } finally {
+          state.colabSessionBusy = false;
+          el.colabBtn.textContent = originalLabel;
+          el.colabBtn.removeAttribute("aria-disabled");
+        }
+      }
+
       const EXECUTION_CONTEXT_CHAR_LIMIT = 19000;
 
       function getCellSource(codeBlock, index) {
@@ -3228,6 +3349,13 @@
 
       el.sectionSelect.addEventListener("change", function () {
         state.activeSection = el.sectionSelect.value;
+      });
+
+      el.colabBtn.addEventListener("click", function (event) {
+        if (!state.activeNotebook) return;
+        if (!state.loggedIn || !state.playgroundEnabled || !state.activeEditorMap.size) return;
+        event.preventDefault();
+        void openColabWithPlaygroundDraft();
       });
 
       el.sendChat.addEventListener("click", function () {

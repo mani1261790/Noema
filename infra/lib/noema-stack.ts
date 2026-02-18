@@ -152,6 +152,13 @@ export class NoemaStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       versioned: true,
+      lifecycleRules: [
+        {
+          id: "expire-playground-colab-sessions",
+          prefix: "colab-temp/",
+          expiration: Duration.days(2)
+        }
+      ],
       removalPolicy: RemovalPolicy.RETAIN,
       autoDeleteObjects: false
     });
@@ -167,6 +174,12 @@ export class NoemaStack extends Stack {
           origin: origins.S3BucketOrigin.withOriginAccessControl(notebookBucket),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED
+        },
+        "/colab-temp/*": {
+          origin: origins.S3BucketOrigin.withOriginAccessControl(notebookBucket),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS
         }
       },
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
