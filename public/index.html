@@ -1104,7 +1104,7 @@
       padding: 10px;
       font-size: 13px;
       line-height: 1.7;
-      white-space: pre-wrap;
+      white-space: normal;
       max-width: min(90%, 520px);
     }
 
@@ -1134,6 +1134,58 @@
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
     }
+
+    .msg-text-block {
+      margin: 0;
+      white-space: pre-wrap;
+      line-height: 1.7;
+    }
+
+    .msg-text-block + .msg-text-block {
+      margin-top: 8px;
+    }
+
+    .msg-code-wrap {
+      margin-top: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid color-mix(in oklab, var(--code-border) 92%, transparent);
+      background: var(--code-bg);
+    }
+
+    .msg-code-label {
+      margin: 0;
+      padding: 5px 10px;
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid color-mix(in oklab, var(--code-border) 74%, transparent);
+      background: color-mix(in oklab, var(--panel-soft) 72%, var(--code-bg));
+    }
+
+    .msg-code-block {
+      margin: 0;
+      padding: 10px 12px;
+      background: var(--code-bg);
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .msg-code-block code {
+      display: block;
+      font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.58;
+      white-space: pre;
+    }
+
+    .msg-code-block .hljs {
+      background: transparent !important;
+      padding: 0;
+    }
+
     .msg-meta { color: var(--muted); font-size: 11px; margin-top: 6px; }
 
     .controls {
@@ -2615,16 +2667,22 @@
 
         el.chatLog.innerHTML = state.messages
           .map((message) => {
-            const refs = message.meta && message.meta.refs ? `<div class=\"msg-meta\">参照: ${message.meta.refs}</div>` : "";
+            const refsText = message.meta && message.meta.refs ? String(message.meta.refs) : "";
+            const refs = refsText ? `<div class=\"msg-meta\">参照: ${escapeHtml(refsText)}</div>` : "";
             const avatar = message.role === "assistant" ? "AI" : message.role === "user" ? "You" : "";
+            const body =
+              message.role === "assistant"
+                ? renderAssistantMessageContent(message.text)
+                : `<p class=\"msg-text-block\">${escapeHtmlWithLineBreaks(message.text)}</p>`;
             return `
               <div class=\"msg-wrap ${message.role}\">
                 <span class=\"msg-avatar\" aria-hidden=\"true\">${avatar}</span>
-                <article class=\"msg ${message.role}\">${escapeHtml(message.text)}${refs}</article>
+                <article class=\"msg ${message.role}\">${body}${refs}</article>
               </div>
             `;
           })
           .join("");
+        void applyChatSyntaxHighlight();
         el.chatLog.scrollTop = el.chatLog.scrollHeight;
       }
 
@@ -2634,8 +2692,83 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;")
           .replace(/\"/g, "&quot;")
-          .replace(/'/g, "&#39;")
-          .replace(/\n/g, "<br>");
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeHtmlWithLineBreaks(value) {
+        return escapeHtml(value).replace(/\n/g, "<br>");
+      }
+
+      function normalizeCodeLanguage(raw) {
+        const value = String(raw || "").trim().toLowerCase();
+        if (!value) return "plaintext";
+        if (!/^[a-z0-9_+#.-]{1,24}$/.test(value)) return "plaintext";
+        return value;
+      }
+
+      function splitAssistantMessageSegments(text) {
+        const source = String(text || "");
+        const segments = [];
+        const fence = /```([A-Za-z0-9_+#.-]*)?[ \t]*\n?([\s\S]*?)```/g;
+        let cursor = 0;
+        let match;
+
+        while ((match = fence.exec(source)) !== null) {
+          if (match.index > cursor) {
+            segments.push({ type: "text", text: source.slice(cursor, match.index) });
+          }
+          segments.push({
+            type: "code",
+            language: normalizeCodeLanguage(match[1] || ""),
+            text: String(match[2] || "").replace(/\n+$/, "")
+          });
+          cursor = fence.lastIndex;
+        }
+
+        if (cursor < source.length) {
+          segments.push({ type: "text", text: source.slice(cursor) });
+        }
+        return segments.length ? segments : [{ type: "text", text: source }];
+      }
+
+      function renderAssistantMessageContent(text) {
+        const segments = splitAssistantMessageSegments(text);
+        const html = segments
+          .map((segment) => {
+            if (segment.type === "code") {
+              const language = normalizeCodeLanguage(segment.language);
+              const label = language === "plaintext" ? "code" : language;
+              return `
+                <div class="msg-code-wrap">
+                  <div class="msg-code-label">${escapeHtml(label)}</div>
+                  <pre class="msg-code-block"><code class="language-${escapeHtml(language)}">${escapeHtml(segment.text)}</code></pre>
+                </div>
+              `;
+            }
+
+            if (!String(segment.text || "").trim()) return "";
+            return `<p class="msg-text-block">${escapeHtmlWithLineBreaks(String(segment.text).trim())}</p>`;
+          })
+          .join("");
+
+        if (html) return html;
+        return `<p class="msg-text-block">${escapeHtmlWithLineBreaks(String(text || ""))}</p>`;
+      }
+
+      async function applyChatSyntaxHighlight() {
+        const blocks = el.chatLog.querySelectorAll(".msg-code-block > code");
+        if (!blocks.length) return;
+        try {
+          const hljs = await ensureHighlightLibrary();
+          if (!hljs) return;
+          blocks.forEach((block) => {
+            if (block.dataset && block.dataset.highlighted) {
+              delete block.dataset.highlighted;
+            }
+            block.classList.remove("hljs");
+            hljs.highlightElement(block);
+          });
+        } catch {}
       }
 
       async function pollAnswer(questionId, token) {
