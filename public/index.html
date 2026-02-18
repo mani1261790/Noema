@@ -1404,16 +1404,15 @@
       border-radius: 999px;
       padding: 0;
       display: none;
-      border: 1px solid color-mix(in oklab, var(--accent) 44%, var(--glass-edge));
+      border: 1px solid color-mix(in oklab, var(--glass-highlight) 38%, var(--glass-edge));
       background:
-        linear-gradient(
-          145deg,
-          color-mix(in oklab, var(--accent) 54%, var(--panel-strong)),
-          color-mix(in oklab, var(--accent-strong) 62%, var(--panel-soft))
-        );
-      backdrop-filter: blur(16px) saturate(145%);
-      -webkit-backdrop-filter: blur(16px) saturate(145%);
-      box-shadow: 0 12px 24px color-mix(in oklab, var(--accent) 18%, transparent), inset 0 1px 0 rgba(255,255,255,.26);
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 56%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 84%, transparent);
+      backdrop-filter: blur(18px) saturate(155%);
+      -webkit-backdrop-filter: blur(18px) saturate(155%);
+      box-shadow:
+        0 14px 26px color-mix(in oklab, var(--shadow) 36%, transparent),
+        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 86%, transparent);
       align-items: center;
       justify-content: center;
     }
@@ -1467,26 +1466,6 @@
       display: block;
       stroke: currentColor;
       stroke-width: 1.9;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .mobile-chat-trigger {
-      width: 38px;
-      height: 38px;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .mobile-chat-trigger svg {
-      width: 18px;
-      height: 18px;
-      display: block;
-      stroke: currentColor;
-      stroke-width: 1.8;
       fill: none;
       stroke-linecap: round;
       stroke-linejoin: round;
@@ -1624,7 +1603,7 @@
       .header {
         padding:
           max(10px, env(safe-area-inset-top))
-          max(12px, env(safe-area-inset-right))
+          max(58px, calc(env(safe-area-inset-right) + 48px))
           10px
           max(58px, calc(env(safe-area-inset-left) + 48px));
       }
@@ -1694,7 +1673,7 @@
       .header {
         padding:
           max(8px, env(safe-area-inset-top))
-          max(10px, env(safe-area-inset-right))
+          max(54px, calc(env(safe-area-inset-right) + 44px))
           8px
           max(54px, calc(env(safe-area-inset-left) + 44px));
       }
@@ -1810,11 +1789,6 @@
                 <path d="M4 7H20"></path>
                 <path d="M4 12H20"></path>
                 <path d="M4 17H20"></path>
-              </svg>
-            </button>
-            <button class="nav-item mobile-chat-trigger" id="open-chat-mobile" type="button" aria-label="Assistant">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 7.2c0-1.8 1.4-3.2 3.2-3.2h7.6c1.8 0 3.2 1.4 3.2 3.2v5.9c0 1.8-1.4 3.2-3.2 3.2H11l-4.5 3.8v-3.8H8.2C6.4 16.3 5 14.9 5 13.1V7.2Z"></path>
               </svg>
             </button>
           </div>
@@ -4136,13 +4110,15 @@
         el.sidebarOverlay.classList.remove("visible");
       });
 
-      el.openChatMobile.addEventListener("click", function () {
-        if (!state.loggedIn) {
-          window.location.href = "/login";
-          return;
-        }
-        setChatOpen(!state.chatOpen);
-      });
+      if (el.openChatMobile) {
+        el.openChatMobile.addEventListener("click", function () {
+          if (!state.loggedIn) {
+            window.location.href = "/login";
+            return;
+          }
+          setChatOpen(!state.chatOpen);
+        });
+      }
 
       el.sidebarOverlay.addEventListener("click", function (event) {
         if (event.target === el.sidebarOverlay) {
