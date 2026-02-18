@@ -70,6 +70,27 @@ type NarrativeProfile = {
   closingHeading: string;
 };
 
+type ChapterMemory = {
+  chapterTitle: string;
+  chapterObjective: string;
+  coveredTerms: string[];
+  completedNotebooks: Array<{
+    id: string;
+    title: string;
+    focus: string;
+  }>;
+};
+
+type NotebookGenerationContext = {
+  stepIndex: number;
+  totalSteps: number;
+  nextTitle: string | null;
+  previousNotebookTitle: string | null;
+  previousNotebookFocus: string | null;
+  chapterObjective: string;
+  coveredTermsBefore: string[];
+};
+
 const catalogPath = path.join(process.cwd(), "content", "catalog.json");
 const notebooksDir = path.join(process.cwd(), "content", "notebooks");
 const reportsDir = path.join(process.cwd(), "content", "review-reports");
@@ -1782,22 +1803,85 @@ function buildPack(chapter: CatalogChapter, notebook: CatalogNotebook): TopicPac
   return overridePack(notebook.id, notebook.title, base);
 }
 
-function openingBlock(chapterTitle: string, notebookTitle: string, pack: TopicPack, profile: NarrativeProfile): string {
-  return [
+function createChapterMemory(chapterTitle: string): ChapterMemory {
+  return {
+    chapterTitle,
+    chapterObjective: chapterFoundation(chapterTitle).objective,
+    coveredTerms: [],
+    completedNotebooks: []
+  };
+}
+
+function buildNotebookContext(
+  notebooks: CatalogNotebook[],
+  index: number,
+  memory: ChapterMemory
+): NotebookGenerationContext {
+  const previous = memory.completedNotebooks[memory.completedNotebooks.length - 1] ?? null;
+  return {
+    stepIndex: index + 1,
+    totalSteps: notebooks.length,
+    nextTitle: notebooks[index + 1]?.title ?? null,
+    previousNotebookTitle: previous?.title ?? null,
+    previousNotebookFocus: previous?.focus ?? null,
+    chapterObjective: memory.chapterObjective,
+    coveredTermsBefore: memory.coveredTerms.slice(0, 10)
+  };
+}
+
+function rememberNotebook(memory: ChapterMemory, notebook: CatalogNotebook, pack: TopicPack) {
+  for (const term of pack.keyTerms) {
+    if (!memory.coveredTerms.includes(term)) {
+      memory.coveredTerms.push(term);
+    }
+  }
+
+  const focus = pack.modules
+    .slice(0, 2)
+    .map((module) => module.label)
+    .filter(Boolean)
+    .join(" → ");
+
+  memory.completedNotebooks.push({
+    id: notebook.id,
+    title: notebook.title,
+    focus: focus || notebook.title
+  });
+}
+
+function openingBlock(
+  chapterTitle: string,
+  notebookTitle: string,
+  pack: TopicPack,
+  _profile: NarrativeProfile,
+  context: NotebookGenerationContext
+): string {
+  const lines: string[] = [
     `# ${notebookTitle}`,
     "",
-    `## ${profile.openingTagline}`,
-    "",
+    `${chapterTitle} セクションの学習ステップ ${context.stepIndex}/${context.totalSteps}。`,
     pack.bridge,
     "",
+    `このステップの到達目標: ${pack.objective}`,
     `前提: ${pack.prerequisite}`,
     "",
-    `到達目標: ${pack.objective}`,
-    "",
-    `ここで扱う中心語は ${pack.keyTerms.map((term) => `「${term}」`).join("、")} です。用語を先に暗記するのではなく、コード実行の結果と結びつけて理解します。`,
-    "",
-    `このノートは ${chapterTitle} 分野の初学者向けに、説明とコードを交互に読み進める設計です。最初から完璧に理解する必要はありません。大切なのは、各コードの目的を一文で言えることと、出力が変わる理由を自分で確かめることです。`
-  ].join("\n");
+    `今回の中心語: ${pack.keyTerms.map((term) => `「${term}」`).join("、")}`
+  ];
+
+  if (context.previousNotebookTitle && context.previousNotebookFocus) {
+    lines.push(`前ステップ「${context.previousNotebookTitle}」では ${context.previousNotebookFocus} を確認しました。`);
+  } else if (context.previousNotebookTitle) {
+    lines.push(`前ステップ「${context.previousNotebookTitle}」の続きとして読み進めます。`);
+  } else {
+    lines.push("このセクションの最初のステップです。ここで使う記号と変数の読み方を揃えます。");
+  }
+
+  if (context.coveredTermsBefore.length > 0) {
+    lines.push(`ここまでに登場した語: ${context.coveredTermsBefore.map((term) => `「${term}」`).join("、")}`);
+  }
+
+  lines.push(`セクション全体のゴール: ${context.chapterObjective}`);
+  return lines.join("\n");
 }
 
 function shouldRenderAsMath(formula: string): boolean {
@@ -1845,7 +1929,7 @@ function moduleAfterText(module: CodeModule, pack: TopicPack, profile: Narrative
   ].join("\n");
 }
 
-function closingBlock(notebookTitle: string, nextTitle: string | null, pack: TopicPack, profile: NarrativeProfile): string {
+function closingBlock(notebookTitle: string, pack: TopicPack, profile: NarrativeProfile, context: NotebookGenerationContext): string {
   const lines = [
     `## ${profile.closingHeading}`,
     "",
@@ -1854,10 +1938,12 @@ function closingBlock(notebookTitle: string, nextTitle: string | null, pack: Top
     ...pack.pitfalls.map((item, idx) => `${idx + 1}. ${item}`),
     ""
   ];
-  if (nextTitle) {
-    lines.push(`次は「${nextTitle}」へ進み、今回のコードと何が変わるかを比較してください。`);
+  if (context.nextTitle) {
+    lines.push(
+      `次は学習ステップ ${context.stepIndex + 1}/${context.totalSteps}「${context.nextTitle}」へ進み、今回のコードとの差分を確認してください。`
+    );
   } else {
-    lines.push(`${notebookTitle} はここまでです。最初のコードへ戻り、理解の変化を確認してください。`);
+    lines.push(`${notebookTitle} はこのセクションの最終ステップです。先頭ノートから順に再実行し、流れ全体を確認してください。`);
   }
   return lines.join("\n");
 }
@@ -1866,12 +1952,12 @@ function createNotebook(
   notebookId: string,
   chapterTitle: string,
   notebookTitle: string,
-  nextTitle: string | null,
-  pack: TopicPack
+  pack: TopicPack,
+  context: NotebookGenerationContext
 ): NotebookFile {
   const profile = profileFor(notebookId);
   const cells: NotebookCell[] = [];
-  cells.push(md(openingBlock(chapterTitle, notebookTitle, pack, profile)));
+  cells.push(md(openingBlock(chapterTitle, notebookTitle, pack, profile, context)));
 
   pack.modules.forEach((module, idx) => {
     cells.push(md(moduleBeforeText(idx, module, profile)));
@@ -1883,7 +1969,7 @@ function createNotebook(
     }
   });
 
-  cells.push(md(closingBlock(notebookTitle, nextTitle, pack, profile)));
+  cells.push(md(closingBlock(notebookTitle, pack, profile, context)));
 
   return {
     cells,
@@ -2079,13 +2165,23 @@ function qualityLoop(nb: NotebookFile, pack: TopicPack, chapterTitle: string, no
   return logs;
 }
 
-async function buildNotebookOne(chapter: CatalogChapter, notebook: CatalogNotebook, nextTitle: string | null) {
-  const pack = buildPack(chapter, notebook);
-  const nb = createNotebook(notebook.id, chapter.title, notebook.title, nextTitle, pack);
+async function buildNotebookOne(
+  chapter: CatalogChapter,
+  notebook: CatalogNotebook,
+  pack: TopicPack,
+  context: NotebookGenerationContext
+) {
+  const nb = createNotebook(notebook.id, chapter.title, notebook.title, pack, context);
   const logs = qualityLoop(nb, pack, chapter.title, notebook.id);
 
   const report = [
     `# Review Report: ${notebook.id}`,
+    "",
+    "## Section Progress",
+    `- chapter: ${chapter.title}`,
+    `- step: ${context.stepIndex}/${context.totalSteps}`,
+    `- previous: ${context.previousNotebookTitle ?? "(none)"}`,
+    `- next: ${context.nextTitle ?? "(final)"}`,
     "",
     "## Authoring Prompt",
     AUTHORING_SYSTEM_PROMPT,
@@ -2107,17 +2203,21 @@ async function main() {
   const raw = await fs.readFile(catalogPath, "utf8");
   const catalog = JSON.parse(raw) as Catalog;
 
-  const tasks: Promise<void>[] = [];
+  let authoredCount = 0;
   for (const chapter of catalog.chapters.slice().sort((a, b) => a.order - b.order)) {
     const notebooks = chapter.notebooks.slice().sort((a, b) => a.order - b.order);
-    notebooks.forEach((notebook, idx) => {
-      const nextTitle = notebooks[idx + 1]?.title ?? null;
-      tasks.push(buildNotebookOne(chapter, notebook, nextTitle));
-    });
+    const memory = createChapterMemory(chapter.title);
+    for (let idx = 0; idx < notebooks.length; idx += 1) {
+      const notebook = notebooks[idx];
+      const pack = buildPack(chapter, notebook);
+      const context = buildNotebookContext(notebooks, idx, memory);
+      await buildNotebookOne(chapter, notebook, pack, context);
+      rememberNotebook(memory, notebook, pack);
+      authoredCount += 1;
+    }
   }
 
-  await Promise.all(tasks);
-  console.log(`Authored ${tasks.length} notebooks with code-first narrative and strict dual-review loops.`);
+  console.log(`Authored ${authoredCount} notebooks with section-memory narrative and strict dual-review loops.`);
 }
 
 main().catch((error) => {
