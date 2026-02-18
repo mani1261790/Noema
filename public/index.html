@@ -809,14 +809,19 @@
 
     .code-runner-shell {
       display: grid;
-      grid-template-columns: 44px minmax(0, 1fr);
+      grid-template-columns: 40px minmax(0, 1fr);
       align-items: stretch;
+      background: var(--code-bg);
     }
 
     .code-runner-rail {
-      border-right: 1px solid var(--border);
+      border-right: 0;
       background:
-        linear-gradient(180deg, color-mix(in oklab, var(--panel-strong) 92%, transparent), color-mix(in oklab, var(--panel-strong) 84%, transparent));
+        radial-gradient(
+          circle at 50% 22px,
+          color-mix(in oklab, var(--panel-strong) 40%, transparent) 0 18px,
+          transparent 20px
+        );
       display: flex;
       align-items: flex-start;
       justify-content: center;
