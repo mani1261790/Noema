@@ -6,25 +6,26 @@
   <title>Noema Admin</title>
   <style>
     :root {
+      color-scheme: dark;
       --bg-0: #061020;
       --bg-1: #10243b;
       --bg-2: #1a2f44;
       --text: #ebf3ff;
-      --muted: #a7bdd9;
-      --panel: rgba(12, 22, 39, .78);
-      --panel-strong: rgba(12, 21, 40, .74);
+      --muted: #9ab1ce;
+      --panel: rgba(12, 21, 40, .74);
       --panel-soft: rgba(14, 28, 46, .54);
       --border: rgba(145, 183, 227, .3);
       --accent: #78aebf;
-      --accent-strong: #5f95a7;
-      --button-accent: #71aabd;
-      --button-accent-strong: #5b8ea2;
-      --button-panel-strong: rgba(12, 21, 40, .74);
-      --button-panel-soft: rgba(12, 23, 43, .36);
       --danger: #d08a9a;
+      --ok: #7ec8b8;
+      --warn: #f0bd7a;
     }
 
     * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+    }
 
     body {
       margin: 0;
@@ -32,42 +33,200 @@
       color: var(--text);
       font-family: "IBM Plex Sans", system-ui, sans-serif;
       background:
-        radial-gradient(circle at 12% 10%, rgba(120, 174, 191, .18), transparent 42%),
-        radial-gradient(circle at 90% 7%, rgba(255, 154, 95, .15), transparent 36%),
-        radial-gradient(circle at 76% 82%, rgba(112, 183, 255, .16), transparent 40%),
+        radial-gradient(circle at 8% 8%, rgba(120, 174, 191, .18), transparent 42%),
+        radial-gradient(circle at 92% 10%, rgba(255, 154, 95, .14), transparent 36%),
+        radial-gradient(circle at 78% 82%, rgba(112, 183, 255, .16), transparent 40%),
         linear-gradient(158deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-2) 100%);
       padding: 14px;
+      overflow: hidden;
     }
 
-    .shell {
-      max-width: 1500px;
+    .workspace {
+      height: calc(100vh - 28px);
+      max-width: 1800px;
       margin: 0 auto;
-      border-radius: 26px;
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .glass-strong {
       border: 1px solid var(--border);
+      border-radius: 24px;
       background: var(--panel);
       backdrop-filter: blur(22px) saturate(145%);
       -webkit-backdrop-filter: blur(22px) saturate(145%);
       box-shadow: 0 32px 72px rgba(3, 9, 22, .52), inset 0 1px 0 rgba(170, 210, 255, .18);
+    }
+
+    .glass-soft {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel-soft);
+      backdrop-filter: blur(16px) saturate(135%);
+      -webkit-backdrop-filter: blur(16px) saturate(135%);
+    }
+
+    .sidebar {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+      gap: 10px;
       padding: 12px;
     }
 
-    .topbar {
-      border-radius: 18px;
-      border: 1px solid var(--border);
-      background: var(--panel-soft);
+    .brand-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      padding: 10px;
-      margin-bottom: 10px;
+      padding: 2px 2px 4px;
     }
 
-    .left {
-      display: flex;
+    .brand {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: .02em;
+      font-weight: 700;
+      font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
+    }
+
+    .badge {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      background: rgba(16, 33, 52, .52);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .status-line {
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 1.4em;
+      padding: 0 2px;
+    }
+
+    .status-line[data-kind="success"] { color: var(--ok); }
+    .status-line[data-kind="error"] { color: #ffb7c3; }
+    .status-line[data-kind="warn"] { color: var(--warn); }
+
+    .catalog {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 2px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .chapter-card {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .chapter-head {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chapter-drop {
+      min-height: 56px;
+      border: 1px dashed rgba(145, 183, 227, .45);
+      border-radius: 12px;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+      background: rgba(9, 18, 31, .24);
+    }
+
+    .chapter-drop.is-over,
+    .chapter-head.is-over,
+    .notebook-row.is-over {
+      border-color: color-mix(in oklab, var(--accent) 70%, white);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 32%, transparent);
+      background: rgba(21, 47, 72, .32);
+    }
+
+    .empty-drop {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 8px 4px;
+    }
+
+    .notebook-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px;
+      background: rgba(16, 31, 50, .72);
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .notebook-row.active {
+      border-color: color-mix(in oklab, var(--accent) 72%, white);
+      background: rgba(19, 42, 64, .76);
+    }
+
+    .drag-handle {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(17, 34, 54, .5);
+      color: var(--muted);
+      padding: 5px 7px;
+      cursor: grab;
+      line-height: 1;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .drag-handle:active { cursor: grabbing; }
+
+    .caret {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(17, 34, 54, .5);
+      color: var(--text);
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .editor-card {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .editor-header {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
-      min-width: 0;
+      background: rgba(12, 21, 40, .84);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
 
     .back {
@@ -85,448 +244,366 @@
       line-height: 1;
     }
 
-    h1 {
+    .editor-title {
       margin: 0;
-      font-size: 22px;
-      letter-spacing: .02em;
+      text-align: center;
+      font-size: 21px;
+      letter-spacing: .01em;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .meta {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 2px;
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
 
-    .button, .button-ghost, .button-danger {
+    .editor-meta {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .editor-main {
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .meta-panel {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      max-height: 100%;
+      overflow: auto;
+    }
+
+    .meta-section-title {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+
+    .editor-panel {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .ipynb-editor {
+      width: 100%;
+      height: 100%;
+      min-height: 68vh;
+      border: 1px solid var(--border);
+      background: rgba(10, 22, 38, .78);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.62;
+      resize: none;
+      outline: none;
+    }
+
+    .ipynb-editor:focus,
+    .field:focus,
+    .field-textarea:focus {
+      border-color: color-mix(in oklab, var(--accent) 70%, white);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .field,
+    .field-textarea,
+    .chapter-input,
+    .notebook-input,
+    .upload-input,
+    .upload-select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: rgba(16, 32, 52, .62);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .field-textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .chapter-input,
+    .notebook-input {
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .upload-panel {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .upload-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .upload-form {
+      display: grid;
+      gap: 8px;
+    }
+
+    .upload-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .button,
+    .button-ghost,
+    .button-danger {
       border-radius: 10px;
       padding: 9px 12px;
       font-size: 13px;
       cursor: pointer;
-      white-space: nowrap;
       text-decoration: none;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      color: var(--text);
+      background: transparent;
     }
 
     .button {
-      border: 1px solid color-mix(in oklab, var(--button-accent) 52%, white);
+      border-color: color-mix(in oklab, var(--accent) 52%, white);
       color: color-mix(in oklab, #f7fbff 88%, var(--text));
-      background:
-        linear-gradient(
-          145deg,
-          color-mix(in oklab, var(--button-accent) 58%, var(--button-panel-strong)) 0%,
-          color-mix(in oklab, var(--button-accent-strong) 62%, var(--button-panel-soft)) 100%
-        );
+      background: linear-gradient(
+        145deg,
+        color-mix(in oklab, #71aabd 58%, rgba(12, 21, 40, .74)) 0%,
+        color-mix(in oklab, #5b8ea2 62%, rgba(12, 23, 43, .36)) 100%
+      );
       backdrop-filter: blur(14px) saturate(140%);
       -webkit-backdrop-filter: blur(14px) saturate(140%);
-      box-shadow:
-        0 10px 22px color-mix(in oklab, var(--button-accent) 18%, transparent),
-        inset 0 1px 0 rgba(255,255,255,.26);
+      box-shadow: 0 10px 22px color-mix(in oklab, var(--accent) 18%, transparent), inset 0 1px 0 rgba(255,255,255,.26);
     }
 
     .button-ghost {
-      border: 1px solid var(--border);
+      border-color: var(--border);
       background: rgba(17, 34, 54, .5);
-      color: var(--text);
     }
 
     .button-danger {
-      border: 1px solid color-mix(in oklab, var(--danger) 52%, white);
+      border-color: color-mix(in oklab, var(--danger) 52%, white);
       color: #fff3f6;
       background: linear-gradient(
         145deg,
         color-mix(in oklab, var(--danger) 46%, transparent),
         color-mix(in oklab, var(--danger) 28%, #2c1b24)
       );
-      box-shadow: 0 8px 16px color-mix(in oklab, var(--danger) 18%, transparent);
     }
 
-    .main-grid {
-      display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-      gap: 10px;
-      min-height: calc(100dvh - 96px);
+    .button:disabled,
+    .button-ghost:disabled,
+    .button-danger:disabled,
+    .drag-handle:disabled,
+    .caret:disabled {
+      opacity: .55;
+      cursor: not-allowed;
     }
 
-    .panel {
-      border-radius: 18px;
-      border: 1px solid var(--border);
-      background: var(--panel-soft);
-      padding: 12px;
-      min-height: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .panel h2 {
-      margin: 0;
-      font-size: 16px;
-    }
-
-    .form-grid {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .form-grid .full { grid-column: 1 / -1; }
-
-    label {
-      display: grid;
-      gap: 4px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    input {
-      border: 1px solid var(--border);
-      background: rgba(16, 32, 52, .62);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 9px 10px;
-      font-size: 13px;
-      outline: none;
-      width: 100%;
-    }
-
-    input:focus {
-      border-color: color-mix(in oklab, var(--accent) 70%, white);
-      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
-    }
-
-    .status {
-      border: 1px solid transparent;
-      border-radius: 12px;
-      padding: 0;
-      max-height: 0;
-      overflow: hidden;
-      opacity: 0;
-      transform: translateY(-2px);
-      transition: opacity 140ms ease, transform 140ms ease, max-height 160ms ease, padding 140ms ease;
-      line-height: 1.55;
-      font-size: 13px;
-      white-space: pre-wrap;
-    }
-
-    .status[data-visible="true"] {
-      opacity: 1;
-      transform: translateY(0);
-      max-height: 220px;
-      padding: 10px 12px;
-    }
-
-    .status[data-kind="info"] {
-      background: rgba(20, 40, 64, .56);
-      border-color: color-mix(in oklab, var(--accent) 34%, var(--border));
-      color: #d9efff;
-    }
-
-    .status[data-kind="success"] {
-      border-color: rgba(96, 214, 180, .52);
-      background: rgba(16, 52, 45, .58);
-      color: #d6ffef;
-    }
-
-    .status[data-kind="error"] {
-      border-color: rgba(245, 122, 138, .64);
-      background: rgba(69, 22, 35, .6);
-      color: #ffdbe2;
-    }
-
-    .list-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .head-actions {
+    .footer-row {
       display: flex;
       gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
     }
 
-    .chapters {
-      min-height: 0;
-      overflow: auto;
-      display: grid;
-      gap: 10px;
-      padding-right: 2px;
-      align-content: start;
-    }
+    .footer-row > * { flex: 1; }
 
-    .chapter-card {
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(16, 32, 52, .52);
-      padding: 10px;
-      display: grid;
-      gap: 8px;
-    }
-
-    .chapter-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .chapter-title-input {
-      font-weight: 600;
-    }
-
-    .dropzone {
-      min-height: 68px;
-      border: 1px dashed color-mix(in oklab, var(--border) 85%, transparent);
-      border-radius: 12px;
-      padding: 8px;
-      display: grid;
-      gap: 8px;
-      background: rgba(7, 17, 30, .2);
-    }
-
-    .dropzone.is-over {
-      border-color: color-mix(in oklab, var(--accent) 68%, white);
-      background: rgba(22, 49, 76, .34);
-    }
-
-    .empty-drop {
-      color: var(--muted);
-      font-size: 12px;
-      text-align: center;
-      padding: 8px 4px;
-    }
-
-    .nb-card {
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(14, 29, 47, .76);
-      padding: 9px;
-      display: grid;
-      gap: 8px;
-      cursor: grab;
-    }
-
-    .nb-card.dragging {
-      opacity: .45;
-    }
-
-    .nb-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 11px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-    }
-
-    .drag-chip {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 2px 7px;
-      font-size: 10px;
-      color: var(--muted);
-      background: rgba(18, 35, 56, .56);
-    }
-
-    .nb-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .nb-grid .full { grid-column: 1 / -1; }
-
-    .nb-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .empty {
-      border: 1px dashed var(--border);
-      border-radius: 14px;
-      padding: 12px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .editor-block {
+    .bottom-status {
       border-top: 1px solid var(--border);
-      padding-top: 10px;
-      margin-top: 10px;
-      display: grid;
-      gap: 8px;
-    }
-
-    .editor-meta {
+      padding: 8px 14px;
+      min-height: 40px;
+      font-size: 12px;
       color: var(--muted);
-      font-size: 12px;
+      display: flex;
+      align-items: center;
     }
 
-    .editor-textarea {
-      width: 100%;
-      min-height: 320px;
-      resize: vertical;
-      border: 1px solid var(--border);
-      background: rgba(10, 22, 38, .78);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px;
-      font-size: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-      line-height: 1.6;
-      outline: none;
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
     }
 
-    .editor-textarea:focus {
-      border-color: color-mix(in oklab, var(--accent) 70%, white);
-      box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 24%, transparent);
+    @media (max-width: 1260px) {
+      body {
+        overflow: auto;
+      }
+
+      .workspace {
+        height: auto;
+        min-height: calc(100vh - 28px);
+        grid-template-columns: 1fr;
+      }
+
+      .editor-main {
+        grid-template-columns: 1fr;
+      }
+
+      .ipynb-editor {
+        min-height: 56vh;
+      }
     }
 
-    .questions {
-      max-height: 320px;
-      overflow: auto;
-      display: grid;
-      gap: 8px;
-      padding-right: 2px;
-    }
+    @media (max-width: 720px) {
+      .upload-row {
+        grid-template-columns: 1fr;
+      }
 
-    .question-card {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(14, 29, 47, .76);
-      padding: 9px;
-      display: grid;
-      gap: 6px;
-    }
+      .editor-header {
+        grid-template-columns: 1fr;
+      }
 
-    .question-meta {
-      color: var(--muted);
-      font-size: 11px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-    }
+      .editor-title {
+        text-align: left;
+      }
 
-    .question-text {
-      font-size: 12px;
-      line-height: 1.5;
-      color: color-mix(in oklab, var(--text) 90%, white);
-      white-space: pre-wrap;
-    }
-
-    .question-answer {
-      width: 100%;
-      min-height: 72px;
-      resize: vertical;
-      border: 1px solid var(--border);
-      background: rgba(12, 25, 42, .72);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 8px;
-      font-size: 12px;
-      line-height: 1.5;
-      outline: none;
-    }
-
-    @media (max-width: 1180px) {
-      .main-grid { grid-template-columns: 1fr; min-height: auto; }
-      .form-grid, .nb-grid { grid-template-columns: 1fr; }
-      .chapter-head { grid-template-columns: 1fr; }
+      .header-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="left">
-        <a class="back" href="/" aria-label="トップへ戻る">‹</a>
-        <div>
-          <h1>Noema Admin</h1>
-          <div class="meta">教材（ipynb）管理: セクション編集 / 並び替え / 追加 / 削除</div>
-        </div>
+  <main class="workspace">
+    <aside class="sidebar glass-strong">
+      <div class="brand-row">
+        <a class="brand" href="/" id="brand-link">Noema</a>
+        <span class="badge" id="count-label">0 sections / 0 notebooks</span>
       </div>
-      <button class="button-ghost" id="logout-btn" type="button">ログアウト</button>
-    </header>
 
-    <div class="main-grid">
-      <section class="panel">
-        <h2>教材を追加</h2>
-        <form id="upload-form" class="form-grid">
-          <label>タイトル
-            <input name="title" required />
-          </label>
-          <label>章タイトル
-            <input name="chapter" required />
-          </label>
-          <label>順序
-            <input name="order" type="number" min="1" value="1" required />
-          </label>
-          <label>タグ（カンマ区切り）
-            <input name="tags" />
-          </label>
-          <label class="full">Colab URL
-            <input name="colabUrl" required />
-          </label>
-          <label class="full">動画 URL（任意）
-            <input name="videoUrl" />
-          </label>
-          <label class="full">ipynb ファイル
-            <input name="file" type="file" accept=".ipynb,application/json" required />
-          </label>
-          <button class="button full" id="upload-btn" type="submit">ipynb を登録</button>
-        </form>
-        <div class="status" id="upload-status" data-visible="false" data-kind="info"></div>
-      </section>
+      <div class="toolbar">
+        <button class="button" id="add-section-btn" type="button">+ セクション</button>
+        <button class="button-ghost" id="reload-catalog-btn" type="button">再読込</button>
+      </div>
 
-      <section class="panel">
-        <div class="list-head">
-          <h2>教材一覧</h2>
-          <div class="head-actions">
-            <span class="meta" id="count-label">0 sections / 0 notebooks</span>
-            <button class="button-ghost" id="add-section-btn" type="button">セクション追加</button>
-            <button class="button" id="save-layout-btn" type="button">並び順・セクション保存</button>
-            <button class="button-ghost" id="refresh-btn" type="button">再読込</button>
-          </div>
+      <div class="status-line" id="structure-status" data-kind="info">構成の自動保存: 有効</div>
+
+      <div class="catalog" id="catalog"></div>
+
+      <section class="upload-panel glass-soft">
+        <div class="upload-head">
+          <strong>教材を追加</strong>
+          <span class="badge">ipynb</span>
         </div>
-        <div class="meta">ドラッグ&ドロップでノートを並び替え/セクション移動できます。空セクションはノートを入れて保存したときのみ永続反映されます。</div>
-        <div class="status" id="list-status" data-visible="false" data-kind="info"></div>
-        <div class="chapters" id="chapters"></div>
+        <form class="upload-form" id="upload-form">
+          <label class="sr-only" for="upload-title">タイトル</label>
+          <input class="upload-input" id="upload-title" name="title" placeholder="タイトル" required />
 
-        <section class="editor-block">
-          <div class="list-head">
-            <h2>ipynb 編集</h2>
-            <div class="head-actions">
-              <button class="button-ghost" id="editor-reload-btn" type="button">再読込</button>
-              <button class="button" id="editor-save-btn" type="button">保存</button>
-            </div>
+          <div class="upload-row">
+            <select class="upload-select" id="upload-section-select" name="sectionSelect"></select>
+            <input class="upload-input" id="upload-new-section" name="newSection" placeholder="新規セクション名（任意）" />
           </div>
-          <div class="editor-meta" id="editor-meta">ノートを選択してください。</div>
-          <textarea class="editor-textarea" id="editor-textarea" placeholder="ノートを選択すると ipynb JSON が表示されます。"></textarea>
-          <div class="status" id="editor-status" data-visible="false" data-kind="info"></div>
-        </section>
 
-        <section class="editor-block">
-          <div class="list-head">
-            <h2>質問ログ</h2>
-            <div class="head-actions">
-              <button class="button-ghost" id="questions-refresh-btn" type="button">更新</button>
-            </div>
+          <div class="upload-row">
+            <input class="upload-input" name="tags" placeholder="タグ (comma separated)" />
+            <input class="upload-input" name="colabUrl" placeholder="Colab URL" value="https://colab.research.google.com/" required />
           </div>
-          <div class="questions" id="questions"></div>
-          <div class="status" id="questions-status" data-visible="false" data-kind="info"></div>
-        </section>
+
+          <input class="upload-input" name="videoUrl" placeholder="Video URL (optional)" />
+          <input class="upload-input" name="file" type="file" accept=".ipynb,application/json" required />
+          <button class="button" id="upload-btn" type="submit">ipynbを登録</button>
+        </form>
+        <div class="status-line" id="upload-status" data-kind="info"></div>
       </section>
-    </div>
+
+      <div class="footer-row">
+        <a class="button-ghost" href="/">学習トップ</a>
+        <button class="button-ghost" id="logout-btn" type="button">ログアウト</button>
+      </div>
+    </aside>
+
+    <section class="editor-card glass-strong">
+      <header class="editor-header">
+        <a class="back" href="/" aria-label="トップへ戻る">‹</a>
+        <h1 class="editor-title" id="editor-title">ノート未選択</h1>
+        <div class="header-actions">
+          <button class="button" id="manual-save-btn" type="button">保存</button>
+          <button class="button-ghost" id="reload-notebook-btn" type="button">再読込</button>
+        </div>
+      </header>
+
+      <div class="editor-meta">
+        <span id="editor-meta">ノートを選択してください。</span>
+        <span id="editor-save-state">自動保存: 待機中</span>
+      </div>
+
+      <div class="editor-main">
+        <section class="meta-panel glass-soft">
+          <h2 class="meta-section-title">ノート設定</h2>
+          <label>
+            <div class="status-line">Notebook ID</div>
+            <input class="field" id="meta-notebook-id" readonly />
+          </label>
+
+          <label>
+            <div class="status-line">タイトル</div>
+            <input class="field" id="meta-title" />
+          </label>
+
+          <label>
+            <div class="status-line">セクション</div>
+            <input class="field" id="meta-chapter" readonly />
+          </label>
+
+          <label>
+            <div class="status-line">タグ (comma separated)</div>
+            <input class="field" id="meta-tags" />
+          </label>
+
+          <label>
+            <div class="status-line">Colab URL</div>
+            <input class="field" id="meta-colab" />
+          </label>
+
+          <label>
+            <div class="status-line">Video URL (optional)</div>
+            <input class="field" id="meta-video" />
+          </label>
+        </section>
+
+        <section class="editor-panel">
+          <textarea class="ipynb-editor" id="ipynb-editor" spellcheck="false" placeholder="ここに ipynb JSON が表示されます"></textarea>
+        </section>
+      </div>
+
+      <div class="bottom-status" id="editor-status">準備完了</div>
+    </section>
   </main>
 
   <script>
@@ -534,52 +611,61 @@
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
 
-      const uploadStatusEl = document.getElementById("upload-status");
-      const listStatusEl = document.getElementById("list-status");
-      const uploadForm = document.getElementById("upload-form");
-      const uploadBtn = document.getElementById("upload-btn");
-      const refreshBtn = document.getElementById("refresh-btn");
-      const logoutBtn = document.getElementById("logout-btn");
-      const countLabelEl = document.getElementById("count-label");
-      const addSectionBtn = document.getElementById("add-section-btn");
-      const saveLayoutBtn = document.getElementById("save-layout-btn");
-      const chaptersEl = document.getElementById("chapters");
-      const editorMetaEl = document.getElementById("editor-meta");
-      const editorTextareaEl = document.getElementById("editor-textarea");
-      const editorStatusEl = document.getElementById("editor-status");
-      const editorSaveBtn = document.getElementById("editor-save-btn");
-      const editorReloadBtn = document.getElementById("editor-reload-btn");
-      const questionsEl = document.getElementById("questions");
-      const questionsStatusEl = document.getElementById("questions-status");
-      const questionsRefreshBtn = document.getElementById("questions-refresh-btn");
-
-      const state = {
-        sections: [],
-        notebooksById: {},
-        draggingNotebookId: "",
-        dirtyLayout: false,
-        activeNotebookId: "",
-        ipynbRaw: "",
-        ipynbLoadedNotebookId: "",
-        ipynbDirty: false,
-        ipynbSaveTimer: 0,
-        questions: []
+      const el = {
+        catalog: document.getElementById("catalog"),
+        countLabel: document.getElementById("count-label"),
+        structureStatus: document.getElementById("structure-status"),
+        addSectionBtn: document.getElementById("add-section-btn"),
+        reloadCatalogBtn: document.getElementById("reload-catalog-btn"),
+        uploadForm: document.getElementById("upload-form"),
+        uploadBtn: document.getElementById("upload-btn"),
+        uploadStatus: document.getElementById("upload-status"),
+        uploadSectionSelect: document.getElementById("upload-section-select"),
+        uploadNewSection: document.getElementById("upload-new-section"),
+        logoutBtn: document.getElementById("logout-btn"),
+        editorTitle: document.getElementById("editor-title"),
+        editorMeta: document.getElementById("editor-meta"),
+        editorSaveState: document.getElementById("editor-save-state"),
+        editorStatus: document.getElementById("editor-status"),
+        manualSaveBtn: document.getElementById("manual-save-btn"),
+        reloadNotebookBtn: document.getElementById("reload-notebook-btn"),
+        ipynbEditor: document.getElementById("ipynb-editor"),
+        metaNotebookId: document.getElementById("meta-notebook-id"),
+        metaTitle: document.getElementById("meta-title"),
+        metaChapter: document.getElementById("meta-chapter"),
+        metaTags: document.getElementById("meta-tags"),
+        metaColab: document.getElementById("meta-colab"),
+        metaVideo: document.getElementById("meta-video")
       };
 
-      function uid(prefix) {
-        return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+      const state = {
+        chapters: [],
+        openMap: {},
+        activeNotebookId: "",
+        ipynbRaw: "",
+        ipynbSavedRaw: "",
+        structureSaveTimer: 0,
+        notebookSaveTimer: 0,
+        dragPayload: null,
+        structureDirty: false,
+        notebookDirty: false,
+        savedStructureHash: "",
+        loadSeq: 0,
+        savingStructure: false,
+        savingNotebook: false
+      };
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
       }
 
-      function setStatus(target, kind, message) {
-        if (!message) {
-          target.dataset.visible = "false";
-          target.dataset.kind = "info";
-          target.textContent = "";
-          return;
-        }
-        target.dataset.visible = "true";
-        target.dataset.kind = kind;
-        target.textContent = message;
+      function uid(prefix) {
+        return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       }
 
       function parseJwt(token) {
@@ -610,14 +696,6 @@
         throw new Error("ログインが必要です。");
       }
 
-      function escapeHtml(value) {
-        return String(value || "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
       async function api(path, init) {
         const token = requireLogin();
         let response;
@@ -635,16 +713,15 @@
         }
 
         let payload = {};
-        let rawText = "";
+        let raw = "";
         try {
-          rawText = await response.text();
-          payload = rawText ? JSON.parse(rawText) : {};
+          raw = await response.text();
+          payload = raw ? JSON.parse(raw) : {};
         } catch {
-          payload = rawText ? { error: rawText } : {};
+          payload = raw ? { error: raw } : {};
         }
 
         if (!response.ok) {
-          const errorText = payload && payload.error ? String(payload.error) : `Request failed (${response.status})`;
           if (response.status === 401) {
             localStorage.removeItem(TOKEN_KEY);
             window.location.href = "/login";
@@ -653,463 +730,485 @@
             const tokenPayload = parseJwt(token) || {};
             const identity =
               String(tokenPayload.email || tokenPayload["cognito:username"] || tokenPayload.username || "").trim() || "不明";
-            throw new Error(
-              `管理者権限が必要です（現在ログイン: ${identity}）。Deploy Infra の admin_emails にこのメールを設定してください。`
-            );
+            throw new Error(`管理者権限が必要です（現在ログイン: ${identity}）。admin_emails 設定を確認してください。`);
           }
-          throw new Error(errorText);
+          const message = payload && payload.error ? String(payload.error) : `Request failed (${response.status})`;
+          throw new Error(message);
         }
 
         return payload;
       }
 
-      function markDirty(flag) {
-        state.dirtyLayout = Boolean(flag);
-        saveLayoutBtn.textContent = state.dirtyLayout ? "並び順・セクション保存 *" : "並び順・セクション保存";
+      function setLine(target, kind, message) {
+        target.dataset.kind = kind || "info";
+        target.textContent = message || "";
       }
 
-      function buildStateFromItems(items) {
-        state.notebooksById = {};
-        state.sections = [];
-
-        const sectionMap = new Map();
-
-        (items || []).forEach((item) => {
-          const sectionTitle = String(item.chapter || "未分類").trim() || "未分類";
-          let section = sectionMap.get(sectionTitle);
-          if (!section) {
-            section = { id: uid("section"), title: sectionTitle, notebookIds: [] };
-            sectionMap.set(sectionTitle, section);
-            state.sections.push(section);
-          }
-
-          const notebook = {
-            notebookId: String(item.notebookId || "").trim(),
-            title: String(item.title || ""),
-            tags: Array.isArray(item.tags) ? item.tags.map((v) => String(v).trim()).filter(Boolean) : [],
-            colabUrl: String(item.colabUrl || ""),
-            videoUrl: String(item.videoUrl || ""),
-            htmlPath: String(item.htmlPath || ""),
-            sortOrder: Number(item.sortOrder || 1)
-          };
-
-          if (!notebook.notebookId) return;
-          state.notebooksById[notebook.notebookId] = notebook;
-          section.notebookIds.push(notebook.notebookId);
-        });
-
-        state.sections.forEach((section) => {
-          section.notebookIds.sort((a, b) => {
-            const aa = state.notebooksById[a];
-            const bb = state.notebooksById[b];
-            return (aa?.sortOrder || 1) - (bb?.sortOrder || 1);
-          });
-        });
-
-        markDirty(false);
+      function setEditorStatus(message, kind) {
+        el.editorStatus.textContent = message || "";
+        el.editorStatus.style.color = kind === "error" ? "#ffb7c3" : kind === "success" ? "var(--ok)" : "var(--muted)";
       }
 
-      function sectionById(sectionId) {
-        return state.sections.find((section) => section.id === sectionId) || null;
+      function setEditorSaveState(message, kind) {
+        el.editorSaveState.textContent = message || "";
+        el.editorSaveState.style.color = kind === "error" ? "#ffb7c3" : kind === "success" ? "var(--ok)" : "var(--muted)";
       }
 
-      function notebookById(notebookId) {
-        return state.notebooksById[notebookId] || null;
+      function normalizeCatalog(chapters) {
+        const normalized = (Array.isArray(chapters) ? chapters : []).map((chapter, chapterIndex) => ({
+          id: String(chapter.id || uid("chapter")),
+          title: String(chapter.title || "").trim() || `セクション ${chapterIndex + 1}`,
+          order: Number(chapter.order || chapterIndex + 1),
+          notebooks: (Array.isArray(chapter.notebooks) ? chapter.notebooks : []).map((notebook, notebookIndex) => ({
+            id: String(notebook.id || "").trim(),
+            title: String(notebook.title || "").trim() || `Notebook ${notebookIndex + 1}`,
+            order: Number(notebook.order || notebookIndex + 1),
+            tags: Array.isArray(notebook.tags) ? notebook.tags.map((v) => String(v).trim()).filter(Boolean) : [],
+            colabUrl: String(notebook.colabUrl || "").trim(),
+            videoUrl: String(notebook.videoUrl || "").trim(),
+            htmlPath: String(notebook.htmlPath || "")
+          }))
+          .filter((notebook) => notebook.id)
+          .sort((a, b) => a.order - b.order)
+        })).sort((a, b) => a.order - b.order);
+
+        return reindexChapters(normalized);
       }
 
-      function removeNotebookFromSections(notebookId) {
-        state.sections.forEach((section) => {
-          section.notebookIds = section.notebookIds.filter((id) => id !== notebookId);
-        });
+      function reindexChapters(chapters) {
+        return chapters.map((chapter, chapterIndex) => ({
+          ...chapter,
+          order: chapterIndex + 1,
+          notebooks: chapter.notebooks.map((notebook, notebookIndex) => ({
+            ...notebook,
+            order: notebookIndex + 1
+          }))
+        }));
       }
 
-      function updateCounts() {
-        const notebookCount = Object.keys(state.notebooksById).length;
-        countLabelEl.textContent = `${state.sections.length} sections / ${notebookCount} notebooks`;
+      function findChapter(chapterId) {
+        return state.chapters.find((chapter) => chapter.id === chapterId) || null;
+      }
+
+      function findNotebook(notebookId) {
+        for (const chapter of state.chapters) {
+          const notebook = chapter.notebooks.find((item) => item.id === notebookId);
+          if (notebook) return notebook;
+        }
+        return null;
       }
 
       function findNotebookLocation(notebookId) {
-        for (const section of state.sections) {
-          const idx = section.notebookIds.indexOf(notebookId);
-          if (idx >= 0) {
-            return { section, index: idx };
+        for (const chapter of state.chapters) {
+          const index = chapter.notebooks.findIndex((item) => item.id === notebookId);
+          if (index >= 0) {
+            return { chapter, index };
           }
         }
         return null;
       }
 
-      function ensureActiveNotebook() {
-        if (state.activeNotebookId && notebookById(state.activeNotebookId)) return;
-        for (const section of state.sections) {
-          if (section.notebookIds.length > 0) {
-            state.activeNotebookId = section.notebookIds[0];
-            return;
-          }
+      function firstNotebookId() {
+        for (const chapter of state.chapters) {
+          if (chapter.notebooks.length > 0) return chapter.notebooks[0].id;
         }
-        state.activeNotebookId = "";
+        return "";
       }
 
-      function renderEditorMeta(extra) {
-        const notebookId = state.activeNotebookId;
-        const notebook = notebookById(notebookId);
-        const location = notebookId ? findNotebookLocation(notebookId) : null;
-        if (!notebook || !location) {
-          editorMetaEl.textContent = "ノートを選択してください。";
-          if (extra) {
-            setStatus(editorStatusEl, "info", extra);
-          }
+      function getStructurePayload() {
+        return state.chapters.map((chapter, chapterIndex) => ({
+          id: chapter.id,
+          title: chapter.title,
+          order: chapterIndex + 1,
+          notebooks: chapter.notebooks.map((notebook, notebookIndex) => ({
+            id: notebook.id,
+            title: notebook.title,
+            order: notebookIndex + 1
+          }))
+        }));
+      }
+
+      function structureHash() {
+        return JSON.stringify(getStructurePayload());
+      }
+
+      function updateCount() {
+        const notebookCount = state.chapters.reduce((sum, chapter) => sum + chapter.notebooks.length, 0);
+        el.countLabel.textContent = `${state.chapters.length} sections / ${notebookCount} notebooks`;
+      }
+
+      function renderUploadSectionOptions() {
+        const options = state.chapters
+          .map((chapter) => `<option value="${escapeHtml(chapter.id)}">${escapeHtml(chapter.title)}</option>`)
+          .join("");
+        el.uploadSectionSelect.innerHTML = `${options}<option value="__new">+ 新規セクションを作成</option>`;
+      }
+
+      function renderHeaderMeta() {
+        const notebook = findNotebook(state.activeNotebookId);
+        if (!notebook) {
+          el.editorTitle.textContent = "ノート未選択";
+          el.editorMeta.textContent = "ノートを選択してください。";
+          el.metaNotebookId.value = "";
+          el.metaTitle.value = "";
+          el.metaChapter.value = "";
+          el.metaTags.value = "";
+          el.metaColab.value = "";
+          el.metaVideo.value = "";
           return;
         }
-        editorMetaEl.textContent = `${notebook.notebookId} | ${location.section.title} / ${location.index + 1}番`;
-        if (extra) {
-          setStatus(editorStatusEl, "info", extra);
-        }
+
+        const location = findNotebookLocation(notebook.id);
+        const chapterTitle = location ? location.chapter.title : "";
+        el.editorTitle.textContent = notebook.title || notebook.id;
+        el.editorMeta.textContent = `${notebook.id} | ${chapterTitle}${location ? ` / ${location.index + 1}番` : ""}`;
+        el.metaNotebookId.value = notebook.id;
+        el.metaTitle.value = notebook.title;
+        el.metaChapter.value = chapterTitle;
+        el.metaTags.value = notebook.tags.join(", ");
+        el.metaColab.value = notebook.colabUrl || "";
+        el.metaVideo.value = notebook.videoUrl || "";
       }
 
-      function cardTemplate(notebookId, sectionId, indexInSection) {
-        const nb = notebookById(notebookId);
-        if (!nb) return "";
-
-        return `
-          <article class="nb-card" draggable="true" data-notebook-id="${escapeHtml(nb.notebookId)}" data-section-id="${escapeHtml(sectionId)}">
-            <div class="nb-head">
-              <span>${escapeHtml(nb.notebookId)}</span>
-              <span class="drag-chip">drag</span>
-            </div>
-            <div class="nb-grid">
-              <label>タイトル
-                <input data-field="title" value="${escapeHtml(nb.title)}" />
-              </label>
-              <label>タグ（カンマ区切り）
-                <input data-field="tags" value="${escapeHtml((nb.tags || []).join(", "))}" />
-              </label>
-              <label class="full">Colab URL
-                <input data-field="colabUrl" value="${escapeHtml(nb.colabUrl || "")}" />
-              </label>
-              <label class="full">動画 URL
-                <input data-field="videoUrl" value="${escapeHtml(nb.videoUrl || "")}" />
-              </label>
-              <div class="meta full">順序: ${indexInSection + 1} / HTML: ${escapeHtml(nb.htmlPath || "")}</div>
-            </div>
-            <div class="nb-actions">
-              <button class="button-ghost" data-action="edit-ipynb" type="button">ipynb編集</button>
-              <button class="button-ghost" data-action="save-notebook" type="button">保存</button>
-              <button class="button-danger" data-action="delete-notebook" type="button">削除</button>
-            </div>
-          </article>
-        `;
-      }
-
-      function chapterTemplate(section) {
-        const cards = section.notebookIds
-          .map((notebookId, index) => cardTemplate(notebookId, section.id, index))
+      function chapterTemplate(chapter) {
+        const opened = state.openMap[chapter.id] !== false;
+        const notebooksHtml = chapter.notebooks
+          .map((notebook) => {
+            const active = notebook.id === state.activeNotebookId;
+            return `
+              <article class="notebook-row${active ? " active" : ""}" data-notebook-id="${escapeHtml(notebook.id)}" data-chapter-id="${escapeHtml(chapter.id)}">
+                <button class="drag-handle" draggable="true" data-drag-kind="notebook" data-notebook-id="${escapeHtml(notebook.id)}" data-from-chapter-id="${escapeHtml(chapter.id)}" type="button" aria-label="drag notebook">⋮⋮</button>
+                <input class="notebook-input" data-role="notebook-title" value="${escapeHtml(notebook.title)}" />
+                <button class="button-ghost" data-action="select-notebook" type="button">編集</button>
+              </article>
+            `;
+          })
           .join("");
 
         return `
-          <section class="chapter-card" data-section-id="${escapeHtml(section.id)}">
-            <div class="chapter-head">
-              <input class="chapter-title-input" data-role="section-title" value="${escapeHtml(section.title)}" />
-              <button class="button-ghost" data-action="rename-section" type="button">名称反映</button>
-              <button class="button-danger" data-action="delete-section" type="button">セクション削除</button>
+          <section class="chapter-card glass-soft" data-chapter-id="${escapeHtml(chapter.id)}">
+            <div class="chapter-head" data-drop-chapter-id="${escapeHtml(chapter.id)}">
+              <button class="drag-handle" draggable="true" data-drag-kind="chapter" data-chapter-id="${escapeHtml(chapter.id)}" type="button" aria-label="drag chapter">⋮⋮</button>
+              <button class="caret" data-action="toggle-chapter" type="button">${opened ? "▾" : "▸"}</button>
+              <input class="chapter-input" data-role="chapter-title" value="${escapeHtml(chapter.title)}" />
             </div>
-            <div class="dropzone" data-role="dropzone" data-section-id="${escapeHtml(section.id)}">
-              ${cards || '<div class="empty-drop">ここにノートをドロップ</div>'}
-            </div>
+            ${opened
+              ? `<div class="chapter-drop" data-drop-list-chapter-id="${escapeHtml(chapter.id)}">${notebooksHtml || '<div class="empty-drop">ノートをここへドロップ</div>'}</div>`
+              : ""}
           </section>
         `;
       }
 
-      function renderChapters() {
-        updateCounts();
+      function renderCatalog() {
+        updateCount();
+        renderUploadSectionOptions();
+        renderHeaderMeta();
 
-        if (state.sections.length === 0) {
-          chaptersEl.innerHTML = '<div class="empty">教材がありません。左のフォームから ipynb を登録してください。</div>';
+        if (!state.chapters.length) {
+          el.catalog.innerHTML = '<div class="glass-soft" style="padding:12px; color:var(--muted); font-size:13px;">教材がありません。下のフォームから ipynb を追加してください。</div>';
           return;
         }
 
-        chaptersEl.innerHTML = state.sections.map(chapterTemplate).join("");
-        bindEventsAfterRender();
+        el.catalog.innerHTML = state.chapters.map(chapterTemplate).join("");
+        bindCatalogEvents();
       }
 
-      function sectionTitleOfCard(cardElement) {
-        const sectionElement = cardElement.closest("[data-section-id]");
-        if (!sectionElement) return "未分類";
-        const input = sectionElement.querySelector("[data-role='section-title']");
-        return String(input ? input.value : "未分類").trim() || "未分類";
+      function moveChapter(sourceChapterId, targetChapterId) {
+        if (!sourceChapterId || !targetChapterId || sourceChapterId === targetChapterId) return;
+        const next = state.chapters.slice();
+        const sourceIndex = next.findIndex((chapter) => chapter.id === sourceChapterId);
+        const targetIndex = next.findIndex((chapter) => chapter.id === targetChapterId);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+
+        const [source] = next.splice(sourceIndex, 1);
+        next.splice(targetIndex, 0, source);
+        state.chapters = reindexChapters(next);
+        markStructureDirty("セクション順を変更しました。自動保存します...");
+        renderCatalog();
       }
 
-      function notebookPayloadFromCard(cardElement) {
-        const notebookId = cardElement.getAttribute("data-notebook-id") || "";
-        const sectionId = cardElement.getAttribute("data-section-id") || "";
-        const section = sectionById(sectionId);
-        const sectionTitle = section ? section.title.trim() : sectionTitleOfCard(cardElement);
+      function moveNotebook(notebookId, fromChapterId, toChapterId, beforeNotebookId) {
+        if (!notebookId || !fromChapterId || !toChapterId) return;
+        const next = state.chapters.map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.slice() }));
+        const fromChapter = next.find((chapter) => chapter.id === fromChapterId);
+        const toChapter = next.find((chapter) => chapter.id === toChapterId);
+        if (!fromChapter || !toChapter) return;
 
-        const title = String(cardElement.querySelector("[data-field='title']")?.value || "").trim();
-        const colabUrl = String(cardElement.querySelector("[data-field='colabUrl']")?.value || "").trim();
-        const videoUrl = String(cardElement.querySelector("[data-field='videoUrl']")?.value || "").trim();
-        const tags = String(cardElement.querySelector("[data-field='tags']")?.value || "")
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean);
+        const fromIndex = fromChapter.notebooks.findIndex((item) => item.id === notebookId);
+        if (fromIndex < 0) return;
 
-        const sectionCards = Array.from(cardElement.parentElement?.querySelectorAll(".nb-card") || []);
-        const sortOrder = sectionCards.findIndex((node) => node === cardElement) + 1;
+        const [moving] = fromChapter.notebooks.splice(fromIndex, 1);
 
-        return {
-          notebookId,
-          title,
-          chapter: sectionTitle,
-          sortOrder: sortOrder > 0 ? sortOrder : 1,
-          tags,
-          colabUrl,
-          videoUrl
-        };
-      }
-
-      function persistCardValuesToState(cardElement) {
-        const payload = notebookPayloadFromCard(cardElement);
-        const nb = notebookById(payload.notebookId);
-        if (!nb) return;
-
-        nb.title = payload.title;
-        nb.tags = payload.tags;
-        nb.colabUrl = payload.colabUrl;
-        nb.videoUrl = payload.videoUrl;
-      }
-
-      function getDropIndex(dropzone, y) {
-        const cards = Array.from(dropzone.querySelectorAll(".nb-card:not(.dragging)"));
-        for (let i = 0; i < cards.length; i += 1) {
-          const rect = cards[i].getBoundingClientRect();
-          if (y < rect.top + rect.height / 2) {
-            return i;
+        if (!beforeNotebookId) {
+          toChapter.notebooks.push(moving);
+        } else {
+          const targetIndex = toChapter.notebooks.findIndex((item) => item.id === beforeNotebookId);
+          if (targetIndex < 0) {
+            toChapter.notebooks.push(moving);
+          } else {
+            toChapter.notebooks.splice(targetIndex, 0, moving);
           }
         }
-        return cards.length;
+
+        state.chapters = reindexChapters(next);
+        markStructureDirty("ノート順を変更しました。自動保存します...");
+        renderCatalog();
       }
 
-      function moveNotebook(notebookId, targetSectionId, targetIndex) {
-        if (!notebookId || !targetSectionId) return;
+      function clearDropHighlights() {
+        el.catalog.querySelectorAll(".is-over").forEach((node) => node.classList.remove("is-over"));
+      }
 
-        const target = sectionById(targetSectionId);
-        if (!target) return;
-
-        let currentSection = null;
-        state.sections.forEach((section) => {
-          if (section.notebookIds.includes(notebookId)) {
-            currentSection = section;
-          }
+      function bindCatalogEvents() {
+        el.catalog.querySelectorAll("[data-action='toggle-chapter']").forEach((button) => {
+          button.addEventListener("click", function () {
+            const chapterCard = button.closest("[data-chapter-id]");
+            if (!chapterCard) return;
+            const chapterId = chapterCard.getAttribute("data-chapter-id") || "";
+            state.openMap[chapterId] = !(state.openMap[chapterId] !== false);
+            renderCatalog();
+          });
         });
-        if (!currentSection) return;
 
-        currentSection.notebookIds = currentSection.notebookIds.filter((id) => id !== notebookId);
+        el.catalog.querySelectorAll("[data-role='chapter-title']").forEach((input) => {
+          input.addEventListener("input", function () {
+            const chapterCard = input.closest("[data-chapter-id]");
+            if (!chapterCard) return;
+            const chapterId = chapterCard.getAttribute("data-chapter-id") || "";
+            const chapter = findChapter(chapterId);
+            if (!chapter) return;
+            chapter.title = String(input.value || "");
+            markStructureDirty("セクション名を変更しました。自動保存します...");
+            renderHeaderMeta();
+          });
+        });
 
-        const clamped = Math.max(0, Math.min(targetIndex, target.notebookIds.length));
-        target.notebookIds.splice(clamped, 0, notebookId);
+        el.catalog.querySelectorAll("[data-role='notebook-title']").forEach((input) => {
+          input.addEventListener("input", function () {
+            const row = input.closest("[data-notebook-id]");
+            if (!row) return;
+            const notebookId = row.getAttribute("data-notebook-id") || "";
+            const notebook = findNotebook(notebookId);
+            if (!notebook) return;
+            notebook.title = String(input.value || "");
+            if (state.activeNotebookId === notebookId) {
+              el.metaTitle.value = notebook.title;
+              renderHeaderMeta();
+              markNotebookDirty("ノート情報を更新しました。自動保存します...");
+            }
+            markStructureDirty("ノートタイトルを変更しました。自動保存します...");
+          });
+        });
 
-        markDirty(true);
-        renderChapters();
+        el.catalog.querySelectorAll("[data-action='select-notebook']").forEach((button) => {
+          button.addEventListener("click", function () {
+            const row = button.closest("[data-notebook-id]");
+            if (!row) return;
+            const notebookId = row.getAttribute("data-notebook-id") || "";
+            if (!notebookId || notebookId === state.activeNotebookId) return;
+            void setActiveNotebook(notebookId);
+          });
+        });
+
+        el.catalog.querySelectorAll(".drag-handle[draggable='true']").forEach((handle) => {
+          handle.addEventListener("dragstart", function (event) {
+            const kind = handle.getAttribute("data-drag-kind") || "";
+            if (kind === "chapter") {
+              state.dragPayload = { kind: "chapter", chapterId: handle.getAttribute("data-chapter-id") || "" };
+            } else if (kind === "notebook") {
+              state.dragPayload = {
+                kind: "notebook",
+                notebookId: handle.getAttribute("data-notebook-id") || "",
+                fromChapterId: handle.getAttribute("data-from-chapter-id") || ""
+              };
+            }
+            if (event.dataTransfer) {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", JSON.stringify(state.dragPayload || {}));
+            }
+          });
+
+          handle.addEventListener("dragend", function () {
+            state.dragPayload = null;
+            clearDropHighlights();
+          });
+        });
+
+        el.catalog.querySelectorAll("[data-drop-chapter-id]").forEach((target) => {
+          target.addEventListener("dragover", function (event) {
+            event.preventDefault();
+            clearDropHighlights();
+            target.classList.add("is-over");
+          });
+
+          target.addEventListener("drop", function (event) {
+            event.preventDefault();
+            clearDropHighlights();
+            const targetChapterId = target.getAttribute("data-drop-chapter-id") || "";
+            const payload = state.dragPayload;
+            if (!payload || !targetChapterId) return;
+
+            if (payload.kind === "chapter") {
+              moveChapter(payload.chapterId, targetChapterId);
+              return;
+            }
+
+            if (payload.kind === "notebook") {
+              moveNotebook(payload.notebookId, payload.fromChapterId, targetChapterId, null);
+            }
+          });
+        });
+
+        el.catalog.querySelectorAll("[data-drop-list-chapter-id]").forEach((dropList) => {
+          dropList.addEventListener("dragover", function (event) {
+            event.preventDefault();
+            clearDropHighlights();
+            dropList.classList.add("is-over");
+          });
+
+          dropList.addEventListener("dragleave", function () {
+            dropList.classList.remove("is-over");
+          });
+
+          dropList.addEventListener("drop", function (event) {
+            event.preventDefault();
+            clearDropHighlights();
+            const payload = state.dragPayload;
+            const targetChapterId = dropList.getAttribute("data-drop-list-chapter-id") || "";
+            if (!payload || payload.kind !== "notebook" || !targetChapterId) return;
+
+            const rows = Array.from(dropList.querySelectorAll("[data-notebook-id]"));
+            const before = rows.find((row) => {
+              const rect = row.getBoundingClientRect();
+              return event.clientY < rect.top + rect.height / 2;
+            });
+            const beforeNotebookId = before ? before.getAttribute("data-notebook-id") || "" : "";
+            moveNotebook(payload.notebookId, payload.fromChapterId, targetChapterId, beforeNotebookId || undefined);
+          });
+        });
+
+        el.catalog.querySelectorAll(".notebook-row").forEach((row) => {
+          row.addEventListener("click", function (event) {
+            const target = event.target;
+            if (target && target.closest && target.closest("button")) {
+              return;
+            }
+            const notebookId = row.getAttribute("data-notebook-id") || "";
+            if (!notebookId || notebookId === state.activeNotebookId) return;
+            void setActiveNotebook(notebookId);
+          });
+        });
       }
 
-      async function saveSingleNotebook(cardElement, button) {
-        const payload = notebookPayloadFromCard(cardElement);
-        if (!payload.notebookId || !payload.title || !payload.chapter || !payload.colabUrl) {
-          setStatus(listStatusEl, "error", "タイトル / セクション名 / Colab URL は必須です。");
-          return;
+      function validateStructureBeforeSave() {
+        if (!state.chapters.length) {
+          return "セクションがありません。";
         }
 
-        button.disabled = true;
-        setStatus(listStatusEl, "info", `保存中... (${payload.notebookId})`);
+        for (const chapter of state.chapters) {
+          if (!String(chapter.title || "").trim()) {
+            return "空のセクション名は保存できません。";
+          }
+        }
+
+        return "";
+      }
+
+      function markStructureDirty(message) {
+        state.structureDirty = true;
+        setLine(el.structureStatus, "warn", message || "構成に未保存の変更があります...");
+        if (state.structureSaveTimer) {
+          window.clearTimeout(state.structureSaveTimer);
+        }
+        state.structureSaveTimer = window.setTimeout(() => {
+          void saveStructure(false);
+        }, 900);
+      }
+
+      async function saveStructure(manual) {
+        if (state.structureSaveTimer) {
+          window.clearTimeout(state.structureSaveTimer);
+          state.structureSaveTimer = 0;
+        }
+
+        const error = validateStructureBeforeSave();
+        if (error) {
+          setLine(el.structureStatus, "error", error);
+          return false;
+        }
+
+        const payload = getStructurePayload();
+        const nextHash = JSON.stringify(payload);
+        if (!manual && !state.structureDirty && nextHash === state.savedStructureHash) {
+          return true;
+        }
+
+        state.savingStructure = true;
+        setLine(el.structureStatus, "info", manual ? "構成を保存中..." : "構成を自動保存中...");
 
         try {
           await api("/api/admin/notebooks", {
             method: "PATCH",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ chapters: payload })
           });
-          persistCardValuesToState(cardElement);
-          const section = sectionById(cardElement.getAttribute("data-section-id") || "");
-          if (section) {
-            section.title = payload.chapter;
-          }
-          setStatus(listStatusEl, "success", `保存しました: ${payload.notebookId}`);
-        } catch (error) {
-          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
-        } finally {
-          button.disabled = false;
-          renderChapters();
+          state.savingStructure = false;
+          state.structureDirty = false;
+          state.savedStructureHash = nextHash;
+          setLine(
+            el.structureStatus,
+            "success",
+            `${manual ? "構成を保存" : "構成を自動保存"}しました (${new Date().toLocaleTimeString()})`
+          );
+          return true;
+        } catch (saveError) {
+          state.savingStructure = false;
+          setLine(el.structureStatus, "error", saveError instanceof Error ? saveError.message : String(saveError));
+          return false;
         }
       }
 
-      async function deleteNotebook(notebookId, button) {
-        if (!notebookId) return;
-        const ok = window.confirm(`教材 ${notebookId} を削除します。元に戻せません。`);
-        if (!ok) return;
-
-        button.disabled = true;
-        setStatus(listStatusEl, "info", `削除中... (${notebookId})`);
-
-        try {
-          await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, {
-            method: "DELETE"
-          });
-
-          removeNotebookFromSections(notebookId);
-          delete state.notebooksById[notebookId];
-          state.sections = state.sections.filter((section) => section.notebookIds.length > 0 || section.title.trim());
-          setStatus(listStatusEl, "success", `削除しました: ${notebookId}`);
-          renderChapters();
-        } catch (error) {
-          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
-        } finally {
-          button.disabled = false;
+      function markNotebookDirty(message) {
+        state.notebookDirty = true;
+        setEditorSaveState(message || "未保存の変更があります...", "warn");
+        if (state.notebookSaveTimer) {
+          window.clearTimeout(state.notebookSaveTimer);
         }
+        state.notebookSaveTimer = window.setTimeout(() => {
+          void saveActiveNotebook(false);
+        }, 1300);
       }
 
-      async function deleteSection(sectionId, button) {
-        const section = sectionById(sectionId);
-        if (!section) return;
-
-        if (section.notebookIds.length === 0) {
-          state.sections = state.sections.filter((item) => item.id !== sectionId);
-          setStatus(listStatusEl, "success", `空セクションを削除しました: ${section.title || "(無題)"}`);
-          markDirty(true);
-          renderChapters();
-          return;
+      async function saveActiveNotebook(manual) {
+        if (state.notebookSaveTimer) {
+          window.clearTimeout(state.notebookSaveTimer);
+          state.notebookSaveTimer = 0;
         }
 
-        const ok = window.confirm(
-          `セクション「${section.title}」配下の ${section.notebookIds.length} 件をすべて削除します。元に戻せません。`
-        );
-        if (!ok) return;
-
-        button.disabled = true;
-        setStatus(listStatusEl, "info", `セクション削除中... (${section.title})`);
-
-        try {
-          for (const notebookId of section.notebookIds) {
-            await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, { method: "DELETE" });
-            delete state.notebooksById[notebookId];
-          }
-          state.sections = state.sections.filter((item) => item.id !== sectionId);
-          setStatus(listStatusEl, "success", `セクションを削除しました: ${section.title}`);
-          renderChapters();
-        } catch (error) {
-          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
-        } finally {
-          button.disabled = false;
-        }
-      }
-
-      async function saveLayout() {
-        const allNotebooks = Object.keys(state.notebooksById);
-        if (!allNotebooks.length) {
-          setStatus(listStatusEl, "info", "保存対象のノートがありません。");
-          return;
-        }
-
-        for (const section of state.sections) {
-          if (section.notebookIds.length > 0 && !section.title.trim()) {
-            setStatus(listStatusEl, "error", "ノートを含むセクションの名前は空にできません。");
-            return;
-          }
-        }
-
-        setStatus(listStatusEl, "info", "並び順とセクションを保存中...");
-        saveLayoutBtn.disabled = true;
-
-        try {
-          for (const section of state.sections) {
-            const chapter = section.title.trim() || "未分類";
-            for (let i = 0; i < section.notebookIds.length; i += 1) {
-              const notebookId = section.notebookIds[i];
-              const notebook = notebookById(notebookId);
-              if (!notebook) continue;
-
-              await api("/api/admin/notebooks", {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({
-                  notebookId,
-                  title: notebook.title,
-                  tags: notebook.tags,
-                  colabUrl: notebook.colabUrl,
-                  videoUrl: notebook.videoUrl,
-                  chapter,
-                  sortOrder: i + 1
-                })
-              });
-
-              notebook.sortOrder = i + 1;
-            }
-          }
-
-          markDirty(false);
-          setStatus(listStatusEl, "success", "並び順とセクションを保存しました。");
-          await loadNotebooks();
-        } catch (error) {
-          setStatus(listStatusEl, "error", error instanceof Error ? error.message : String(error));
-        } finally {
-          saveLayoutBtn.disabled = false;
-        }
-      }
-
-      async function loadNotebookEditor(notebookId) {
-        const normalizedId = String(notebookId || "").trim();
-        state.activeNotebookId = normalizedId;
-        ensureActiveNotebook();
-        renderEditorMeta("ipynbを読み込み中...");
-
-        if (!state.activeNotebookId) {
-          state.ipynbRaw = "";
-          state.ipynbLoadedNotebookId = "";
-          state.ipynbDirty = false;
-          editorTextareaEl.value = "";
-          setStatus(editorStatusEl, "info", "ノートを選択してください。");
-          return;
-        }
-
-        try {
-          const payload = await api(`/api/admin/notebooks/${encodeURIComponent(state.activeNotebookId)}`, { method: "GET" });
-          state.ipynbRaw = String(payload.ipynbRaw || "");
-          state.ipynbLoadedNotebookId = state.activeNotebookId;
-          state.ipynbDirty = false;
-          editorTextareaEl.value = state.ipynbRaw;
-          setStatus(editorStatusEl, "success", `読み込みました: ${state.activeNotebookId}`);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          setStatus(editorStatusEl, "error", message);
-        } finally {
-          renderEditorMeta();
-        }
-      }
-
-      async function saveNotebookEditor(manual) {
         const notebookId = state.activeNotebookId;
-        const notebook = notebookById(notebookId);
+        const notebook = findNotebook(notebookId);
         const location = findNotebookLocation(notebookId);
         if (!notebook || !location) {
-          setStatus(editorStatusEl, "error", "保存対象のノートが見つかりません。");
-          return;
+          setEditorStatus("保存対象のノートがありません。", "error");
+          return false;
         }
 
-        const raw = String(editorTextareaEl.value || "");
+        const raw = String(el.ipynbEditor.value || "");
         let parsed;
         try {
           parsed = JSON.parse(raw);
         } catch {
-          setStatus(editorStatusEl, "error", "JSON形式が不正です。修正後に保存してください。");
-          return;
+          setEditorSaveState("JSON形式が不正です。修正後に保存されます。", "error");
+          setEditorStatus("JSON形式が不正です。", "error");
+          return false;
         }
         if (!parsed || typeof parsed !== "object") {
-          setStatus(editorStatusEl, "error", "ipynb JSON が不正です。");
-          return;
+          setEditorSaveState("ipynb JSON が不正です。", "error");
+          return false;
         }
 
-        editorSaveBtn.disabled = true;
-        if (manual) {
-          setStatus(editorStatusEl, "info", `保存中... (${notebookId})`);
-        }
+        state.savingNotebook = true;
+        setEditorSaveState(manual ? "保存中..." : "自動保存中...", "info");
 
         try {
           await api(`/api/admin/notebooks/${encodeURIComponent(notebookId)}`, {
@@ -1117,317 +1216,286 @@
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               title: notebook.title,
-              chapter: location.section.title,
+              chapter: location.chapter.title,
               sortOrder: location.index + 1,
               tags: notebook.tags,
               colabUrl: notebook.colabUrl,
-              videoUrl: notebook.videoUrl,
+              videoUrl: notebook.videoUrl || null,
               ipynbRaw: raw
             })
           });
 
+          state.savingNotebook = false;
+          state.notebookDirty = false;
           state.ipynbRaw = raw;
-          state.ipynbLoadedNotebookId = notebookId;
-          state.ipynbDirty = false;
-          setStatus(editorStatusEl, "success", `保存しました: ${notebookId}`);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          setStatus(editorStatusEl, "error", message);
-        } finally {
-          editorSaveBtn.disabled = false;
+          state.ipynbSavedRaw = raw;
+          const message = `${manual ? "保存" : "自動保存"}しました (${new Date().toLocaleTimeString()})`;
+          setEditorSaveState(message, "success");
+          setEditorStatus(`${notebookId} を保存しました。`, "success");
+          return true;
+        } catch (saveError) {
+          state.savingNotebook = false;
+          const message = saveError instanceof Error ? saveError.message : String(saveError);
+          setEditorSaveState(message, "error");
+          setEditorStatus(message, "error");
+          return false;
         }
       }
 
-      function scheduleNotebookEditorSave() {
-        if (state.ipynbSaveTimer) {
-          window.clearTimeout(state.ipynbSaveTimer);
-        }
-        state.ipynbSaveTimer = window.setTimeout(() => {
-          void saveNotebookEditor(false);
-        }, 1400);
-      }
-
-      function renderQuestions() {
-        if (!Array.isArray(state.questions) || state.questions.length === 0) {
-          questionsEl.innerHTML = '<div class="empty">質問ログはまだありません。</div>';
+      async function setActiveNotebook(notebookId) {
+        const normalized = String(notebookId || "").trim();
+        if (!normalized) {
+          state.activeNotebookId = "";
+          state.ipynbRaw = "";
+          state.ipynbSavedRaw = "";
+          el.ipynbEditor.value = "";
+          renderHeaderMeta();
+          setEditorSaveState("自動保存: 待機中", "info");
+          setEditorStatus("ノートを選択してください。", "info");
           return;
         }
 
-        questionsEl.innerHTML = state.questions
-          .map((item) => {
-            const when = item.createdAt ? new Date(item.createdAt).toLocaleString() : "";
-            const user = item.user && item.user.email ? item.user.email : "unknown";
-            return `
-              <article class="question-card" data-question-id="${escapeHtml(item.id || "")}">
-                <div class="question-meta">${escapeHtml(user)} | ${escapeHtml(when)} | ${escapeHtml(item.notebookId || "")}#${escapeHtml(item.sectionId || "")}</div>
-                <div class="question-text">Q: ${escapeHtml(item.questionText || "")}</div>
-                <textarea class="question-answer">${escapeHtml(item.answerText || "")}</textarea>
-                <div class="nb-actions">
-                  <button class="button-ghost" data-action="save-answer" type="button">回答を保存</button>
-                </div>
-              </article>
-            `;
-          })
-          .join("");
+        state.activeNotebookId = normalized;
+        renderCatalog();
 
-        questionsEl.querySelectorAll("[data-action='save-answer']").forEach((button) => {
-          button.addEventListener("click", async function () {
-            const card = button.closest("[data-question-id]");
-            if (!card) return;
-            const questionId = card.getAttribute("data-question-id") || "";
-            const textarea = card.querySelector(".question-answer");
-            const answerText = String(textarea ? textarea.value : "").trim();
-            if (!questionId || !answerText) {
-              setStatus(questionsStatusEl, "error", "questionId と answerText は必須です。");
-              return;
-            }
+        state.loadSeq += 1;
+        const loadSeq = state.loadSeq;
+        setEditorStatus("ipynbを読み込み中...", "info");
+        setEditorSaveState("読み込み中...", "info");
 
-            button.disabled = true;
-            setStatus(questionsStatusEl, "info", `保存中... (${questionId})`);
-            try {
-              await api("/api/admin/questions", {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ questionId, answerText })
-              });
-              setStatus(questionsStatusEl, "success", `保存しました: ${questionId}`);
-              await loadQuestions();
-            } catch (error) {
-              setStatus(questionsStatusEl, "error", error instanceof Error ? error.message : String(error));
-            } finally {
-              button.disabled = false;
-            }
-          });
-        });
-      }
-
-      async function loadQuestions() {
-        setStatus(questionsStatusEl, "info", "質問ログを読み込み中...");
         try {
-          const payload = await api("/api/admin/questions", { method: "GET" });
-          state.questions = Array.isArray(payload.items) ? payload.items : [];
-          renderQuestions();
-          setStatus(questionsStatusEl, "success", "質問ログを更新しました。");
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          state.questions = [];
-          renderQuestions();
-          setStatus(questionsStatusEl, "error", message);
+          const payload = await api(`/api/admin/notebooks/${encodeURIComponent(normalized)}`, { method: "GET" });
+          if (loadSeq !== state.loadSeq || state.activeNotebookId !== normalized) {
+            return;
+          }
+
+          const notebook = findNotebook(normalized);
+          if (notebook && payload.notebook) {
+            notebook.title = String(payload.notebook.title || notebook.title);
+            notebook.tags = Array.isArray(payload.notebook.tags)
+              ? payload.notebook.tags.map((v) => String(v).trim()).filter(Boolean)
+              : notebook.tags;
+            notebook.colabUrl = String(payload.notebook.colabUrl || notebook.colabUrl);
+            notebook.videoUrl = String(payload.notebook.videoUrl || notebook.videoUrl || "");
+            notebook.htmlPath = String(payload.notebook.htmlPath || notebook.htmlPath || "");
+          }
+
+          state.ipynbRaw = String(payload.ipynbRaw || "");
+          state.ipynbSavedRaw = state.ipynbRaw;
+          state.notebookDirty = false;
+          el.ipynbEditor.value = state.ipynbRaw;
+
+          renderCatalog();
+          setEditorSaveState("自動保存: 待機中", "info");
+          setEditorStatus(`${normalized} を読み込みました。`, "success");
+        } catch (loadError) {
+          const message = loadError instanceof Error ? loadError.message : String(loadError);
+          setEditorSaveState(message, "error");
+          setEditorStatus(message, "error");
         }
       }
 
-      function bindEventsAfterRender() {
-        chaptersEl.querySelectorAll("[data-role='section-title']").forEach((input) => {
-          input.addEventListener("input", function () {
-            const sectionElement = input.closest("[data-section-id]");
-            if (!sectionElement) return;
-            const sectionId = sectionElement.getAttribute("data-section-id") || "";
-            const section = sectionById(sectionId);
-            if (!section) return;
-            section.title = String(input.value || "");
-            markDirty(true);
-          });
-        });
-
-        chaptersEl.querySelectorAll("[data-action='rename-section']").forEach((button) => {
-          button.addEventListener("click", function () {
-            const sectionElement = button.closest("[data-section-id]");
-            if (!sectionElement) return;
-            const sectionId = sectionElement.getAttribute("data-section-id") || "";
-            const section = sectionById(sectionId);
-            if (!section) return;
-            section.title = String(sectionElement.querySelector("[data-role='section-title']")?.value || "").trim();
-            if (!section.title) {
-              setStatus(listStatusEl, "error", "セクション名を入力してください。");
-              return;
-            }
-            setStatus(listStatusEl, "success", `セクション名を変更しました。保存ボタンで反映してください: ${section.title}`);
-            markDirty(true);
-            renderChapters();
-          });
-        });
-
-        chaptersEl.querySelectorAll("[data-action='delete-section']").forEach((button) => {
-          button.addEventListener("click", function () {
-            const sectionElement = button.closest("[data-section-id]");
-            if (!sectionElement) return;
-            const sectionId = sectionElement.getAttribute("data-section-id") || "";
-            void deleteSection(sectionId, button);
-          });
-        });
-
-        chaptersEl.querySelectorAll(".nb-card").forEach((card) => {
-          card.addEventListener("click", function (event) {
-            const target = event.target;
-            if (target && target.closest && target.closest("button")) {
-              return;
-            }
-            const notebookId = card.getAttribute("data-notebook-id") || "";
-            if (!notebookId || notebookId === state.activeNotebookId) return;
-            void loadNotebookEditor(notebookId);
-          });
-
-          card.addEventListener("dragstart", function (event) {
-            state.draggingNotebookId = card.getAttribute("data-notebook-id") || "";
-            card.classList.add("dragging");
-            if (event.dataTransfer) {
-              event.dataTransfer.effectAllowed = "move";
-              event.dataTransfer.setData("text/plain", state.draggingNotebookId);
-            }
-          });
-
-          card.addEventListener("dragend", function () {
-            card.classList.remove("dragging");
-            state.draggingNotebookId = "";
-            chaptersEl.querySelectorAll(".dropzone").forEach((zone) => zone.classList.remove("is-over"));
-          });
-
-          card.querySelectorAll("[data-field]").forEach((input) => {
-            input.addEventListener("input", function () {
-              persistCardValuesToState(card);
-              markDirty(true);
-            });
-          });
-
-          card.querySelector("[data-action='save-notebook']")?.addEventListener("click", function () {
-            void saveSingleNotebook(card, this);
-          });
-
-          card.querySelector("[data-action='edit-ipynb']")?.addEventListener("click", function () {
-            const notebookId = card.getAttribute("data-notebook-id") || "";
-            if (!notebookId) return;
-            void loadNotebookEditor(notebookId);
-          });
-
-          card.querySelector("[data-action='delete-notebook']")?.addEventListener("click", function () {
-            const notebookId = card.getAttribute("data-notebook-id") || "";
-            void deleteNotebook(notebookId, this);
-          });
-        });
-
-        chaptersEl.querySelectorAll(".dropzone").forEach((dropzone) => {
-          dropzone.addEventListener("dragover", function (event) {
-            event.preventDefault();
-            dropzone.classList.add("is-over");
-          });
-
-          dropzone.addEventListener("dragleave", function () {
-            dropzone.classList.remove("is-over");
-          });
-
-          dropzone.addEventListener("drop", function (event) {
-            event.preventDefault();
-            dropzone.classList.remove("is-over");
-
-            const notebookId = state.draggingNotebookId || (event.dataTransfer ? event.dataTransfer.getData("text/plain") : "");
-            if (!notebookId) return;
-
-            const sectionId = dropzone.getAttribute("data-section-id") || "";
-            const dropIndex = getDropIndex(dropzone, event.clientY);
-            moveNotebook(notebookId, sectionId, dropIndex);
-          });
-        });
-      }
-
-      async function loadNotebooks() {
-        setStatus(listStatusEl, "info", "教材一覧を読み込み中...");
+      async function loadCatalog() {
+        setLine(el.structureStatus, "info", "教材一覧を読み込み中...");
         try {
-          const previousActive = state.activeNotebookId;
           const payload = await api("/api/admin/notebooks", { method: "GET" });
-          const items = Array.isArray(payload.items) ? payload.items : [];
-          buildStateFromItems(items);
-          if (previousActive && notebookById(previousActive)) {
-            state.activeNotebookId = previousActive;
+          state.chapters = normalizeCatalog(payload.chapters || []);
+
+          const nextOpenMap = {};
+          state.chapters.forEach((chapter) => {
+            nextOpenMap[chapter.id] = chapter.id in state.openMap ? state.openMap[chapter.id] : true;
+          });
+          state.openMap = nextOpenMap;
+
+          if (!findNotebook(state.activeNotebookId)) {
+            state.activeNotebookId = firstNotebookId();
           }
-          ensureActiveNotebook();
-          renderChapters();
-          void loadNotebookEditor(state.activeNotebookId);
-          setStatus(listStatusEl, "success", "教材一覧を更新しました。");
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          chaptersEl.innerHTML = `<div class="empty">教材一覧の取得に失敗しました。<br />${escapeHtml(message)}</div>`;
-          setStatus(listStatusEl, "error", message);
-          markDirty(false);
-          updateCounts();
+
+          state.savedStructureHash = structureHash();
+          state.structureDirty = false;
+
+          renderCatalog();
+          setLine(el.structureStatus, "success", `教材一覧を更新しました (${new Date().toLocaleTimeString()})`);
+
+          if (state.activeNotebookId) {
+            await setActiveNotebook(state.activeNotebookId);
+          } else {
+            await setActiveNotebook("");
+          }
+        } catch (loadError) {
+          const message = loadError instanceof Error ? loadError.message : String(loadError);
+          state.chapters = [];
+          renderCatalog();
+          setLine(el.structureStatus, "error", `Load failed: ${message}`);
         }
       }
 
-      uploadForm.addEventListener("submit", async function (event) {
+      function appendSection() {
+        const existingTitles = new Set(state.chapters.map((chapter) => chapter.title));
+        let nextIndex = 1;
+        let nextTitle = "新しいセクション";
+        while (existingTitles.has(nextTitle)) {
+          nextIndex += 1;
+          nextTitle = `新しいセクション ${nextIndex}`;
+        }
+        const chapterId = uid("chapter");
+        state.chapters.push({
+          id: chapterId,
+          title: nextTitle,
+          order: state.chapters.length + 1,
+          notebooks: []
+        });
+        state.chapters = reindexChapters(state.chapters);
+        state.openMap[chapterId] = true;
+        renderCatalog();
+        markStructureDirty("セクションを追加しました。自動保存します...");
+      }
+
+      async function handleUpload(event) {
         event.preventDefault();
-        setStatus(uploadStatusEl, "info", "登録中です...");
-        uploadBtn.disabled = true;
+        setLine(el.uploadStatus, "info", "アップロード中...");
+        el.uploadBtn.disabled = true;
 
         try {
-          const formData = new FormData(uploadForm);
-          const title = String(formData.get("title") || "").trim();
-          const chapter = String(formData.get("chapter") || "").trim();
-          const colabUrl = String(formData.get("colabUrl") || "").trim();
-          const file = formData.get("file");
+          const form = new FormData(el.uploadForm);
+          const selectedChapterId = String(form.get("sectionSelect") || "").trim();
+          const newSectionTitle = String(form.get("newSection") || "").trim();
 
-          if (!title || !chapter || !colabUrl || !(file instanceof File)) {
-            throw new Error("タイトル / 章 / Colab URL / ipynb は必須です。");
+          let chapterTitle = "";
+          if (selectedChapterId === "__new") {
+            chapterTitle = newSectionTitle;
+          } else {
+            const selectedChapter = findChapter(selectedChapterId);
+            chapterTitle = selectedChapter ? selectedChapter.title : "";
+          }
+          chapterTitle = chapterTitle.trim();
+          if (!chapterTitle) {
+            throw new Error("アップロード先セクションを選択するか、新規セクション名を入力してください。");
           }
 
-          const response = await api("/api/admin/notebooks", {
+          const title = String(form.get("title") || "").trim();
+          const colabUrl = String(form.get("colabUrl") || "").trim();
+          const file = form.get("file");
+          if (!title || !colabUrl || !(file instanceof File)) {
+            throw new Error("タイトル / Colab URL / ipynb ファイルは必須です。");
+          }
+
+          const targetChapter = state.chapters.find((chapter) => chapter.title === chapterTitle);
+          const order = targetChapter ? targetChapter.notebooks.length + 1 : 1;
+
+          const submit = new FormData();
+          submit.set("title", title);
+          submit.set("chapter", chapterTitle);
+          submit.set("order", String(order));
+          submit.set("tags", String(form.get("tags") || ""));
+          submit.set("colabUrl", colabUrl);
+          submit.set("videoUrl", String(form.get("videoUrl") || ""));
+          submit.set("file", file);
+
+          const result = await api("/api/admin/notebooks", {
             method: "POST",
-            body: formData
+            body: submit
           });
 
-          setStatus(uploadStatusEl, "success", `登録完了: ${response.notebookId || title}`);
-          uploadForm.reset();
-          await loadNotebooks();
-        } catch (error) {
-          setStatus(uploadStatusEl, "error", error instanceof Error ? error.message : String(error));
+          setLine(el.uploadStatus, "success", `登録しました: ${result.notebookId || title}`);
+          el.uploadForm.reset();
+
+          await loadCatalog();
+          if (result.notebookId) {
+            await setActiveNotebook(String(result.notebookId));
+          }
+        } catch (uploadError) {
+          const message = uploadError instanceof Error ? uploadError.message : String(uploadError);
+          setLine(el.uploadStatus, "error", message);
         } finally {
-          uploadBtn.disabled = false;
+          el.uploadBtn.disabled = false;
         }
-      });
+      }
 
-      addSectionBtn.addEventListener("click", function () {
-        state.sections.push({
-          id: uid("section"),
-          title: "新しいセクション",
-          notebookIds: []
+      async function saveAllNow() {
+        el.manualSaveBtn.disabled = true;
+        setEditorStatus("保存処理を実行中...", "info");
+
+        try {
+          const structureOk = await saveStructure(true);
+          const notebookOk = state.activeNotebookId ? await saveActiveNotebook(true) : true;
+
+          if (structureOk && notebookOk) {
+            setEditorStatus("構成とノートを保存しました。", "success");
+          }
+        } finally {
+          el.manualSaveBtn.disabled = false;
+        }
+      }
+
+      function bindTopLevelEvents() {
+        el.addSectionBtn.addEventListener("click", appendSection);
+        el.reloadCatalogBtn.addEventListener("click", function () {
+          void loadCatalog();
         });
-        markDirty(true);
-        renderChapters();
-        setStatus(listStatusEl, "info", "セクションを追加しました。ノートを移動して保存すると反映されます。");
-      });
+        el.uploadForm.addEventListener("submit", function (event) {
+          void handleUpload(event);
+        });
+        el.logoutBtn.addEventListener("click", function () {
+          localStorage.removeItem(TOKEN_KEY);
+          window.location.href = "/login";
+        });
+        el.manualSaveBtn.addEventListener("click", function () {
+          void saveAllNow();
+        });
+        el.reloadNotebookBtn.addEventListener("click", function () {
+          void setActiveNotebook(state.activeNotebookId);
+        });
 
-      saveLayoutBtn.addEventListener("click", function () {
-        void saveLayout();
-      });
+        el.ipynbEditor.addEventListener("input", function () {
+          state.ipynbRaw = String(el.ipynbEditor.value || "");
+          markNotebookDirty("ノート本文を変更しました。自動保存します...");
+        });
 
-      refreshBtn.addEventListener("click", function () {
-        void loadNotebooks();
-      });
+        el.metaTitle.addEventListener("input", function () {
+          const notebook = findNotebook(state.activeNotebookId);
+          if (!notebook) return;
+          notebook.title = String(el.metaTitle.value || "");
+          renderCatalog();
+          markStructureDirty("タイトルを変更しました。自動保存します...");
+          markNotebookDirty("ノート情報を変更しました。自動保存します...");
+        });
 
-      editorReloadBtn.addEventListener("click", function () {
-        void loadNotebookEditor(state.activeNotebookId);
-      });
+        el.metaTags.addEventListener("input", function () {
+          const notebook = findNotebook(state.activeNotebookId);
+          if (!notebook) return;
+          notebook.tags = String(el.metaTags.value || "")
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean);
+          markNotebookDirty("タグを変更しました。自動保存します...");
+        });
 
-      editorSaveBtn.addEventListener("click", function () {
-        void saveNotebookEditor(true);
-      });
+        el.metaColab.addEventListener("input", function () {
+          const notebook = findNotebook(state.activeNotebookId);
+          if (!notebook) return;
+          notebook.colabUrl = String(el.metaColab.value || "").trim();
+          markNotebookDirty("Colab URL を変更しました。自動保存します...");
+        });
 
-      editorTextareaEl.addEventListener("input", function () {
-        state.ipynbDirty = true;
-        setStatus(editorStatusEl, "info", "未保存の変更があります...");
-        scheduleNotebookEditorSave();
-      });
+        el.metaVideo.addEventListener("input", function () {
+          const notebook = findNotebook(state.activeNotebookId);
+          if (!notebook) return;
+          notebook.videoUrl = String(el.metaVideo.value || "").trim();
+          markNotebookDirty("Video URL を変更しました。自動保存します...");
+        });
 
-      questionsRefreshBtn.addEventListener("click", function () {
-        void loadQuestions();
-      });
-
-      logoutBtn.addEventListener("click", function () {
-        localStorage.removeItem(TOKEN_KEY);
-        window.location.href = "/login";
-      });
+        window.addEventListener("beforeunload", function (event) {
+          if (state.structureDirty || state.notebookDirty || state.savingStructure || state.savingNotebook) {
+            event.preventDefault();
+            event.returnValue = "";
+          }
+        });
+      }
 
       requireLogin();
-      void loadNotebooks();
-      void loadQuestions();
+      bindTopLevelEvents();
+      void loadCatalog();
     })();
   </script>
 </body>
