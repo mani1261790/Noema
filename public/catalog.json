@@ -15,7 +15,7 @@
             "syntax"
           ],
           "htmlPath": "/notebooks/python-basic-operations.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/python-basic-operations.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/python-basic-operations.ipynb"
         },
         {
           "id": "numpy-basics",
@@ -27,7 +27,7 @@
             "array"
           ],
           "htmlPath": "/notebooks/numpy-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/numpy-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/numpy-basics.ipynb"
         },
         {
           "id": "pandas-basics",
@@ -39,7 +39,7 @@
             "dataframe"
           ],
           "htmlPath": "/notebooks/pandas-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/pandas-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/pandas-basics.ipynb"
         },
         {
           "id": "matplotlib-seaborn",
@@ -52,7 +52,7 @@
             "visualization"
           ],
           "htmlPath": "/notebooks/matplotlib-seaborn.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/matplotlib-seaborn.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/matplotlib-seaborn.ipynb"
         }
       ]
     },
@@ -71,7 +71,7 @@
             "linear"
           ],
           "htmlPath": "/notebooks/simple-regression.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/simple-regression.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/simple-regression.ipynb"
         },
         {
           "id": "multiple-regression",
@@ -83,7 +83,7 @@
             "multivariate"
           ],
           "htmlPath": "/notebooks/multiple-regression.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multiple-regression.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/multiple-regression.ipynb"
         },
         {
           "id": "sklearn-xgboost",
@@ -95,7 +95,7 @@
             "xgboost"
           ],
           "htmlPath": "/notebooks/sklearn-xgboost.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sklearn-xgboost.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/sklearn-xgboost.ipynb"
         },
         {
           "id": "feature-engineering",
@@ -107,7 +107,7 @@
             "preprocessing"
           ],
           "htmlPath": "/notebooks/feature-engineering.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/feature-engineering.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/feature-engineering.ipynb"
         },
         {
           "id": "supervised-unsupervised-learning",
@@ -119,7 +119,7 @@
             "unsupervised"
           ],
           "htmlPath": "/notebooks/supervised-unsupervised-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/supervised-unsupervised-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/supervised-unsupervised-learning.ipynb"
         },
         {
           "id": "time-series-data",
@@ -131,7 +131,7 @@
             "forecasting"
           ],
           "htmlPath": "/notebooks/time-series-data.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/time-series-data.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/time-series-data.ipynb"
         },
         {
           "id": "sql-for-ml",
@@ -143,7 +143,7 @@
             "data-engineering"
           ],
           "htmlPath": "/notebooks/sql-for-ml.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sql-for-ml.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/sql-for-ml.ipynb"
         }
       ]
     },
@@ -162,7 +162,7 @@
             "mlp"
           ],
           "htmlPath": "/notebooks/neural-network-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/neural-network-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/neural-network-basics.ipynb"
         },
         {
           "id": "loss-and-gradient-descent",
@@ -174,7 +174,7 @@
             "gradient-descent"
           ],
           "htmlPath": "/notebooks/loss-and-gradient-descent.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/loss-and-gradient-descent.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/loss-and-gradient-descent.ipynb"
         },
         {
           "id": "optimization-regularization",
@@ -186,7 +186,7 @@
             "regularization"
           ],
           "htmlPath": "/notebooks/optimization-regularization.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/optimization-regularization.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/optimization-regularization.ipynb"
         },
         {
           "id": "convolution-basics",
@@ -198,7 +198,7 @@
             "convolution"
           ],
           "htmlPath": "/notebooks/convolution-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/convolution-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/convolution-basics.ipynb"
         },
         {
           "id": "image-recognition-yolo",
@@ -210,7 +210,7 @@
             "yolo"
           ],
           "htmlPath": "/notebooks/image-recognition-yolo.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/image-recognition-yolo.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/image-recognition-yolo.ipynb"
         },
         {
           "id": "recurrent-neural-networks",
@@ -223,7 +223,7 @@
             "gru"
           ],
           "htmlPath": "/notebooks/recurrent-neural-networks.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/recurrent-neural-networks.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/recurrent-neural-networks.ipynb"
         },
         {
           "id": "transformer-basics",
@@ -235,7 +235,7 @@
             "attention"
           ],
           "htmlPath": "/notebooks/transformer-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/transformer-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/transformer-basics.ipynb"
         },
         {
           "id": "nlp-deep-learning",
@@ -247,7 +247,7 @@
             "language"
           ],
           "htmlPath": "/notebooks/nlp-deep-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nlp-deep-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/nlp-deep-learning.ipynb"
         }
       ]
     },
@@ -266,7 +266,7 @@
             "foundation"
           ],
           "htmlPath": "/notebooks/rl-foundation.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/rl-foundation.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/rl-foundation.ipynb"
         },
         {
           "id": "value-function",
@@ -278,7 +278,7 @@
             "mdp"
           ],
           "htmlPath": "/notebooks/value-function.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/value-function.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/value-function.ipynb"
         },
         {
           "id": "bellman-equations",
@@ -290,7 +290,7 @@
             "dynamic-programming"
           ],
           "htmlPath": "/notebooks/bellman-equations.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/bellman-equations.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/bellman-equations.ipynb"
         },
         {
           "id": "policy-iteration",
@@ -302,7 +302,7 @@
             "policy"
           ],
           "htmlPath": "/notebooks/policy-iteration.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/policy-iteration.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/policy-iteration.ipynb"
         },
         {
           "id": "value-iteration",
@@ -314,7 +314,7 @@
             "value"
           ],
           "htmlPath": "/notebooks/value-iteration.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/value-iteration.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/value-iteration.ipynb"
         },
         {
           "id": "td-learning",
@@ -326,7 +326,7 @@
             "prediction"
           ],
           "htmlPath": "/notebooks/td-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/td-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/td-learning.ipynb"
         },
         {
           "id": "q-learning",
@@ -338,7 +338,7 @@
             "off-policy"
           ],
           "htmlPath": "/notebooks/q-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/q-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/q-learning.ipynb"
         },
         {
           "id": "sarsa",
@@ -350,7 +350,7 @@
             "on-policy"
           ],
           "htmlPath": "/notebooks/sarsa.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sarsa.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/sarsa.ipynb"
         },
         {
           "id": "n-step-td",
@@ -362,7 +362,7 @@
             "temporal-difference"
           ],
           "htmlPath": "/notebooks/n-step-td.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/n-step-td.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/n-step-td.ipynb"
         },
         {
           "id": "td-lambda",
@@ -374,7 +374,7 @@
             "trace"
           ],
           "htmlPath": "/notebooks/td-lambda.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/td-lambda.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/td-lambda.ipynb"
         },
         {
           "id": "eligibility-trace-td-lambda",
@@ -386,7 +386,7 @@
             "td-lambda"
           ],
           "htmlPath": "/notebooks/eligibility-trace-td-lambda.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/eligibility-trace-td-lambda.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/eligibility-trace-td-lambda.ipynb"
         },
         {
           "id": "deep-rl",
@@ -398,7 +398,7 @@
             "function-approximation"
           ],
           "htmlPath": "/notebooks/deep-rl.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/deep-rl.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/deep-rl.ipynb"
         }
       ]
     },
@@ -417,7 +417,7 @@
             "inference"
           ],
           "htmlPath": "/notebooks/prompt-engineering.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/prompt-engineering.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/prompt-engineering.ipynb"
         },
         {
           "id": "llm-pretraining",
@@ -429,7 +429,7 @@
             "data"
           ],
           "htmlPath": "/notebooks/llm-pretraining.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-pretraining.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/llm-pretraining.ipynb"
         },
         {
           "id": "scaling-laws",
@@ -441,7 +441,7 @@
             "compute"
           ],
           "htmlPath": "/notebooks/scaling-laws.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/scaling-laws.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/scaling-laws.ipynb"
         },
         {
           "id": "fine-tuning",
@@ -453,7 +453,7 @@
             "adaptation"
           ],
           "htmlPath": "/notebooks/fine-tuning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/fine-tuning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/fine-tuning.ipynb"
         },
         {
           "id": "hallucination-rlhf",
@@ -465,7 +465,7 @@
             "rlhf"
           ],
           "htmlPath": "/notebooks/hallucination-rlhf.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/hallucination-rlhf.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/hallucination-rlhf.ipynb"
         },
         {
           "id": "tool-use-rag",
@@ -477,7 +477,7 @@
             "rag"
           ],
           "htmlPath": "/notebooks/tool-use-rag.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/tool-use-rag.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/tool-use-rag.ipynb"
         },
         {
           "id": "domain-specialization",
@@ -489,7 +489,7 @@
             "specialization"
           ],
           "htmlPath": "/notebooks/domain-specialization.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/domain-specialization.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/domain-specialization.ipynb"
         },
         {
           "id": "llm-efficiency",
@@ -502,7 +502,7 @@
             "inference"
           ],
           "htmlPath": "/notebooks/llm-efficiency.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-efficiency.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/llm-efficiency.ipynb"
         }
       ]
     },
@@ -521,7 +521,7 @@
             "probabilistic"
           ],
           "htmlPath": "/notebooks/generative-model-overview.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/generative-model-overview.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/generative-model-overview.ipynb"
         },
         {
           "id": "latent-variable-mixture-models",
@@ -533,7 +533,7 @@
             "mixture-model"
           ],
           "htmlPath": "/notebooks/latent-variable-mixture-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/latent-variable-mixture-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/latent-variable-mixture-models.ipynb"
         },
         {
           "id": "vae",
@@ -545,7 +545,7 @@
             "variational-inference"
           ],
           "htmlPath": "/notebooks/vae.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/vae.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/vae.ipynb"
         },
         {
           "id": "gan",
@@ -557,7 +557,7 @@
             "adversarial"
           ],
           "htmlPath": "/notebooks/gan.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/gan.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/gan.ipynb"
         },
         {
           "id": "autoregressive-flow-models",
@@ -569,7 +569,7 @@
             "normalizing-flow"
           ],
           "htmlPath": "/notebooks/autoregressive-flow-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/autoregressive-flow-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/autoregressive-flow-models.ipynb"
         },
         {
           "id": "energy-based-models",
@@ -581,7 +581,7 @@
             "ebm"
           ],
           "htmlPath": "/notebooks/energy-based-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/energy-based-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/energy-based-models.ipynb"
         },
         {
           "id": "score-diffusion-models",
@@ -593,7 +593,7 @@
             "diffusion"
           ],
           "htmlPath": "/notebooks/score-diffusion-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/score-diffusion-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/score-diffusion-models.ipynb"
         },
         {
           "id": "continuous-diffusion-flow-matching",
@@ -605,7 +605,7 @@
             "flow-matching"
           ],
           "htmlPath": "/notebooks/continuous-diffusion-flow-matching.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/continuous-diffusion-flow-matching.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/continuous-diffusion-flow-matching.ipynb"
         }
       ]
     },
@@ -624,7 +624,7 @@
             "dynamics"
           ],
           "htmlPath": "/notebooks/world-models-and-generative-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/world-models-and-generative-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/world-models-and-generative-models.ipynb"
         },
         {
           "id": "control-model-and-mbrl",
@@ -636,7 +636,7 @@
             "model-based-rl"
           ],
           "htmlPath": "/notebooks/control-model-and-mbrl.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/control-model-and-mbrl.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/control-model-and-mbrl.ipynb"
         },
         {
           "id": "state-space-models",
@@ -648,7 +648,7 @@
             "ssm"
           ],
           "htmlPath": "/notebooks/state-space-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-space-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/state-space-models.ipynb"
         },
         {
           "id": "state-representation-learning",
@@ -660,7 +660,7 @@
             "latent-state"
           ],
           "htmlPath": "/notebooks/state-representation-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-representation-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/state-representation-learning.ipynb"
         },
         {
           "id": "state-prediction-models",
@@ -672,7 +672,7 @@
             "dynamics"
           ],
           "htmlPath": "/notebooks/state-prediction-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-prediction-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/state-prediction-models.ipynb"
         },
         {
           "id": "vae-diffusion-world-models",
@@ -684,7 +684,7 @@
             "diffusion"
           ],
           "htmlPath": "/notebooks/vae-diffusion-world-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/vae-diffusion-world-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/vae-diffusion-world-models.ipynb"
         },
         {
           "id": "simulation-and-cg",
@@ -696,7 +696,7 @@
             "computer-graphics"
           ],
           "htmlPath": "/notebooks/simulation-and-cg.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/simulation-and-cg.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/simulation-and-cg.ipynb"
         },
         {
           "id": "ssm-and-transformer",
@@ -708,7 +708,7 @@
             "transformer"
           ],
           "htmlPath": "/notebooks/ssm-and-transformer.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/ssm-and-transformer.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/ssm-and-transformer.ipynb"
         },
         {
           "id": "observation-prediction-models",
@@ -721,7 +721,7 @@
             "diffusion"
           ],
           "htmlPath": "/notebooks/observation-prediction-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/observation-prediction-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/observation-prediction-models.ipynb"
         },
         {
           "id": "multimodal-world-models",
@@ -733,7 +733,7 @@
             "vision-language-action"
           ],
           "htmlPath": "/notebooks/multimodal-world-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multimodal-world-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/public/notebooks/multimodal-world-models.ipynb"
         }
       ]
     }

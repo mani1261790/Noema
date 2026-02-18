@@ -206,6 +206,8 @@ const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
+const COLAB_GITHUB_REPO = (process.env.COLAB_GITHUB_REPO || "mani1261790/Noema").trim();
+const COLAB_GITHUB_REF = (process.env.COLAB_GITHUB_REF || "main").trim();
 
 async function streamBodyToString(body: unknown): Promise<string> {
   if (!body || typeof body !== "object") return "";
@@ -1567,6 +1569,27 @@ function asFiniteNumber(raw: unknown, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function buildDefaultColabUrl(notebookId: string): string {
+  const safeNotebookId = notebookId.trim();
+  if (!safeNotebookId) {
+    return "https://colab.research.google.com/";
+  }
+  return `https://colab.research.google.com/github/${COLAB_GITHUB_REPO}/blob/${COLAB_GITHUB_REF}/public/notebooks/${encodeURIComponent(safeNotebookId)}.ipynb`;
+}
+
+function normalizeColabUrl(raw: string, notebookId: string): string {
+  const value = raw.trim();
+  if (!value || value === "https://colab.research.google.com" || value === "https://colab.research.google.com/") {
+    return buildDefaultColabUrl(notebookId);
+  }
+
+  if (value.includes("/content/notebooks/")) {
+    return value.replace("/content/notebooks/", "/public/notebooks/");
+  }
+
+  return value;
+}
+
 function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
@@ -1581,7 +1604,7 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
   const sortOrder = Math.max(1, Math.floor(asFiniteNumber(record.sortOrder ?? record.order, 1)));
   const tags = normalizeNotebookTags(record.tags) ?? [];
   const htmlPath = asString(record.htmlPath).trim() || `/notebooks/${notebookId}.html`;
-  const colabUrl = asString(record.colabUrl).trim();
+  const colabUrl = normalizeColabUrl(asString(record.colabUrl), notebookId);
   const videoUrl = asString(record.videoUrl).trim() || undefined;
   const createdAt = asString(record.createdAt).trim() || undefined;
   const updatedAt = asString(record.updatedAt).trim() || undefined;
@@ -1790,7 +1813,7 @@ export async function putAdminNotebook(notebookId: string, input: AdminNotebookP
       ? Math.max(1, Math.floor(input.sortOrder))
       : existing.sortOrder;
   const tags = Array.isArray(input.tags) ? input.tags : existing.tags ?? [];
-  const colabUrl = input.colabUrl?.trim() || existing.colabUrl;
+  const colabUrl = normalizeColabUrl(input.colabUrl?.trim() || existing.colabUrl, notebookId);
   const videoUrl = input.videoUrl !== undefined ? input.videoUrl.trim() : existing.videoUrl || "";
 
   let htmlPath = existing.htmlPath;
@@ -1852,7 +1875,7 @@ export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promis
       ? Math.max(1, Math.floor(input.sortOrder))
       : existing.sortOrder;
   const tags = input.tags ?? existing.tags ?? [];
-  const colabUrl = input.colabUrl ?? existing.colabUrl;
+  const colabUrl = normalizeColabUrl(input.colabUrl ?? existing.colabUrl, existing.notebookId);
   const videoUrl = input.videoUrl !== undefined ? input.videoUrl : existing.videoUrl;
 
   const baseItem: Omit<NotebookRecord, "chunks"> = {
@@ -2310,6 +2333,7 @@ async function saveNotebookArtifacts(notebookId: string, html: string, ipynbRaw:
 
 async function upsertNotebook(item: NotebookRecord) {
   const existing = await getNotebook(item.notebookId);
+  const normalizedColabUrl = normalizeColabUrl(item.colabUrl, item.notebookId);
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId: item.notebookId,
     title: item.title,
@@ -2319,7 +2343,7 @@ async function upsertNotebook(item: NotebookRecord) {
     sortOrder: item.sortOrder,
     tags: item.tags,
     htmlPath: item.htmlPath,
-    colabUrl: item.colabUrl,
+    colabUrl: normalizedColabUrl,
     videoUrl: item.videoUrl,
     createdAt: existing?.createdAt || nowIso(),
     updatedAt: nowIso()
@@ -2354,16 +2378,16 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
     const title = (parsed.fields.title || "").trim();
     const chapter = (parsed.fields.chapter || "").trim();
     const order = Number(parsed.fields.order || 1);
-    const colabUrl = (parsed.fields.colabUrl || "").trim();
-    const videoUrl = (parsed.fields.videoUrl || "").trim() || undefined;
     const notebookId = slugify((parsed.fields.id || "").trim() || title);
+    const colabUrl = normalizeColabUrl((parsed.fields.colabUrl || "").trim(), notebookId);
+    const videoUrl = (parsed.fields.videoUrl || "").trim() || undefined;
     const tags = (parsed.fields.tags || "")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean);
 
-    if (!title || !chapter || !colabUrl || !notebookId || !parsed.fileContent) {
-      throw new Error("title/chapter/colabUrl/file are required");
+    if (!title || !chapter || !notebookId || !parsed.fileContent) {
+      throw new Error("title/chapter/file are required");
     }
 
     let notebookJson: NotebookFile;
@@ -2402,9 +2426,9 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
   const title = asString(payload.title).trim();
   const chapter = asString(payload.chapter).trim();
   const order = Number(payload.order ?? 1);
-  const colabUrl = asString(payload.colabUrl).trim();
-  const videoUrl = asString(payload.videoUrl).trim() || undefined;
   const notebookId = slugify(asString(payload.notebookId).trim() || title);
+  const colabUrl = normalizeColabUrl(asString(payload.colabUrl).trim(), notebookId);
+  const videoUrl = asString(payload.videoUrl).trim() || undefined;
   const tags = Array.isArray(payload.tags)
     ? payload.tags.map((value) => String(value).trim()).filter(Boolean)
     : [];
@@ -2424,8 +2448,8 @@ export async function upsertNotebookFromEvent(event: APIGatewayProxyEventV2): Pr
         .filter(Boolean) as NotebookChunk[]
     : [];
 
-  if (!title || !chapter || !colabUrl || !notebookId) {
-    throw new Error("title/chapter/colabUrl are required");
+  if (!title || !chapter || !notebookId) {
+    throw new Error("title/chapter are required");
   }
 
   const providedHtml = asString(payload.html).trim();
