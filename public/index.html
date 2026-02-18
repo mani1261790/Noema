@@ -765,14 +765,16 @@
       min-width: 170px;
     }
 
-    .home-grid {
+    .home-dashboard-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 12px;
     }
 
-    .home-card {
+    .home-progress-card,
+    .home-section-progress-card,
+    .home-insight-card {
       border-radius: 14px;
       padding: 12px;
       font-size: 13px;
@@ -786,39 +788,209 @@
       gap: 8px;
     }
 
-    .home-card-head {
-      display: flex;
+    .home-progress-card {
+      grid-template-columns: 120px minmax(0, 1fr);
       align-items: center;
-      gap: 8px;
+      gap: 12px;
     }
 
-    .home-card-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 8px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
+    .home-progress-ring {
+      --progress: 0;
+      width: 108px;
+      height: 108px;
+      border-radius: 50%;
       background:
-        linear-gradient(148deg, color-mix(in oklab, var(--accent) 26%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 90%, transparent);
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 64%, transparent);
-      color: color-mix(in oklab, var(--text) 86%, white);
-      font-size: 11px;
+        radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--glass-highlight) 52%, transparent), transparent 58%),
+        conic-gradient(
+          color-mix(in oklab, var(--accent) 58%, white) calc(var(--progress) * 1%),
+          color-mix(in oklab, var(--panel-strong) 68%, transparent) 0
+        );
+      display: grid;
+      place-items: center;
+      border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--glass-edge-soft));
+      box-shadow:
+        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 72%, transparent),
+        0 12px 22px color-mix(in oklab, var(--accent) 24%, transparent);
+      position: relative;
+    }
+
+    .home-progress-ring::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      background: color-mix(in oklab, var(--panel-soft) 92%, transparent);
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
+    }
+
+    .home-progress-ring span {
+      position: relative;
+      z-index: 1;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: .01em;
+      text-shadow: 0 7px 14px color-mix(in oklab, var(--accent) 22%, transparent);
+    }
+
+    .home-progress-meta strong {
+      display: block;
+      font-size: 16px;
+      letter-spacing: .01em;
+      margin-bottom: 2px;
+    }
+
+    .home-progress-meta p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.68;
+    }
+
+    .home-section-progress-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .home-section-progress-title strong {
+      font-size: 14px;
       font-weight: 700;
     }
 
-    .home-card strong {
-      font-size: 14px;
-      line-height: 1.35;
+    .home-section-progress-title span {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .home-section-progress-list {
+      display: grid;
+      gap: 8px;
+      max-height: min(37vh, 280px);
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .home-section-progress-item {
+      display: grid;
+      gap: 6px;
+    }
+
+    .home-section-progress-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .home-section-progress-head strong {
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       letter-spacing: .01em;
     }
 
-    .home-card p {
+    .home-section-progress-head span {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+    }
+
+    .home-section-progress-track {
+      height: 9px;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 76%, transparent);
+      overflow: hidden;
+    }
+
+    .home-section-progress-fill {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background:
+        linear-gradient(90deg, color-mix(in oklab, var(--accent) 62%, white), color-mix(in oklab, var(--accent) 45%, transparent));
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 66%, transparent);
+    }
+
+    .home-insight-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .home-insight-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .home-insight-title {
+      font-size: 15px;
+      line-height: 1.45;
+      letter-spacing: .01em;
+    }
+
+    .home-insight-copy {
       margin: 0;
       color: var(--muted);
-      line-height: 1.72;
+      line-height: 1.7;
+    }
+
+    .home-recent-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+      max-height: min(24vh, 190px);
+      overflow: auto;
+    }
+
+    .home-recent-item {
+      margin: 0;
+    }
+
+    .home-recent-link {
+      width: 100%;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background:
+        linear-gradient(140deg, color-mix(in oklab, var(--glass-highlight) 38%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 85%, transparent);
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .18s ease, transform .18s ease, background .18s ease;
+      display: grid;
+      gap: 2px;
+    }
+
+    .home-recent-link:hover {
+      border-color: color-mix(in oklab, var(--accent) 40%, var(--glass-edge-soft));
+      transform: translateY(-1px);
+      background:
+        linear-gradient(140deg, color-mix(in oklab, var(--accent) 18%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+    }
+
+    .home-recent-main {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+
+    .home-recent-sub {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
     }
 
     .code-runner {
@@ -1695,10 +1867,27 @@
         padding: 12px;
         border-radius: 0;
       }
-      .home-grid { grid-template-columns: 1fr; }
+      .home-dashboard-grid,
+      .home-insight-grid {
+        grid-template-columns: 1fr;
+      }
       .home-hero-top { flex-direction: column; }
       .home-orbit { display: none; }
       .home-metrics { grid-template-columns: 1fr; }
+      .home-progress-card {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
+      }
+      .home-progress-meta p {
+        max-width: 28ch;
+      }
+      .home-section-progress-list {
+        max-height: min(28vh, 230px);
+      }
+      .home-recent-list {
+        max-height: min(20vh, 170px);
+      }
       .chapter-items { max-height: min(52vh, 460px); }
       .chat-mobile-mount .assistant {
         display: flex;
@@ -1829,7 +2018,8 @@
       }
 
       .home-lead,
-      .home-card p,
+      .home-progress-meta p,
+      .home-insight-copy,
       .reader-prose p {
         font-size: 13px;
       }
@@ -1977,6 +2167,7 @@
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
       const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
+      const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
       const KEEP_LATEST_REVISIONS = 10;
       const CONFLICT_RETENTION_DAYS = 30;
@@ -2228,6 +2419,83 @@
         if (!Number.isNaN(ms)) return ms;
         if (Number.isFinite(Number(fallbackMs))) return Number(fallbackMs);
         return Date.now();
+      }
+
+      function getLearningProgressStorageKey() {
+        return `${LEARNING_PROGRESS_KEY_PREFIX}:${state.userScopeKey || "anon"}`;
+      }
+
+      function createEmptyLearningProgressStore() {
+        return {
+          schemaVersion: 1,
+          notebooks: {}
+        };
+      }
+
+      function normalizeLearningProgressStore(rawStore) {
+        const fallbackIso = new Date().toISOString();
+        const normalized = createEmptyLearningProgressStore();
+        const parsed = rawStore && typeof rawStore === "object" ? rawStore : {};
+        const notebooks = parsed.notebooks && typeof parsed.notebooks === "object" ? parsed.notebooks : {};
+
+        Object.entries(notebooks).forEach(([notebookId, value]) => {
+          if (!notebookId) return;
+          const record = value && typeof value === "object" ? value : {};
+          const visitsRaw = Number(record.visits);
+          normalized.notebooks[notebookId] = {
+            visits: Number.isFinite(visitsRaw) && visitsRaw > 0 ? Math.floor(visitsRaw) : 1,
+            lastVisitedAt: toValidIsoString(record.lastVisitedAt || record.visitedAt, fallbackIso)
+          };
+        });
+
+        return normalized;
+      }
+
+      function readLearningProgressStore() {
+        const key = getLearningProgressStorageKey();
+        const serialized = localStorage.getItem(key) || "";
+        let parsed = {};
+        try {
+          parsed = serialized ? JSON.parse(serialized) : {};
+        } catch {}
+        const normalized = normalizeLearningProgressStore(parsed);
+        try {
+          const normalizedSerialized = JSON.stringify(normalized);
+          if (normalizedSerialized !== serialized) {
+            localStorage.setItem(key, normalizedSerialized);
+          }
+        } catch {}
+        return normalized;
+      }
+
+      function writeLearningProgressStore(nextStore) {
+        const key = getLearningProgressStorageKey();
+        try {
+          const normalized = normalizeLearningProgressStore(nextStore);
+          localStorage.setItem(key, JSON.stringify(normalized));
+        } catch {}
+      }
+
+      function markNotebookVisited(notebookId) {
+        if (!notebookId) return;
+        const store = readLearningProgressStore();
+        const existing = store.notebooks[notebookId] || { visits: 0, lastVisitedAt: "" };
+        store.notebooks[notebookId] = {
+          visits: Math.max(1, Number(existing.visits || 0) + 1),
+          lastVisitedAt: new Date().toISOString()
+        };
+        writeLearningProgressStore(store);
+      }
+
+      function formatRelativeVisitTime(isoString) {
+        const ts = Date.parse(String(isoString || ""));
+        if (Number.isNaN(ts)) return "";
+        const diffMs = Date.now() - ts;
+        if (diffMs < 60 * 1000) return "たった今";
+        if (diffMs < 60 * 60 * 1000) return `${Math.floor(diffMs / (60 * 1000))}分前`;
+        if (diffMs < 24 * 60 * 60 * 1000) return `${Math.floor(diffMs / (60 * 60 * 1000))}時間前`;
+        if (diffMs < 7 * 24 * 60 * 60 * 1000) return `${Math.floor(diffMs / (24 * 60 * 60 * 1000))}日前`;
+        return new Date(ts).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
       }
 
       function normalizeCellArray(cells) {
@@ -2891,53 +3159,75 @@
         const assistantStateLabel = state.loggedIn ? "有効" : "ログインで有効化";
         const isMobileHome = isCompactMobileView();
         const heroLead = isMobileHome
-          ? "右下のドックから教材メニューとAssistantを切り替えながら、短いサイクルで理解を積み上げます。"
-          : "機械学習・LLM・強化学習を、ノートを実行しながら段階的に学べます。サイドバーから教材を選び、詰まったら Assistant にそのまま質問してください。";
-        const homeCards = isMobileHome
-          ? [
-              {
-                icon: "01",
-                title: "モバイル導線で迷わない",
-                text: "右下ドックのメニューから教材一覧、Assistantアイコンから質問へ。画面遷移を最小化して学習を続けられます。"
-              },
-              {
-                icon: "02",
-                title: "コードを即時に検証",
-                text: "ノート内コードはその場で実行できます。実行結果を見ながら説明に戻る流れを崩しません。"
-              },
-              {
-                icon: "03",
-                title: "選択箇所を直接質問",
-                text: "気になる本文を選択して質問すると、該当文脈を優先して回答。スマホでもピンポイントに疑問を解消できます。"
-              }
-            ]
-          : [
-              {
-                icon: "01",
-                title: "読むだけで終わらない",
-                text: "教材本文のコードはページ内で実行できます。値を変えて挙動を観察し、概念をその場で検証できます。"
-              },
-              {
-                icon: "02",
-                title: "文脈付きで質問",
-                text: "本文を選択して質問すると、その選択箇所を文脈に含めて回答します。曖昧な質問でも意図が伝わりやすくなります。"
-              },
-              {
-                icon: "03",
-                title: "学習サイクルを高速化",
-                text: "読む・試す・質問するを同じ画面で繰り返し、理解を段階的に深められます。"
-              }
-            ];
-        const cardsHtml = homeCards
-          .map(
-            (card) => `
-              <article class="home-card glass-soft">
-                <div class="home-card-head"><span class="home-card-icon">${card.icon}</span><strong>${escapeHtml(card.title)}</strong></div>
-                <p>${escapeHtml(card.text)}</p>
+          ? "今の進捗を見ながら、次に学ぶノートへそのまま移動できます。"
+          : "進捗を可視化しながら、読む・実行する・質問するを同じ画面で回して理解を積み上げます。";
+
+        const notebookMeta = new Map();
+        chapters.forEach((chapter) => {
+          chapter.notebooks.forEach((nb) => {
+            notebookMeta.set(nb.id, {
+              chapterTitle: chapter.title,
+              notebookTitle: nb.title
+            });
+          });
+        });
+
+        const progressStore = readLearningProgressStore();
+        const trackedNotebookIds = Object.keys(progressStore.notebooks || {});
+        const visitedNotebookIds = trackedNotebookIds.filter((id) => notebookMeta.has(id));
+        const visitedNotebookSet = new Set(visitedNotebookIds);
+        const visitedCount = visitedNotebookIds.length;
+        const completionPercentRaw = notebookCount > 0 ? (visitedCount / notebookCount) * 100 : 0;
+        const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
+
+        const sectionProgressHtml = chapters
+          .map((chapter) => {
+            const total = chapter.notebooks.length;
+            const done = chapter.notebooks.reduce((count, nb) => count + (visitedNotebookSet.has(nb.id) ? 1 : 0), 0);
+            const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+            return `
+              <article class="home-section-progress-item">
+                <div class="home-section-progress-head">
+                  <strong>${escapeHtml(chapter.title)}</strong>
+                  <span>${done}/${total}</span>
+                </div>
+                <div class="home-section-progress-track">
+                  <span class="home-section-progress-fill" style="width:${percent}%"></span>
+                </div>
               </article>
-            `
-          )
+            `;
+          })
           .join("");
+
+        const recentNotebookHtml = visitedNotebookIds
+          .map((notebookId) => {
+            const record = progressStore.notebooks[notebookId];
+            const stamp = Date.parse(record?.lastVisitedAt || "");
+            return { notebookId, stamp: Number.isNaN(stamp) ? 0 : stamp };
+          })
+          .sort((a, b) => b.stamp - a.stamp)
+          .slice(0, isMobileHome ? 3 : 5)
+          .map((item) => {
+            const meta = notebookMeta.get(item.notebookId);
+            const record = progressStore.notebooks[item.notebookId];
+            if (!meta || !record) return "";
+            const lastVisited = formatRelativeVisitTime(record.lastVisitedAt);
+            return `
+              <li class="home-recent-item">
+                <button class="home-recent-link" type="button" data-open-notebook="${escapeHtml(item.notebookId)}">
+                  <span class="home-recent-main">${escapeHtml(meta.notebookTitle)}</span>
+                  <span class="home-recent-sub">${escapeHtml(meta.chapterTitle)} ・ ${escapeHtml(lastVisited)}</span>
+                </button>
+              </li>
+            `;
+          })
+          .join("");
+
+        const nextNotebook = notebooks.find((nb) => !visitedNotebookSet.has(nb.id)) || notebooks[0] || null;
+        const nextNotebookId = nextNotebook?.id || "";
+        const nextNotebookLabel = nextNotebook
+          ? `${nextNotebook.title}`
+          : "すべての教材を閲覧済みです";
 
         el.notebookContent.innerHTML = `
           <section class="home-stage ${isMobileHome ? "home-stage-mobile" : ""}">
@@ -2950,6 +3240,26 @@
                 </div>
                 <div class="home-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
               </div>
+              <section class="home-dashboard-grid">
+                <article class="home-progress-card glass-soft">
+                  <div class="home-progress-ring" style="--progress:${completionPercent}">
+                    <span>${completionPercent}%</span>
+                  </div>
+                  <div class="home-progress-meta">
+                    <strong>進捗率</strong>
+                    <p>${visitedCount}/${notebookCount} notebooks completed</p>
+                  </div>
+                </article>
+                <article class="home-section-progress-card glass-soft">
+                  <div class="home-section-progress-title">
+                    <strong>セクション別進捗</strong>
+                    <span>${chapterCount} sections</span>
+                  </div>
+                  <div class="home-section-progress-list">
+                    ${sectionProgressHtml}
+                  </div>
+                </article>
+              </section>
               <div class="home-metrics">
                 <article class="home-metric">
                   <span class="home-metric-label">Sections</span>
@@ -2964,13 +3274,25 @@
                   <span class="home-metric-value home-metric-value-status">${assistantStateLabel}</span>
                 </article>
               </div>
+              <section class="home-insight-grid">
+                <article class="home-insight-card glass-soft">
+                  <span class="home-insight-label">Next Notebook</span>
+                  <strong class="home-insight-title">${escapeHtml(nextNotebookLabel)}</strong>
+                  <p class="home-insight-copy">${nextNotebook ? "未閲覧ノートを優先して表示しています。" : "次は復習として任意のノートを開いてください。"}</p>
+                </article>
+                <article class="home-insight-card glass-soft">
+                  <span class="home-insight-label">Recent Activity</span>
+                  ${
+                    recentNotebookHtml
+                      ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
+                      : '<p class="home-insight-copy">まだ進捗データがありません。最初の教材を開くと履歴が表示されます。</p>'
+                  }
+                </article>
+              </section>
               <div class="home-cta-row">
-                <button class="button home-cta" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${isMobileHome ? "最初の教材を開く" : "最初の教材を開く"}</button>
+                <button class="button home-cta" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
                 <button class="button-ghost home-cta-ghost" type="button" data-home-action="assistant">${state.loggedIn ? "Assistantを開く" : "ログインして質問する"}</button>
               </div>
-            </section>
-            <section class="home-grid">
-              ${cardsHtml}
             </section>
           </section>
         `;
@@ -2978,8 +3300,9 @@
         const startButton = el.notebookContent.querySelector('[data-home-action="start"]');
         if (startButton) {
           startButton.addEventListener("click", function () {
-            if (firstNotebookId) {
-              void selectNotebook(firstNotebookId);
+            const openTargetId = nextNotebookId || firstNotebookId;
+            if (openTargetId) {
+              void selectNotebook(openTargetId);
             }
           });
         }
@@ -2994,6 +3317,14 @@
             setChatOpen(true);
           });
         }
+
+        el.notebookContent.querySelectorAll("[data-open-notebook]").forEach((button) => {
+          button.addEventListener("click", function () {
+            const notebookId = String(button.getAttribute("data-open-notebook") || "").trim();
+            if (!notebookId) return;
+            void selectNotebook(notebookId);
+          });
+        });
       }
 
       function extractImportedModulesFromSource(source) {
@@ -3556,6 +3887,7 @@
           void preloadNotebookPackages(el.notebookContent, target.id);
           enhanceCodeBlocks();
           await applySyntaxHighlight(el.notebookContent);
+          markNotebookVisited(target.id);
 
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
