@@ -315,6 +315,21 @@ jobs:
             echo "Allowed pattern: lowercase letters, numbers, hyphen (1-63 chars)"
             exit 1
           fi
+          ADMIN_EMAILS_NORM="$(trim "${INPUT_ADMIN_EMAILS}")"
+          if [[ -z "${ADMIN_EMAILS_NORM}" ]]; then
+            API_FUNCTION_NAME="noema-${INPUT_STACK_STAGE}-api"
+            EXISTING_ADMIN_EMAILS="$(
+              aws lambda get-function-configuration \
+                --function-name "${API_FUNCTION_NAME}" \
+                --query "Environment.Variables.ADMIN_EMAILS" \
+                --output text 2>/dev/null || true
+            )"
+            EXISTING_ADMIN_EMAILS="$(trim "${EXISTING_ADMIN_EMAILS}")"
+            if [[ -n "${EXISTING_ADMIN_EMAILS}" ]] && [[ "${EXISTING_ADMIN_EMAILS}" != "None" ]] && [[ "${EXISTING_ADMIN_EMAILS}" != "null" ]]; then
+              ADMIN_EMAILS_NORM="${EXISTING_ADMIN_EMAILS}"
+              echo "admin_emails not provided. Reusing existing ADMIN_EMAILS from ${API_FUNCTION_NAME}: ${ADMIN_EMAILS_NORM}"
+            fi
+          fi
           BEDROCK_REGION_NORM="$(trim "${INPUT_BEDROCK_REGION}")"
           BEDROCK_MODEL_SMALL_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_SMALL}")"
           BEDROCK_MODEL_MID_NORM="$(normalize_bedrock_model "${INPUT_BEDROCK_MODEL_MID}")"
@@ -385,8 +400,8 @@ jobs:
           if [[ -n "${INPUT_OPENAI_API_KEY_SSM_PARAMETER}" ]]; then
             ctx_args+=(-c "openAiApiKeySsmParameter=${INPUT_OPENAI_API_KEY_SSM_PARAMETER}")
           fi
-          if [[ -n "${INPUT_ADMIN_EMAILS}" ]]; then
-            ctx_args+=(-c "adminEmails=${INPUT_ADMIN_EMAILS}")
+          if [[ -n "${ADMIN_EMAILS_NORM}" ]]; then
+            ctx_args+=(-c "adminEmails=${ADMIN_EMAILS_NORM}")
           fi
           ctx_args+=(
             -c "noemaInlineQa=${INPUT_NOEMA_INLINE_QA}"
