@@ -622,6 +622,39 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
     }
 
+    .notebook-completion-panel {
+      margin-top: 16px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--glass-edge-soft);
+      background:
+        linear-gradient(145deg, color-mix(in oklab, var(--glass-highlight) 42%, transparent), transparent 60%),
+        color-mix(in oklab, var(--panel-soft) 86%, transparent);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .notebook-completion-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .01em;
+      color: var(--text);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .notebook-completion-checkbox {
+      width: 16px;
+      height: 16px;
+      accent-color: color-mix(in oklab, var(--accent) 72%, white);
+      cursor: pointer;
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
     .home-stage {
       display: grid;
       gap: 12px;
@@ -2459,7 +2492,7 @@
 
       function createEmptyLearningProgressStore() {
         return {
-          schemaVersion: 1,
+          schemaVersion: 2,
           notebooks: {}
         };
       }
@@ -2474,9 +2507,14 @@
           if (!notebookId) return;
           const record = value && typeof value === "object" ? value : {};
           const visitsRaw = Number(record.visits);
+          const completed = Boolean(record.completed);
           normalized.notebooks[notebookId] = {
-            visits: Number.isFinite(visitsRaw) && visitsRaw > 0 ? Math.floor(visitsRaw) : 1,
-            lastVisitedAt: toValidIsoString(record.lastVisitedAt || record.visitedAt, fallbackIso)
+            visits: Number.isFinite(visitsRaw) && visitsRaw >= 0 ? Math.floor(visitsRaw) : 0,
+            lastVisitedAt: toValidIsoString(record.lastVisitedAt || record.visitedAt, fallbackIso),
+            completed,
+            completedAt: completed
+              ? toValidIsoString(record.completedAt || record.lastCompletedAt || record.lastVisitedAt, fallbackIso)
+              : ""
           };
         });
 
@@ -2511,10 +2549,43 @@
       function markNotebookVisited(notebookId) {
         if (!notebookId) return;
         const store = readLearningProgressStore();
-        const existing = store.notebooks[notebookId] || { visits: 0, lastVisitedAt: "" };
+        const existing = store.notebooks[notebookId] || {
+          visits: 0,
+          lastVisitedAt: "",
+          completed: false,
+          completedAt: ""
+        };
         store.notebooks[notebookId] = {
           visits: Math.max(1, Number(existing.visits || 0) + 1),
-          lastVisitedAt: new Date().toISOString()
+          lastVisitedAt: new Date().toISOString(),
+          completed: Boolean(existing.completed),
+          completedAt: existing.completed ? String(existing.completedAt || new Date().toISOString()) : ""
+        };
+        writeLearningProgressStore(store);
+      }
+
+      function isNotebookCompleted(notebookId) {
+        if (!notebookId) return false;
+        const store = readLearningProgressStore();
+        const record = store.notebooks[notebookId];
+        return Boolean(record && record.completed);
+      }
+
+      function setNotebookCompleted(notebookId, completed) {
+        if (!notebookId) return;
+        const store = readLearningProgressStore();
+        const nowIso = new Date().toISOString();
+        const existing = store.notebooks[notebookId] || {
+          visits: 0,
+          lastVisitedAt: nowIso,
+          completed: false,
+          completedAt: ""
+        };
+        store.notebooks[notebookId] = {
+          visits: Math.max(0, Number(existing.visits || 0)),
+          lastVisitedAt: String(existing.lastVisitedAt || nowIso),
+          completed: Boolean(completed),
+          completedAt: completed ? nowIso : ""
         };
         writeLearningProgressStore(store);
       }
@@ -3206,15 +3277,16 @@
         const progressStore = readLearningProgressStore();
         const trackedNotebookIds = Object.keys(progressStore.notebooks || {});
         const visitedNotebookIds = trackedNotebookIds.filter((id) => notebookMeta.has(id));
-        const visitedNotebookSet = new Set(visitedNotebookIds);
-        const visitedCount = visitedNotebookIds.length;
-        const completionPercentRaw = notebookCount > 0 ? (visitedCount / notebookCount) * 100 : 0;
+        const completedNotebookIds = visitedNotebookIds.filter((id) => Boolean(progressStore.notebooks[id]?.completed));
+        const completedNotebookSet = new Set(completedNotebookIds);
+        const completedCount = completedNotebookIds.length;
+        const completionPercentRaw = notebookCount > 0 ? (completedCount / notebookCount) * 100 : 0;
         const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
 
         const sectionProgressHtml = chapters
           .map((chapter) => {
             const total = chapter.notebooks.length;
-            const done = chapter.notebooks.reduce((count, nb) => count + (visitedNotebookSet.has(nb.id) ? 1 : 0), 0);
+            const done = chapter.notebooks.reduce((count, nb) => count + (completedNotebookSet.has(nb.id) ? 1 : 0), 0);
             const percent = total > 0 ? Math.round((done / total) * 100) : 0;
             return `
               <article class="home-section-progress-item">
@@ -3254,7 +3326,7 @@
           })
           .join("");
 
-        const nextNotebook = notebooks.find((nb) => !visitedNotebookSet.has(nb.id)) || notebooks[0] || null;
+        const nextNotebook = notebooks.find((nb) => !completedNotebookSet.has(nb.id)) || notebooks[0] || null;
         const nextNotebookId = nextNotebook?.id || "";
         const nextNotebookLabel = nextNotebook
           ? `${nextNotebook.title}`
@@ -3278,7 +3350,7 @@
                   </div>
                   <div class="home-progress-meta">
                     <strong>進捗率</strong>
-                    <p>${visitedCount}/${notebookCount} notebooks completed</p>
+                    <p>${completedCount}/${notebookCount} notebooks completed</p>
                   </div>
                 </article>
                 <article class="home-section-progress-card glass-soft">
@@ -3309,6 +3381,7 @@
                 <article class="home-insight-card glass-soft">
                   <span class="home-insight-label">Next Notebook</span>
                   <strong class="home-insight-title">${escapeHtml(nextNotebookLabel)}</strong>
+                  <button class="button home-recent-continue" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
                 </article>
                 <article class="home-insight-card glass-soft">
                   <span class="home-insight-label">Recent Activity</span>
@@ -3317,7 +3390,6 @@
                       ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
                       : '<p class="home-insight-copy">まだ進捗データがありません。最初の教材を開くと履歴が表示されます。</p>'
                   }
-                  <button class="button home-recent-continue" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
                 </article>
               </section>
             </section>
@@ -3904,6 +3976,7 @@
           enhanceCodeBlocks();
           await applySyntaxHighlight(el.notebookContent);
           markNotebookVisited(target.id);
+          renderNotebookCompletionControl(target.id);
 
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
@@ -4033,6 +4106,31 @@
           return;
         }
         el.selectionText.textContent = state.selectedText;
+      }
+
+      function renderNotebookCompletionControl(notebookId) {
+        if (!notebookId) return;
+        const existing = el.notebookContent.querySelector(".notebook-completion-panel");
+        if (existing) existing.remove();
+
+        const wrapper = document.createElement("section");
+        wrapper.className = "notebook-completion-panel glass-soft";
+        const completed = isNotebookCompleted(notebookId);
+        wrapper.innerHTML = `
+          <label class="notebook-completion-label">
+            <input class="notebook-completion-checkbox" type="checkbox" ${completed ? "checked" : ""} />
+            <span>このノートを読み終えた</span>
+          </label>
+        `;
+
+        const checkbox = wrapper.querySelector(".notebook-completion-checkbox");
+        if (checkbox) {
+          checkbox.addEventListener("change", function () {
+            const checked = Boolean(checkbox.checked);
+            setNotebookCompleted(notebookId, checked);
+          });
+        }
+        el.notebookContent.appendChild(wrapper);
       }
 
       function pushMessage(role, text, meta) {
