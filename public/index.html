@@ -33,6 +33,11 @@
       --code-border: rgba(116, 171, 232, .26);
       --brand-font: "Space Grotesk", "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
       --assistant-width: 400px;
+      --mobile-dock-button-size: 46px;
+      --mobile-dock-gap: 6px;
+      --mobile-dock-pad: 4px;
+      --mobile-dock-right: max(12px, calc(env(safe-area-inset-right) + 8px));
+      --mobile-dock-bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
       color-scheme: dark;
     }
 
@@ -1104,14 +1109,25 @@
     }
 
     .assistant-head-top {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 8px;
       margin-bottom: 8px;
     }
 
-    .assistant-mobile-close {
+    .assistant-head-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      justify-self: end;
+    }
+
+    .assistant-head-actions .liquid-nav {
+      width: auto;
+    }
+
+    .assistant-close {
       display: none;
       width: 34px;
       height: 34px;
@@ -1122,7 +1138,7 @@
       flex: 0 0 auto;
     }
 
-    .assistant-mobile-close svg {
+    .assistant-close svg {
       width: 16px;
       height: 16px;
       display: block;
@@ -1454,26 +1470,21 @@
       stroke-linejoin: round;
     }
 
-    .fab .fab-close-icon { display: none; }
-
-    .fab.is-open .fab-open-icon { display: none; }
-    .fab.is-open .fab-close-icon { display: block; }
-
     .mobile-controls {
       display: none;
       position: fixed;
-      right: max(74px, calc(env(safe-area-inset-right) + 64px));
-      bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
-      z-index: 79;
+      right: var(--mobile-dock-right);
+      bottom: var(--mobile-dock-bottom);
+      z-index: 49;
       pointer-events: none;
     }
 
     .mobile-controls .liquid-nav {
-      width: 48px;
-      height: 48px;
+      width: auto;
+      height: auto;
       pointer-events: auto;
-      gap: 0;
-      padding: 0;
+      gap: var(--mobile-dock-gap);
+      padding: var(--mobile-dock-pad);
       border-radius: 999px;
       display: flex;
       align-items: center;
@@ -1491,9 +1502,10 @@
         inset 0 -1px 0 color-mix(in oklab, var(--glass-edge-soft) 72%, transparent);
     }
 
+    .mobile-assistant-trigger,
     .mobile-hamburger {
-      width: 100%;
-      height: 100%;
+      width: var(--mobile-dock-button-size);
+      height: var(--mobile-dock-button-size);
       padding: 0;
       display: inline-flex;
       align-items: center;
@@ -1501,6 +1513,7 @@
       border-radius: 999px;
     }
 
+    .mobile-assistant-trigger svg,
     .mobile-hamburger svg {
       width: 18px;
       height: 18px;
@@ -1634,6 +1647,10 @@
       .resizer { display: none !important; }
       .assistant { display: none; }
       .mobile-controls { display: flex; }
+      .fab,
+      .fab.visible {
+        display: none !important;
+      }
       .main {
         border-radius: 0;
         border-left: 0;
@@ -1692,17 +1709,15 @@
         border-radius: 18px;
       }
       .chat-mobile-mount .assistant-head-top {
-        display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .chat-mobile-mount .assistant-head-actions {
+        display: inline-flex;
         align-items: center;
         gap: 8px;
+        justify-self: end;
       }
-      .chat-mobile-mount .assistant-head-top .liquid-nav {
-        grid-column: 1 / -1;
-        width: auto;
-        justify-self: start;
-      }
-      .chat-mobile-mount .assistant-mobile-close {
+      .chat-mobile-mount .assistant-close {
         display: inline-flex;
       }
       #playground-link-mobile,
@@ -1711,13 +1726,13 @@
       }
       .overlay-actions {
         position: fixed;
-        right: max(74px, calc(env(safe-area-inset-right) + 64px));
-        bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+        right: calc(var(--mobile-dock-right) + var(--mobile-dock-pad));
+        bottom: calc(var(--mobile-dock-bottom) + var(--mobile-dock-pad));
         z-index: 81;
       }
       .overlay-actions .button-ghost {
-        width: 48px;
-        height: 48px;
+        width: var(--mobile-dock-button-size);
+        height: var(--mobile-dock-button-size);
         padding: 0;
       }
     }
@@ -1769,7 +1784,7 @@
       }
 
       .mobile-controls .liquid-nav {
-        width: 48px;
+        width: auto;
         justify-content: center;
       }
 
@@ -1784,18 +1799,16 @@
     }
 
     @media (max-width: 560px) {
+      :root {
+        --mobile-dock-button-size: 42px;
+        --mobile-dock-gap: 5px;
+        --mobile-dock-pad: 3px;
+        --mobile-dock-right: max(10px, calc(env(safe-area-inset-right) + 6px));
+        --mobile-dock-bottom: max(10px, calc(env(safe-area-inset-bottom) + 6px));
+      }
+
       .main {
         border-radius: 0;
-      }
-
-      .mobile-controls .liquid-nav {
-        width: 44px;
-        height: 44px;
-      }
-
-      .mobile-controls {
-        right: max(62px, calc(env(safe-area-inset-right) + 52px));
-        bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
       }
 
       .header-title {
@@ -1812,25 +1825,8 @@
         font-size: 13px;
       }
 
-      .fab {
-        right: 12px;
-        bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
-        width: 44px;
-        height: 44px;
-      }
-
       .overlay-panel {
         width: 100%;
-      }
-
-      .overlay-actions {
-        right: max(62px, calc(env(safe-area-inset-right) + 52px));
-        bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
-      }
-
-      .overlay-actions .button-ghost {
-        width: 44px;
-        height: 44px;
       }
     }
   </style>
@@ -1855,6 +1851,11 @@
       <section class="main glass-strong">
         <div class="mobile-controls">
           <div class="liquid-nav">
+            <button class="nav-item mobile-assistant-trigger" id="open-chat-mobile" type="button" aria-label="Assistantを開く">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 7.2c0-1.8 1.4-3.2 3.2-3.2h7.6c1.8 0 3.2 1.4 3.2 3.2v5.9c0 1.8-1.4 3.2-3.2 3.2H11l-4.5 3.8v-3.8H8.2C6.4 16.3 5 14.9 5 13.1V7.2Z"></path>
+              </svg>
+            </button>
             <button class="nav-item mobile-hamburger" id="open-sidebar" type="button" aria-label="教材メニュー">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 7H20"></path>
@@ -1901,16 +1902,18 @@
         <div class="assistant-head">
           <div class="assistant-head-top">
             <h3 class="assistant-title">Assistant</h3>
-            <div class="liquid-nav">
-              <button class="nav-item" id="new-chat" type="button">New</button>
-              <button class="nav-item" id="chat-history" type="button">History</button>
+            <div class="assistant-head-actions">
+              <div class="liquid-nav">
+                <button class="nav-item" id="new-chat" type="button">New</button>
+                <button class="nav-item" id="chat-history" type="button">History</button>
+              </div>
+              <button class="button-ghost assistant-close" id="assistant-close" type="button" aria-label="Assistantを閉じる">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6L18 18"></path>
+                  <path d="M18 6L6 18"></path>
+                </svg>
+              </button>
             </div>
-            <button class="button-ghost assistant-mobile-close" id="assistant-mobile-close" type="button" aria-label="Assistantを閉じる">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 6L18 18"></path>
-                <path d="M18 6L6 18"></path>
-              </svg>
-            </button>
           </div>
           <p class="assistant-subtitle">現在のノート文脈を優先して回答します。</p>
         </div>
@@ -1936,10 +1939,6 @@
   <button class="fab button" id="chat-fab" type="button" aria-label="Assistantを開く" title="Assistant">
     <svg class="fab-open-icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M5 7.2c0-1.8 1.4-3.2 3.2-3.2h7.6c1.8 0 3.2 1.4 3.2 3.2v5.9c0 1.8-1.4 3.2-3.2 3.2H11l-4.5 3.8v-3.8H8.2C6.4 16.3 5 14.9 5 13.1V7.2Z"></path>
-    </svg>
-    <svg class="fab-close-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 6L18 18"></path>
-      <path d="M18 6L6 18"></path>
     </svg>
   </button>
 
@@ -2034,9 +2033,10 @@
         adminLinkMobile: document.getElementById("admin-link-mobile"),
         newChat: document.getElementById("new-chat"),
         chatHistory: document.getElementById("chat-history"),
-        assistantMobileClose: document.getElementById("assistant-mobile-close"),
+        assistantClose: document.getElementById("assistant-close"),
         sidebarOverlay: document.getElementById("sidebar-overlay"),
         chatOverlay: document.getElementById("chat-overlay"),
+        openChatMobile: document.getElementById("open-chat-mobile"),
         openSidebar: document.getElementById("open-sidebar"),
         closeSidebar: document.getElementById("close-sidebar"),
         chatMobileMount: document.getElementById("chat-mobile-mount"),
@@ -3952,7 +3952,6 @@
       function syncChatFabState() {
         const visible = state.loggedIn;
         el.chatFab.classList.toggle("visible", visible);
-        el.chatFab.classList.toggle("is-open", visible && state.chatOpen);
         const label = state.chatOpen ? "Assistantを閉じる" : "Assistantを開く";
         el.chatFab.setAttribute("aria-label", label);
         el.chatFab.setAttribute("title", label);
@@ -4175,8 +4174,8 @@
         void loadQuestionHistory();
       });
 
-      if (el.assistantMobileClose) {
-        el.assistantMobileClose.addEventListener("click", function () {
+      if (el.assistantClose) {
+        el.assistantClose.addEventListener("click", function () {
           setChatOpen(false);
         });
       }
@@ -4188,6 +4187,16 @@
       el.openSidebar.addEventListener("click", function () {
         el.sidebarOverlay.classList.add("visible");
       });
+
+      if (el.openChatMobile) {
+        el.openChatMobile.addEventListener("click", function () {
+          if (!state.loggedIn) {
+            window.location.href = "/login";
+            return;
+          }
+          setChatOpen(true);
+        });
+      }
 
       el.closeSidebar.addEventListener("click", function () {
         el.sidebarOverlay.classList.remove("visible");
