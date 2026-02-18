@@ -14,6 +14,7 @@
     "build:pyodide": "bash scripts/build-pyodide-runtime.sh",
     "generate:curriculum-shell": "tsx scripts/generate-curriculum-shell.ts",
     "author:curriculum": "tsx scripts/author-curriculum.ts",
+    "check:notebook-code": "python3 scripts/check-notebook-code.py",
     "sync:notebooks": "tsx scripts/sync-notebooks.ts",
     "sync:notebooks:aws": "tsx scripts/sync-notebooks-aws.ts",
     "worker": "tsx src/worker.ts"

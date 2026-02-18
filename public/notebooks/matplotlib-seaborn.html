@@ -109,7 +109,11 @@
 <h2 id="手を動かす-1-可視化の最小実験">手を動かす 1: 可視化の最小実験</h2>
 <p>可視化は説明用ではなく診断用にも使います。まずは線形傾向を目視で確認します。</p>
 
-<pre><code class="language-python">try:
+<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
+labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
+paired = list(zip(labels, scores))
+print(&#39;paired =&#39;, paired)
+try:
     import matplotlib.pyplot as plt
 except ModuleNotFoundError:
     print(&#39;matplotlib is not installed&#39;)

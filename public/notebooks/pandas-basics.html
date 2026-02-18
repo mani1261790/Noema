@@ -109,7 +109,11 @@
 <h2 id="観察-1-dataframeを作って集計する">観察 1: DataFrameを作って集計する</h2>
 <p>表形式データを扱うときは DataFrame を中心に考えます。まず最小例で列操作を体験します。</p>
 
-<pre><code class="language-python">try:
+<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
+labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
+paired = list(zip(labels, scores))
+print(&#39;paired =&#39;, paired)
+try:
     import pandas as pd
 except ModuleNotFoundError:
     print(&#39;pandas is not installed&#39;)

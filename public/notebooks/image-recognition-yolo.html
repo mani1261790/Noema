@@ -109,11 +109,17 @@
 <h2 id="観察-1-yolo出力テンソルの形">観察 1: YOLO出力テンソルの形</h2>
 <p>物体検出の実装で最初に混乱しやすいのは出力次元です。最小コードで形を固定して理解します。</p>
 
-<pre><code class="language-python">grid_h, grid_w, anchors, classes = 13, 13, 3, 80
+<pre><code class="language-python">import math
+grid_h, grid_w, anchors, classes = 13, 13, 3, 80
 channels = anchors * (5 + classes)
 print(&#39;output shape =&#39;, (grid_h, grid_w, channels))
 print(&#39;per_anchor_dim =&#39;, 5 + classes)
-print(&#39;total_boxes =&#39;, grid_h * grid_w * anchors)</code></pre>
+print(&#39;total_boxes =&#39;, grid_h * grid_w * anchors)
+x = [0.8, -0.4, 0.2]
+w = [0.3, -0.6, 0.5]
+z = sum(xi * wi for xi, wi in zip(x, w)) + 0.1
+y = 1 / (1 + math.exp(-z))
+print(&#39;seed probability =&#39;, round(y, 4))</code></pre>
 <p>次元を先に理解すると、後続のデコード実装で起こるインデックスバグを大幅に減らせます。</p>
 <p>この節では、順伝播 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 

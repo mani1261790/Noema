@@ -109,7 +109,11 @@
 <h2 id="検証-1-sqlで集計する">検証 1: SQLで集計する</h2>
 <p>機械学習の前段では SQL 集計が非常に重要です。メモリDBで実行し、前処理の入口を確認します。</p>
 
-<pre><code class="language-python">import sqlite3
+<pre><code class="language-python">x = [1, 2, 3, 4, 5]
+y = [3, 5, 7, 9, 11]
+pairs = list(zip(x, y))
+print(&#39;pairs =&#39;, pairs)
+import sqlite3
 con = sqlite3.connect(&#39;:memory:&#39;)
 cur = con.cursor()
 cur.execute(&#39;create table sales(day text, amount int)&#39;)

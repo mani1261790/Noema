@@ -779,6 +779,10 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
       "NumPy配列の生成と演算",
       "このノートでは Python リストとの差を体感するため、NumPy のベクトル演算を最初に実行します。",
       [
+        "scores = [58, 72, 81, 67, 90]",
+        "labels = ['A', 'B', 'C', 'D', 'E']",
+        "paired = list(zip(labels, scores))",
+        "print('paired =', paired)",
         "try:",
         "    import numpy as np",
         "except ModuleNotFoundError:",
@@ -798,6 +802,10 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
       "DataFrameを作って集計する",
       "表形式データを扱うときは DataFrame を中心に考えます。まず最小例で列操作を体験します。",
       [
+        "scores = [58, 72, 81, 67, 90]",
+        "labels = ['A', 'B', 'C', 'D', 'E']",
+        "paired = list(zip(labels, scores))",
+        "print('paired =', paired)",
         "try:",
         "    import pandas as pd",
         "except ModuleNotFoundError:",
@@ -816,6 +824,10 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
       "可視化の最小実験",
       "可視化は説明用ではなく診断用にも使います。まずは線形傾向を目視で確認します。",
       [
+        "scores = [58, 72, 81, 67, 90]",
+        "labels = ['A', 'B', 'C', 'D', 'E']",
+        "paired = list(zip(labels, scores))",
+        "print('paired =', paired)",
         "try:",
         "    import matplotlib.pyplot as plt",
         "except ModuleNotFoundError:",
@@ -836,6 +848,10 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
       "SQLで集計する",
       "機械学習の前段では SQL 集計が非常に重要です。メモリDBで実行し、前処理の入口を確認します。",
       [
+        "x = [1, 2, 3, 4, 5]",
+        "y = [3, 5, 7, 9, 11]",
+        "pairs = list(zip(x, y))",
+        "print('pairs =', pairs)",
         "import sqlite3",
         "con = sqlite3.connect(':memory:')",
         "cur = con.cursor()",
@@ -854,6 +870,10 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
       "scikit-learn最小実行",
       "ライブラリを使った実装は中身理解の後に行います。ここでは API の最小単位を確認します。",
       [
+        "x = [1, 2, 3, 4, 5]",
+        "y = [3, 5, 7, 9, 11]",
+        "pairs = list(zip(x, y))",
+        "print('pairs =', pairs)",
         "try:",
         "    from sklearn.linear_model import LinearRegression",
         "except ModuleNotFoundError:",
@@ -874,11 +894,17 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
       "YOLO出力テンソルの形",
       "物体検出の実装で最初に混乱しやすいのは出力次元です。最小コードで形を固定して理解します。",
       [
+        "import math",
         "grid_h, grid_w, anchors, classes = 13, 13, 3, 80",
         "channels = anchors * (5 + classes)",
         "print('output shape =', (grid_h, grid_w, channels))",
         "print('per_anchor_dim =', 5 + classes)",
-        "print('total_boxes =', grid_h * grid_w * anchors)"
+        "print('total_boxes =', grid_h * grid_w * anchors)",
+        "x = [0.8, -0.4, 0.2]",
+        "w = [0.3, -0.6, 0.5]",
+        "z = sum(xi * wi for xi, wi in zip(x, w)) + 0.1",
+        "y = 1 / (1 + math.exp(-z))",
+        "print('seed probability =', round(y, 4))"
       ],
       "次元を先に理解すると、後続のデコード実装で起こるインデックスバグを大幅に減らせます。"
     );

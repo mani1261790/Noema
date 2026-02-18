@@ -109,7 +109,11 @@
 <h2 id="手を動かす-1-scikit-learn最小実行">手を動かす 1: scikit-learn最小実行</h2>
 <p>ライブラリを使った実装は中身理解の後に行います。ここでは API の最小単位を確認します。</p>
 
-<pre><code class="language-python">try:
+<pre><code class="language-python">x = [1, 2, 3, 4, 5]
+y = [3, 5, 7, 9, 11]
+pairs = list(zip(x, y))
+print(&#39;pairs =&#39;, pairs)
+try:
     from sklearn.linear_model import LinearRegression
 except ModuleNotFoundError:
     print(&#39;scikit-learn is not installed&#39;)

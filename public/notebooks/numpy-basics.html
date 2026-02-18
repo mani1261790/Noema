@@ -109,7 +109,11 @@
 <h2 id="手を動かす-1-numpy配列の生成と演算">手を動かす 1: NumPy配列の生成と演算</h2>
 <p>このノートでは Python リストとの差を体感するため、NumPy のベクトル演算を最初に実行します。</p>
 
-<pre><code class="language-python">try:
+<pre><code class="language-python">scores = [58, 72, 81, 67, 90]
+labels = [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;D&#39;, &#39;E&#39;]
+paired = list(zip(labels, scores))
+print(&#39;paired =&#39;, paired)
+try:
     import numpy as np
 except ModuleNotFoundError:
     print(&#39;numpy is not installed&#39;)
