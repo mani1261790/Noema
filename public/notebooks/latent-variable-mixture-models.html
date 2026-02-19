@@ -98,89 +98,341 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+from statistics import mean
+
+random.seed(21)</code></pre>
 <h1 id="潜在変数モデルと混合モデル">潜在変数モデルと混合モデル</h1>
-<p>潜在変数モデルと混合モデルでは、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<p>このノートの主題は、見えていない原因（潜在変数）を導入すると、単純モデルでは説明しにくいデータをどう扱えるようになるか、です。分類ではなく「分布そのもの」を学ぶ生成モデルの視点で、EMアルゴリズムまでを一気につなげます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>潜在変数モデルと混合モデルに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>まず「なぜ潜在変数が必要か」を直感で押さえます。</p>
+<p>同じコイン投げの観測列に見えても、実は2種類のコインが混ざっている場合があります。観測は表裏だけで、どのコインを使ったかは記録されていない。この「見えていないラベル」が潜在変数です。</p>
+
+<pre><code class="language-python">def generate_coin_mixture(n=40, pi=0.6, p_a=0.8, p_b=0.3):
+    data = []
+    latent = []
+    for _ in range(n):
+        z = 0 if random.random() &lt; pi else 1  # 0: coin A, 1: coin B
+        x = 1 if random.random() &lt; (p_a if z == 0 else p_b) else 0
+        data.append(x)
+        latent.append(z)
+    return data, latent
+
+
+data, latent = generate_coin_mixture(n=50, pi=0.65, p_a=0.82, p_b=0.28)
+print(&#39;observed heads ratio =&#39;, round(sum(data) / len(data), 3))
+print(&#39;true latent count A/B =&#39;, latent.count(0), latent.count(1))
+print(&#39;first 20 observations =&#39;, data[:20])</code></pre>
+<p>もし潜在変数 <code>z</code> を無視すると、1種類のコイン確率しか推定できません。すると「2種類が混ざっている」という構造情報を失います。混合モデルは、まさにこの構造を扱うためのモデルです。</p>
+
+<h2 id="1-混合モデルの数式イメージ">1. 混合モデルの数式イメージ</h2>
+<p>混合モデルは「まず潜在クラス <code>z</code> を引いて、次に <code>x</code> を生成する」という2段階で書けます。</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>潜在変数</strong>: 直接観測されない要因を表す変数です。</li>
-<li><strong>混合分布</strong>: 複数成分分布の重み付き和で複雑な分布を表します。</li>
+<li><code>p(z=k) = pi_k</code>（混合比）</li>
+<li><code>p(x|z=k)</code>（成分分布）</li>
+<li><code>p(x) = sum_k pi_k p(x|z=k)</code>（周辺化して観測分布）</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>問題は、観測時には <code>z</code> が見えないことです。ここでEMが効きます。</p>
 
-<h2 id="手を動かす-1-混合分布を意識したサンプル">手を動かす 1: 混合分布を意識したサンプル</h2>
-<p>潜在変数と混合モデルの違いを掴むため、2モードの潜在サンプルを作ります。</p>
+<pre><code class="language-python">def bernoulli(x, p):
+    p = min(max(p, 1e-9), 1 - 1e-9)
+    return p if x == 1 else (1 - p)
 
-<pre><code class="language-python">import random
-random.seed(13)
-z = [round(random.choice([-1.5, 1.8]) + random.gauss(0, 0.15), 3) for _ in range(5)]
-print(&#39;task = latent-variable-mixture-models&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>モード構造が生成結果へどう影響するかを見ます。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="手を動かす-2-単純なデコーダを書く">手を動かす 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+def responsibility_2comp(x, pi, p0, p1):
+    # gamma0 = p(z=0|x)
+    num0 = pi * bernoulli(x, p0)
+    num1 = (1 - pi) * bernoulli(x, p1)
+    den = num0 + num1 + 1e-12
+    return num0 / den, num1 / den
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="数式メモ">数式メモ</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mo>∫</mo><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>∣</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>p</mi><mo>(</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>d</mi><mi>z</mi></mrow><annotation encoding="application/x-tex">p_{\theta}(x) = \int p_{\theta}(x\mid z)\,p(z)\,dz</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.805em;"></span><span class="strut bottom" style="height:1.11112em;vertical-align:-0.30612em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="op-symbol small-op mop" style="margin-right:0.19445em;top:-0.0005599999999999772em;">∫</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mrel">∣</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">d</span><span class="mord mathit" style="margin-right:0.04398em;">z</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>s</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><mi>p</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">s(x) = \nabla_x \log p(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">s</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-</ol>
+example_x = [0, 1, 1, 0, 1]
+for x in example_x:
+    g0, g1 = responsibility_2comp(x, pi=0.5, p0=0.8, p1=0.2)
+    print(f&#39;x={x} -&gt; gamma(z=0|x)={g0:.3f}, gamma(z=1|x)={g1:.3f}&#39;)</code></pre>
+<p><code>gamma(z=k|x)</code> を負担率（responsibility）と呼びます。硬いクラスタ割当（0か1か）ではなく、確率として割り当てるのがポイントです。これにより境界点も自然に扱えます。</p>
 
-<h2 id="手を動かす-3-ノイズを加えて復元する">手を動かす 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
+<h2 id="2-emアルゴリズム-混合ベルヌーイ">2. EMアルゴリズム（混合ベルヌーイ）</h2>
+<p>EMは次を反復します。</p>
+<ul>
+<li>E-step: 現在のパラメータで負担率 <code>gamma</code> を計算</li>
+<li>M-step: <code>gamma</code> を重みとしてパラメータを更新</li>
+</ul>
+<p>この流れは「見えない <code>z</code> を埋める」→「埋めたと仮定して最尤更新する」の往復です。</p>
 
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">def e_step_binary(data, pi, p0, p1):
+    gammas = []
+    for x in data:
+        g0, _ = responsibility_2comp(x, pi, p0, p1)
+        gammas.append(g0)
+    return gammas
 
-<h2 id="手を動かす-4-混合分布の感覚を作る">手を動かす 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
 
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def m_step_binary(data, gammas):
+    n = len(data)
+    sum_g = sum(gammas)
+    sum_1mg = n - sum_g
 
-<h2 id="手を動かす-5-学習指標を定義する">手を動かす 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
+    pi_new = sum_g / n
+    p0_new = sum(g * x for g, x in zip(gammas, data)) / max(sum_g, 1e-9)
+    p1_new = sum((1 - g) * x for g, x in zip(gammas, data)) / max(sum_1mg, 1e-9)
 
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    # 数値安定
+    p0_new = min(max(p0_new, 1e-6), 1 - 1e-6)
+    p1_new = min(max(p1_new, 1e-6), 1 - 1e-6)
+    pi_new = min(max(pi_new, 1e-6), 1 - 1e-6)
+    return pi_new, p0_new, p1_new
 
-<h2 id="この節の要点">この節の要点</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+
+def loglik_binary(data, pi, p0, p1):
+    ll = 0.0
+    for x in data:
+        prob = pi * bernoulli(x, p0) + (1 - pi) * bernoulli(x, p1)
+        ll += math.log(max(prob, 1e-12))
+    return ll
+
+
+# 初期値はわざとずらす
+pi, p0, p1 = 0.5, 0.55, 0.45
+trace = []
+for t in range(20):
+    g = e_step_binary(data, pi, p0, p1)
+    pi, p0, p1 = m_step_binary(data, g)
+    ll = loglik_binary(data, pi, p0, p1)
+    trace.append(ll)
+    print(f&#39;iter={t:02d} pi={pi:.3f} p0={p0:.3f} p1={p1:.3f} ll={ll:.3f}&#39;)
+
+print(&#39;log-likelihood monotonic non-decrease check =&#39;, all(trace[i] &lt;= trace[i+1] + 1e-9 for i in range(len(trace)-1)))</code></pre>
+<p>EMは局所解に落ちる可能性があるため、初期値を変えて複数回走らせるのが実務では基本です。</p>
+
+<pre><code class="language-python">def run_em_binary(data, n_iter=30):
+    pi = random.uniform(0.2, 0.8)
+    p0 = random.uniform(0.1, 0.9)
+    p1 = random.uniform(0.1, 0.9)
+
+    for _ in range(n_iter):
+        g = e_step_binary(data, pi, p0, p1)
+        pi, p0, p1 = m_step_binary(data, g)
+
+    ll = loglik_binary(data, pi, p0, p1)
+    return ll, (pi, p0, p1)
+
+
+trials = []
+for _ in range(8):
+    trials.append(run_em_binary(data))
+
+trials.sort(key=lambda x: x[0], reverse=True)
+print(&#39;best run ll =&#39;, round(trials[0][0], 4), &#39;params =&#39;, tuple(round(v, 4) for v in trials[0][1]))
+print(&#39;worst run ll =&#39;, round(trials[-1][0], 4), &#39;params =&#39;, tuple(round(v, 4) for v in trials[-1][1]))</code></pre>
+<p>ここで重要な注意があります。上の2コイン例は「1サンプル=1ビット観測」なので、<br>
+<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>P</mi><mo>(</mo><mi>x</mi><mo>=</mo><mn>1</mn><mo>)</mo><mo>=</mo><mi>π</mi><msub><mi>p</mi><mn>0</mn></msub><mo>+</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>π</mi><mo>)</mo><msub><mi>p</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">P(x=1)=\pi p_0 + (1-\pi)p_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.13889em;">P</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mrel">=</span><span class="mord mathrm">1</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.03588em;">π</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">+</span><span class="mopen">(</span><span class="mord mathrm">1</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.03588em;">π</span><span class="mclose">)</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> の1本しか観測制約がなく、<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>(</mo><mi>π</mi><mo separator="true">,</mo><msub><mi>p</mi><mn>0</mn></msub><mo separator="true">,</mo><msub><mi>p</mi><mn>1</mn></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">(\pi,p_0,p_1)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.03588em;">π</span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span> は一般に一意に同定できません。</p>
+<p>そのため、同じ尤度でも異なるパラメータ組が出ます。これはEMのバグではなく、観測情報の不足による同定不能性です。<br>
+実務では多次元特徴や時系列観測を使って情報量を増やし、同定性を改善します。</p>
+
+<h2 id="3-多次元の混合ベルヌーイ">3. 多次元の混合ベルヌーイ</h2>
+<p>画像の2値化データのように、観測が多次元になると各次元の確率パラメータを成分ごとに持ちます。ここでは長さ6の2値ベクトルで、MNIST前の練習を行います。</p>
+
+<pre><code class="language-python">def make_binary_vector_data(n=120):
+    # 成分0: 前半が1になりやすい, 成分1: 後半が1になりやすい
+    mu0 = [0.85, 0.75, 0.7, 0.2, 0.15, 0.1]
+    mu1 = [0.2, 0.25, 0.3, 0.8, 0.75, 0.7]
+    pi = 0.55
+
+    xs = []
+    zs = []
+    for _ in range(n):
+        z = 0 if random.random() &lt; pi else 1
+        mu = mu0 if z == 0 else mu1
+        x = [1 if random.random() &lt; p else 0 for p in mu]
+        xs.append(x)
+        zs.append(z)
+    return xs, zs
+
+
+vec_data, vec_latent = make_binary_vector_data(n=160)
+print(&#39;sample x[0:3] =&#39;, vec_data[:3])
+print(&#39;latent count =&#39;, vec_latent.count(0), vec_latent.count(1))</code></pre>
+<pre><code class="language-python">def bernoulli_vec_prob(x, mu):
+    prob = 1.0
+    for xi, p in zip(x, mu):
+        p = min(max(p, 1e-8), 1 - 1e-8)
+        prob *= p if xi == 1 else (1 - p)
+    return prob
+
+
+def e_step_vec(data, pi, mu0, mu1):
+    g = []
+    for x in data:
+        a = pi * bernoulli_vec_prob(x, mu0)
+        b = (1 - pi) * bernoulli_vec_prob(x, mu1)
+        g.append(a / max(a + b, 1e-12))
+    return g
+
+
+def m_step_vec(data, g):
+    n = len(data)
+    d = len(data[0])
+    sum_g = sum(g)
+    sum_1mg = n - sum_g
+
+    pi_new = sum_g / n
+    mu0 = []
+    mu1 = []
+    for j in range(d):
+        num0 = sum(g[i] * data[i][j] for i in range(n))
+        num1 = sum((1 - g[i]) * data[i][j] for i in range(n))
+        mu0.append(min(max(num0 / max(sum_g, 1e-9), 1e-6), 1 - 1e-6))
+        mu1.append(min(max(num1 / max(sum_1mg, 1e-9), 1e-6), 1 - 1e-6))
+    return min(max(pi_new, 1e-6), 1 - 1e-6), mu0, mu1
+
+
+def loglik_vec(data, pi, mu0, mu1):
+    ll = 0.0
+    for x in data:
+        p = pi * bernoulli_vec_prob(x, mu0) + (1 - pi) * bernoulli_vec_prob(x, mu1)
+        ll += math.log(max(p, 1e-12))
+    return ll
+
+
+pi = 0.5
+mu0 = [0.6] * 6
+mu1 = [0.4] * 6
+for t in range(25):
+    g = e_step_vec(vec_data, pi, mu0, mu1)
+    pi, mu0, mu1 = m_step_vec(vec_data, g)
+
+print(&#39;estimated pi =&#39;, round(pi, 3))
+print(&#39;estimated mu0 =&#39;, [round(v, 2) for v in mu0])
+print(&#39;estimated mu1 =&#39;, [round(v, 2) for v in mu1])
+print(&#39;final ll =&#39;, round(loglik_vec(vec_data, pi, mu0, mu1), 3))</code></pre>
+<h2 id="4-混合ガウス分布-gmm-とem">4. 混合ガウス分布（GMM）とEM</h2>
+<p>連続値データでは混合ガウスが基本になります。E-stepで負担率を計算し、M-stepで混合比・平均・共分散を更新します。DGM第2回で扱う中心テーマです。</p>
+
+<pre><code class="language-python">def sample_gmm_2d(n=240):
+    # 2成分の簡易データ
+    params = [
+        {&#39;pi&#39;: 0.5, &#39;mu&#39;: (-1.8, -1.2), &#39;sigma&#39;: (0.55, 0.45)},
+        {&#39;pi&#39;: 0.5, &#39;mu&#39;: (2.2, 1.8), &#39;sigma&#39;: (0.6, 0.5)},
+    ]
+
+    xs = []
+    zs = []
+    for _ in range(n):
+        z = 0 if random.random() &lt; params[0][&#39;pi&#39;] else 1
+        p = params[z]
+        x = (
+            random.gauss(p[&#39;mu&#39;][0], p[&#39;sigma&#39;][0]),
+            random.gauss(p[&#39;mu&#39;][1], p[&#39;sigma&#39;][1]),
+        )
+        xs.append(x)
+        zs.append(z)
+    return xs, zs
+
+
+gmm_data, gmm_true_z = sample_gmm_2d(n=300)
+print(&#39;first 3 points =&#39;, [tuple(round(v, 3) for v in x) for x in gmm_data[:3]])
+print(&#39;true cluster counts =&#39;, gmm_true_z.count(0), gmm_true_z.count(1))</code></pre>
+<pre><code class="language-python">def gaussian_pdf_diag(x, mu, var):
+    # 対角共分散のみ（教育用に簡略化）
+    v0 = max(var[0], 1e-6)
+    v1 = max(var[1], 1e-6)
+    z0 = (x[0] - mu[0]) ** 2 / v0
+    z1 = (x[1] - mu[1]) ** 2 / v1
+    coef = 1.0 / (2 * math.pi * math.sqrt(v0 * v1))
+    return coef * math.exp(-0.5 * (z0 + z1))
+
+
+def e_step_gmm_diag(data, pis, mus, vars_):
+    gamma = []
+    for x in data:
+        probs = [pis[k] * gaussian_pdf_diag(x, mus[k], vars_[k]) for k in range(2)]
+        s = sum(probs) + 1e-12
+        gamma.append([p / s for p in probs])
+    return gamma
+
+
+def m_step_gmm_diag(data, gamma):
+    n = len(data)
+    nk = [sum(g[k] for g in gamma) for k in range(2)]
+    pis = [nk[k] / n for k in range(2)]
+
+    mus = []
+    vars_ = []
+    for k in range(2):
+        mx = sum(gamma[i][k] * data[i][0] for i in range(n)) / max(nk[k], 1e-12)
+        my = sum(gamma[i][k] * data[i][1] for i in range(n)) / max(nk[k], 1e-12)
+        mus.append((mx, my))
+
+        vx = sum(gamma[i][k] * (data[i][0] - mx) ** 2 for i in range(n)) / max(nk[k], 1e-12)
+        vy = sum(gamma[i][k] * (data[i][1] - my) ** 2 for i in range(n)) / max(nk[k], 1e-12)
+        vars_.append((max(vx, 1e-4), max(vy, 1e-4)))
+
+    return pis, mus, vars_
+
+
+def loglik_gmm_diag(data, pis, mus, vars_):
+    ll = 0.0
+    for x in data:
+        p = 0.0
+        for k in range(2):
+            p += pis[k] * gaussian_pdf_diag(x, mus[k], vars_[k])
+        ll += math.log(max(p, 1e-12))
+    return ll
+
+
+pis = [0.5, 0.5]
+mus = [(-0.5, -2.5), (1.0, 2.5)]
+vars_ = [(1.2, 1.0), (1.0, 1.3)]
+ll_trace = []
+
+for t in range(30):
+    gamma = e_step_gmm_diag(gmm_data, pis, mus, vars_)
+    pis, mus, vars_ = m_step_gmm_diag(gmm_data, gamma)
+    ll = loglik_gmm_diag(gmm_data, pis, mus, vars_)
+    ll_trace.append(ll)
+    if t % 5 == 0 or t == 29:
+        print(f&#39;iter={t:02d} pis={[round(v,3) for v in pis]} mus={[tuple(round(u,2) for u in m) for m in mus]} ll={ll:.2f}&#39;)
+
+print(&#39;monotonic ll =&#39;, all(ll_trace[i] &lt;= ll_trace[i+1] + 1e-8 for i in range(len(ll_trace)-1)))</code></pre>
+<pre><code class="language-python"># ソフト割当の例: 境界付近では責任率が0/1に張り付きにくい
+mid = ((mus[0][0] + mus[1][0]) / 2, (mus[0][1] + mus[1][1]) / 2)
+probe_points = [
+    (mid[0], mid[1]),
+    (mid[0] + 0.4, mid[1] + 0.2),
+    (mid[0] - 0.4, mid[1] - 0.2),
+    (mus[0][0], mus[0][1]),
+    (mus[1][0], mus[1][1]),
+]
+for x in probe_points:
+    g = e_step_gmm_diag([x], pis, mus, vars_)[0]
+    print(&#39;x=&#39;, tuple(round(v,2) for v in x), &#39;responsibility=&#39;, [round(v, 3) for v in g])</code></pre>
+<p>責任率が0/1に張り付かない点が重要です。これにより、境界データを無理にハード割当せずに学習できます。K-meansが苦手な場面でGMMが効く理由の1つです。</p>
+
+<h2 id="5-実務での注意点">5. 実務での注意点</h2>
+<p>EMは強力ですが、次の点で失敗しやすいです。</p>
+<ul>
+<li>初期値依存: 局所解に落ちる（複数初期値で比較）</li>
+<li>成分崩壊: 1成分にデータが集中しすぎる</li>
+<li>共分散特異: 分散が極小になって不安定（正則化が必要）</li>
+<li>成分数Kの選択: 大きすぎると過学習</li>
+</ul>
+<p>AIC/BICや検証データ尤度を使って <code>K</code> を決めるのが基本です。</p>
+
+<pre><code class="language-python">def bic(loglik, n_samples, n_params):
+    return -2 * loglik + n_params * math.log(max(n_samples, 2))
+
+
+n = len(gmm_data)
+# 2成分・2次元・対角分散の粗いパラメータ数:
+# pi(1自由度) + mu(2*2) + var(2*2) = 9
+bic_score = bic(ll_trace[-1], n_samples=n, n_params=9)
+print(&#39;final loglik =&#39;, round(ll_trace[-1], 2))
+print(&#39;BIC (rough)  =&#39;, round(bic_score, 2))</code></pre>
+<p>潜在変数モデルと混合モデルの核は、「見えない変数を推論しながら分布を学習する」ことです。EMはこの目的に対する最も重要な基本アルゴリズムです。</p>
+<p>このあとVAEや拡散モデルを学ぶときも、実は同じ構図が続きます。観測されない中間変数をうまく扱うことで、生成の表現力と安定性を上げていく、という流れです。</p>
 
 </article>
   </main>
