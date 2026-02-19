@@ -98,89 +98,307 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+import statistics
+import time</code></pre>
 <h1 id="エネルギーベースモデル">エネルギーベースモデル</h1>
-<p>エネルギーベースモデルでは、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<p>エネルギーベースモデル（EBM）は、確率分布を「正規化された確率」ではなく「エネルギー関数」で表す考え方です。データらしい点には低いエネルギーを、データらしくない点には高いエネルギーを与えるように学習します。</p>
+<p>このノートでは、1次元の最小実装で EBM の核を確認します。特に、SGLD と Replay Buffer を使った学習が何をしているかをコードで追います。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>エネルギーベースモデルに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>EBM の基本式は次です。</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mi>exp</mi><mo>(</mo><mo>−</mo><msub><mi>E</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>)</mo></mrow><mrow><msub><mi>Z</mi><mi>θ</mi></msub></mrow></mfrac><mo separator="true">,</mo><mspace width="2em"></mspace><msub><mi>Z</mi><mi>θ</mi></msub><mo>=</mo><mo>∫</mo><mi>exp</mi><mo>(</mo><mo>−</mo><msub><mi>E</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>)</mo><mi>d</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">p_\theta(x)=\frac{\exp(-E_\theta(x))}{Z_\theta},\qquad Z_\theta=\int \exp(-E_\theta(x))dx
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.427em;"></span><span class="strut bottom" style="height:2.28925em;vertical-align:-0.86225em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle displaystyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.686em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle cramped"><span class="mord textstyle cramped"><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">Z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.07153em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.677em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped"><span class="mord textstyle uncramped"><span class="mop">exp</span><span class="mopen">(</span><span class="mord">−</span><span class="mord"><span class="mord mathit" style="margin-right:0.05764em;">E</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">)</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mpunct">,</span><span class="mord mspace qquad"></span><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">Z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.07153em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="op-symbol large-op mop" style="margin-right:0.44445em;top:-0.0011249999999999316em;">∫</span><span class="mop">exp</span><span class="mopen">(</span><span class="mord">−</span><span class="mord"><span class="mord mathit" style="margin-right:0.05764em;">E</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">)</span><span class="mord mathit">d</span><span class="mord mathit">x</span></span></span></span></span></p>
+<p>ここで難しいのは分配関数 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>Z</mi><mi>θ</mi></msub></mrow><annotation encoding="application/x-tex">Z_\theta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.68333em;"></span><span class="strut bottom" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">Z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.07153em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> です。高次元では厳密計算がほぼ不可能なので、学習では</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>エネルギー関数</strong>: 入力の尤もらしさをスカラー値で表す関数です。低いほど尤もらしいです。</li>
-<li><strong>分配関数</strong>: 正規化に必要な積分項で、学習を難しくする要因です。</li>
+<li>データ点のエネルギーを下げる</li>
+<li>モデルサンプル（負例）のエネルギーを上げる</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>という contrastive な差分で更新します。IGEBM系の実装でもこの考え方が中心です。</p>
 
-<h2 id="観察-1-エネルギー地形の入口">観察 1: エネルギー地形の入口</h2>
-<p>EBMでは確率そのものよりエネルギーの相対差を見ます。潜在点列を準備します。</p>
+<p>まず学習対象データを作ります。2モード混合分布を使い、モード構造を再現できるか確認しやすくします。</p>
 
-<pre><code class="language-python">import random
-random.seed(29)
-z = [round(random.uniform(-2, 2), 3) for _ in range(5)]
-print(&#39;task = energy-based-models&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>この点列を使ってエネルギーの高低を比較します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">random.seed(31)
 
-<h2 id="観察-2-単純なデコーダを書く">観察 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+def sample_real(n: int):
+    xs = []
+    for _ in range(n):
+        if random.random() &lt; 0.55:
+            xs.append(random.gauss(-2.0, 0.45))
+        else:
+            xs.append(random.gauss(1.8, 0.55))
+    return xs
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mo>∫</mo><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>∣</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>p</mi><mo>(</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>d</mi><mi>z</mi></mrow><annotation encoding="application/x-tex">p_{\theta}(x) = \int p_{\theta}(x\mid z)\,p(z)\,dz</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.805em;"></span><span class="strut bottom" style="height:1.11112em;vertical-align:-0.30612em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="op-symbol small-op mop" style="margin-right:0.19445em;top:-0.0005599999999999772em;">∫</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mrel">∣</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">d</span><span class="mord mathit" style="margin-right:0.04398em;">z</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>s</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><mi>p</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">s(x) = \nabla_x \log p(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">s</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-</ol>
+def describe(xs):
+    left = sum(1 for x in xs if x &lt; 0) / len(xs)
+    right = 1.0 - left
+    return {
+        &#39;mean&#39;: statistics.mean(xs),
+        &#39;std&#39;: statistics.pstdev(xs),
+        &#39;left&#39;: left,
+        &#39;right&#39;: right,
+    }
 
-<h2 id="観察-3-ノイズを加えて復元する">観察 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
+real_data = sample_real(2400)
+stats = describe(real_data)
+print(&#39;dataset size =&#39;, len(real_data))
+print(&#39;mean/std     =&#39;, round(stats[&#39;mean&#39;], 4), round(stats[&#39;std&#39;], 4))
+print(&#39;left/right   =&#39;, round(stats[&#39;left&#39;], 4), round(stats[&#39;right&#39;], 4))</code></pre>
+<p>今回は 2 つの井戸（well）を持つエネルギー関数を使います。</p>
+<ul>
+<li><code>e1(x)=a1(x-m1)^2 + k1</code></li>
+<li><code>e2(x)=a2(x-m2)^2 + k2</code></li>
+<li><code>E(x)=-log(exp(-e1)+exp(-e2))+c</code></li>
+</ul>
+<p><code>a1,a2</code> は正である必要があるため <code>a=exp(raw_a)</code> として実装します。<code>k1,k2</code> は井戸の深さを調整する項で、モード比率（重み）を表現しやすくする役割があります。</p>
 
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">def stable_logsumexp(a, b):
+    m = a if a &gt; b else b
+    return m + math.log(math.exp(a - m) + math.exp(b - m))
 
-<h2 id="観察-4-混合分布の感覚を作る">観察 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
 
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def clip_raw_a(v):
+    return max(-5.0, min(5.0, v))
 
-<h2 id="観察-5-学習指標を定義する">観察 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
 
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def energy_value(x, theta):
+    # theta = [raw_a1, m1, k1, raw_a2, m2, k2, c]
+    raw_a1, m1, k1, raw_a2, m2, k2, c = theta
+    a1 = math.exp(clip_raw_a(raw_a1))
+    a2 = math.exp(clip_raw_a(raw_a2))
 
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+    e1 = a1 * (x - m1) ** 2 + k1
+    e2 = a2 * (x - m2) ** 2 + k2
+    return -stable_logsumexp(-e1, -e2) + c
+
+
+def energy_and_grads(x, theta):
+    raw_a1, m1, k1, raw_a2, m2, k2, c = theta
+    raw_a1 = clip_raw_a(raw_a1)
+    raw_a2 = clip_raw_a(raw_a2)
+    a1 = math.exp(raw_a1)
+    a2 = math.exp(raw_a2)
+
+    d1 = x - m1
+    d2 = x - m2
+    e1 = a1 * d1 * d1 + k1
+    e2 = a2 * d2 * d2 + k2
+
+    u1 = math.exp(-e1)
+    u2 = math.exp(-e2)
+    den = u1 + u2
+    w1 = u1 / den
+    w2 = 1.0 - w1
+
+    energy = -math.log(den) + c
+
+    grad_x = w1 * (2.0 * a1 * d1) + w2 * (2.0 * a2 * d2)
+
+    grad_raw_a1 = w1 * (d1 * d1) * a1
+    grad_m1 = w1 * (-2.0 * a1 * d1)
+    grad_k1 = w1
+
+    grad_raw_a2 = w2 * (d2 * d2) * a2
+    grad_m2 = w2 * (-2.0 * a2 * d2)
+    grad_k2 = w2
+
+    grad_c = 1.0
+
+    grads = [grad_raw_a1, grad_m1, grad_k1, grad_raw_a2, grad_m2, grad_k2, grad_c]
+    return energy, grad_x, grads
+
+
+theta_demo = [0.1, -1.2, 0.0, 0.2, 1.3, 0.2, 0.0]
+for x in [-2.0, -0.2, 1.5]:
+    e, gx, gp = energy_and_grads(x, theta_demo)
+    print(&#39;x=&#39;, x, &#39;E=&#39;, round(e, 5), &#39;dE/dx=&#39;, round(gx, 5), &#39;dE/dk1=&#39;, round(gp[2], 5))</code></pre>
+<p>次に SGLD で負例を作ります。</p>
+<p><code>x &lt;- x - step_size * dE/dx + noise_std * N(0,1)</code></p>
+<p><code>-dE/dx</code> はエネルギーを下げる方向なので、低エネルギー領域に集まりやすくなります。ノイズ項は探索性を保つ役割を持ちます。</p>
+
+<pre><code class="language-python">class SampleReplayBuffer:
+    def __init__(self, max_size=12000):
+        self.max_size = max_size
+        self.items = []
+
+    def add(self, xs):
+        self.items.extend(xs)
+        if len(self.items) &gt; self.max_size:
+            self.items = self.items[-self.max_size :]
+
+    def sample(self, n):
+        if not self.items:
+            return []
+        if n &gt;= len(self.items):
+            return self.items[:]
+        return random.sample(self.items, n)
+
+
+def sgld_samples(theta, x_init, n_steps=40, step_size=0.06, noise_std=0.08):
+    xs = x_init[:]
+    for _ in range(n_steps):
+        for i in range(len(xs)):
+            _, grad_x, _ = energy_and_grads(xs[i], theta)
+            xs[i] = xs[i] - step_size * grad_x + noise_std * random.gauss(0.0, 1.0)
+            xs[i] = max(-6.0, min(6.0, xs[i]))
+    return xs
+
+
+buffer = SampleReplayBuffer(max_size=5000)
+start = [random.uniform(-4.0, 4.0) for _ in range(8)]
+sgld_out = sgld_samples(theta_demo, start, n_steps=30)
+print(&#39;init  =&#39;, [round(v, 3) for v in start])
+print(&#39;sgld  =&#39;, [round(v, 3) for v in sgld_out])
+buffer.add(sgld_out)
+print(&#39;buffer size =&#39;, len(buffer.items))</code></pre>
+<p>学習目的は</p>
+<p><code>L(θ)=E_data[Eθ(x)] - E_neg[Eθ(x)] + λ * regularizer</code></p>
+<p>です。これを最小化すると、データ近傍は低エネルギー、負例近傍は高エネルギーになります。</p>
+
+<pre><code class="language-python">def mean_grads(xs, theta):
+    g = [0.0] * 7
+    e_sum = 0.0
+    for x in xs:
+        e, _, gp = energy_and_grads(x, theta)
+        e_sum += e
+        for i in range(7):
+            g[i] += gp[i]
+    n = len(xs)
+    return e_sum / n, [v / n for v in g]
+
+
+def train_ebm(theta_init, real_data, steps=380, batch_size=96, lr=0.016, reg=8e-4, replay_ratio=0.7):
+    theta = theta_init[:]
+    replay = SampleReplayBuffer(max_size=14000)
+    history = []
+
+    for step in range(steps + 1):
+        x_data = random.sample(real_data, batch_size)
+
+        n_replay = int(batch_size * replay_ratio)
+        x_neg0 = replay.sample(n_replay)
+        if len(x_neg0) &lt; batch_size:
+            x_neg0 = x_neg0 + [random.uniform(-4.5, 4.5) for _ in range(batch_size - len(x_neg0))]
+
+        x_neg = sgld_samples(theta, x_neg0, n_steps=30, step_size=0.055, noise_std=0.085)
+        replay.add(x_neg)
+
+        e_data, g_data = mean_grads(x_data, theta)
+        e_neg, g_neg = mean_grads(x_neg, theta)
+
+        # L = E_data - E_neg + reg * (raw_a1^2 + raw_a2^2 + 0.2*(k1^2+k2^2))
+        grads = [g_data[i] - g_neg[i] for i in range(7)]
+        grads[0] += 2.0 * reg * theta[0]
+        grads[3] += 2.0 * reg * theta[3]
+        grads[2] += 2.0 * reg * 0.2 * theta[2]
+        grads[5] += 2.0 * reg * 0.2 * theta[5]
+
+        theta = [theta[i] - lr * grads[i] for i in range(7)]
+
+        theta[0] = max(-3.0, min(3.0, theta[0]))
+        theta[3] = max(-3.0, min(3.0, theta[3]))
+        theta[1] = max(-4.0, min(4.0, theta[1]))
+        theta[4] = max(-4.0, min(4.0, theta[4]))
+        theta[2] = max(-3.0, min(3.0, theta[2]))
+        theta[5] = max(-3.0, min(3.0, theta[5]))
+
+        if step % 40 == 0:
+            gap = e_data - e_neg
+            history.append((step, e_data, e_neg, gap, theta[:], len(replay.items)))
+
+    return theta, history, replay
+
+
+random.seed(31)
+theta0 = [0.0, -0.2, 0.0, 0.0, 0.2, 0.0, 0.0]
+trained_theta, history, replay = train_ebm(theta0, real_data)
+
+for step, e_d, e_n, gap, th, rs in history:
+    print(
+        f&#39;step={step:03d}&#39;,
+        f&#39;E_data={round(e_d,4)}&#39;,
+        f&#39;E_neg={round(e_n,4)}&#39;,
+        f&#39;gap={round(gap,4)}&#39;,
+        f&#39;theta={[round(v,4) for v in th]}&#39;,
+        f&#39;replay={rs}&#39;
+    )</code></pre>
+<pre><code class="language-python">def draw_model_samples(theta, n=2600):
+    init = [random.uniform(-4.5, 4.5) for _ in range(n)]
+    return sgld_samples(theta, init, n_steps=60, step_size=0.05, noise_std=0.07)
+
+
+random.seed(31)
+model_samples = draw_model_samples(trained_theta)
+real_stats = describe(real_data)
+model_stats = describe(model_samples)
+
+print(&#39;real  mean/std =&#39;, round(real_stats[&#39;mean&#39;], 4), round(real_stats[&#39;std&#39;], 4))
+print(&#39;model mean/std =&#39;, round(model_stats[&#39;mean&#39;], 4), round(model_stats[&#39;std&#39;], 4))
+print(&#39;real  left/right =&#39;, round(real_stats[&#39;left&#39;], 4), round(real_stats[&#39;right&#39;], 4))
+print(&#39;model left/right =&#39;, round(model_stats[&#39;left&#39;], 4), round(model_stats[&#39;right&#39;], 4))
+print(&#39;trained theta =&#39;, [round(v, 4) for v in trained_theta])</code></pre>
+<pre><code class="language-python">def approx_partition(theta, x_min=-6.0, x_max=6.0, n_grid=5000):
+    dx = (x_max - x_min) / n_grid
+    s = 0.0
+    for i in range(n_grid):
+        x = x_min + (i + 0.5) * dx
+        s += math.exp(-energy_value(x, theta))
+    return s * dx
+
+
+def approx_density(theta, x, z_est):
+    return math.exp(-energy_value(x, theta)) / z_est
+
+
+z_est = approx_partition(trained_theta)
+print(&#39;approx Z =&#39;, round(z_est, 6))
+
+probe_points = [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0]
+for x in probe_points:
+    p = approx_density(trained_theta, x, z_est)
+    print(&#39;x=&#39;, f&#39;{x:&gt;4.1f}&#39;, &#39;E=&#39;, round(energy_value(x, trained_theta), 4), &#39;p~&#39;, round(p, 6))</code></pre>
+<p>ここまでで、EBMの実装上の核心を確認できました。</p>
+<ul>
+<li>分配関数を直接最適化しない</li>
+<li>SGLDで負例を生成する</li>
+<li>Replay Bufferで負例初期値を再利用する</li>
+</ul>
+<p>IGEBMなどの実践モデルでは、ここに CNN/ResNet、スペクトル正規化、強いデータ拡張を組み合わせて高次元へ拡張します。</p>
+
+<pre><code class="language-python"># 学習失敗の典型例: SGLDステップ不足
+
+def quick_train_with_sgld_steps(real_data, sgld_steps):
+    random.seed(77 + sgld_steps)
+    theta = [0.0, -0.1, 0.0, 0.0, 0.1, 0.0, 0.0]
+    replay = SampleReplayBuffer(max_size=5000)
+
+    for _ in range(140):
+        x_data = random.sample(real_data, 64)
+        x_neg0 = replay.sample(44)
+        x_neg0 = x_neg0 + [random.uniform(-4.5, 4.5) for _ in range(64 - len(x_neg0))]
+        x_neg = sgld_samples(theta, x_neg0, n_steps=sgld_steps, step_size=0.055, noise_std=0.085)
+        replay.add(x_neg)
+
+        _, g_data = mean_grads(x_data, theta)
+        _, g_neg = mean_grads(x_neg, theta)
+        grads = [g_data[i] - g_neg[i] for i in range(7)]
+        theta = [theta[i] - 0.016 * grads[i] for i in range(7)]
+        theta[0] = max(-3.0, min(3.0, theta[0]))
+        theta[3] = max(-3.0, min(3.0, theta[3]))
+
+    samples = draw_model_samples(theta, n=1200)
+    return describe(samples)
+
+
+stats_short = quick_train_with_sgld_steps(real_data, sgld_steps=5)
+stats_long = quick_train_with_sgld_steps(real_data, sgld_steps=35)
+
+print(&#39;short SGLD steps (5) :&#39;, {k: round(v, 4) for k, v in stats_short.items()})
+print(&#39;long  SGLD steps (35):&#39;, {k: round(v, 4) for k, v in stats_long.items()})
+print(&#39;real target          :&#39;, {k: round(v, 4) for k, v in describe(real_data).items()})</code></pre>
+<p>SGLDステップが少なすぎると、負例がモデル分布を十分に近似できず、エネルギー地形の更新が偏ります。実務では、SGLDステップ数、ノイズ強度、Replay比率をセットで調整します。</p>
+<p>EBMの視点を持つと、スコアモデルや拡散モデルで出てくる「勾配で分布へ寄せる」考え方も同じ地図の上で理解しやすくなります。</p>
 
 </article>
   </main>
