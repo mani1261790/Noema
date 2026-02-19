@@ -98,88 +98,645 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import ast
+import operator as op
+import re
+from html.parser import HTMLParser
+
+import numpy as np</code></pre>
 <h1 id="tool-useとrag">Tool UseとRAG</h1>
-<p>Tool UseとRAGでは、モデル呼び出し以前に入力設計と評価設計を固める習慣を作ります。</p>
+<p>RAG（Retrieval Augmented Generation）は、外部知識を検索してから回答を生成する方式です。<br>
+Tool Useは、計算・検索・Web操作などをツール呼び出しとして明示的に実行する方式です。<br>
+このノートでは、RAGとTool Useを同じ推論ループで扱う最小実装を作ります。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>Tool UseとRAGに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>まずRAGの最小パイプラインを作ります。</p>
+<p>実行前提: Python 3.10+ と <code>numpy</code> が必要です。未導入なら <code>pip install numpy</code> を実行してください。</p>
+<ol>
+<li>文書をチャンク化</li>
+<li>検索で上位チャンクを取得</li>
+<li>必要なら再ランキング</li>
+<li>取得文脈を使って回答生成（根拠付き）</li>
+</ol>
+<p>このノートでは固定長チャンクと文単位チャンクを同じインデックスに入れて比較します。<br>
+後段で重複除外を行い、どちらの分割が効いたかを観察できるようにしています。</p>
+<p>用語メモ</p>
 <ul>
-<li><strong>トークン</strong>: モデルが処理する最小単位です。日本語では1文字単位とは限りません。</li>
-<li><strong>次トークン確率</strong>: 文脈に対して次に出る候補の確率分布です。生成の中核です。</li>
-<li><strong>コンテキスト</strong>: モデルに渡す入力全体です。指示・資料・履歴が含まれます。</li>
-<li><strong>RAG</strong>: 検索で得た外部文脈を使って生成を根拠付きにする手法です。</li>
-<li><strong>グラウンディング</strong>: 回答を参照情報に結び付けることで幻覚を抑える考え方です。</li>
+<li><code>hit@k</code>: 上位k件のどこかに正解文書が入る割合</li>
+<li><code>MRR</code>: 正解順位の逆数平均（1位=1.0, 2位=0.5）</li>
+<li><code>routing accuracy</code>: 質問に対して適切なツールを選べた割合</li>
+<li><code>lexical overlap</code>: 回答語と根拠文脈語の重なり率（厳密な事実性指標ではない）</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
 
-<h2 id="観察-1-トークン近似を体験する">観察 1: トークン近似を体験する</h2>
-<p>最初に、入力長とトークン量の関係を簡易計測します。コスト管理の第一歩です。</p>
+<pre><code class="language-python">knowledge_docs = [
+    {
+        &#39;id&#39;: &#39;doc-rl-1&#39;,
+        &#39;title&#39;: &#39;強化学習の基礎&#39;,
+        &#39;text&#39;: &#39;ベルマン最適方程式は最適価値関数を再帰的に定義する。価値反復法はこの更新を繰り返す。&#39;,
+    },
+    {
+        &#39;id&#39;: &#39;doc-llm-1&#39;,
+        &#39;title&#39;: &#39;LLMのファインチューニング&#39;,
+        &#39;text&#39;: &#39;SFTは指示と回答ペアを用いて応答スタイルを調整する。LoRAは低ランク行列のみを更新する。&#39;,
+    },
+    {
+        &#39;id&#39;: &#39;doc-rag-1&#39;,
+        &#39;title&#39;: &#39;RAGの実装ポイント&#39;,
+        &#39;text&#39;: &#39;固定長チャンクと意味チャンクで検索精度が変わる。再ランキングで関連度上位を並び替えると精度が改善する。&#39;,
+    },
+    {
+        &#39;id&#39;: &#39;doc-safe-1&#39;,
+        &#39;title&#39;: &#39;ガードレール&#39;,
+        &#39;text&#39;: &#39;Input Railsは危険入力を検知して遮断する。Output Railsは生成結果を検査して安全性を保つ。&#39;,
+    },
+]
 
-<pre><code class="language-python">text = &#39;大規模言語モデルは文脈の与え方で応答品質が大きく変わる。&#39;
-char_len = len(text)
-space_tokens = text.split()
-rough_tokens = max(1, char_len // 2)
-print(&#39;chars=&#39;, char_len, &#39;space_tokens=&#39;, len(space_tokens), &#39;rough_tokens=&#39;, rough_tokens)</code></pre>
-<p>厳密なトークン化ではありませんが、入力を短く保つ設計感覚を作るには十分です。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+for d in knowledge_docs:
+    print(d[&#39;id&#39;], d[&#39;title&#39;])</code></pre>
+<pre><code class="language-python">def fixed_length_chunk(text, chunk_size=26, overlap=6):
+    chunks = []
+    i = 0
+    while i &lt; len(text):
+        chunks.append(text[i:i+chunk_size])
+        if i + chunk_size &gt;= len(text):
+            break
+        i += chunk_size - overlap
+    return chunks
 
-<h2 id="観察-2-プロンプトを構造化する">観察 2: プロンプトを構造化する</h2>
-<p>次に、指示・制約・出力形式を分離したテンプレートを作ります。曖昧さを減らすための実装技法です。</p>
 
-<pre><code class="language-python">instruction = &#39;勾配降下法を初学者向けに説明する&#39;
-constraints = [&#39;120字以内&#39;, &#39;比喩は1つまで&#39;, &#39;最後に要点を1行でまとめる&#39;]
-prompt = f&quot;指示: {instruction}\n制約: {&#39;; &#39;.join(constraints)}\n出力:&quot;
-print(prompt)
-print(&#39;prompt_chars=&#39;, len(prompt))</code></pre>
-<p>この形にすると、失敗原因を特定しやすくなります。品質改善は原因分離のしやすさで決まります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def sentence_chunk(text):
+    parts = re.split(r&#39;[。!?！？]&#39;, text)
+    return [p.strip() for p in parts if p.strip()]
 
-<h2 id="計算の対応表">計算の対応表</h2>
+
+chunk_db = []
+for doc in knowledge_docs:
+    # 教材用に2方式を併走して比較し、後段で重複除外する
+    f_chunks = fixed_length_chunk(doc[&#39;text&#39;])
+    s_chunks = sentence_chunk(doc[&#39;text&#39;])
+
+    for idx, c in enumerate(f_chunks):
+        chunk_db.append({
+            &#39;chunk_id&#39;: f&quot;{doc[&#39;id&#39;]}-f{idx}&quot;,
+            &#39;doc_id&#39;: doc[&#39;id&#39;],
+            &#39;title&#39;: doc[&#39;title&#39;],
+            &#39;text&#39;: c,
+            &#39;mode&#39;: &#39;fixed&#39;,
+        })
+
+    for idx, c in enumerate(s_chunks):
+        chunk_db.append({
+            &#39;chunk_id&#39;: f&quot;{doc[&#39;id&#39;]}-s{idx}&quot;,
+            &#39;doc_id&#39;: doc[&#39;id&#39;],
+            &#39;title&#39;: doc[&#39;title&#39;],
+            &#39;text&#39;: c,
+            &#39;mode&#39;: &#39;sentence&#39;,
+        })
+
+print(&#39;chunk count:&#39;, len(chunk_db))
+print(&#39;fixed sample   :&#39;, [c[&#39;text&#39;] for c in chunk_db if c[&#39;mode&#39;] == &#39;fixed&#39;][:2])
+print(&#39;sentence sample:&#39;, [c[&#39;text&#39;] for c in chunk_db if c[&#39;mode&#39;] == &#39;sentence&#39;][:2])</code></pre>
+<pre><code class="language-python">def tokenize_ja_like(s):
+    s = re.sub(r&#39;\s+&#39;, &#39;&#39;, s)
+    # 教育用: 文字2-gramでトークン化
+    if len(s) &lt; 2:
+        return [s] if s else []
+    return [s[i:i+2] for i in range(len(s)-1)]
+
+
+def build_tfidf_index(chunks):
+    tokenized = [tokenize_ja_like(c[&#39;text&#39;]) for c in chunks]
+    vocab = sorted(set(t for toks in tokenized for t in toks))
+    stoi = {t: i for i, t in enumerate(vocab)}
+
+    # TF: チャンク内の語頻度
+    tf = np.zeros((len(chunks), len(vocab)), dtype=np.float64)
+    for i, toks in enumerate(tokenized):
+        for t in toks:
+            tf[i, stoi[t]] += 1.0
+
+    # DF: その語を含むチャンク数, IDF: 珍しい語を重くする係数
+    df = np.count_nonzero(tf &gt; 0, axis=0)
+    idf = np.log((1 + len(chunks)) / (1 + df)) + 1.0
+
+    tfidf = tf * idf[None, :]
+    norm = np.linalg.norm(tfidf, axis=1, keepdims=True) + 1e-12
+    tfidf = tfidf / norm
+
+    return {
+        &#39;vocab&#39;: vocab,
+        &#39;stoi&#39;: stoi,
+        &#39;idf&#39;: idf,
+        &#39;matrix&#39;: tfidf,
+        &#39;chunks&#39;: chunks,
+    }
+
+
+def query_vector(query, index):
+    v = np.zeros(len(index[&#39;vocab&#39;]), dtype=np.float64)
+    for t in tokenize_ja_like(query):
+        j = index[&#39;stoi&#39;].get(t)
+        if j is not None:
+            v[j] += 1.0
+    v = v * index[&#39;idf&#39;]
+    v /= np.linalg.norm(v) + 1e-12
+    return v
+
+
+def retrieve(query, index, top_k=5):
+    q = query_vector(query, index)
+    scores = index[&#39;matrix&#39;] @ q
+    order = np.argsort(scores)[::-1][:top_k]
+    out = []
+    for i in order:
+        ch = index[&#39;chunks&#39;][i]
+        out.append({
+            &#39;chunk_id&#39;: ch[&#39;chunk_id&#39;],
+            &#39;doc_id&#39;: ch[&#39;doc_id&#39;],
+            &#39;title&#39;: ch[&#39;title&#39;],
+            &#39;text&#39;: ch[&#39;text&#39;],
+            &#39;score&#39;: float(scores[i]),
+            &#39;mode&#39;: ch[&#39;mode&#39;],
+        })
+    return out
+
+
+index = build_tfidf_index(chunk_db)
+res = retrieve(&#39;ベルマン最適方程式を説明して&#39;, index, top_k=6)
+for r in res:
+    print(r[&#39;chunk_id&#39;], round(r[&#39;score&#39;], 4), r[&#39;text&#39;])</code></pre>
+<pre><code class="language-python">def rerank(query, retrieved):
+    q_terms = set(tokenize_ja_like(query))
+    reranked = []
+    for r in retrieved:
+        c_terms = set(tokenize_ja_like(r[&#39;text&#39;]))
+        title_terms = set(tokenize_ja_like(r[&#39;title&#39;]))
+
+        overlap = len(q_terms &amp; c_terms) / max(len(q_terms), 1)
+        title_overlap = len(q_terms &amp; title_terms) / max(len(q_terms), 1)
+
+        # これは確率ではなく線形スコア。重みは検証データで調整する。
+        score = 0.65 * r[&#39;score&#39;] + 0.25 * overlap + 0.10 * title_overlap
+        rr = dict(r)
+        rr[&#39;rerank_score&#39;] = float(score)
+        reranked.append(rr)
+    reranked.sort(key=lambda x: x[&#39;rerank_score&#39;], reverse=True)
+    return reranked
+
+
+query = &#39;ベルマン最適方程式を1文で説明して&#39;
+retrieved = retrieve(query, index, top_k=6)
+reranked = rerank(query, retrieved)
+
+print(&#39;top reranked chunks:&#39;)
+for r in reranked[:3]:
+    print(r[&#39;chunk_id&#39;], round(r[&#39;rerank_score&#39;], 4), &#39;|&#39;, r[&#39;text&#39;])</code></pre>
+<pre><code class="language-python">def generate_with_citations(query, ranked_chunks, max_chunks=3):
+    ctx = ranked_chunks[:max_chunks]
+
+    # 取得文脈から重なり最大の文を抽出（extractive generation）
+    q_terms = set(tokenize_ja_like(query))
+    best = None
+    for c in ctx:
+        score = len(q_terms &amp; set(tokenize_ja_like(c[&#39;text&#39;])))
+        if best is None or score &gt; best[&#39;score&#39;]:
+            best = {&#39;score&#39;: score, &#39;text&#39;: c[&#39;text&#39;]}
+
+    if best is None or best[&#39;score&#39;] == 0:
+        return {
+            &#39;answer_text&#39;: &#39;根拠文脈で十分な裏付けが見つからなかったため、追加情報が必要です。&#39;,
+            &#39;refs&#39;: [],
+            &#39;used_chunks&#39;: ctx,
+        }
+
+    answer_text = best[&#39;text&#39;]
+    refs = [f&quot;[{c[&#39;doc_id&#39;]}:{c[&#39;chunk_id&#39;]}]&quot; for c in ctx if c[&#39;text&#39;] == best[&#39;text&#39;]]
+    if not refs and ctx:
+        refs = [f&quot;[{ctx[0][&#39;doc_id&#39;]}:{ctx[0][&#39;chunk_id&#39;]}]&quot;]
+
+    return {
+        &#39;answer_text&#39;: answer_text,
+        &#39;refs&#39;: refs,
+        &#39;used_chunks&#39;: ctx,
+    }
+
+
+def lexical_overlap_ratio(answer_text, chunks):
+    # 回答語と根拠文脈語の重なり率（粗い指標）
+    a = set(tokenize_ja_like(answer_text))
+    c = set()
+    for ch in chunks:
+        c |= set(tokenize_ja_like(ch[&#39;text&#39;]))
+    return len(a &amp; c) / max(len(a), 1)
+
+
+query = &#39;ベルマン最適方程式を1文で説明して&#39;
+# これは比較用に手で置いた no-RAG の失敗例（モデル実行結果ではない）
+baseline_no_rag_manual = &#39;ベルマン最適方程式は量子状態を直接最適化する式です。&#39;
+rag_out = generate_with_citations(query, reranked)
+rag_answer = rag_out[&#39;answer_text&#39;] + &#39; &#39; + &#39; &#39;.join(rag_out[&#39;refs&#39;])
+
+print(&#39;manual baseline (no-RAG example):&#39;, baseline_no_rag_manual)
+print(&#39;RAG answer                      :&#39;, rag_answer)
+print(&#39;lexical overlap baseline =&#39;, round(lexical_overlap_ratio(baseline_no_rag_manual, rag_out[&#39;used_chunks&#39;]), 4))
+print(&#39;lexical overlap RAG      =&#39;, round(lexical_overlap_ratio(rag_out[&#39;answer_text&#39;], rag_out[&#39;used_chunks&#39;]), 4))</code></pre>
+<p>ここからTool Useです。<br>
+LLMにすべてを内部推論させるより、外部ツール（検索・計算・Web操作）を明示的に呼び出す設計は、<br>
+失敗箇所の切り分けと監査ログの取得に向いています。<br>
+ただしルーティング誤りやツール側失敗があるので、評価と監視が必須です。</p>
+
+<pre><code class="language-python">def tool_retrieve(query, top_k=3):
+    # 一旦深めに取得してから上位k件へ
+    fetch_k = max(top_k * 3, top_k)
+    r = rerank(query, retrieve(query, index, top_k=fetch_k))
+
+    # 同一テキストの重複を除外
+    dedup = []
+    seen = set()
+    for x in r:
+        key = (x[&#39;doc_id&#39;], x[&#39;text&#39;])
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(x)
+        if len(dedup) &gt;= top_k:
+            break
+
+    return {
+        &#39;type&#39;: &#39;retrieval_result&#39;,
+        &#39;items&#39;: [{
+            &#39;doc_id&#39;: x[&#39;doc_id&#39;],
+            &#39;chunk_id&#39;: x[&#39;chunk_id&#39;],
+            &#39;text&#39;: x[&#39;text&#39;],
+            &#39;score&#39;: x[&#39;rerank_score&#39;],
+        } for x in dedup]
+    }
+
+
+_ALLOWED_BIN_OPS = {
+    ast.Add: op.add,
+    ast.Sub: op.sub,
+    ast.Mult: op.mul,
+    ast.Div: op.truediv,
+    ast.Pow: op.pow,
+}
+_ALLOWED_UNARY_OPS = {ast.UAdd: op.pos, ast.USub: op.neg}
+
+
+def _safe_eval(node):
+    if isinstance(node, ast.Expression):
+        return _safe_eval(node.body)
+
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_UNARY_OPS:
+        return _ALLOWED_UNARY_OPS[type(node.op)](_safe_eval(node.operand))
+
+    if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_BIN_OPS:
+        left = _safe_eval(node.left)
+        right = _safe_eval(node.right)
+
+        # 過剰計算を防ぐ簡易ガード
+        if isinstance(node.op, ast.Pow) and abs(right) &gt; 10:
+            raise ValueError(&#39;exponent too large&#39;)
+
+        out = _ALLOWED_BIN_OPS[type(node.op)](left, right)
+        if abs(out) &gt; 1e12:
+            raise ValueError(&#39;result too large&#39;)
+        return out
+
+    raise ValueError(&#39;unsupported expression&#39;)
+
+
+def tool_calculator(expression):
+    expr = expression.strip()
+    if len(expr) == 0 or len(expr) &gt; 64:
+        return {&#39;type&#39;: &#39;calc_result&#39;, &#39;error&#39;: &#39;invalid expression length&#39;}
+
+    if not re.fullmatch(r&#39;[0-9+\-*/(). ]+&#39;, expr):
+        return {&#39;type&#39;: &#39;calc_result&#39;, &#39;error&#39;: &#39;invalid expression&#39;}
+
+    try:
+        tree = ast.parse(expr, mode=&#39;eval&#39;)
+        value = _safe_eval(tree)
+    except Exception as e:
+        return {&#39;type&#39;: &#39;calc_result&#39;, &#39;error&#39;: str(e)}
+
+    return {&#39;type&#39;: &#39;calc_result&#39;, &#39;value&#39;: value}
+
+
+def extract_expression_from_query(user_query):
+    # クエリ文字列から最も長い算術式っぽい部分を抽出
+    q = user_query.replace(&#39;^&#39;, &#39;**&#39;)
+    segments = re.findall(r&#39;[0-9.() +\-*/]+&#39;, q)
+    candidates = []
+    for seg in segments:
+        expr = seg.strip()
+        if len(expr) &lt; 3:
+            continue
+        if re.search(r&#39;\d&#39;, expr) and re.search(r&#39;[+\-*/]&#39;, expr):
+            candidates.append(expr)
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=len, reverse=True)
+    return candidates[0]
+
+
+def decide_tool(user_query):
+    q = user_query.lower()
+
+    # 日付（例: 2024-01-01）を計算式と誤判定しない
+    date_like = re.search(r&#39;(?&lt;!\d)\d{4}[-/]\d{1,2}[-/]\d{1,2}(?!\d)&#39;, q)
+    calc_intent_terms = [&#39;計算&#39;, &#39;evaluate&#39;, &#39;=&#39;, &#39;solve&#39;]
+    has_calc_intent = any(t in q for t in calc_intent_terms)
+    expr = extract_expression_from_query(user_query)
+
+    if has_calc_intent and expr and not date_like:
+        return {&#39;tool&#39;: &#39;calculator&#39;, &#39;args&#39;: {&#39;expression&#39;: expr}}
+
+    web_action_terms = [&#39;クリック&#39;, &#39;押して&#39;, &#39;tap&#39;, &#39;click&#39;, &#39;選択&#39;, &#39;open&#39;, &#39;開いて&#39;]
+    web_target_terms = [&#39;button&#39;, &#39;ボタン&#39;, &#39;link&#39;, &#39;signin&#39;, &#39;sign in&#39;, &#39;login&#39;, &#39;ログイン&#39;, &#39;html&#39;, &#39;account&#39;, &#39;ページ&#39;]
+    danger_terms = [&#39;delete&#39;, &#39;remove&#39;, &#39;purchase&#39;, &#39;buy&#39;, &#39;送金&#39;, &#39;削除&#39;, &#39;購入&#39;]
+    if any(t in q for t in web_action_terms) and (any(t in q for t in web_target_terms) or any(t in q for t in danger_terms)):
+        return {&#39;tool&#39;: &#39;web_agent&#39;, &#39;args&#39;: {&#39;instruction&#39;: user_query}}
+
+    return {&#39;tool&#39;: &#39;retrieve&#39;, &#39;args&#39;: {&#39;query&#39;: user_query}}
+
+
+for q in [
+    &#39;2+3*4を計算して&#39;,
+    &#39;2*(3+4)を計算して&#39;,
+    &#39;3.5+1.2を計算して&#39;,
+    &#39;ベルマン方程式を説明して&#39;,
+    &#39;Sign In を押して&#39;,
+    &#39;2024-01-01の予定を教えて&#39;,
+]:
+    print(q, &#39;-&gt;&#39;, decide_tool(q))</code></pre>
+<p>Web Agentの最小例として、HTMLからクリック候補を抽出し、<br>
+ユーザー指示との一致度が高い要素を選びます。</p>
+<ul>
+<li><code>Step Success Rate</code>: 各ステップで正しいアクションを選べた割合</li>
+<li><code>Success Rate</code>: 1タスクを最後まで全ステップ正しく完了できた割合</li>
+</ul>
+
+<pre><code class="language-python">class SimpleDOMParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.stack = []
+        self.nodes = []
+
+    def handle_starttag(self, tag, attrs):
+        self.stack.append({
+            &#39;tag&#39;: tag,
+            &#39;attrs&#39;: dict(attrs),
+            &#39;text_parts&#39;: [],
+        })
+
+    def handle_data(self, data):
+        txt = data.strip()
+        if not txt:
+            return
+
+        # 祖先すべてに子孫テキストを集約（button &gt; span のような構造に対応）
+        for node in self.stack:
+            node[&#39;text_parts&#39;].append(txt)
+
+    def handle_endtag(self, tag):
+        if not self.stack:
+            return
+
+        node = self.stack.pop()
+        if node[&#39;tag&#39;] != tag:
+            return
+
+        if node[&#39;tag&#39;] in {&#39;button&#39;, &#39;a&#39;}:
+            attr = node[&#39;attrs&#39;]
+            text = &#39; &#39;.join(node[&#39;text_parts&#39;]).strip()
+            self.nodes.append({
+                &#39;tag&#39;: node[&#39;tag&#39;],
+                &#39;id&#39;: attr.get(&#39;id&#39;, &#39;&#39;),
+                &#39;class&#39;: attr.get(&#39;class&#39;, &#39;&#39;),
+                &#39;href&#39;: attr.get(&#39;href&#39;, &#39;&#39;),
+                &#39;aria_label&#39;: attr.get(&#39;aria-label&#39;, &#39;&#39;),
+                &#39;title&#39;: attr.get(&#39;title&#39;, &#39;&#39;),
+                &#39;text&#39;: text,
+            })
+
+
+def tool_web_agent(html, instruction):
+    parser = SimpleDOMParser()
+    parser.feed(html)
+    inst = instruction.lower()
+
+    dangerous_terms = [&#39;delete&#39;, &#39;remove&#39;, &#39;purchase&#39;, &#39;buy&#39;, &#39;送金&#39;, &#39;削除&#39;, &#39;購入&#39;]
+    if any(t in inst for t in dangerous_terms):
+        return {
+            &#39;type&#39;: &#39;web_action&#39;,
+            &#39;action&#39;: &#39;blocked&#39;,
+            &#39;reason&#39;: &#39;dangerous intent&#39;,
+            &#39;target&#39;: None,
+            &#39;score&#39;: 0.0,
+            &#39;candidates&#39;: 0,
+        }
+
+    cand = []
+    for n in parser.nodes:
+        score = 0.0
+
+        # 行動語が含まれるか（クリック意図）
+        if any(t in inst for t in [&#39;click&#39;, &#39;クリック&#39;, &#39;押して&#39;, &#39;tap&#39;, &#39;open&#39;, &#39;開いて&#39;]):
+            score += 0.2
+
+        searchable = &#39; &#39;.join([n[&#39;text&#39;], n[&#39;id&#39;], n[&#39;class&#39;], n[&#39;aria_label&#39;], n[&#39;title&#39;]]).lower()
+        for key in [&#39;login&#39;, &#39;sign in&#39;, &#39;signin&#39;, &#39;検索&#39;, &#39;送信&#39;, &#39;next&#39;, &#39;ログイン&#39;, &#39;docs&#39;]:
+            if key in inst and key in searchable:
+                score += 0.5
+
+        if n[&#39;id&#39;] and n[&#39;id&#39;].lower() in inst:
+            score += 0.4
+
+        cand.append((score, n))
+
+    cand.sort(key=lambda x: x[0], reverse=True)
+    if not cand or cand[0][0] &lt; 0.6:
+        return {
+            &#39;type&#39;: &#39;web_action&#39;,
+            &#39;action&#39;: &#39;none&#39;,
+            &#39;target&#39;: None,
+            &#39;score&#39;: 0.0,
+            &#39;candidates&#39;: len(cand),
+        }
+
+    best_score, best = cand[0]
+    return {
+        &#39;type&#39;: &#39;web_action&#39;,
+        &#39;action&#39;: &#39;click&#39;,
+        &#39;requires_confirmation&#39;: True,
+        &#39;target&#39;: best,
+        &#39;score&#39;: best_score,
+        &#39;candidates&#39;: len(cand),
+    }
+
+
+html = &#39;&#39;&#39;
+&lt;div&gt;&lt;button id=&quot;login-btn&quot;&gt;&lt;span&gt;Sign In&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+&lt;div&gt;&lt;a id=&quot;docs-link&quot; href=&quot;/docs&quot;&gt;Docs&lt;/a&gt;&lt;/div&gt;
+&lt;div&gt;&lt;button id=&quot;next-btn&quot;&gt;Next&lt;/button&gt;&lt;/div&gt;
+&#39;&#39;&#39;
+
+print(tool_web_agent(html, &#39;Sign In ボタンをクリックして&#39;))
+print(tool_web_agent(html, &#39;delete account ボタンをクリックして&#39;))</code></pre>
+<pre><code class="language-python">def tool_orchestrator(user_query, html_context=None):
+    plan = decide_tool(user_query)
+    if plan[&#39;tool&#39;] == &#39;calculator&#39;:
+        tool_out = tool_calculator(**plan[&#39;args&#39;])
+        final = f&quot;計算結果: {tool_out.get(&#39;value&#39;, tool_out.get(&#39;error&#39;))}&quot;
+        return {&#39;plan&#39;: plan, &#39;tool_output&#39;: tool_out, &#39;final_answer&#39;: final}
+
+    if plan[&#39;tool&#39;] == &#39;web_agent&#39;:
+        html = html_context or &#39;&lt;div&gt;&lt;button id=&quot;default&quot;&gt;OK&lt;/button&gt;&lt;/div&gt;&#39;
+        tool_out = tool_web_agent(html, plan[&#39;args&#39;][&#39;instruction&#39;])
+        if tool_out[&#39;action&#39;] == &#39;blocked&#39;:
+            final = &#39;危険操作の可能性があるため実行をブロックしました。&#39;
+        elif tool_out[&#39;action&#39;] == &#39;click&#39;:
+            tgt = tool_out[&#39;target&#39;]
+            final = f&quot;次の操作候補: click(tag={tgt[&#39;tag&#39;]}, id={tgt[&#39;id&#39;]}, text={tgt[&#39;text&#39;]}) ※ユーザー確認後に実行&quot;
+        else:
+            final = &#39;実行可能な操作を特定できませんでした。&#39;
+        return {&#39;plan&#39;: plan, &#39;tool_output&#39;: tool_out, &#39;final_answer&#39;: final}
+
+    tool_out = tool_retrieve(**plan[&#39;args&#39;])
+    ranked_for_gen = [
+        {&#39;doc_id&#39;: i[&#39;doc_id&#39;], &#39;chunk_id&#39;: i[&#39;chunk_id&#39;], &#39;text&#39;: i[&#39;text&#39;], &#39;rerank_score&#39;: i[&#39;score&#39;]}
+        for i in tool_out[&#39;items&#39;]
+    ]
+    rag_out = generate_with_citations(user_query, ranked_for_gen, max_chunks=len(ranked_for_gen))
+    final = rag_out[&#39;answer_text&#39;] + (&#39; &#39; + &#39; &#39;.join(rag_out[&#39;refs&#39;]) if rag_out[&#39;refs&#39;] else &#39;&#39;)
+    return {
+        &#39;plan&#39;: plan,
+        &#39;tool_output&#39;: tool_out,
+        &#39;rag_output&#39;: rag_out,
+        &#39;final_answer&#39;: final,
+    }
+
+
+demo_queries = [
+    &#39;2+3*4を計算して&#39;,
+    &#39;2*(3+4)を計算して&#39;,
+    &#39;ベルマン最適方程式を1文で説明して&#39;,
+    &#39;Sign In ボタンをクリックして&#39;,
+    &#39;delete account をクリックして&#39;,
+]
+
+for q in demo_queries:
+    out = tool_orchestrator(q, html_context=html)
+    print(&#39;Q:&#39;, q)
+    print(&#39;plan:&#39;, out[&#39;plan&#39;])
+    print(&#39;final:&#39;, out[&#39;final_answer&#39;])
+    print(&#39;---&#39;)</code></pre>
+<pre><code class="language-python"># 評価: retrieval / citation / routing
+# hit@k = 上位k件のどこかに正解docが含まれる割合
+rag_tests = [
+    (&#39;ベルマン方程式を説明して&#39;, &#39;doc-rl-1&#39;),
+    (&#39;LoRAの利点は?&#39;, &#39;doc-llm-1&#39;),
+    (&#39;RAGの改善方法は?&#39;, &#39;doc-rag-1&#39;),
+]
+
+hit1 = 0
+hit3 = 0
+mrr_sum = 0.0
+for q, expect_doc in rag_tests:
+    items = tool_retrieve(q, top_k=3)[&#39;items&#39;]
+    docs = [it[&#39;doc_id&#39;] for it in items]
+
+    hit1 += int(len(docs) &gt; 0 and docs[0] == expect_doc)
+    hit3 += int(expect_doc in docs)
+
+    rank = None
+    for i, d in enumerate(docs, 1):
+        if d == expect_doc:
+            rank = i
+            break
+    mrr_sum += 0.0 if rank is None else 1.0 / rank
+
+print(&#39;retrieval hit@1 =&#39;, round(hit1 / len(rag_tests), 3))
+print(&#39;retrieval hit@3 =&#39;, round(hit3 / len(rag_tests), 3))
+print(&#39;retrieval MRR   =&#39;, round(mrr_sum / len(rag_tests), 3))
+
+chunk_lookup = {(c[&#39;doc_id&#39;], c[&#39;chunk_id&#39;]): c[&#39;text&#39;] for c in chunk_db}
+
+
+def citation_lexical_overlap_toy(answer_text, refs):
+    # 注意: 厳密な事実性ではなく、回答語と参照チャンク語の重なりを見る簡易指標
+    if not refs:
+        return 0.0
+
+    a_terms = set(tokenize_ja_like(answer_text))
+    support = 0
+    for r in refs:
+        m = re.match(r&#39;^\[(.+?):(.+?)\]$&#39;, r)
+        if not m:
+            continue
+        key = (m.group(1), m.group(2))
+        text = chunk_lookup.get(key, &#39;&#39;)
+        c_terms = set(tokenize_ja_like(text))
+        if len(a_terms &amp; c_terms) &gt;= 2:
+            support += 1
+
+    return support / max(len(refs), 1)
+
+
+overlap_scores = []
+for q, _ in rag_tests:
+    out = tool_orchestrator(q)
+    rag_out = out.get(&#39;rag_output&#39;, {&#39;answer_text&#39;: &#39;&#39;, &#39;refs&#39;: []})
+    overlap_scores.append(citation_lexical_overlap_toy(rag_out[&#39;answer_text&#39;], rag_out[&#39;refs&#39;]))
+
+print(&#39;citation lexical overlap (toy) =&#39;, round(sum(overlap_scores) / len(overlap_scores), 3))
+
+route_tests = [
+    (&#39;1+2を計算して&#39;, &#39;calculator&#39;),
+    (&#39;2*(3+4)を計算して&#39;, &#39;calculator&#39;),
+    (&#39;3.5+1.2を計算して&#39;, &#39;calculator&#39;),
+    (&#39;Sign In を押して&#39;, &#39;web_agent&#39;),
+    (&#39;ガードレールを説明して&#39;, &#39;retrieve&#39;),
+    (&#39;2024-01-01の予定を教えて&#39;, &#39;retrieve&#39;),
+]
+route_hit = 0
+for q, t in route_tests:
+    route_hit += int(decide_tool(q)[&#39;tool&#39;] == t)
+print(&#39;tool routing accuracy =&#39;, round(route_hit / len(route_tests), 3))</code></pre>
+<pre><code class="language-python"># コスト概算（仮定値）
+requests_per_day = 900
+avg_query_tok = 420
+avg_context_tok = 850   # RAGで追加される文脈
+avg_output_tok = 180
+
+price_in = 0.20   # USD / 1M input tokens
+price_out = 0.80  # USD / 1M output tokens
+
+cost_per_req = ((avg_query_tok + avg_context_tok) / 1e6) * price_in + (avg_output_tok / 1e6) * price_out
+daily_cost = cost_per_req * requests_per_day
+
+print(&#39;cost per request (USD):&#39;, round(cost_per_req, 6))
+print(&#39;daily cost (USD):&#39;, round(daily_cost, 4))
+
+# 単純なレイテンシ見積り
+retrieve_ms = 45
+rerank_ms = 30
+gen_ms = 520
+tool_overhead_ms = 25
+print(&#39;estimated latency (ms):&#39;, retrieve_ms + rerank_ms + gen_ms + tool_overhead_ms)</code></pre>
+<p>RAGとTool Useを組み合わせると、</p>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>t</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">p_{\theta}(x_t \mid x_{&lt;t})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>L</mi><mrow><mi>C</mi><mi>E</mi></mrow></msub><mo>=</mo><mo>−</mo><msub><mo>∑</mo><mi>t</mi></msub><mi>log</mi><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>t</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">L_{CE} = -\sum_t \log p_{\theta}(x_t \mid x_{&lt;t})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1.0500099999999999em;vertical-align:-0.30001em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">L</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.07153em;">C</span><span class="mord mathit" style="margin-right:0.05764em;">E</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord">−</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">t</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
+<li>根拠付き回答（RAG）</li>
+<li>外部操作の明示実行（Tool Use）</li>
+<li>監査しやすい推論ログ（plan/tool_output）</li>
 </ol>
-
-<h2 id="観察-3-rag入力を作る">観察 3: RAG入力を作る</h2>
-<p>検索結果をそのまま貼るのではなく、質問との関係を明示して結合します。</p>
-
-<pre><code class="language-python">question = &#39;ベルマン最適方程式を1文で説明して&#39;
-chunks = [&#39;最適価値は将来報酬期待値の最大化で定義される&#39;, &#39;再帰構造により逐次更新できる&#39;]
-ranked = sorted(chunks, key=lambda c: question.count(&#39;価値&#39;) + c.count(&#39;価値&#39;), reverse=True)
-context = &#39;\n&#39;.join(f&#39;- {c}&#39; for c in ranked)
-print(&#39;context_for_answer=\n&#39; + context)</code></pre>
-<p>この前処理を入れるだけでも、回答の一貫性と根拠明示が改善します。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-4-評価項目を数値化する">観察 4: 評価項目を数値化する</h2>
-<p>次に、回答を点検するための簡易スコアを定義します。評価軸を言語化すると改善が継続できます。</p>
-
-<pre><code class="language-python">answer = &#39;ベルマン方程式は、今の価値を次の価値で更新する再帰式です。&#39;
-checks = {&#39;length_ok&#39;: len(answer) &lt;= 120, &#39;has_keyword&#39;: &#39;価値&#39; in answer, &#39;has_recurrence&#39;: &#39;再帰&#39; in answer}
-score = sum(1 for v in checks.values() if v) / len(checks)
-print(&#39;checks=&#39;, checks)
-print(&#39;score=&#39;, round(score, 3))</code></pre>
-<p>このような軽量評価でも、改善方向を揃える効果があります。実務ではこの評価軸をチームで共有します。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-5-推論コストを見積もる">観察 5: 推論コストを見積もる</h2>
-<p>最後に、入力と出力の長さから概算コストを計算します。モデル選択は性能だけでなく費用とのバランスが必要です。</p>
-
-<pre><code class="language-python">input_tokens = 320
-output_tokens = 180
-price_per_1k = 0.0012
-cost = (input_tokens + output_tokens) / 1000 * price_per_1k
-print(&#39;estimated_cost=&#39;, round(cost, 6))</code></pre>
-<p>この見積もりを運用前に作ると、スケール時の予算超過を防ぎやすくなります。</p>
-<p>この節では、トークン が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>プロンプトだけで全問題を解決しようとする</li>
-<li>評価指標を決めずに改善を繰り返す</li>
-<li>コストと品質のバランスを見ない</li>
-</ol>
+<p>を同じパイプラインで扱えます。<br>
+ただし、ルーティング誤り・ツール失敗・根拠不足は常に起きるので、評価指標を継続監視する設計が前提です。</p>
 
 </article>
   </main>
