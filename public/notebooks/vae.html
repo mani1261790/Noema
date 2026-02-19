@@ -98,88 +98,263 @@
 <body>
   <main>
 <article class="prose-noema">
-<h1 id="vae">VAE</h1>
-<p>VAEでは、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<pre><code class="language-python">import math
+import random
+from statistics import mean
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>VAEに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+random.seed(33)</code></pre>
+<h1 id="vae-variational-autoencoder">VAE（Variational Autoencoder）</h1>
+<p>VAEは、オートエンコーダの「再構成能力」に、生成モデルとしての「サンプリング可能性」を加えたモデルです。潜在変数を確率分布で扱うことで、学習後に新しいデータを生成できるのが最大の特徴です。</p>
+
+<p>まず、なぜ普通のオートエンコーダだけでは不十分かを整理します。</p>
+<p>通常のAEは <code>x -&gt; z -&gt; x_hat</code> の再構成は上手でも、潜在空間 <code>z</code> がバラバラだと「どこからサンプルを引けば自然なデータが出るか」が分かりません。VAEはここに事前分布 <code>p(z)</code> を入れて、潜在空間を生成に使える形へ整えます。</p>
+
+<h2 id="1-vaeの最小数式">1. VAEの最小数式</h2>
+<p>VAEでは次の3つを同時に扱います。</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>エンコーダ/デコーダ</strong>: 入力を潜在へ圧縮し、潜在から再構成する2段構成です。</li>
-<li><strong>KL項</strong>: 近似事後分布を事前分布へ近づける正則化項です。</li>
+<li>エンコーダ（近似事後分布）: <code>q_phi(z|x)</code></li>
+<li>デコーダ（生成分布）: <code>p_theta(x|z)</code></li>
+<li>潜在の事前分布: <code>p(z)=N(0,I)</code></li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>学習目標はELBO最大化で、次の2項に分かれます。</p>
+<ul>
+<li>再構成項: <code>E_{q_phi(z|x)}[log p_theta(x|z)]</code></li>
+<li>正則化項: <code>KL(q_phi(z|x) || p(z))</code></li>
+</ul>
+<p>要するに、再構成を良くしつつ、潜在分布を標準正規に寄せる、という設計です。</p>
 
-<h2 id="検証-1-vae向け潜在サンプル">検証 1: VAE向け潜在サンプル</h2>
-<p>VAEの再構成とKLの関係を見るため、ガウス潜在を初期化します。</p>
+<pre><code class="language-python">def gaussian_log_prob(x, mu, var):
+    var = max(var, 1e-8)
+    return -0.5 * ((x - mu) ** 2 / var + math.log(2 * math.pi * var))
 
-<pre><code class="language-python">import random
-random.seed(17)
-z = [round(random.gauss(0, 0.7), 3) for _ in range(5)]
-print(&#39;task = vae&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>この潜在系列を再構成の例で使います。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="検証-2-単純なデコーダを書く">検証 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+def kl_normal_to_standard(mu, logvar):
+    # KL( N(mu, sigma^2) || N(0,1) )
+    return 0.5 * (mu * mu + math.exp(logvar) - 1.0 - logvar)
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="定義の確認">定義の確認</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>E</mi><mi>L</mi><mi>B</mi><mi>O</mi><mo>=</mo><msub><mi>E</mi><mi>q</mi></msub><mo>[</mo><mi>l</mi><mi>o</mi><mi>g</mi><mi>p</mi><mo>(</mo><mi>x</mi><mi mathvariant="normal">∣</mi><mi>z</mi><mo>)</mo><mo>]</mo><mo>−</mo><mi>K</mi><mi>L</mi><mo>(</mo><mi>q</mi><mo>(</mo><mi>z</mi><mi mathvariant="normal">∣</mi><mi>x</mi><mo>)</mo><mi mathvariant="normal">∣</mi><mi mathvariant="normal">∣</mi><mi>p</mi><mo>(</mo><mi>z</mi><mo>)</mo><mo>)</mo></mrow><annotation encoding="application/x-tex">ELBO = E_q[log p(x|z)] - KL(q(z|x) || p(z))</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.05764em;">E</span><span class="mord mathit">L</span><span class="mord mathit" style="margin-right:0.05017em;">B</span><span class="mord mathit" style="margin-right:0.02778em;">O</span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.05764em;">E</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">q</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">[</span><span class="mord mathit" style="margin-right:0.01968em;">l</span><span class="mord mathit">o</span><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mord mathrm">∣</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mclose">]</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.07153em;">K</span><span class="mord mathit">L</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.03588em;">q</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mord mathrm">∣</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mord mathrm">∣</span><span class="mord mathrm">∣</span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mclose">)</span></span></span></span></li>
-</ol>
+x = 1.2
+mu_dec = 1.0
+var_dec = 0.3
+mu_enc = 0.4
+logvar_enc = -0.2
 
-<h2 id="検証-3-ノイズを加えて復元する">検証 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
+recon = gaussian_log_prob(x, mu_dec, var_dec)
+kl = kl_normal_to_standard(mu_enc, logvar_enc)
+elbo = recon - kl
 
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&#39;reconstruction term =&#39;, round(recon, 4))
+print(&#39;KL term             =&#39;, round(kl, 4))
+print(&#39;ELBO                =&#39;, round(elbo, 4))</code></pre>
+<h2 id="2-再パラメータ化トリック">2. 再パラメータ化トリック</h2>
+<p><code>z ~ q_phi(z|x)</code> をそのままサンプリングすると、勾配が流しにくくなります。VAEでは</p>
+<p><code>z = mu + sigma * eps, eps ~ N(0,1)</code></p>
+<p>と書き換え、乱数を <code>eps</code> 側へ分離します。これにより <code>mu, sigma</code>（=ネットワーク出力）へ勾配を通せます。</p>
 
-<h2 id="検証-4-混合分布の感覚を作る">検証 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
+<pre><code class="language-python">def reparameterize(mu, logvar, eps):
+    sigma = math.exp(0.5 * logvar)
+    return mu + sigma * eps
 
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="検証-5-学習指標を定義する">検証 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
+mu = 0.7
+logvar = -0.8
+eps_samples = [random.gauss(0.0, 1.0) for _ in range(5)]
+zs = [reparameterize(mu, logvar, e) for e in eps_samples]
 
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&#39;eps samples =&#39;, [round(e, 3) for e in eps_samples])
+print(&#39;z samples   =&#39;, [round(z, 3) for z in zs])</code></pre>
+<h2 id="3-1次元トイデータでvaeを学習する">3. 1次元トイデータでVAEを学習する</h2>
+<p>ここではPyTorchを使わず、あえて超小型モデルを手書きで最適化します。目的は、VAEの損失構造（再構成 vs KL）を体感することです。</p>
+<ul>
+<li>エンコーダ: <code>mu(x)=a*x+b</code>, <code>logvar(x)=c*x+d</code></li>
+<li>デコーダ: <code>x_hat(z)=m*z+n</code></li>
+</ul>
+<p>学習は有限差分で行い、目的関数（再構成項 - beta * KL）を直接最大化します（教育用）。<br>
+注意: このトイモデルは線形デコーダなので表現力を意図的に制限しています。2峰性データを完全に表現するのが目的ではなく、VAEの学習原理を確認するための設定です。</p>
 
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+<pre><code class="language-python">def make_toy_data(n1=60, n2=60):
+    left = [random.gauss(-2.0, 0.45) for _ in range(n1)]
+    right = [random.gauss(2.2, 0.55) for _ in range(n2)]
+    return left + right
+
+
+data = make_toy_data()
+print(&#39;dataset size =&#39;, len(data))
+print(&#39;mean(data)   =&#39;, round(mean(data), 3))
+print(&#39;min/max      =&#39;, round(min(data), 3), round(max(data), 3))</code></pre>
+<pre><code class="language-python">def encode(x, params):
+    a, b, c, d, _, _ = params
+    mu = a * x + b
+    logvar = c * x + d
+    logvar = max(min(logvar, 4.0), -6.0)  # 数値安定
+    return mu, logvar
+
+
+def decode(z, params):
+    _, _, _, _, m, n = params
+    return m * z + n
+
+
+def elbo_dataset(data, params, beta=1.0, recon_var=0.25, eps_list=None):
+    # recon_var: p_theta(x|z)=N(x_hat, recon_var) の固定分散
+    # 小さいほど再構成誤差に厳しくなる
+    if eps_list is None:
+        # 通常のモンテカルロ近似では毎回epsをサンプルする
+        eps_list = [random.gauss(0.0, 1.0) for _ in range(len(data))]
+
+    recon_terms = []
+    kl_terms = []
+    objectives = []
+
+    for x, eps in zip(data, eps_list):
+        mu, logvar = encode(x, params)
+        z = reparameterize(mu, logvar, eps)
+        x_hat = decode(z, params)
+
+        recon = gaussian_log_prob(x, x_hat, recon_var)
+        kl = kl_normal_to_standard(mu, logvar)
+        obj = recon - beta * kl
+
+        recon_terms.append(recon)
+        kl_terms.append(kl)
+        objectives.append(obj)
+
+    return mean(objectives), mean(recon_terms), mean(kl_terms)
+
+
+params0 = [0.2, 0.0, -0.1, -0.5, 0.7, 0.0]
+fixed_eps = [random.gauss(0.0, 1.0) for _ in range(len(data))]
+
+obj0, recon0, kl0 = elbo_dataset(data, params0, beta=1.0, eps_list=fixed_eps)
+print(&#39;initial objective =&#39;, round(obj0, 4))
+print(&#39;initial recon=&#39;, round(recon0, 4), &#39;initial KL=&#39;, round(kl0, 4))</code></pre>
+<pre><code class="language-python">def finite_diff_grad(data, params, beta, recon_var, eps_list, h=1e-3):
+    grads = [0.0] * len(params)
+    for i in range(len(params)):
+        p_plus = params[:]
+        p_minus = params[:]
+        p_plus[i] += h
+        p_minus[i] -= h
+
+        f_plus, _, _ = elbo_dataset(data, p_plus, beta=beta, recon_var=recon_var, eps_list=eps_list)
+        f_minus, _, _ = elbo_dataset(data, p_minus, beta=beta, recon_var=recon_var, eps_list=eps_list)
+        grads[i] = (f_plus - f_minus) / (2 * h)
+    return grads
+
+
+def train_toy_vae(data, beta=1.0, steps=120, lr=0.03, recon_var=0.25):
+    params = [0.2, 0.0, -0.1, -0.5, 0.7, 0.0]  # a,b,c,d,m,n
+
+    # 有限差分のノイズを減らすため、共通乱数(common random numbers)でepsを固定
+    eps_list = [random.gauss(0.0, 1.0) for _ in range(len(data))]
+
+    trace = []
+    for t in range(steps):
+        grads = finite_diff_grad(data, params, beta, recon_var, eps_list)
+        for i in range(len(params)):
+            params[i] += lr * grads[i]  # objective最大化
+
+        obj, recon, kl = elbo_dataset(data, params, beta=beta, recon_var=recon_var, eps_list=eps_list)
+        trace.append((obj, recon, kl))
+
+        if t % 20 == 0 or t == steps - 1:
+            print(f&#39;step={t:03d} objective={obj:.4f} recon={recon:.4f} KL={kl:.4f}&#39;)
+
+    return params, trace
+
+
+params_beta1, trace_beta1 = train_toy_vae(data, beta=1.0, steps=140, lr=0.025, recon_var=0.30)
+print(&#39;trained params (beta=1) =&#39;, [round(v, 4) for v in params_beta1])</code></pre>
+<p>上のログで、目的関数（recon - beta * KL）が改善しつつ、再構成項とKL項のバランスが動くことが確認できます。これがVAE学習のダイナミクスです。</p>
+
+<h2 id="4-beta-vaeでトレードオフを見る">4. beta-VAEでトレードオフを見る</h2>
+<p><code>beta</code> を大きくするとKLを強く罰するため、潜在分布は事前分布に近づきます。その代わり再構成が悪化しやすくなります。</p>
+<p>注意: <code>beta</code> を変えると目的関数そのものが変わるので、<code>objective</code> 値を横比較して優劣を決めるのは不適切です。比較は主に再構成項とKL項で行います。</p>
+
+<pre><code class="language-python">params_beta4, trace_beta4 = train_toy_vae(data, beta=4.0, steps=140, lr=0.02, recon_var=0.30)
+
+final1 = trace_beta1[-1]
+final4 = trace_beta4[-1]
+
+print(&#39;beta=1 final: objective={:.4f}, recon={:.4f}, KL={:.4f}&#39;.format(*final1))
+print(&#39;beta=4 final: objective={:.4f}, recon={:.4f}, KL={:.4f}&#39;.format(*final4))</code></pre>
+<pre><code class="language-python">def summarize_latent_stats(data, params):
+    mus = []
+    vars_ = []
+    for x in data:
+        mu, logvar = encode(x, params)
+        mus.append(mu)
+        vars_.append(math.exp(logvar))
+
+    emu = mean(mus)
+    emu2 = mean(m * m for m in mus)
+    evar = mean(vars_)
+    return emu, emu2, evar
+
+
+mu1, mu21, var1 = summarize_latent_stats(data, params_beta1)
+mu4, mu24, var4 = summarize_latent_stats(data, params_beta4)
+
+print(&#39;latent summary beta=1: E[mu]=&#39;, round(mu1, 4), &#39;E[mu^2]=&#39;, round(mu21, 4), &#39;E[var]=&#39;, round(var1, 4))
+print(&#39;latent summary beta=4: E[mu]=&#39;, round(mu4, 4), &#39;E[mu^2]=&#39;, round(mu24, 4), &#39;E[var]=&#39;, round(var4, 4))</code></pre>
+<p><code>beta</code> を上げると、<code>q(z|x)</code> が標準正規に近づきやすくなり、潜在空間は整いますが、入力ごとの情報を削りすぎると再構成が崩れます。この綱引きを調整するのがbeta-VAEの本質です。</p>
+
+<h2 id="5-生成と補間">5. 生成と補間</h2>
+<p>学習後は <code>z ~ N(0,1)</code> を引いてデコーダに通すと新サンプルを生成できます。また、2つの入力の潜在平均を線形補間してデコードすると、連続的な変化を観察できます。</p>
+
+<pre><code class="language-python">def generate_from_prior(params, n=8):
+    out = []
+    for _ in range(n):
+        z = random.gauss(0.0, 1.0)
+        x_hat = decode(z, params)
+        out.append((z, x_hat))
+    return out
+
+
+gen = generate_from_prior(params_beta1, n=10)
+print(&#39;samples from prior z~N(0,1):&#39;)
+for z, xh in gen:
+    print(&#39;z=&#39;, round(z, 3), &#39;-&gt; x_hat=&#39;, round(xh, 3))</code></pre>
+<pre><code class="language-python">def latent_mean(x, params):
+    mu, _ = encode(x, params)
+    return mu
+
+x_a = data[5]
+x_b = data[-5]
+mu_a = latent_mean(x_a, params_beta1)
+mu_b = latent_mean(x_b, params_beta1)
+
+print(&#39;x_a=&#39;, round(x_a, 3), &#39;mu_a=&#39;, round(mu_a, 3))
+print(&#39;x_b=&#39;, round(x_b, 3), &#39;mu_b=&#39;, round(mu_b, 3))
+print(&#39;interpolation in latent mean:&#39;)
+
+for t in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]:
+    z = (1 - t) * mu_a + t * mu_b
+    x_hat = decode(z, params_beta1)
+    print(&#39;t=&#39;, round(t, 1), &#39;z=&#39;, round(z, 3), &#39;x_hat=&#39;, round(x_hat, 3))</code></pre>
+<h2 id="6-よくある失敗-posterior-collapse">6. よくある失敗: Posterior Collapse</h2>
+<p>KLを強くしすぎたり、デコーダが強すぎたりすると、<code>q(z|x)</code> がほぼ <code>N(0,1)</code> になって入力情報を使わなくなることがあります。これをposterior collapseと呼びます。</p>
+<p>対策としては、KL warm-up、free bits、デコーダ容量調整、学習率調整などが使われます。</p>
+<p>注意: 実務での厳密判定は、KL値だけでは不十分です。<code>I(x;z)</code>（相互情報量）や、潜在をシャッフルしたときの再構成劣化など、情報保持の指標を併用します。ここで示す判定は教育用ヒューリスティックで、collapseの必要条件でも十分条件でもありません。</p>
+
+<pre><code class="language-python"># collapse の簡易判定（toy）: KLが極端に小さく、再構成が悪化していないか
+# 厳密判定ではなく、兆候を見るための簡易チェック（必要条件・十分条件ではない）
+kl_beta1 = trace_beta1[-1][2]
+kl_beta4 = trace_beta4[-1][2]
+recon_beta1 = trace_beta1[-1][1]
+recon_beta4 = trace_beta4[-1][1]
+
+print(&#39;final KL beta=1 =&#39;, round(kl_beta1, 6), &#39;| recon=&#39;, round(recon_beta1, 6))
+print(&#39;final KL beta=4 =&#39;, round(kl_beta4, 6), &#39;| recon=&#39;, round(recon_beta4, 6))
+
+if kl_beta4 &lt; 0.01 and recon_beta4 &lt; recon_beta1 - 0.3:
+    print(&#39;beta=4 run: collapse risk is high (toy criterion).&#39;)
+else:
+    print(&#39;beta=4 run: collapse risk is not extreme in this toy run.&#39;)
+
+print(&#39;For strict diagnosis, add mutual-information or ablation-based checks.&#39;)</code></pre>
+<p>VAEを一言で言うと、「再構成したい」という要求と「生成しやすい潜在空間にしたい」という要求を、ELBOで同時に満たすモデルです。</p>
+<p>この後のGANや拡散モデルに進むときも、何を近似し、どの損失でその近似を押すのか、という観点で比較すると整理しやすくなります。</p>
 
 </article>
   </main>
