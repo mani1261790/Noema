@@ -98,89 +98,273 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+from collections import Counter, defaultdict
+from statistics import mean
+
+random.seed(42)</code></pre>
 <h1 id="生成モデルの全体像">生成モデルの全体像</h1>
-<p>生成モデルの全体像では、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<p>生成モデルは、データを分類するのではなく「データそのものを作る」ためのモデルです。画像生成、文章生成、音声生成だけでなく、欠損補完、異常検知、シミュレーションの近似などにも使われます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>生成モデルの全体像に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>生成モデルを学ぶときに最初につまずきやすい点は、「何を学習しているのか」が見えにくいことです。</p>
+<p>識別モデルは「猫か犬か」の境界を学習します。一方で生成モデルは、データがどのような確率分布から来ているかを学びます。言い換えると、データらしさの地形を学習して、その地形から新しいサンプルを引くのが生成モデルです。</p>
+
+<h2 id="1-分布を学ぶとはどういうことか">1. 分布を学ぶとはどういうことか</h2>
+<p>まずは最小の例として、0/1からなる長さ4のベクトルを考えます。これは「白黒4ピクセルの超小型画像」とみなせます。</p>
+
+<pre><code class="language-python">toy_data = [
+    (1, 1, 1, 0),
+    (1, 1, 0, 0),
+    (1, 1, 1, 0),
+    (1, 0, 0, 0),
+    (1, 1, 0, 0),
+    (1, 1, 1, 0),
+    (0, 0, 0, 1),
+    (0, 0, 1, 1),
+]
+
+count = Counter(toy_data)
+print(&#39;observed patterns and frequencies:&#39;)
+for pattern, c in count.items():
+    print(pattern, c)
+
+print(&#39;most frequent pattern =&#39;, count.most_common(1)[0])</code></pre>
+<p>ここでの目的は、1つ1つのサンプルを暗記することではありません。頻出パターン、稀なパターン、あり得ないパターンの違いをモデル化して、新しいサンプルを引けるようにすることです。これが生成モデルの出発点です。</p>
+
+<h2 id="2-最も基本的な生成モデル-多次元ベルヌーイ">2. 最も基本的な生成モデル: 多次元ベルヌーイ</h2>
+<p>各次元を独立な0/1確率で近似すると、最尤推定は「各次元の1の割合」を取るだけで求まります。これは簡単ですが、依存関係を捨てているので表現力に限界があります。</p>
+
+<pre><code class="language-python">def bernoulli_mle(dataset):
+    n = len(dataset)
+    d = len(dataset[0])
+    probs = []
+    for j in range(d):
+        probs.append(sum(x[j] for x in dataset) / n)
+    return probs
+
+
+def sample_bernoulli(probs, n_samples=5):
+    out = []
+    for _ in range(n_samples):
+        out.append(tuple(1 if random.random() &lt; p else 0 for p in probs))
+    return out
+
+
+p_hat = bernoulli_mle(toy_data)
+print(&#39;estimated pixel-wise probabilities =&#39;, [round(p, 3) for p in p_hat])
+print(&#39;samples from model =&#39;, sample_bernoulli(p_hat, n_samples=8))</code></pre>
+<p>このモデルは「どの位置が1になりやすいか」は学べますが、「この2つは同時に1になりやすい」のような相関を強く表現できません。ここで混合モデルや潜在変数モデルが必要になります。</p>
+
+<h2 id="3-単峰性の限界と混合分布の必要性">3. 単峰性の限界と混合分布の必要性</h2>
+<p>次に2次元連続データを考えます。データが2つの塊を持つとき、単一ガウスで近似すると中間に質量を置きすぎる問題が起きます。</p>
+
+<pre><code class="language-python">def sample_gaussian_2d(mu_x, mu_y, sigma, n):
+    return [(random.gauss(mu_x, sigma), random.gauss(mu_y, sigma)) for _ in range(n)]
+
+
+cluster_a = sample_gaussian_2d(-2.0, -1.5, 0.45, 120)
+cluster_b = sample_gaussian_2d(2.5, 2.0, 0.55, 120)
+data_2d = cluster_a + cluster_b
+
+mx = mean(x for x, _ in data_2d)
+my = mean(y for _, y in data_2d)
+
+print(&#39;single Gaussian mean estimate =&#39;, (round(mx, 3), round(my, 3)))
+print(&#39;example points near cluster centers:&#39;)
+print(&#39;A sample:&#39;, cluster_a[0], &#39;B sample:&#39;, cluster_b[0])</code></pre>
+<pre><code class="language-python"># 真のクラスタラベルを使った理想的な2成分近似（教育用）
+mx_a = mean(x for x, _ in cluster_a)
+my_a = mean(y for _, y in cluster_a)
+mx_b = mean(x for x, _ in cluster_b)
+my_b = mean(y for _, y in cluster_b)
+
+print(&#39;component means (oracle split) =&#39;)
+print(&#39;component A:&#39;, (round(mx_a, 3), round(my_a, 3)))
+print(&#39;component B:&#39;, (round(mx_b, 3), round(my_b, 3)))
+
+# 単一平均との距離比較
+single_to_a = math.dist((mx, my), (mx_a, my_a))
+single_to_b = math.dist((mx, my), (mx_b, my_b))
+print(&#39;distance(single_mean, compA)=&#39;, round(single_to_a, 3))
+print(&#39;distance(single_mean, compB)=&#39;, round(single_to_b, 3))</code></pre>
+<p>単一&quot;ガウス&quot;では多峰性を表しにくいため、混合モデルや潜在変数モデルが登場します。ここで言いたい本質は「単峰近似では足りない状況がある」という点です。分布族を変えれば単一分布でも多峰性を表現できる場合はありますが、実務では混合・潜在表現で扱うことが多いです。</p>
+<p>なお、上の2成分平均はクラスタラベルを知っている教育用の oracle split です。実際にはラベルは未知なので、EM法や変分推論で潜在変数を同時推定します。</p>
+
+<h2 id="4-潜在変数モデルの直感">4. 潜在変数モデルの直感</h2>
+<p>潜在変数 <code>z</code> は「観測されない説明変数」です。生成では <code>z -&gt; x</code> の写像を学び、サンプリングでは <code>z</code> を振って <code>x</code> を得ます。</p>
+
+<pre><code class="language-python">def decoder_toy(z1, z2):
+    # 非線形な簡易デコーダ
+    x1 = 1.4 * z1 + 0.3 * z2
+    x2 = -0.8 * z1 + 1.2 * z2
+    x3 = 0.5 * (z1 ** 2) - 0.2 * z2
+    return (x1, x2, x3)
+
+
+latent_points = [(random.gauss(0, 1), random.gauss(0, 1)) for _ in range(5)]
+outputs = [decoder_toy(z1, z2) for z1, z2 in latent_points]
+
+print(&#39;latent points:&#39;)
+for z in latent_points:
+    print(tuple(round(v, 3) for v in z))
+
+print(&#39;decoded outputs:&#39;)
+for x in outputs:
+    print(tuple(round(v, 3) for v in x))</code></pre>
+<p>潜在空間を学べると、補間（interpolation）ができるようになります。これは「2つのサンプルの間を連続的に生成する」能力で、生成モデルが概念をどれだけ滑らかに表現しているかの手がかりになります。</p>
+<p>ただし、線形補間が常に意味的に自然とは限りません。潜在空間の幾何が歪んでいると、途中サンプルの品質が落ちることがあります。</p>
+
+<pre><code class="language-python">def interpolate(z_a, z_b, steps=5):
+    out = []
+    for t in range(steps):
+        alpha = t / (steps - 1)
+        z = (1 - alpha) * z_a[0] + alpha * z_b[0], (1 - alpha) * z_a[1] + alpha * z_b[1]
+        out.append(z)
+    return out
+
+
+z_a = (-1.2, 0.4)
+z_b = (1.1, -0.7)
+for z in interpolate(z_a, z_b, steps=6):
+    x = decoder_toy(*z)
+    print(&#39;z=&#39;, tuple(round(v, 2) for v in z), &#39;-&gt; x=&#39;, tuple(round(v, 2) for v in x))</code></pre>
+<h2 id="5-自己回帰モデルの見方">5. 自己回帰モデルの見方</h2>
+<p>自己回帰モデルは、同時に全部を生成せず、左から順に次トークンを予測します。言語モデルがこの系統です。Teacher Forcingで学習しやすい利点がある一方、逐次生成なので長い系列では遅くなりやすく、学習と推論の分布ずれ（露出バイアス）が課題になりやすいというトレードオフがあります。</p>
+
+<pre><code class="language-python">token_sequences = [
+    [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;, &#39;EOS&#39;],
+    [&#39;A&#39;, &#39;B&#39;, &#39;D&#39;, &#39;EOS&#39;],
+    [&#39;A&#39;, &#39;C&#39;, &#39;C&#39;, &#39;EOS&#39;],
+    [&#39;B&#39;, &#39;D&#39;, &#39;EOS&#39;],
+]
+
+bigram = defaultdict(Counter)
+for seq in token_sequences:
+    prev = &#39;BOS&#39;
+    for tok in seq:
+        bigram[prev][tok] += 1
+        prev = tok
+
+
+def next_token_probs(prev_tok):
+    c = bigram[prev_tok]
+    total = sum(c.values())
+    return {k: v / total for k, v in c.items()}
+
+
+for prev in [&#39;BOS&#39;, &#39;A&#39;, &#39;B&#39;]:
+    print(prev, &#39;-&gt;&#39;, {k: round(v, 3) for k, v in next_token_probs(prev).items()})</code></pre>
+<h2 id="6-拡散モデルの直感">6. 拡散モデルの直感</h2>
+<p>拡散モデルは、前向き過程でデータに少しずつノイズを足し、逆向き過程でノイズを除去します。学習時には「どのノイズが足されたか」を予測するネットワーク <code>eps_theta(x_t, t)</code> を訓練し、その予測を使って逆向き更新します。</p>
+<p>次のコードは「仕組み理解のための1次元トイ例」です。実際のDDPM/score-basedの更新式を省略した近似デモであり、実運用実装をそのまま表してはいません。</p>
+
+<pre><code class="language-python">x0 = 2.0
+noise_schedule = [0.1, 0.2, 0.35, 0.5]
+
+x = x0
+trajectory = [x0]
+used_eps = []
+for s in noise_schedule:
+    eps = random.gauss(0, 1)
+    used_eps.append(eps)
+    x = math.sqrt(1 - s) * x + math.sqrt(s) * eps
+    trajectory.append(x)
+
+print(&#39;forward noising trajectory:&#39;)
+print([round(v, 3) for v in trajectory])
+
+# トイ逆過程: 本物のepsを知っている理想条件なら戻せる
+x_rev_oracle = trajectory[-1]
+for s, eps in zip(reversed(noise_schedule), reversed(used_eps)):
+    x_rev_oracle = (x_rev_oracle - math.sqrt(s) * eps) / max(math.sqrt(1 - s), 1e-6)
+
+# 現実には eps は未知なので、学習した eps_theta が必要
+x_rev_naive = trajectory[-1]
+for s in reversed(noise_schedule):
+    x_rev_naive = x_rev_naive / max(math.sqrt(1 - s), 1e-6)
+
+print(&#39;oracle reverse result =&#39;, round(x_rev_oracle, 3), &#39;(target:&#39;, x0, &#39;)&#39;)
+print(&#39;naive reverse result  =&#39;, round(x_rev_naive, 3), &#39;(without eps prediction)&#39;)</code></pre>
+<h2 id="7-評価の基本-尤度-品質-多様性">7. 評価の基本: 尤度・品質・多様性</h2>
+<p>生成モデル評価は1つの数字で終わりません。尤度が高くても見た目品質が悪いことがあり、品質が高くても多様性が低い（モード崩壊）ことがあります。だから、用途ごとに複数指標を併用します。</p>
+
+<pre><code class="language-python">def neg_log_likelihood_bernoulli(x, probs):
+    # x: tuple of 0/1
+    # probs: each dimension probability of 1
+    out = 0.0
+    for xi, p in zip(x, probs):
+        p = min(max(p, 1e-9), 1 - 1e-9)
+        out -= math.log(p if xi == 1 else (1 - p))
+    return out
+
+
+nll_values = [neg_log_likelihood_bernoulli(x, p_hat) for x in toy_data]
+print(&#39;mean NLL =&#39;, round(mean(nll_values), 4))
+print(&#39;max NLL  =&#39;, round(max(nll_values), 4), &#39;(outlier-like sample indicator)&#39;)</code></pre>
+<pre><code class="language-python"># 多様性の簡易指標: 生成サンプル中のユニークパターン率
+# 注意: 離散空間サイズ（ここでは最大16パターン）に強く依存する
+samples = sample_bernoulli(p_hat, n_samples=200)
+unique_ratio = len(set(samples)) / len(samples)
+coverage = len(set(samples)) / 16
+
+print(&#39;diversity proxy (unique ratio) =&#39;, round(unique_ratio, 3))
+print(&#39;space coverage proxy           =&#39;, round(coverage, 3), &#39;(max patterns=16)&#39;)
+print(&#39;unique count =&#39;, len(set(samples)), &#39;out of&#39;, len(samples))</code></pre>
+<p>モード崩壊の危険を可視化するために、意図的に「同じサンプルしか出さない生成器」を作って比較します。</p>
+
+<pre><code class="language-python">def collapsed_generator(mode, n=50):
+    return [mode for _ in range(n)]
+
+collapsed = collapsed_generator((1, 1, 1, 0), n=200)
+collapsed_unique_ratio = len(set(collapsed)) / len(collapsed)
+
+print(&#39;collapsed diversity proxy =&#39;, collapsed_unique_ratio)
+print(&#39;normal model diversity proxy =&#39;, round(unique_ratio, 3))</code></pre>
+<h2 id="8-生成モデルファミリーをどう使い分けるか">8. 生成モデルファミリーをどう使い分けるか</h2>
+<p>ここまでの話を実務判断に落とすと、次の軸で選ぶと整理しやすくなります。</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>生成モデル</strong>: データ分布を学習し新しいサンプルを作るモデル群です。</li>
-<li><strong>尤度</strong>: 観測データがモデルでどれだけ説明できるかを示す量です。</li>
+<li>尤度を明示的に評価したいか</li>
+<li>サンプリング速度を最優先するか</li>
+<li>潜在空間の制御性が重要か</li>
+<li>品質最優先か、運用コスト最優先か</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>重要なのは「流行モデルを選ぶ」より「制約に合う設計を選ぶ」ことです。以下の関数は厳密な最適化ではなく、選定議論を始めるためのヒューリスティックです。</p>
 
-<h2 id="検証-1-潜在変数の入口">検証 1: 潜在変数の入口</h2>
-<p>生成モデル全体像として、潜在空間からのサンプリングを先に体験します。</p>
+<pre><code class="language-python">def choose_generative_family(
+    need_explicit_likelihood: bool,
+    need_fast_sampling: bool,
+    need_latent_control: bool,
+    quality_priority: str,
+    compute_budget: str,
+):
+    # 厳密解ではなく議論開始用のルール
+    if need_explicit_likelihood:
+        return &#39;autoregressive / flow-based&#39;
 
-<pre><code class="language-python">import random
-random.seed(11)
-z = [round(random.gauss(0, 1), 3) for _ in range(5)]
-print(&#39;task = generative-model-overview&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>このzをデコーダに渡す流れを後続で確認します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    if need_latent_control and compute_budget in {&#39;low&#39;, &#39;medium&#39;}:
+        return &#39;VAE-family&#39;
 
-<h2 id="検証-2-単純なデコーダを書く">検証 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+    if quality_priority == &#39;very_high&#39; and not need_fast_sampling and compute_budget != &#39;low&#39;:
+        return &#39;diffusion-family&#39;
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    if need_fast_sampling and quality_priority in {&#39;high&#39;, &#39;very_high&#39;}:
+        return &#39;GAN-family or distilled diffusion&#39;
 
-<h2 id="定義の確認">定義の確認</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mo>∫</mo><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>∣</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>p</mi><mo>(</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>d</mi><mi>z</mi></mrow><annotation encoding="application/x-tex">p_{\theta}(x) = \int p_{\theta}(x\mid z)\,p(z)\,dz</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.805em;"></span><span class="strut bottom" style="height:1.11112em;vertical-align:-0.30612em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="op-symbol small-op mop" style="margin-right:0.19445em;top:-0.0005599999999999772em;">∫</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mrel">∣</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">d</span><span class="mord mathit" style="margin-right:0.04398em;">z</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>s</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><mi>p</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">s(x) = \nabla_x \log p(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">s</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-</ol>
+    return &#39;hybrid approach (task-specific)&#39;
 
-<h2 id="検証-3-ノイズを加えて復元する">検証 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
 
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+cases = [
+    (True, False, False, &#39;high&#39;, &#39;medium&#39;),
+    (False, False, True, &#39;high&#39;, &#39;low&#39;),
+    (False, False, False, &#39;very_high&#39;, &#39;high&#39;),
+    (False, True, False, &#39;high&#39;, &#39;medium&#39;),
+]
 
-<h2 id="検証-4-混合分布の感覚を作る">検証 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
-
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-5-学習指標を定義する">検証 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
-
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+for c in cases:
+    print(c, &#39;-&gt;&#39;, choose_generative_family(*c))</code></pre>
+<p>生成モデルの全体像を一言でまとめると、「データ分布をどう近似し、どうサンプリングするか」の設計問題です。</p>
+<p>このあと各ノートで、潜在変数モデル、VAE、GAN、フロー、エネルギーベース、拡散へ進みます。全体像としては、どの手法も目的は同じで、トレードオフの置き方が違うだけだと捉えると迷いにくくなります。</p>
 
 </article>
   </main>
