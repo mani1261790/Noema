@@ -98,93 +98,372 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+import statistics
+import time</code></pre>
 <h1 id="自己回帰モデルとフローベースモデル">自己回帰モデルとフローベースモデル</h1>
-<p>自己回帰モデルとフローベースモデルでは、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<p>このノートでは、深層生成モデルの中でもよく比較される2系統を扱います。</p>
+<p>自己回帰モデルは「順番に条件付き分布を掛ける」設計で、フローベースモデルは「可逆変換で分布を写す」設計です。どちらも尤度に基づく学習ができますが、何が得意で何が苦手かはかなり違います。ここでは最小実装を通して、その違いを手で追える形にします。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>自己回帰モデルとフローベースモデルに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>まず全体像を式で揃えます。</p>
+<p>自己回帰の基本は連鎖律です。</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>p</mi><mo>(</mo><msub><mi>x</mi><mrow><mn>1</mn><mo>:</mo><mi>D</mi></mrow></msub><mo>)</mo><mo>=</mo><msubsup><mo>∏</mo><mrow><mi>d</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>D</mi></mrow></msubsup><mi>p</mi><mo>(</mo><msub><mi>x</mi><mi>d</mi></msub><mo>∣</mo><msub><mi>x</mi><mrow><mo>&lt;</mo><mi>d</mi></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">p(x_{1:D}) = \prod_{d=1}^{D} p(x_d \mid x_{&lt;d})
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.8283360000000002em;"></span><span class="strut bottom" style="height:3.1304490000000005em;vertical-align:-1.302113em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathrm">1</span><span class="mrel">:</span><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mrel">=</span><span class="mop op-limits"><span class="vlist"><span style="top:1.202113em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">d</span><span class="mrel">=</span><span class="mord mathrm">1</span></span></span></span><span style="top:-0.000005000000000032756em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span><span class="op-symbol large-op mop">∏</span></span></span><span style="top:-1.250005em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">d</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mrel">&lt;</span><span class="mord mathit">d</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></span></p>
+<p>フローベースモデルの基本は変数変換です。可逆写像 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>x</mi><mo>=</mo><mi>f</mi><mo>(</mo><mi>z</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">x=f(z)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">x</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span></span></span></span> と基底分布 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mi>Z</mi></msub></mrow><annotation encoding="application/x-tex">p_Z</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.07153em;">Z</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を使って、</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>log</mi><msub><mi>p</mi><mi>X</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mi>log</mi><msub><mi>p</mi><mi>Z</mi></msub><mo>(</mo><msup><mi>f</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mo>(</mo><mi>x</mi><mo>)</mo><mo>)</mo><mo>+</mo><mi>log</mi><mrow><mo fence="true">∣</mo><mi>det</mi><mfrac><mrow><mi mathvariant="normal">∂</mi><msup><mi>f</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mo>(</mo><mi>x</mi><mo>)</mo></mrow><mrow><mi mathvariant="normal">∂</mi><mi>x</mi></mrow></mfrac><mo fence="true">∣</mo></mrow></mrow><annotation encoding="application/x-tex">\log p_X(x) = \log p_Z(f^{-1}(x)) + \log \left|\det \frac{\partial f^{-1}(x)}{\partial x}\right|
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.491108em;"></span><span class="strut bottom" style="height:2.441128em;vertical-align:-0.9500199999999999em;"></span><span class="base displaystyle textstyle uncramped"><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.07847em;">X</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.07153em;">Z</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:-0.41300000000000003em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">)</span><span class="mbin">+</span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="minner displaystyle textstyle uncramped"><span class="style-wrap reset-textstyle textstyle uncramped"><span class="delimsizing mult"><span class="vlist"><span style="top:0.9500199999999999em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span style="top:0.3440199999999999em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span style="top:-0.2619800000000001em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span style="top:-0.8679800000000001em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span><span class="mop">det</span><span class="mord reset-textstyle displaystyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.686em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle cramped"><span class="mord textstyle cramped"><span class="mord mathrm" style="margin-right:0.05556em;">∂</span><span class="mord mathit">x</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.677em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathrm" style="margin-right:0.05556em;">∂</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="style-wrap reset-textstyle textstyle uncramped"><span class="delimsizing mult"><span class="vlist"><span style="top:0.9500199999999999em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span style="top:0.3440199999999999em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span style="top:-0.2619800000000001em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span style="top:-0.8679800000000001em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="delimsizinginner delim-size1"><span>∣</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></span></span></span></p>
+<p>と書けます。尤度を直接計算できる点は共通ですが、</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>自己回帰分解</strong>: 同時分布を条件付き分布の積で表す分解です。</li>
-<li><strong>正規化フロー</strong>: 可逆変換で密度を厳密計算できる生成モデルです。</li>
+<li>自己回帰: 尤度計算が簡潔、サンプリングは逐次で遅くなりやすい</li>
+<li>フロー: 変換がうまく設計できれば、尤度とサンプリングの両方が扱いやすい</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>という違いがあります。</p>
 
-<h2 id="実験-1-自己回帰系列の初期化">実験 1: 自己回帰系列の初期化</h2>
-<p>自己回帰とフローの違いを見るため、時系列的な潜在列を準備します。</p>
+<p>まず自己回帰モデルから始めます。ここでは2変数データ <code>(x1, x2)</code> を用意し、</p>
+<ul>
+<li><code>p(x1)</code></li>
+<li><code>p(x2 | x1)</code></li>
+</ul>
+<p>を学習して、連鎖律で同時分布を表現する流れを確認します。</p>
 
-<pre><code class="language-python">import random
-random.seed(23)
-z = []
-cur = 0.0
-for _ in range(5):
-    cur = 0.7 * cur + random.gauss(0, 0.4)
-    z.append(round(cur, 3))
-print(&#39;task = autoregressive-flow-models&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>系列依存を持つ潜在列から生成特性を比較します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">random.seed(25)
 
-<h2 id="実験-2-単純なデコーダを書く">実験 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+def make_ar_dataset(n=1200):
+    xs = []
+    for _ in range(n):
+        x1 = random.gauss(0.7, 1.1)
+        x2 = 1.35 * x1 - 0.4 + random.gauss(0.0, 0.55)
+        xs.append((x1, x2))
+    return xs
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mo>∫</mo><msub><mi>p</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>∣</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>p</mi><mo>(</mo><mi>z</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>d</mi><mi>z</mi></mrow><annotation encoding="application/x-tex">p_{\theta}(x) = \int p_{\theta}(x\mid z)\,p(z)\,dz</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.805em;"></span><span class="strut bottom" style="height:1.11112em;vertical-align:-0.30612em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="op-symbol small-op mop" style="margin-right:0.19445em;top:-0.0005599999999999772em;">∫</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mrel">∣</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">d</span><span class="mord mathit" style="margin-right:0.04398em;">z</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>s</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><mi>p</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">s(x) = \nabla_x \log p(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">s</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-</ol>
+def corr(xs):
+    x1 = [v[0] for v in xs]
+    x2 = [v[1] for v in xs]
+    m1 = statistics.mean(x1)
+    m2 = statistics.mean(x2)
+    c = sum((a - m1) * (b - m2) for a, b in xs) / len(xs)
+    s1 = statistics.pstdev(x1)
+    s2 = statistics.pstdev(x2)
+    return c / (s1 * s2)
 
-<h2 id="実験-3-ノイズを加えて復元する">実験 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
 
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+data_ar = make_ar_dataset()
+print(&#39;dataset size =&#39;, len(data_ar))
+print(&#39;mean x1/x2 =&#39;, round(statistics.mean(v[0] for v in data_ar), 4), round(statistics.mean(v[1] for v in data_ar), 4))
+print(&#39;std  x1/x2 =&#39;, round(statistics.pstdev(v[0] for v in data_ar), 4), round(statistics.pstdev(v[1] for v in data_ar), 4))
+print(&#39;corr(x1,x2)=&#39;, round(corr(data_ar), 4))</code></pre>
+<p>ここで使う最小自己回帰モデルは次です。</p>
+<ul>
+<li><code>x1 ~ N(mu1, sigma1^2)</code></li>
+<li><code>x2 | x1 ~ N(a * x1 + b, sigma2^2)</code></li>
+</ul>
+<p>パラメータは <code>theta = [mu1, log_sigma1, a, b, log_sigma2]</code> とし、負の対数尤度（NLL）を最小化します。<code>log_sigma</code> を直接学習するのは、分散が必ず正になるようにするためです。</p>
 
-<h2 id="実験-4-混合分布の感覚を作る">実験 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
+<pre><code class="language-python">def clamp_log_sigma(v):
+    return max(-4.0, min(3.5, v))
 
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="実験-5-学習指標を定義する">実験 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
+def sigma_from_log(log_sigma):
+    return math.exp(clamp_log_sigma(log_sigma))
 
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+def log_normal(x, mu, sigma):
+    return -0.5 * math.log(2.0 * math.pi) - math.log(sigma) - 0.5 * ((x - mu) / sigma) ** 2
+
+
+def nll_ar(theta, dataset):
+    mu1, log_s1, a, b, log_s2 = theta
+    s1 = sigma_from_log(log_s1)
+    s2 = sigma_from_log(log_s2)
+
+    total = 0.0
+    for x1, x2 in dataset:
+        lp1 = log_normal(x1, mu1, s1)
+        mu2 = a * x1 + b
+        lp2 = log_normal(x2, mu2, s2)
+        total += -(lp1 + lp2)
+    return total / len(dataset)
+
+
+def finite_diff_grad(fn, params, h=1e-4):
+    grads = []
+    for i in range(len(params)):
+        p1 = params[:]
+        p2 = params[:]
+        p1[i] += h
+        p2[i] -= h
+        grads.append((fn(p1) - fn(p2)) / (2.0 * h))
+    return grads</code></pre>
+<pre><code class="language-python">def train_ar(theta_init, dataset, steps=240, lr=0.04, log_every=30):
+    theta = theta_init[:]
+    history = []
+
+    for step in range(steps + 1):
+        grad = finite_diff_grad(lambda th: nll_ar(th, dataset), theta)
+        theta = [p - lr * g for p, g in zip(theta, grad)]
+
+        # log_sigma の発散抑制
+        theta[1] = clamp_log_sigma(theta[1])
+        theta[4] = clamp_log_sigma(theta[4])
+
+        if step % log_every == 0:
+            history.append((step, nll_ar(theta, dataset), theta[:]))
+
+    return theta, history
+
+
+def sample_ar(theta, n=1500):
+    mu1, log_s1, a, b, log_s2 = theta
+    s1 = sigma_from_log(log_s1)
+    s2 = sigma_from_log(log_s2)
+    out = []
+    for _ in range(n):
+        x1 = random.gauss(mu1, s1)
+        x2 = random.gauss(a * x1 + b, s2)
+        out.append((x1, x2))
+    return out
+
+
+theta0 = [0.0, 0.0, 0.2, 0.0, 0.0]
+print(&#39;initial nll =&#39;, round(nll_ar(theta0, data_ar), 5))
+
+trained_ar, ar_hist = train_ar(theta0, data_ar)
+for step, value, th in ar_hist:
+    print(f&#39;step={step:03d}&#39;, &#39;nll=&#39;, round(value, 5), &#39;theta=&#39;, [round(v, 4) for v in th])
+
+print(&#39;final nll =&#39;, round(nll_ar(trained_ar, data_ar), 5))</code></pre>
+<pre><code class="language-python">random.seed(25)
+synthetic_ar = sample_ar(trained_ar)
+
+print(&#39;AR data mean x1/x2 =&#39;, round(statistics.mean(v[0] for v in data_ar), 4), round(statistics.mean(v[1] for v in data_ar), 4))
+print(&#39;AR gen  mean x1/x2 =&#39;, round(statistics.mean(v[0] for v in synthetic_ar), 4), round(statistics.mean(v[1] for v in synthetic_ar), 4))
+print(&#39;AR data std  x1/x2 =&#39;, round(statistics.pstdev(v[0] for v in data_ar), 4), round(statistics.pstdev(v[1] for v in data_ar), 4))
+print(&#39;AR gen  std  x1/x2 =&#39;, round(statistics.pstdev(v[0] for v in synthetic_ar), 4), round(statistics.pstdev(v[1] for v in synthetic_ar), 4))
+print(&#39;AR data corr       =&#39;, round(corr(data_ar), 4))
+print(&#39;AR gen  corr       =&#39;, round(corr(synthetic_ar), 4))</code></pre>
+<p>ここまでで、自己回帰モデルが「条件付き分布を積む」ことで相関構造を学べることを確認できました。</p>
+<p>次にフローベースモデルへ移ります。フローは「分かりやすい分布 <code>z</code> を可逆変換で <code>x</code> に写す」設計です。RealNVPで中心になるのは affine coupling で、Jacobian の行列式が計算しやすいように変換を組みます。</p>
+
+<p>2次元の最小 affine coupling を使います。</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>y</mi><mn>1</mn></msub><mo>=</mo><msub><mi>z</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">y_1 = z_1
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></span></p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>y</mi><mn>2</mn></msub><mo>=</mo><msub><mi>z</mi><mn>2</mn></msub><mo>⋅</mo><mi>exp</mi><mo>(</mo><mi>s</mi><mo>(</mo><msub><mi>z</mi><mn>1</mn></msub><mo>)</mo><mo>)</mo><mo>+</mo><mi>t</mi><mo>(</mo><msub><mi>z</mi><mn>1</mn></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">y_2 = z_2 \cdot \exp(s(z_1)) + t(z_1)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">⋅</span><span class="mop">exp</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mclose">)</span><span class="mbin">+</span><span class="mord mathit">t</span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></span></p>
+<p>ここで <code>s(z1)=a_s z1 + b_s</code>, <code>t(z1)=a_t z1 + b_t</code> と置くと、逆変換が明示的に書けます。</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>z</mi><mn>1</mn></msub><mo>=</mo><msub><mi>y</mi><mn>1</mn></msub><mo separator="true">,</mo><mspace width="1em"></mspace><msub><mi>z</mi><mn>2</mn></msub><mo>=</mo><mo>(</mo><msub><mi>y</mi><mn>2</mn></msub><mo>−</mo><mi>t</mi><mo>(</mo><msub><mi>y</mi><mn>1</mn></msub><mo>)</mo><mo>)</mo><mi>exp</mi><mo>(</mo><mo>−</mo><mi>s</mi><mo>(</mo><msub><mi>y</mi><mn>1</mn></msub><mo>)</mo><mo>)</mo></mrow><annotation encoding="application/x-tex">z_1 = y_1,
+\quad z_2 = (y_2 - t(y_1)) \exp(-s(y_1))
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord mspace quad"></span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">−</span><span class="mord mathit">t</span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mclose">)</span><span class="mop">exp</span><span class="mopen">(</span><span class="mord">−</span><span class="mord mathit">s</span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mclose">)</span></span></span></span></span></p>
+<p>このとき Jacobian が計算しやすいのが重要です。<code>y1=z1</code> なので Jacobian は三角構造になり、対角要素は <code>1</code> と <code>exp(s(z1))</code> になります。したがって行列式は <code>exp(s(z1))</code>、log-det は <code>s(z1)</code> だけで計算できます。</p>
+<p>これが RealNVP 系で「可逆だが尤度計算も軽い」理由です。</p>
+
+<pre><code class="language-python">def standard_normal_logpdf(z1, z2):
+    return -math.log(2.0 * math.pi) - 0.5 * (z1 * z1 + z2 * z2)
+
+
+def safe_exp(v):
+    # 数値発散防止
+    return math.exp(max(-5.0, min(5.0, v)))
+
+
+def coupling_forward(z1, z2, theta):
+    a_s, b_s, a_t, b_t = theta
+    s = a_s * z1 + b_s
+    t = a_t * z1 + b_t
+    x1 = z1
+    x2 = z2 * safe_exp(s) + t
+    log_det = s
+    return x1, x2, log_det
+
+
+def coupling_inverse(x1, x2, theta):
+    a_s, b_s, a_t, b_t = theta
+    s = a_s * x1 + b_s
+    t = a_t * x1 + b_t
+    z1 = x1
+    z2 = (x2 - t) / safe_exp(s)
+    log_det_inv = -s
+    return z1, z2, log_det_inv
+
+
+# 可逆性チェック
+theta_check = [0.55, -0.18, 1.1, 0.35]
+z1, z2 = 0.7, -1.2
+x1, x2, ld = coupling_forward(z1, z2, theta_check)
+z1_hat, z2_hat, ld_inv = coupling_inverse(x1, x2, theta_check)
+
+print(&#39;forward  :&#39;, round(x1, 6), round(x2, 6), &#39;logdet=&#39;, round(ld, 6))
+print(&#39;inverse  :&#39;, round(z1_hat, 6), round(z2_hat, 6), &#39;logdet_inv=&#39;, round(ld_inv, 6))
+print(&#39;recovery error =&#39;, round(abs(z1 - z1_hat) + abs(z2 - z2_hat), 12))</code></pre>
+<p>次のセルでは、既知の変換 <code>teacher_theta</code> を使って合成観測データを作ります。意図は、学習後に <code>theta</code> が <code>teacher_theta</code> に近づくかを確認することです。</p>
+<p>手順は <code>z ~ N(0,I)</code> をサンプルし、<code>x = f_teacher(z)</code> を作るだけです。実務では <code>x</code> しか観測できませんが、この教材では正解変換を知っている設定にして、フロー学習が「逆写像を通じた尤度最大化」で何をしているかを見やすくしています。</p>
+
+<pre><code class="language-python">random.seed(25)
+
+# 教師変換で2次元データを作る（実務では観測データに相当）
+teacher_theta = [0.8, -0.25, 1.35, 0.4]
+
+def make_flow_dataset(n=1500):
+    out = []
+    for _ in range(n):
+        z1 = random.gauss(0.0, 1.0)
+        z2 = random.gauss(0.0, 1.0)
+        x1, x2, _ = coupling_forward(z1, z2, teacher_theta)
+        out.append((x1, x2))
+    return out
+
+
+data_flow = make_flow_dataset()
+print(&#39;flow dataset size =&#39;, len(data_flow))
+print(&#39;mean x1/x2 =&#39;, round(statistics.mean(v[0] for v in data_flow), 4), round(statistics.mean(v[1] for v in data_flow), 4))
+print(&#39;std  x1/x2 =&#39;, round(statistics.pstdev(v[0] for v in data_flow), 4), round(statistics.pstdev(v[1] for v in data_flow), 4))
+print(&#39;corr(x1,x2)=&#39;, round(corr(data_flow), 4))</code></pre>
+<pre><code class="language-python">def nll_flow(theta, dataset):
+    total = 0.0
+    for x1, x2 in dataset:
+        z1, z2, log_det_inv = coupling_inverse(x1, x2, theta)
+        lp = standard_normal_logpdf(z1, z2) + log_det_inv
+        total += -lp
+    return total / len(dataset)
+
+
+def train_flow(theta_init, dataset, steps=260, lr=0.03, log_every=40):
+    theta = theta_init[:]
+    history = []
+
+    for step in range(steps + 1):
+        grad = finite_diff_grad(lambda th: nll_flow(th, dataset), theta)
+        theta = [p - lr * g for p, g in zip(theta, grad)]
+
+        # sの線形係数が暴れすぎないように軽く制限
+        theta[0] = max(-2.5, min(2.5, theta[0]))
+        theta[1] = max(-2.5, min(2.5, theta[1]))
+
+        if step % log_every == 0:
+            history.append((step, nll_flow(theta, dataset), theta[:]))
+
+    return theta, history
+
+
+flow_theta0 = [0.05, 0.0, 0.1, 0.0]
+print(&#39;initial flow nll =&#39;, round(nll_flow(flow_theta0, data_flow), 5))
+
+trained_flow, flow_hist = train_flow(flow_theta0, data_flow)
+for step, value, th in flow_hist:
+    print(f&#39;step={step:03d}&#39;, &#39;nll=&#39;, round(value, 5), &#39;theta=&#39;, [round(v, 4) for v in th])
+
+print(&#39;final flow nll =&#39;, round(nll_flow(trained_flow, data_flow), 5))</code></pre>
+<pre><code class="language-python">def sample_flow(theta, n=1500):
+    out = []
+    for _ in range(n):
+        z1 = random.gauss(0.0, 1.0)
+        z2 = random.gauss(0.0, 1.0)
+        x1, x2, _ = coupling_forward(z1, z2, theta)
+        out.append((x1, x2))
+    return out
+
+
+random.seed(25)
+synthetic_flow = sample_flow(trained_flow)
+
+print(&#39;FLOW data mean x1/x2 =&#39;, round(statistics.mean(v[0] for v in data_flow), 4), round(statistics.mean(v[1] for v in data_flow), 4))
+print(&#39;FLOW gen  mean x1/x2 =&#39;, round(statistics.mean(v[0] for v in synthetic_flow), 4), round(statistics.mean(v[1] for v in synthetic_flow), 4))
+print(&#39;FLOW data std  x1/x2 =&#39;, round(statistics.pstdev(v[0] for v in data_flow), 4), round(statistics.pstdev(v[1] for v in data_flow), 4))
+print(&#39;FLOW gen  std  x1/x2 =&#39;, round(statistics.pstdev(v[0] for v in synthetic_flow), 4), round(statistics.pstdev(v[1] for v in synthetic_flow), 4))
+print(&#39;FLOW data corr       =&#39;, round(corr(data_flow), 4))
+print(&#39;FLOW gen  corr       =&#39;, round(corr(synthetic_flow), 4))
+print(&#39;learned theta        =&#39;, [round(v, 4) for v in trained_flow])
+print(&#39;teacher theta        =&#39;, [round(v, 4) for v in teacher_theta])</code></pre>
+<p>ここで使った2次元 coupling は、RealNVP の最小断面です。実際の画像タスクでは、</p>
+<ul>
+<li>次元を分割するマスク（checkerboard / channel-wise）</li>
+<li>複数の coupling layer をスタック</li>
+<li>squeeze / unsqueeze で空間・チャネルを組み替え</li>
+</ul>
+<p>という構成で表現力を上げます。重要なのは、どれだけ複雑にしても「可逆性」と「log-det が計算できる設計」を保つことです。</p>
+
+<p>ここでは RealNVP で使うマスク機構を4次元ベクトルで模擬します。</p>
+<p><code>mask=1</code> の次元はその層では固定し、<code>mask=0</code> の次元だけを affine 変換します。固定側の値から <code>cond</code>（条件コンテキスト）を作り、その <code>cond</code> を使って scale/shift を決めるのが coupling の基本です。</p>
+<p><code>mask_a</code> と <code>mask_b</code> を交互に使う理由は、毎層で固定される次元を入れ替え、最終的にすべての次元を更新可能にするためです。</p>
+
+<pre><code class="language-python">def masked_affine_coupling_forward(x, mask, theta):
+    # x: 4次元ベクトル
+    # mask=1 の次元は固定、mask=0 の次元を変換
+    a_s, b_s, a_t, b_t = theta
+    x_fixed = [x[i] for i in range(4) if mask[i] == 1]
+    cond = sum(x_fixed) / len(x_fixed)
+
+    s = a_s * cond + b_s
+    t = a_t * cond + b_t
+    scale = safe_exp(s)
+
+    y = x[:]
+    log_det = 0.0
+    for i in range(4):
+        if mask[i] == 0:
+            y[i] = x[i] * scale + t
+            log_det += s
+    return y, log_det
+
+
+def masked_affine_coupling_inverse(y, mask, theta):
+    a_s, b_s, a_t, b_t = theta
+    y_fixed = [y[i] for i in range(4) if mask[i] == 1]
+    cond = sum(y_fixed) / len(y_fixed)
+
+    s = a_s * cond + b_s
+    t = a_t * cond + b_t
+    scale = safe_exp(s)
+
+    x = y[:]
+    log_det_inv = 0.0
+    for i in range(4):
+        if mask[i] == 0:
+            x[i] = (y[i] - t) / scale
+            log_det_inv -= s
+    return x, log_det_inv
+
+
+mask_a = [1, 0, 1, 0]
+mask_b = [0, 1, 0, 1]
+vec = [0.3, -1.0, 0.8, 1.2]
+params = [0.7, -0.1, 0.9, 0.2]
+
+y1, ld1 = masked_affine_coupling_forward(vec, mask_a, params)
+y2, ld2 = masked_affine_coupling_forward(y1, mask_b, params)
+
+x1, ild2 = masked_affine_coupling_inverse(y2, mask_b, params)
+x0, ild1 = masked_affine_coupling_inverse(x1, mask_a, params)
+
+print(&#39;input vec     =&#39;, [round(v, 6) for v in vec])
+print(&#39;after 2 flows =&#39;, [round(v, 6) for v in y2])
+print(&#39;recovered vec =&#39;, [round(v, 6) for v in x0])
+print(&#39;recovery err  =&#39;, round(sum(abs(a - b) for a, b in zip(vec, x0)), 12))
+print(&#39;logdet fwd/inv=&#39;, round(ld1 + ld2, 6), round(ild1 + ild2, 6))</code></pre>
+<pre><code class="language-python"># ざっくりした計算コスト観察（教材用の粗い比較）
+def benchmark_ar(theta, num=2000):
+    t0 = time.time()
+    _ = sample_ar(theta, n=num)
+    t1 = time.time()
+    return t1 - t0
+
+
+def benchmark_flow(theta, num=2000):
+    t0 = time.time()
+    _ = sample_flow(theta, n=num)
+    t1 = time.time()
+    return t1 - t0
+
+
+ar_sec = benchmark_ar(trained_ar)
+flow_sec = benchmark_flow(trained_flow)
+print(&#39;sampling time (AR)   =&#39;, round(ar_sec, 5), &#39;sec&#39;)
+print(&#39;sampling time (Flow) =&#39;, round(flow_sec, 5), &#39;sec&#39;)
+print(&#39;note: この比較は2次元toyなので、実務速度の結論そのものには使わない&#39;)</code></pre>
+<p>このノートの要点は3つです。</p>
+<p>1つ目は、自己回帰モデルは連鎖律で設計が明確で、条件付き関係を素直に書けることです。2つ目は、フローベースモデルは可逆性と log-det 計算可能性を守ることで、尤度とサンプリングの両方を直接扱えることです。3つ目は、どちらが優れているかは問題設定しだいで、モデルの目的（高忠実度サンプリングか、密度推定の安定性か、計算効率か）に合わせて選ぶ必要があることです。</p>
+<p>RealNVPやMAF/IAFに進むときは、今回の最小実装を「次元を増やしたときに何がボトルネックになるか」という視点で読み替えると、論文の設計意図がかなり理解しやすくなります。</p>
 
 </article>
   </main>
