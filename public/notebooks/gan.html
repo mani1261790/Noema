@@ -98,88 +98,276 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+import statistics</code></pre>
 <h1 id="gan">GAN</h1>
-<p>GANでは、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<p>GAN（Generative Adversarial Network）は、生成器 <code>G</code> と識別器 <code>D</code> を競わせることでデータ分布を学習する手法です。ここでは1次元データを使い、数式とコードを行き来しながら、学習がうまくいく条件と失敗する条件を確認します。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>GANに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>実データ分布を <code>p_data(x)</code>、生成分布を <code>p_g(x)</code> と書くと、目標は <code>p_g ≈ p_data</code> です。GANでは <code>D</code> が「本物か偽物か」を見分ける能力を上げ、<code>G</code> がその <code>D</code> をだます能力を上げます。</p>
+<p>この設計の利点は、尤度を直接書きにくい問題でも、識別問題として学習を回せることです。一方で、学習は不安定になりやすく、目的関数とモデル設計の意図を理解していないと改善が難しくなります。</p>
+
+<p>まず、2つの山を持つ1次元分布を実データとして作ります。2峰性のデータを使う理由は、mode collapse（片方の山しか出せなくなる失敗）を検出しやすくするためです。</p>
+
+<pre><code class="language-python">random.seed(21)
+
+def sample_real(n: int):
+    out = []
+    for _ in range(n):
+        if random.random() &lt; 0.5:
+            out.append(random.gauss(-2.0, 0.35))
+        else:
+            out.append(random.gauss(2.0, 0.35))
+    return out
+
+real_preview = sample_real(2000)
+print(&#39;real mean =&#39;, round(statistics.mean(real_preview), 4))
+print(&#39;real stdev =&#39;, round(statistics.pstdev(real_preview), 4))
+print(&#39;left ratio =&#39;, round(sum(1 for x in real_preview if x &lt; 0) / len(real_preview), 4))
+print(&#39;right ratio=&#39;, round(sum(1 for x in real_preview if x &gt;= 0) / len(real_preview), 4))</code></pre>
+<p>GANの代表的な目的関数は次です。</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>max</mi><mi>D</mi></msub><mspace width="0.277778em"></mspace><msub><mrow><mi mathvariant="double-struck">E</mi></mrow><mrow><mi>x</mi><mo>∼</mo><msub><mi>p</mi><mrow><mi>d</mi><mi>a</mi><mi>t</mi><mi>a</mi></mrow></msub></mrow></msub><mo>[</mo><mi>log</mi><mi>D</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>]</mo><mo>+</mo><msub><mrow><mi mathvariant="double-struck">E</mi></mrow><mrow><mi>z</mi><mo>∼</mo><mi>p</mi><mo>(</mo><mi>z</mi><mo>)</mo></mrow></msub><mo>[</mo><mi>log</mi><mo>(</mo><mn>1</mn><mo>−</mo><mi>D</mi><mo>(</mo><mi>G</mi><mo>(</mo><mi>z</mi><mo>)</mo><mo>)</mo><mo>)</mo><mo>]</mo></mrow><annotation encoding="application/x-tex">\max_D\; \mathbb{E}_{x\sim p_{data}}[\log D(x)] + \mathbb{E}_{z\sim p(z)}[\log(1-D(G(z)))]
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1.494331em;vertical-align:-0.7443310000000001em;"></span><span class="base displaystyle textstyle uncramped"><span class="mop op-limits"><span class="vlist"><span style="top:0.6443310000000001em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span><span style="top:1.3877787807814457e-16em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span><span class="mop">max</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mspace thickspace"></span><span class=""><span class="mord displaystyle textstyle uncramped"><span class="mord mathbb">E</span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">x</span><span class="mrel">∼</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15122857142857138em;margin-right:0.07142857142857144em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-scriptstyle scriptscriptstyle cramped"><span class="mord scriptscriptstyle cramped"><span class="mord mathit">d</span><span class="mord mathit">a</span><span class="mord mathit">t</span><span class="mord mathit">a</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">[</span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit" style="margin-right:0.02778em;">D</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">]</span><span class="mbin">+</span><span class=""><span class="mord displaystyle textstyle uncramped"><span class="mord mathbb">E</span></span><span class="vlist"><span style="top:0.18019999999999992em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mrel">∼</span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">[</span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mopen">(</span><span class="mord mathrm">1</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.02778em;">D</span><span class="mopen">(</span><span class="mord mathit">G</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mclose">)</span><span class="mclose">)</span><span class="mclose">]</span></span></span></span></span></p>
+\max_G\; \mathbb{E}_{z\sim p(z)}[\log D(G(z))]\quad\text{(non-saturating 版)}
+
+<p>教科書で出る <code>\min_G \mathbb{E}[\log(1-D(G(z)))]</code>（minimax 版）は、初期段階で勾配が弱くなりやすいので、実装では non-saturating 版がよく使われます。</p>
+
+<pre><code class="language-python">def sigmoid(t: float) -&gt; float:
+    if t &gt;= 0:
+        e = math.exp(-t)
+        return 1.0 / (1.0 + e)
+    e = math.exp(t)
+    return e / (1.0 + e)
+
+
+def clamp_prob(p: float, eps: float = 1e-8) -&gt; float:
+    return min(1.0 - eps, max(eps, p))
+
+
+def sample_z(n: int):
+    return [random.gauss(0.0, 1.0) for _ in range(n)]
+
+
+# 線形の最小モデル
+# G(z) = a z + b
+# D(x) = sigmoid(c x + d)
+def generator_linear(z: float, theta):
+    a, b = theta
+    return a * z + b
+
+
+def discriminator(x: float, phi):
+    c, d = phi
+    return sigmoid(c * x + d)
+
+
+def losses_on_batch(theta, phi, x_real, z_batch, generator_fn):
+    x_fake = [generator_fn(z, theta) for z in z_batch]
+
+    d_real = [clamp_prob(discriminator(x, phi)) for x in x_real]
+    d_fake = [clamp_prob(discriminator(x, phi)) for x in x_fake]
+
+    ld = sum(math.log(p) for p in d_real) / len(d_real) + sum(math.log(1.0 - p) for p in d_fake) / len(d_fake)
+    lg_nonsat = sum(math.log(p) for p in d_fake) / len(d_fake)          # maximize
+    lg_minimax = sum(math.log(1.0 - p) for p in d_fake) / len(d_fake)   # minimize
+
+    return ld, lg_nonsat, lg_minimax, x_fake</code></pre>
+<pre><code class="language-python">theta0 = [0.15, 0.0]
+phi0 = [0.25, 0.0]
+
+x_real = sample_real(256)
+z_batch = sample_z(256)
+ld0, lg0, lg_min0, x_fake0 = losses_on_batch(theta0, phi0, x_real, z_batch, generator_linear)
+
+print(&#39;initial L_D (maximize)        =&#39;, round(ld0, 5))
+print(&#39;initial L_G non-saturating    =&#39;, round(lg0, 5))
+print(&#39;initial L_G minimax objective =&#39;, round(lg_min0, 5))
+print(&#39;fake preview mean/stdev =&#39;, round(statistics.mean(x_fake0), 4), round(statistics.pstdev(x_fake0), 4))</code></pre>
+<p>次に学習を回します。今回は自動微分ではなく有限差分を使います。深層学習の本番では自動微分を使うべきですが、有限差分だと「どの目的を最大化・最小化しているか」が見えやすく、概念理解には有効です。</p>
+<p>このノートでは <code>L_D</code> と <code>L_G</code> をどちらも「最大化」する書き方に統一しているため、更新式は <code>params = params + lr * grad</code> になります。一般的な最小化実装（<code>params - lr * grad</code>）と符号が逆に見えるのは、最適化している向きが違うためです。</p>
+<p>ログに出す <code>W1</code> は実分布と生成分布の距離なので、小さいほど良い値です。<code>left</code> と <code>right</code> は左右モードの比率で、両者が 0.5 付近なら mode collapse が起きにくい状態と解釈できます。</p>
+
+<pre><code class="language-python">def finite_diff_grad(fn, params, h: float = 1e-4):
+    grads = []
+    for i in range(len(params)):
+        plus = params[:]
+        minus = params[:]
+        plus[i] += h
+        minus[i] -= h
+        grads.append((fn(plus) - fn(minus)) / (2.0 * h))
+    return grads
+def empirical_w1_1d(xs, ys):
+    n = min(len(xs), len(ys))
+    xs_sorted = sorted(xs)[:n]
+    ys_sorted = sorted(ys)[:n]
+    return sum(abs(a - b) for a, b in zip(xs_sorted, ys_sorted)) / n
+def evaluate_distribution(theta, generator_fn, n=4000):
+    real = sample_real(n)
+    fake = [generator_fn(z, theta) for z in sample_z(n)]
+    left = sum(1 for x in fake if x &lt; 0) / len(fake)
+    right = 1.0 - left
+    return {
+        &#39;real_mean&#39;: statistics.mean(real),
+        &#39;real_std&#39;: statistics.pstdev(real),
+        &#39;fake_mean&#39;: statistics.mean(fake),
+        &#39;fake_std&#39;: statistics.pstdev(fake),
+        &#39;w1&#39;: empirical_w1_1d(real, fake),
+        &#39;left&#39;: left,
+        &#39;right&#39;: right,
+    }
+def train_gan(theta_init, phi_init, generator_fn, steps=320, batch_size=128, lr_g=0.04, lr_d=0.04, d_updates=2, log_every=40):
+    theta = theta_init[:]
+    phi = phi_init[:]
+    history = []
+    for step in range(steps + 1):
+        for _ in range(d_updates):
+            x_real = sample_real(batch_size)
+            z = sample_z(batch_size)
+            def d_objective(phi_try):
+                ld, _, _, _ = losses_on_batch(theta, phi_try, x_real, z, generator_fn)
+                return ld
+            g_phi = finite_diff_grad(d_objective, phi)
+            # L_D を最大化するので、勾配上昇（+）で更新
+            phi = [p + lr_d * gp for p, gp in zip(phi, g_phi)]
+        x_real = sample_real(batch_size)
+        z = sample_z(batch_size)
+        def g_objective(theta_try):
+            _, lg, _, _ = losses_on_batch(theta_try, phi, x_real, z, generator_fn)
+            return lg
+        g_theta = finite_diff_grad(g_objective, theta)
+        # L_G（non-saturating）を最大化するので、勾配上昇（+）で更新
+        theta = [t + lr_g * gt for t, gt in zip(theta, g_theta)]
+        if step % log_every == 0:
+            x_eval = sample_real(1000)
+            z_eval = sample_z(1000)
+            ld_eval, lg_eval, _, _ = losses_on_batch(theta, phi, x_eval, z_eval, generator_fn)
+            stats = evaluate_distribution(theta, generator_fn, n=2000)
+            history.append((step, theta[:], phi[:], ld_eval, lg_eval, stats[&#39;w1&#39;], stats[&#39;left&#39;], stats[&#39;right&#39;]))
+    return theta, phi, history</code></pre>
+<pre><code class="language-python">random.seed(21)
+lin_theta, lin_phi, lin_history = train_gan(theta0, phi0, generator_linear)
+
+for step, th, ph, ld, lg, w1, left, right in lin_history:
+    print(
+        f&#39;step={step:03d}&#39;,
+        f&#39;theta={[round(v,4) for v in th]}&#39;,
+        f&#39;phi={[round(v,4) for v in ph]}&#39;,
+        f&#39;L_D={round(ld,4)}&#39;,
+        f&#39;L_G={round(lg,4)}&#39;,
+        f&#39;W1={round(w1,4)}&#39;,
+        f&#39;left={round(left,3)}&#39;,
+        f&#39;right={round(right,3)}&#39;
+    )
+
+lin_stats = evaluate_distribution(lin_theta, generator_linear)
+print()
+print(&#39;linear generator final stats:&#39;)
+for k, v in lin_stats.items():
+    print(k, &#39;=&#39;, round(v, 4))</code></pre>
+<p>ここで重要なのは、学習アルゴリズム以前に表現力の限界があることです。<code>z~N(0,1)</code> に対して線形写像 <code>a z + b</code> を使うと、<code>p_g</code> は必ず単峰ガウスになります。したがって、2峰の実分布を正確には表現できません。</p>
+<p>つまり「学習が遅い」だけでなく、「モデルがその分布族を持っていない」ことが失敗の根本原因です。</p>
+
+<pre><code class="language-python"># 2分岐生成器: z&lt;0 と z&gt;=0 で別の線形写像を使う
+# G(z) = a_l z + b_l  (z&lt;0),  a_r z + b_r (z&gt;=0)
+def generator_piecewise(z: float, theta):
+    a_l, b_l, a_r, b_r = theta
+    if z &lt; 0.0:
+        return a_l * z + b_l
+    return a_r * z + b_r
+
+
+random.seed(21)
+# 2峰を作りやすい初期値を置く（実務ではここも設計対象）
+theta_pw0 = [0.35, -1.8, 0.35, 1.8]
+phi_pw0 = [0.25, 0.0]
+
+pw_theta, pw_phi, pw_history = train_gan(
+    theta_pw0,
+    phi_pw0,
+    generator_piecewise,
+    steps=400,
+    lr_g=0.02,
+    lr_d=0.03,
+    d_updates=2,
+)
+
+for step, th, ph, ld, lg, w1, left, right in pw_history:
+    print(
+        f&#39;step={step:03d}&#39;,
+        f&#39;theta={[round(v,4) for v in th]}&#39;,
+        f&#39;phi={[round(v,4) for v in ph]}&#39;,
+        f&#39;L_D={round(ld,4)}&#39;,
+        f&#39;L_G={round(lg,4)}&#39;,
+        f&#39;W1={round(w1,4)}&#39;,
+        f&#39;left={round(left,3)}&#39;,
+        f&#39;right={round(right,3)}&#39;
+    )
+
+pw_stats = evaluate_distribution(pw_theta, generator_piecewise)
+print()
+print(&#39;piecewise generator final stats:&#39;)
+for k, v in pw_stats.items():
+    print(k, &#39;=&#39;, round(v, 4))</code></pre>
+<pre><code class="language-python">print(&#39;comparison (linear vs piecewise):&#39;)
+print(&#39;W1            =&#39;, round(lin_stats[&#39;w1&#39;], 4), &#39;vs&#39;, round(pw_stats[&#39;w1&#39;], 4))
+print(&#39;fake stdev    =&#39;, round(lin_stats[&#39;fake_std&#39;], 4), &#39;vs&#39;, round(pw_stats[&#39;fake_std&#39;], 4))
+print(&#39;mode balance  =&#39;, round(min(lin_stats[&#39;left&#39;], lin_stats[&#39;right&#39;]) / max(lin_stats[&#39;left&#39;], lin_stats[&#39;right&#39;]), 4),
+      &#39;vs&#39;,
+      round(min(pw_stats[&#39;left&#39;], pw_stats[&#39;right&#39;]) / max(pw_stats[&#39;left&#39;], pw_stats[&#39;right&#39;]), 4))</code></pre>
+<p>non-saturating 目的を使う理由も確認します。<code>s</code> を識別器ロジット（<code>D=σ(s)</code>）とすると、</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>生成器</strong>: ノイズからサンプルを生成するネットワークです。</li>
-<li><strong>識別器</strong>: 本物/生成物を判定するネットワークで、生成器と競合学習します。</li>
+<li>minimax 目的 <code>log(1-σ(s))</code> の導関数は <code>-σ(s)</code></li>
+<li>non-saturating 目的 <code>-log(σ(s))</code> の導関数は <code>-(1-σ(s))</code></li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>です。<code>D(G(z))</code> が小さい初期段階では、minimax の勾配は小さくなりやすく、non-saturating のほうが更新信号を確保しやすくなります。</p>
 
-<h2 id="実験-1-ganノイズ入力の作成">実験 1: GANノイズ入力の作成</h2>
-<p>GANでは生成器の入力ノイズが多様性を左右します。最小ノイズ列を作ります。</p>
+<pre><code class="language-python">def d_minimax_ds(p):
+    return -p
 
-<pre><code class="language-python">import random
-random.seed(19)
-z = [round(random.uniform(-1, 1), 3) for _ in range(5)]
-print(&#39;task = gan&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>このノイズから生成サンプルへの写像を追います。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="実験-2-単純なデコーダを書く">実験 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+def d_nonsat_ds(p):
+    return -(1.0 - p)
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+for p in [0.001, 0.01, 0.05, 0.1, 0.5, 0.9]:
+    print(
+        f&#39;D(fake)={p:&gt;5}&#39;,
+        f&#39;|d(minimax)/ds|={abs(d_minimax_ds(p)):.4f}&#39;,
+        f&#39;|d(non-sat)/ds|={abs(d_nonsat_ds(p)):.4f}&#39;
+    )</code></pre>
+<p>GAN派生の代表例として LSGAN と WGAN の方向性を整理します。LSGAN は二乗誤差で勾配をなめらかにし、WGAN は Wasserstein 距離に基づく評価で学習安定化を狙います。どちらも「単に新しい損失」ではなく、失敗モードに対応した設計です。</p>
+<p>次のセルでは次を観察してください。</p>
+<ul>
+<li>LSGAN の <code>loss_D</code> と <code>loss_G</code> は最小化対象で、値の振れが大きすぎないかを見ます。</li>
+<li>WGAN の重みクリップは、識別器（critic）の過剰な鋭さを抑えるための直感的な操作です。クリップ前後の値の変化を見て、制約がどう効くかを確認します。</li>
+</ul>
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>min</mi><mi>G</mi></msub><msub><mi>max</mi><mi>D</mi></msub><msub><mrow><mi mathvariant="double-struck">E</mi></mrow><mi>x</mi></msub><mo>[</mo><mi>log</mi><mi>D</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>]</mo><mo>+</mo><msub><mrow><mi mathvariant="double-struck">E</mi></mrow><mi>z</mi></msub><mo>[</mo><mi>log</mi><mo>(</mo><mn>1</mn><mo>−</mo><mi>D</mi><mo>(</mo><mi>G</mi><mo>(</mo><mi>z</mi><mo>)</mo><mo>)</mo><mo>)</mo><mo>]</mo></mrow><annotation encoding="application/x-tex">\min_G\max_D\mathbb{E}_x[\log D(x)] + \mathbb{E}_z[\log(1 - D(G(z)))]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mop"><span class="mop">min</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">G</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop"><span class="mop">max</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class=""><span class="mord textstyle uncramped"><span class="mord mathbb">E</span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">[</span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit" style="margin-right:0.02778em;">D</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">]</span><span class="mbin">+</span><span class=""><span class="mord textstyle uncramped"><span class="mord mathbb">E</span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">[</span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mopen">(</span><span class="mord mathrm">1</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.02778em;">D</span><span class="mopen">(</span><span class="mord mathit">G</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mclose">)</span><span class="mclose">)</span><span class="mclose">)</span><span class="mclose">]</span></span></span></span></li>
-</ol>
+<pre><code class="language-python">def lsgan_losses(theta, phi, x_real, z_batch, generator_fn):
+    x_fake = [generator_fn(z, theta) for z in z_batch]
+    d_real = [discriminator(x, phi) for x in x_real]
+    d_fake = [discriminator(x, phi) for x in x_fake]
 
-<h2 id="実験-3-ノイズを加えて復元する">実験 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
+    # 典型的な最小化形式
+    loss_d = 0.5 * (
+        sum((p - 1.0) ** 2 for p in d_real) / len(d_real)
+        + sum((p - 0.0) ** 2 for p in d_fake) / len(d_fake)
+    )
+    loss_g = 0.5 * sum((p - 1.0) ** 2 for p in d_fake) / len(d_fake)
+    return loss_d, loss_g
 
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
 
-<h2 id="実験-4-混合分布の感覚を作る">実験 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
+x_ref = sample_real(256)
+z_ref = sample_z(256)
+ld_gan, lg_gan, _, _ = losses_on_batch(pw_theta, pw_phi, x_ref, z_ref, generator_piecewise)
+ld_ls, lg_ls = lsgan_losses(pw_theta, pw_phi, x_ref, z_ref, generator_piecewise)
 
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+print(&#39;GAN objective (maximize L_D, L_G):&#39;, round(ld_gan, 5), round(lg_gan, 5))
+print(&#39;LSGAN loss (minimize loss_D, loss_G):&#39;, round(ld_ls, 5), round(lg_ls, 5))
 
-<h2 id="実験-5-学習指標を定義する">実験 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
-
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+critic_weight = 1.7
+clip_value = 0.1
+critic_weight_clipped = max(-clip_value, min(clip_value, critic_weight))
+print(&#39;WGAN intuition: raw critic weight =&#39;, critic_weight, &#39;-&gt; clipped =&#39;, critic_weight_clipped)</code></pre>
+<p>GANで精度を上げるときは、損失関数だけでなく、生成器の分布表現力・識別器の強さ・学習率バランスを同時に設計する必要があります。このノートで見た通り、同じGANでも「分布をそもそも表現できるかどうか」で結果は大きく変わります。</p>
 
 </article>
   </main>
