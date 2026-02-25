@@ -46,7 +46,11 @@ import sys
 import traceback
 
 payload = json.loads(sys.stdin.read() or "{}")
-code = payload.get("code", "")
+full_code = payload.get("code", "")
+context_code = payload.get("contextCode", "")
+if not isinstance(context_code, str):
+    context_code = ""
+code = full_code
 
 stdout_buffer = io.StringIO()
 stderr_buffer = io.StringIO()
@@ -100,7 +104,7 @@ def _append_value_output(value):
             }
         )
 
-def _append_matplotlib_outputs():
+def _append_matplotlib_outputs(preexisting_fignums=None, shown_fignums=None):
     try:
         import matplotlib
     except Exception:
@@ -114,7 +118,13 @@ def _append_matplotlib_outputs():
     except Exception:
         return
 
-    fignums = list(plt.get_fignums())
+    existing = set(preexisting_fignums or [])
+    shown = set(shown_fignums or [])
+    all_fignums = list(plt.get_fignums())
+    if shown:
+        fignums = [fig_num for fig_num in all_fignums if fig_num in shown]
+    else:
+        fignums = [fig_num for fig_num in all_fignums if fig_num not in existing]
     for index, fig_num in enumerate(fignums[:MAX_IMAGES], start=1):
         buffer = None
         try:
@@ -146,17 +156,41 @@ def _append_matplotlib_outputs():
             pass
 
 try:
+    parsed_context = ast.parse(context_code, mode="exec")
     parsed = ast.parse(code, mode="exec")
     trailing_expr = None
     if parsed.body and isinstance(parsed.body[-1], ast.Expr):
         trailing_expr = parsed.body.pop().value
 
     with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+        preexisting_fignums = set()
+        shown_fignums = set()
+        plt = None
+        if parsed_context.body:
+            exec(compile(parsed_context, "<noema-context>", "exec"), scope, scope)
+        try:
+            import matplotlib.pyplot as plt
+            preexisting_fignums = set(plt.get_fignums())
+
+            original_show = plt.show
+
+            def _capture_show(*_args, **_kwargs):
+                shown_fignums.update(plt.get_fignums())
+                return None
+
+            plt.show = _capture_show
+        except Exception:
+            plt = None
         exec(compile(parsed, "<noema-exec>", "exec"), scope, scope)
+        if plt is not None:
+            try:
+                plt.show = original_show
+            except Exception:
+                pass
         if trailing_expr is not None:
             value = eval(compile(ast.Expression(trailing_expr), "<noema-exec>", "eval"), scope, scope)
             _append_value_output(value)
-        _append_matplotlib_outputs()
+        _append_matplotlib_outputs(preexisting_fignums, shown_fignums)
 except Exception as exc:
     ok = False
     error = f"{exc.__class__.__name__}: {exc}"
@@ -311,13 +345,13 @@ def _ensure_base_modules() -> tuple[list[str], list[str]]:
         return _preload_modules(BASE_MODULES)
 
 
-def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
+def _run_code_once(code: str, context_code: str, timeout_seconds: int) -> dict[str, Any]:
     env = _build_runtime_env()
 
     try:
         completed = subprocess.run(
             [sys.executable, "-c", EXEC_WRAPPER],
-            input=json.dumps({"code": code}, ensure_ascii=False),
+            input=json.dumps({"code": code, "contextCode": context_code}, ensure_ascii=False),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -383,12 +417,12 @@ def _preload_modules(modules: list[str]) -> tuple[list[str], list[str]]:
     return installed, failed
 
 
-def _execute_with_auto_install(code: str, modules_hint: list[str]) -> dict[str, Any]:
+def _execute_with_auto_install(code: str, context_code: str, modules_hint: list[str]) -> dict[str, Any]:
     installed: list[str] = []
     failed: list[str] = []
 
     start = time.time()
-    result = _run_code_once(code, EXEC_TIMEOUT_SECONDS)
+    result = _run_code_once(code, context_code, EXEC_TIMEOUT_SECONDS)
     timed_out = bool(result.get("timedOut"))
 
     seen_missing: set[str] = set()
@@ -436,7 +470,7 @@ def _execute_with_auto_install(code: str, modules_hint: list[str]) -> dict[str, 
                 "outputs": [],
             }
 
-        result = _run_code_once(code, max(4, min(EXEC_TIMEOUT_SECONDS, remaining)))
+        result = _run_code_once(code, context_code, max(4, min(EXEC_TIMEOUT_SECONDS, remaining)))
         timed_out = bool(result.get("timedOut"))
 
     if not result.get("ok") and not timed_out:
@@ -497,7 +531,8 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 "failedModules": [],
             }
 
-        result = _execute_with_auto_install(code, modules_hint)
+        context_code = str(event.get("contextCode") or "")
+        result = _execute_with_auto_install(code, context_code, modules_hint)
         result["installedPackages"] = list(dict.fromkeys(base_installed + list(result.get("installedPackages", []))))
         result["failedModules"] = list(dict.fromkeys(base_failed + list(result.get("failedModules", []))))
         return result

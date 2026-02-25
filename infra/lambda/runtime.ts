@@ -157,6 +157,7 @@ type PythonRuntimeExecuteInput = {
   notebookId: string;
   sectionId: string;
   code: string;
+  contextCode?: string;
   expectedModules: string[];
 };
 
@@ -230,6 +231,7 @@ const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
 const PYTHON_RUNNER_HEAVY_FUNCTION_NAME = process.env.PYTHON_RUNNER_HEAVY_FUNCTION_NAME || "";
 const MAX_RUNTIME_CODE_CHARS = 120_000;
+const MAX_RUNTIME_CONTEXT_CODE_CHARS = 120_000;
 const COLAB_GITHUB_REPO = (process.env.COLAB_GITHUB_REPO || "mani1261790/Noema").trim();
 const COLAB_GITHUB_REF = (process.env.COLAB_GITHUB_REF || "main").trim();
 
@@ -2693,6 +2695,7 @@ export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: A
     notebookId: input.notebookId,
     sectionId: input.sectionId,
     code: input.code,
+    contextCode: input.contextCode || "",
     expectedModules: input.expectedModules,
     userId: user.userId
   });
@@ -2825,15 +2828,18 @@ export function parsePythonRuntimeInput(event: APIGatewayProxyEventV2): PythonRu
   const notebookId = asString(payload.notebookId).trim();
   const sectionId = asString(payload.sectionId).trim() || "intro";
   const code = asString(payload.code);
+  const contextCode = asString(payload.contextCode);
   const expectedModules = normalizeExpectedModules(payload.expectedModules);
 
   if (!notebookId || !code.trim()) return null;
   if (code.length > MAX_RUNTIME_CODE_CHARS) return null;
+  if (contextCode.length > MAX_RUNTIME_CONTEXT_CODE_CHARS) return null;
 
   return {
     notebookId,
     sectionId,
     code,
+    contextCode,
     expectedModules
   };
 }
