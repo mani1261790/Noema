@@ -2206,6 +2206,70 @@ const markdownRenderer = (() => {
   return md;
 })();
 
+const YOUTUBE_DIRECTIVE_RE = /^\s*@\[(?:youtube|yt)\]\((https?:\/\/[^\s)]+)\)\s*$/im;
+const YOUTUBE_DIRECTIVE_GLOBAL_RE = /^\s*@\[(?:youtube|yt)\]\((https?:\/\/[^\s)]+)\)\s*$/gim;
+
+function extractYouTubeDirectiveUrl(markdownText: string): string | null {
+  const match = markdownText.match(YOUTUBE_DIRECTIVE_RE);
+  if (!match || !match[1]) return null;
+  return match[1].trim();
+}
+
+function stripYouTubeDirective(markdownText: string): string {
+  return markdownText.replace(YOUTUBE_DIRECTIVE_GLOBAL_RE, "").trim();
+}
+
+function toYouTubeEmbedUrl(rawUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const isYouTubeHost =
+    host === "youtube.com" ||
+    host === "www.youtube.com" ||
+    host === "m.youtube.com" ||
+    host === "youtu.be";
+  if (!isYouTubeHost) return null;
+
+  let videoId = "";
+  if (host === "youtu.be") {
+    videoId = parsed.pathname.replace(/^\/+/, "").split("/")[0] || "";
+  } else if (parsed.pathname === "/watch") {
+    videoId = (parsed.searchParams.get("v") || "").trim();
+  } else if (parsed.pathname.startsWith("/embed/") || parsed.pathname.startsWith("/shorts/")) {
+    videoId = parsed.pathname.split("/")[2] || "";
+  }
+
+  if (videoId && /^[A-Za-z0-9_-]{6,20}$/.test(videoId)) {
+    return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}`;
+  }
+
+  const listId = (parsed.searchParams.get("list") || "").trim();
+  if (listId && /^[A-Za-z0-9_-]{8,64}$/.test(listId)) {
+    return `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(listId)}`;
+  }
+
+  return null;
+}
+
+function buildYouTubeEmbedHtml(markdownText: string): string {
+  const directiveUrl = extractYouTubeDirectiveUrl(markdownText);
+  if (!directiveUrl) return "";
+  const embedUrl = toYouTubeEmbedUrl(directiveUrl);
+  if (!embedUrl) return "";
+  return [
+    '<section class="yt-embed" style="margin:.9rem 0 1.2rem;">',
+    '<div style="position:relative;width:100%;padding-top:56.25%;border-radius:12px;overflow:hidden;border:1px solid rgba(138,159,194,.36);background:#0a1322;">',
+    `<iframe src="${embedUrl}" title="YouTube lecture reference" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;"></iframe>`,
+    "</div>",
+    "</section>"
+  ].join("");
+}
+
 function notebookToHtml(input: NotebookFile): string {
   const pieces: string[] = ["<article class=\"prose-noema\">"];
 
@@ -2214,7 +2278,15 @@ function notebookToHtml(input: NotebookFile): string {
     if (!text) continue;
 
     if (cell.cell_type === "markdown") {
-      pieces.push(markdownRenderer.render(normalizeMathDelimiters(text)));
+      const normalizedMarkdown = normalizeMathDelimiters(text);
+      const visibleMarkdown = stripYouTubeDirective(normalizedMarkdown);
+      if (visibleMarkdown) {
+        pieces.push(markdownRenderer.render(visibleMarkdown));
+      }
+      const youtubeEmbedHtml = buildYouTubeEmbedHtml(normalizedMarkdown);
+      if (youtubeEmbedHtml) {
+        pieces.push(youtubeEmbedHtml);
+      }
       continue;
     }
 
