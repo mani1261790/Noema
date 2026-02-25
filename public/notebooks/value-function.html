@@ -99,89 +99,45 @@
   <main>
 <article class="prose-noema">
 <h1 id="価値関数">価値関数</h1>
-<p>価値関数では、価値更新を紙ではなくコードで追い、再帰の意味を体感します。</p>
+<p>価値関数は「この状態にいると将来どれだけ得か」を数値で表す概念です。方策の良し悪しを比較する基準になるため、強化学習の中心に置かれます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>価値関数に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>状態 s</strong>: エージェントが観測している環境の要約です。</li>
-<li><strong>行動 a</strong>: 状態で選べる操作です。行動が次状態と報酬を変えます。</li>
-<li><strong>報酬 r</strong>: 行動の直後に得る評価信号です。将来報酬の合計を最大化します。</li>
-<li><strong>状態価値 V(s)</strong>: 状態 s から得られる期待収益です。</li>
-<li><strong>行動価値 Q(s,a)</strong>: 状態 s で行動 a を選んだときの期待収益です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<h2 id="背景と目的">背景と目的</h2>
+<p>行動を直接比較する前に、状態自体の期待リターンを見積もると方策評価が安定します。</p>
+<p>価値関数を理解できると、ベルマン方程式・方策反復・価値反復の流れを一貫して読めるようになります。</p>
+<p>ここでは有限長エピソードとマルコフ連鎖の2通りで状態価値を計算します。</p>
 
-<h2 id="実験-1-価値関数の直感を作る">実験 1: 価値関数の直感を作る</h2>
-<p>価値関数ノートでは、同じ方策で将来報酬を見積もる感覚を作ります。</p>
+<pre><code class="language-python">import numpy as np
 
-<pre><code class="language-python">rewards = [0.2, 0.3, 0.6, 1.0]
-gamma = 0.85
-g = 0.0
-for r in reversed(rewards):
-    g = r + gamma * g
-print(&#39;task = value-function&#39;, &#39;v_pi_start=&#39;, round(g, 6))</code></pre>
-<p>この見積もりを状態ごとに持つのが価値関数です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+gamma = 0.9
 
-<h2 id="実験-2-ベルマン更新を1回行う">実験 2: ベルマン更新を1回行う</h2>
-<p>次に、価値更新を1ステップだけ計算します。1回更新でも、再帰構造の意味は十分に見えてきます。</p>
+# 2状態 + 終端の方策固定マルコフ連鎖
+states = [&#39;s0&#39;, &#39;s1&#39;]
+P_pi = np.array([
+    [0.6, 0.4],
+    [0.3, 0.7],
+])
+R_pi = np.array([0.2, 0.8])</code></pre>
+<h2 id="解析解で価値を求める">解析解で価値を求める</h2>
+<p>固定方策 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>π</mi></mrow><annotation encoding="application/x-tex">\pi</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.43056em;vertical-align:0em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span> の状態価値は、</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msup><mi>V</mi><mrow><mi>π</mi></mrow></msup><mo>=</mo><msub><mi>R</mi><mrow><mi>π</mi></mrow></msub><mo>+</mo><mi>γ</mi><msub><mi>P</mi><mrow><mi>π</mi></mrow></msub><msup><mi>V</mi><mrow><mi>π</mi></mrow></msup></mrow><annotation encoding="application/x-tex">V^{\pi}=R_{\pi}+\gamma P_{\pi}V^{\pi}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.7143919999999999em;"></span><span class="strut bottom" style="height:0.9088319999999999em;vertical-align:-0.19444em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.00773em;">R</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.00773em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mord"><span class="mord mathit" style="margin-right:0.13889em;">P</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.13889em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></span></p>
+<p>を満たします。したがって</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msup><mi>V</mi><mrow><mi>π</mi></mrow></msup><mo>=</mo><mo>(</mo><mi>I</mi><mo>−</mo><mi>γ</mi><msub><mi>P</mi><mrow><mi>π</mi></mrow></msub><msup><mo>)</mo><mrow><mo>−</mo><mn>1</mn></mrow></msup><msub><mi>R</mi><mrow><mi>π</mi></mrow></msub></mrow><annotation encoding="application/x-tex">V^{\pi}=(I-\gamma P_{\pi})^{-1}R_{\pi}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.864108em;"></span><span class="strut bottom" style="height:1.1141079999999999em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mopen">(</span><span class="mord mathit" style="margin-right:0.07847em;">I</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mord"><span class="mord mathit" style="margin-right:0.13889em;">P</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.13889em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose"><span class="mclose">)</span><span class="vlist"><span style="top:-0.41300000000000003em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.00773em;">R</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.00773em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03588em;">π</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></span></p>
+<p>で求まります。</p>
 
-<pre><code class="language-python">v_next = {&#39;s0&#39;: 0.4, &#39;s1&#39;: 0.8}
-reward = {&#39;left&#39;: 0.2, &#39;right&#39;: 1.0}
-trans = {&#39;left&#39;: &#39;s0&#39;, &#39;right&#39;: &#39;s1&#39;}
-v_s = max(reward[a] + gamma * v_next[trans[a]] for a in [&#39;left&#39;, &#39;right&#39;])
-print(&#39;updated V(s)=&#39;, round(v_s, 6))</code></pre>
-<p>ベルマン更新は『今の価値』を『次状態の価値』で再定義する操作です。この再帰が強化学習の中心です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<pre><code class="language-python">I = np.eye(len(states))
+V_exact = np.linalg.solve(I - gamma * P_pi, R_pi)
+print(&#39;V^pi (exact) =&#39;, {s: round(v, 6) for s, v in zip(states, V_exact)})</code></pre>
+<h2 id="反復評価で同じ値に近づくことを確認">反復評価で同じ値に近づくことを確認</h2>
+<p>解析解だけでなく、ベルマン期待更新を反復して同じ値に収束することを確かめます。</p>
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>G</mi><mi>t</mi></msub><mo>=</mo><msub><mo>∑</mo><mrow><mi>k</mi><mo>≥</mo><mn>0</mn></mrow></msub><msup><mi>γ</mi><mi>k</mi></msup><msub><mi>R</mi><mrow><mi>t</mi><mo>+</mo><mi>k</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">G_t = \sum_{k\ge 0} \gamma^k R_{t+k+1}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.849108em;"></span><span class="strut bottom" style="height:1.244297em;vertical-align:-0.395189em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">G</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span><span class="mrel">≥</span><span class="mord mathrm">0</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.00773em;">R</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.00773em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.03148em;">k</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>Q</mi><mo>←</mo><mi>Q</mi><mo>+</mo><mi>α</mi><mspace width="0.16667em"></mspace><msub><mi>δ</mi><mrow><mi>T</mi><mi>D</mi></mrow></msub></mrow><annotation encoding="application/x-tex">Q \leftarrow Q + \alpha\,\delta_{TD}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit">Q</span><span class="mrel">←</span><span class="mord mathit">Q</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathit" style="margin-right:0.03785em;">δ</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03785em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.13889em;">T</span><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-</ol>
-
-<h2 id="実験-3-q値更新を比較する">実験 3: Q値更新を比較する</h2>
-<p>ここで Q学習の更新式をコードに写し、数値の動きを確認します。式を読むだけでは掴みにくい感覚を得る段階です。</p>
-
-<pre><code class="language-python">Q = {(&#39;s0&#39;,&#39;left&#39;): 0.3, (&#39;s0&#39;,&#39;right&#39;): 0.1, (&#39;s1&#39;,&#39;left&#39;): 0.5, (&#39;s1&#39;,&#39;right&#39;): 0.7}
-alpha = 0.2
-r, s, a, s_next = 1.0, &#39;s0&#39;, &#39;right&#39;, &#39;s1&#39;
-td_target = r + gamma * max(Q[(s_next,&#39;left&#39;)], Q[(s_next,&#39;right&#39;)])
-Q[(s,a)] += alpha * (td_target - Q[(s,a)])
-print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
-<p>更新後の値が過去の値とどれだけ違うかは、学習率と TD 誤差で決まります。ここが調整ポイントです。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-4-探索と活用の切り替え">実験 4: 探索と活用の切り替え</h2>
-<p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
-
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
-<p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-5-方策評価の簡易チェック">実験 5: 方策評価の簡易チェック</h2>
-<p>最後に、方策の平均報酬を簡易的に比較します。アルゴリズムの評価は、更新式だけでなく結果の検証が不可欠です。</p>
-
-<pre><code class="language-python">episode_rewards = [1.2, 0.8, 1.5, 1.1, 1.4]
-avg_reward = sum(episode_rewards) / len(episode_rewards)
-variance = sum((r - avg_reward) ** 2 for r in episode_rewards) / len(episode_rewards)
-print(&#39;avg =&#39;, round(avg_reward, 4))
-print(&#39;var =&#39;, round(variance, 4))</code></pre>
-<p>平均だけでなく分散を見ると、方策の安定性も評価できます。実運用ではこの二軸が重要です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>探索率が低すぎて行動が固定化する</li>
-<li>報酬設計が目的とずれている</li>
-<li>長期ロールアウトの不安定性を検証しない</li>
-</ol>
+<pre><code class="language-python">V = np.zeros(len(states))
+for it in range(40):
+    V = R_pi + gamma * (P_pi @ V)
+print(&#39;V^pi (iterative) =&#39;, {s: round(v, 6) for s, v in zip(states, V)})
+print(&#39;max abs diff      =&#39;, round(float(np.max(np.abs(V - V_exact))), 8))</code></pre>
+<p>状態価値を安定して推定できると、次段階で行動価値へ拡張したときも更新の意味を保ったまま実装できます。</p>
 
 </article>
   </main>

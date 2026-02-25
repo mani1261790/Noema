@@ -103,6 +103,11 @@
 実務ではその整形の多くを SQL で行います。SQL で作った特徴量は再現しやすく、学習環境と本番環境の差も小さくできます。</p>
 <p>このノートでは、ECサービスの行動データを題材に、SQL の基本操作から、リークを避けた特徴量テーブル作成までを一気通貫で確認します。</p>
 
+<h2 id="背景と目的">背景と目的</h2>
+<p>機械学習の実務では、学習前に大量データを正確に取り出す工程が必須です。</p>
+<p>SQLを使えると、前処理の多くをDB側で効率的に実行し、再現性を保てます。</p>
+<p>抽出・結合・集計を機械学習用データセット作成の観点で実行します。</p>
+
 <pre><code class="language-python">import sqlite3
 from datetime import datetime, timedelta
 from random import Random

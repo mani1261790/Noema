@@ -99,93 +99,41 @@
   <main>
 <article class="prose-noema">
 <h1 id="vaeと拡散モデル">VAEと拡散モデル</h1>
-<p>VAEと拡散モデルでは、未来予測を使った意思決定を、実装可能な形に分解して学びます。</p>
+<p>世界モデルでは、状態を圧縮して予測しつつ、必要なら高品質に観測を復元する必要があります。VAEと拡散はこの目的に対して異なる強みを持ちます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>VAEと拡散モデルに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>状態表現 z</strong>: 観測を圧縮した内部表現です。予測と計画の共通基盤になります。</li>
-<li><strong>遷移モデル</strong>: 現在状態と行動から次状態を予測するモデルです。</li>
-<li><strong>観測モデル</strong>: 内部状態から画像やセンサ値などの観測を再構成するモデルです。</li>
-<li><strong>潜在生成モデル</strong>: 世界モデル内で観測分布を扱うためにVAE/拡散を組み込む設計です。</li>
-<li><strong>再構成誤差</strong>: 観測再生成のズレで表現品質を測る指標です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<h2 id="背景と目的">背景と目的</h2>
+<p>VAEは潜在空間の構造化と高速な推論が得意で、拡散は高品質生成に強い傾向があります。</p>
+<p>両者の役割分担を理解できると、計画用潜在と表示用観測を分離した設計が可能になります。</p>
+<p>ここでは2次元データを1次元潜在に圧縮し、ノイズ除去復元を比較します。</p>
 
-<h2 id="実験-1-vae-拡散併用の遷移初期化">実験 1: VAE/拡散併用の遷移初期化</h2>
-<p>世界モデルでの生成的遷移を意識し、遷移係数を設定します。</p>
+<pre><code class="language-python">import numpy as np
+np.random.seed(3)
 
-<pre><code class="language-python">z_t = 0.27
-a_t = -0.6
-A, B = 0.94, 0.14
-z_next = A * z_t + B * a_t
-print(&#39;task = vae-diffusion-world-models&#39;)
-print(&#39;z_next =&#39;, round(z_next, 6))</code></pre>
-<p>この遷移に生成モデルを重ねる観点を後続で扱います。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+n = 300
+theta = np.random.rand(n) * 2 * np.pi
+x = np.stack([np.cos(theta), np.sin(theta)], axis=1) + 0.08 * np.random.randn(n, 2)</code></pre>
+<pre><code class="language-python"># VAE風: PCAを encoder/decoder の近似として利用
+mu = x.mean(axis=0, keepdims=True)
+xc = x - mu
+u, s, vt = np.linalg.svd(xc, full_matrices=False)
+pc1 = vt[0:1].T  # 2x1
+z = xc @ pc1      # encoder
+x_rec = z @ pc1.T + mu  # decoder
+vae_mse = np.mean((x_rec - x) ** 2)
 
-<h2 id="実験-2-観測予測を作る">実験 2: 観測予測を作る</h2>
-<p>次に、潜在状態から観測を復元する写像を作ります。状態推定と観測再現の役割分担をコードで掴みます。</p>
+# Diffusion風: 潜在にノイズを加え、簡易スコア(ガウス事前)で反復デノイズ
+z_noisy = z + 0.5 * np.random.randn(*z.shape)
+z_den = z_noisy.copy()
+prior_var = np.var(z_noisy) + 1e-8
+for _ in range(30):
+    score = -z_den / prior_var  # log N(0,var) の勾配
+    z_den = z_den + 0.04 * score
+x_den = z_den @ pc1.T + mu
+diff_mse = np.mean((x_den - x) ** 2)
 
-<pre><code class="language-python">def decode(z):
-    return {&#39;position&#39;: 2.5 * z + 0.1, &#39;velocity&#39;: 0.8 * z - 0.05}
-obs_next = decode(z_next)
-print(&#39;obs_next =&#39;, {k: round(v, 4) for k, v in obs_next.items()})
-print(&#39;keys =&#39;, list(obs_next.keys()))</code></pre>
-<p>観測予測を別関数に切ると、遷移誤差と観測誤差を分離して調整できます。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>z</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>z</mi><mi>t</mi></msub><mo separator="true">,</mo><msub><mi>a</mi><mi>t</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">z_{t+1} = f_{\theta}(z_t, a_t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">a</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mover accent="true"><mrow><mi>o</mi></mrow><mo>^</mo></mover><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>g</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>z</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{o}_{t+1} = g_{\theta}(z_{t+1})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit">o</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
-
-<h2 id="実験-3-ロールアウトを試す">実験 3: ロールアウトを試す</h2>
-<p>ここで複数ステップ予測を実行します。1ステップでは見えない誤差累積を把握するためです。</p>
-
-<pre><code class="language-python">actions = [0.0, 1.0, 1.0, 0.0, -0.5]
-z = 0.1
-traj = []
-for a in actions:
-    z = 0.92 * z + 0.18 * a
-    traj.append(round(z, 5))
-print(&#39;rollout =&#39;, traj)</code></pre>
-<p>長期予測で崩れるなら、遷移モデルの安定性や状態表現の情報量不足を疑います。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-4-計画候補を比較する">実験 4: 計画候補を比較する</h2>
-<p>次に、複数の行動列を比較して、どの計画が望ましいかを評価します。モデルベース強化学習の中心操作です。</p>
-
-<pre><code class="language-python">plans = [[0, 1, 1], [1, 1, 1], [0, 0, 1]]
-def score_plan(plan):
-    z = 0.1
-    for a in plan:
-        z = 0.92 * z + 0.18 * a
-    return z
-scores = [round(score_plan(p), 5) for p in plans]
-print(&#39;scores =&#39;, scores)</code></pre>
-<p>計画評価が可能になると、実環境での試行回数を抑えた探索がしやすくなります。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-5-モデル誤差を監視する">実験 5: モデル誤差を監視する</h2>
-<p>最後に、予測と実測の差を定量化します。世界モデルは『予測できる範囲』を常に点検する運用が重要です。</p>
-
-<pre><code class="language-python">pred = [0.10, 0.22, 0.31, 0.29]
-real = [0.11, 0.25, 0.28, 0.35]
-errors = [abs(p - r) for p, r in zip(pred, real)]
-print(&#39;errors =&#39;, [round(e, 4) for e in errors])
-print(&#39;mean_error =&#39;, round(sum(errors) / len(errors), 5))</code></pre>
-<p>平均誤差だけでなく時点別誤差を追うと、どの遷移条件でモデルが弱いかを特定しやすくなります。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>1ステップ誤差だけで安心してしまう</li>
-<li>長期予測の誤差爆発を監視しない</li>
-<li>状態表現が不足しているのにモデルだけ調整する</li>
-</ol>
+print(&#39;VAE-like reconstruction MSE       =&#39;, round(vae_mse, 6))
+print(&#39;Diffusion-like latent denoise MSE =&#39;, round(diff_mse, 6))</code></pre>
+<p>ここでの VAE は PCA を使った近似、拡散は簡易スコア反復の近似です。圧縮主体なら VAE 系、高品質復元主体なら拡散系が有利になりやすいという設計感覚を掴むことを目的にしています。</p>
 
 </article>
   </main>

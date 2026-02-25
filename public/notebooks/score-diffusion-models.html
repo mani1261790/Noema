@@ -110,6 +110,11 @@ import time</code></pre>
 </ol>
 <p>という流れです。数式だけでなく、1次元データの最小実装で動作を確かめます。</p>
 
+<h2 id="背景と目的">背景と目的</h2>
+<p>拡散モデルは安定した学習で高品質生成を実現し、近年の中心手法になっています。</p>
+<p>スコア推定の考え方を理解すると、ノイズ除去過程の設計意図を説明できます。</p>
+<p>前向きノイズ化と逆過程復元の関係を確認します。</p>
+
 <p>スコアは</p>
 <p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><mi>p</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\nabla_x \log p(x)
 </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></span></p>

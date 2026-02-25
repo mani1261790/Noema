@@ -104,6 +104,11 @@
 <p>このノートでは、欠損値・カテゴリ変数・スケーリング・非線形変換・交互作用を、<br>
 実務で使う <code>Pipeline</code> / <code>ColumnTransformer</code> と結びつけて確認します。</p>
 
+<h2 id="背景と目的">背景と目的</h2>
+<p>同じモデルでも特徴量の設計次第で性能が大きく変わり、改善余地の大半を占めることがあります。</p>
+<p>良い特徴量を作れると、複雑なモデルに頼らずに精度と安定性を両立できます。</p>
+<p>生成・変換・選択の判断を、評価値の変化で検証します。</p>
+
 <pre><code class="language-python">import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

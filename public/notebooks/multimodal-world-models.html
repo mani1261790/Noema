@@ -99,94 +99,43 @@
   <main>
 <article class="prose-noema">
 <h1 id="マルチモーダルな世界モデル">マルチモーダルな世界モデル</h1>
-<p>マルチモーダルな世界モデルでは、未来予測を使った意思決定を、実装可能な形に分解して学びます。</p>
+<p>実環境では、画像特徴・言語指示・行動履歴を同時に使って次状態を予測する必要があります。マルチモーダル融合は、この情報統合を行う中心技術です。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>マルチモーダルな世界モデルに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>状態表現 z</strong>: 観測を圧縮した内部表現です。予測と計画の共通基盤になります。</li>
-<li><strong>遷移モデル</strong>: 現在状態と行動から次状態を予測するモデルです。</li>
-<li><strong>観測モデル</strong>: 内部状態から画像やセンサ値などの観測を再構成するモデルです。</li>
-<li><strong>マルチモーダル</strong>: 画像・テキスト・行動など複数モダリティを同時に扱う設定です。</li>
-<li><strong>アラインメント</strong>: 異なるモダリティの意味空間を対応付ける学習です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<h2 id="背景と目的">背景と目的</h2>
+<p>単一モダリティに依存すると、観測欠損やノイズで予測が壊れやすくなります。</p>
+<p>融合モデルを作れると、どれかの情報が弱い場面でも頑健な予測が可能になります。</p>
+<p>ここでは画像特徴・テキスト特徴・行動を結合した線形予測器を比較します。</p>
 
-<h2 id="検証-1-マルチモーダル遷移の起点">検証 1: マルチモーダル遷移の起点</h2>
-<p>複数モダリティ統合を意識し、共通状態の遷移初期値を作ります。</p>
+<pre><code class="language-python">import numpy as np
+np.random.seed(9)
 
-<pre><code class="language-python">z_t = 0.18
-a_t = -0.4
-A, B = 0.91, 0.20
-z_next = A * z_t + B * a_t
-print(&#39;task = multimodal-world-models&#39;)
-print(&#39;z_next =&#39;, round(z_next, 6))</code></pre>
-<p>この共通状態を使って各モダリティ予測を比較します。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+n = 240
+img_feat = np.random.randn(n, 2)
+text_feat = np.random.randn(n, 1)
+action = np.random.randn(n, 1)
 
-<h2 id="検証-2-観測予測を作る">検証 2: 観測予測を作る</h2>
-<p>次に、潜在状態から観測を復元する写像を作ります。状態推定と観測再現の役割分担をコードで掴みます。</p>
+# 真の次状態（2次元）
+y = (
+    0.7 * img_feat
+    + np.hstack([0.5 * text_feat, -0.3 * text_feat])
+    + np.hstack([0.4 * action, 0.2 * action])
+    + 0.05 * np.random.randn(n, 2)
+)</code></pre>
+<pre><code class="language-python">def fit_linear(X, Y):
+    X1 = np.hstack([X, np.ones((len(X), 1))])
+    W = np.linalg.pinv(X1) @ Y
+    pred = X1 @ W
+    mse = np.mean((pred - Y) ** 2)
+    return mse
 
-<pre><code class="language-python">def decode(z):
-    return {&#39;position&#39;: 2.5 * z + 0.1, &#39;velocity&#39;: 0.8 * z - 0.05}
-obs_next = decode(z_next)
-print(&#39;obs_next =&#39;, {k: round(v, 4) for k, v in obs_next.items()})
-print(&#39;keys =&#39;, list(obs_next.keys()))</code></pre>
-<p>観測予測を別関数に切ると、遷移誤差と観測誤差を分離して調整できます。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+mse_img = fit_linear(img_feat, y)
+mse_text = fit_linear(text_feat, y)
+mse_multi = fit_linear(np.hstack([img_feat, text_feat, action]), y)
 
-<h2 id="定義の確認">定義の確認</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>z</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>f</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>z</mi><mi>t</mi></msub><mo separator="true">,</mo><msub><mi>a</mi><mi>t</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">z_{t+1} = f_{\theta}(z_t, a_t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">a</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mover accent="true"><mrow><mi>o</mi></mrow><mo>^</mo></mover><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>g</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>z</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">\hat{o}_{t+1} = g_{\theta}(z_{t+1})</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord textstyle cramped"><span class="mord mathit">o</span></span></span><span style="top:0em;margin-left:0.11112em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>^</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.04398em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
-
-<h2 id="検証-3-ロールアウトを試す">検証 3: ロールアウトを試す</h2>
-<p>ここで複数ステップ予測を実行します。1ステップでは見えない誤差累積を把握するためです。</p>
-
-<pre><code class="language-python">actions = [0.0, 1.0, 1.0, 0.0, -0.5]
-z = 0.1
-traj = []
-for a in actions:
-    z = 0.92 * z + 0.18 * a
-    traj.append(round(z, 5))
-print(&#39;rollout =&#39;, traj)</code></pre>
-<p>長期予測で崩れるなら、遷移モデルの安定性や状態表現の情報量不足を疑います。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-4-計画候補を比較する">検証 4: 計画候補を比較する</h2>
-<p>次に、複数の行動列を比較して、どの計画が望ましいかを評価します。モデルベース強化学習の中心操作です。</p>
-
-<pre><code class="language-python">plans = [[0, 1, 1], [1, 1, 1], [0, 0, 1]]
-def score_plan(plan):
-    z = 0.1
-    for a in plan:
-        z = 0.92 * z + 0.18 * a
-    return z
-scores = [round(score_plan(p), 5) for p in plans]
-print(&#39;scores =&#39;, scores)</code></pre>
-<p>計画評価が可能になると、実環境での試行回数を抑えた探索がしやすくなります。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-5-モデル誤差を監視する">検証 5: モデル誤差を監視する</h2>
-<p>最後に、予測と実測の差を定量化します。世界モデルは『予測できる範囲』を常に点検する運用が重要です。</p>
-
-<pre><code class="language-python">pred = [0.10, 0.22, 0.31, 0.29]
-real = [0.11, 0.25, 0.28, 0.35]
-errors = [abs(p - r) for p, r in zip(pred, real)]
-print(&#39;errors =&#39;, [round(e, 4) for e in errors])
-print(&#39;mean_error =&#39;, round(sum(errors) / len(errors), 5))</code></pre>
-<p>平均誤差だけでなく時点別誤差を追うと、どの遷移条件でモデルが弱いかを特定しやすくなります。</p>
-<p>この節では、状態表現 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>1ステップ誤差だけで安心してしまう</li>
-<li>長期予測の誤差爆発を監視しない</li>
-<li>状態表現が不足しているのにモデルだけ調整する</li>
-</ol>
-<p>マルチモーダルな世界モデル はこのセクションの最終ステップです。先頭ノートから順に再実行し、流れ全体を確認してください。</p>
+print(&#39;MSE image-only =&#39;, round(mse_img, 6))
+print(&#39;MSE text-only  =&#39;, round(mse_text, 6))
+print(&#39;MSE multimodal =&#39;, round(mse_multi, 6))</code></pre>
+<p>融合モデルは単独入力より誤差が下がることが多く、世界モデルの頑健性を高める基本戦略になります。</p>
 
 </article>
   </main>

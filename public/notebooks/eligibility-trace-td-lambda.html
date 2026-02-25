@@ -99,89 +99,51 @@
   <main>
 <article class="prose-noema">
 <h1 id="後方観測td-λ-とeligibility-trace">後方観測TD(λ)とEligibility Trace</h1>
-<p>後方観測TD(λ)とEligibility Traceでは、価値更新を紙ではなくコードで追い、再帰の意味を体感します。</p>
+<p>Eligibility Trace は「どの過去状態にどれだけ責任を配るか」を定量化する仕組みです。長期報酬の信用割当をオンラインで扱えるようにするために使います。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>後方観測TD(λ)とEligibility Traceに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>状態 s</strong>: エージェントが観測している環境の要約です。</li>
-<li><strong>行動 a</strong>: 状態で選べる操作です。行動が次状態と報酬を変えます。</li>
-<li><strong>報酬 r</strong>: 行動の直後に得る評価信号です。将来報酬の合計を最大化します。</li>
-<li><strong>Eligibility Trace</strong>: 過去状態への責任を時間減衰で保持する仕組みです。</li>
-<li><strong>後方視点更新</strong>: 現在の TD 誤差を過去状態へ一括配分する実装形です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<h2 id="背景と目的">背景と目的</h2>
+<p>同じ TD 誤差でも、直前に頻繁に訪れた状態ほど大きく更新したい場面があります。</p>
+<p>Trace の設計（accumulating / replacing）を理解すると、学習安定性をタスクに合わせて調整できます。</p>
+<p>2種類の trace を同じ遷移列で比較します。</p>
 
-<h2 id="実験-1-eligibility-traceの初期系列">実験 1: Eligibility Traceの初期系列</h2>
-<p>後方観測更新を理解するため、trace導入前の基準報酬列を作ります。</p>
+<pre><code class="language-python">gamma = 0.9
+lam = 0.8
+alpha = 0.1
 
-<pre><code class="language-python">rewards = [0.0, 0.7, 0.3, 1.0, 0.8]
-gamma = 0.88
-g = 0.0
-for r in reversed(rewards):
-    g = r + gamma * g
-print(&#39;task = eligibility-trace-td-lambda&#39;, &#39;base=&#39;, round(g, 6))</code></pre>
-<p>この基準を使ってtrace蓄積の効果を比較します。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+states = [&#39;s0&#39;, &#39;s1&#39;, &#39;s0&#39;, &#39;s2&#39;, &#39;s0&#39;]
+rewards = [0.1, 0.0, 0.8, -0.2, 0.0]
 
-<h2 id="実験-2-ベルマン更新を1回行う">実験 2: ベルマン更新を1回行う</h2>
-<p>次に、価値更新を1ステップだけ計算します。1回更新でも、再帰構造の意味は十分に見えてきます。</p>
+V_acc = {&#39;s0&#39;: 0.0, &#39;s1&#39;: 0.0, &#39;s2&#39;: 0.0}
+V_rep = {&#39;s0&#39;: 0.0, &#39;s1&#39;: 0.0, &#39;s2&#39;: 0.0}
+E_acc = {&#39;s0&#39;: 0.0, &#39;s1&#39;: 0.0, &#39;s2&#39;: 0.0}
+E_rep = {&#39;s0&#39;: 0.0, &#39;s1&#39;: 0.0, &#39;s2&#39;: 0.0}
 
-<pre><code class="language-python">v_next = {&#39;s0&#39;: 0.4, &#39;s1&#39;: 0.8}
-reward = {&#39;left&#39;: 0.2, &#39;right&#39;: 1.0}
-trans = {&#39;left&#39;: &#39;s0&#39;, &#39;right&#39;: &#39;s1&#39;}
-v_s = max(reward[a] + gamma * v_next[trans[a]] for a in [&#39;left&#39;, &#39;right&#39;])
-print(&#39;updated V(s)=&#39;, round(v_s, 6))</code></pre>
-<p>ベルマン更新は『今の価値』を『次状態の価値』で再定義する操作です。この再帰が強化学習の中心です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+for t in range(len(states) - 1):
+    s = states[t]
+    s_next = states[t + 1]
+    r = rewards[t]
 
-<h2 id="式と実装の往復">式と実装の往復</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msubsup><mi>G</mi><mi>t</mi><mrow><mi>λ</mi></mrow></msubsup><mo>=</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>λ</mi><mo>)</mo><msub><mo>∑</mo><mrow><mi>n</mi><mo>≥</mo><mn>1</mn></mrow></msub><msup><mi>λ</mi><mrow><mi>n</mi><mo>−</mo><mn>1</mn></mrow></msup><msubsup><mi>G</mi><mi>t</mi><mrow><mo>(</mo><mi>n</mi><mo>)</mo></mrow></msubsup></mrow><annotation encoding="application/x-tex">G_t^{\lambda} = (1-\lambda)\sum_{n\ge1}\lambda^{n-1}G_t^{(n)}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.0448em;"></span><span class="strut bottom" style="height:1.439989em;vertical-align:-0.395189em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">G</span><span class="vlist"><span style="top:0.247em;margin-left:0em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit">λ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mopen">(</span><span class="mord mathrm">1</span><span class="mbin">−</span><span class="mord mathit">λ</span><span class="mclose">)</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">n</span><span class="mrel">≥</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit">λ</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit">n</span><span class="mbin">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit">G</span><span class="vlist"><span style="top:0.24575599999999992em;margin-left:0em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span style="top:-0.5197999999999999em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mopen">(</span><span class="mord mathit">n</span><span class="mclose">)</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>e</mi><mi>t</mi></msub><mo>=</mo><mi>γ</mi><mi>λ</mi><msub><mi>e</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi mathvariant="normal">∇</mi><mrow><mi>θ</mi></mrow></msub><mi>V</mi><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">e_t = \gamma\lambda e_{t-1} + \nabla_{\theta}V(s_t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">e</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mord mathit">λ</span><span class="mord"><span class="mord mathit">e</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">+</span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span></li>
-</ol>
+    # accumulating trace
+    delta_acc = r + gamma * V_acc[s_next] - V_acc[s]
+    for k in E_acc:
+        E_acc[k] *= gamma * lam
+    E_acc[s] += 1.0
+    for k in V_acc:
+        V_acc[k] += alpha * delta_acc * E_acc[k]
 
-<h2 id="実験-3-q値更新を比較する">実験 3: Q値更新を比較する</h2>
-<p>ここで Q学習の更新式をコードに写し、数値の動きを確認します。式を読むだけでは掴みにくい感覚を得る段階です。</p>
+    # replacing trace
+    delta_rep = r + gamma * V_rep[s_next] - V_rep[s]
+    for k in E_rep:
+        E_rep[k] *= gamma * lam
+    E_rep[s] = 1.0
+    for k in V_rep:
+        V_rep[k] += alpha * delta_rep * E_rep[k]
 
-<pre><code class="language-python">Q = {(&#39;s0&#39;,&#39;left&#39;): 0.3, (&#39;s0&#39;,&#39;right&#39;): 0.1, (&#39;s1&#39;,&#39;left&#39;): 0.5, (&#39;s1&#39;,&#39;right&#39;): 0.7}
-alpha = 0.2
-r, s, a, s_next = 1.0, &#39;s0&#39;, &#39;right&#39;, &#39;s1&#39;
-td_target = r + gamma * max(Q[(s_next,&#39;left&#39;)], Q[(s_next,&#39;right&#39;)])
-Q[(s,a)] += alpha * (td_target - Q[(s,a)])
-print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
-<p>更新後の値が過去の値とどれだけ違うかは、学習率と TD 誤差で決まります。ここが調整ポイントです。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-4-探索と活用の切り替え">実験 4: 探索と活用の切り替え</h2>
-<p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
-
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
-<p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="実験-5-方策評価の簡易チェック">実験 5: 方策評価の簡易チェック</h2>
-<p>最後に、方策の平均報酬を簡易的に比較します。アルゴリズムの評価は、更新式だけでなく結果の検証が不可欠です。</p>
-
-<pre><code class="language-python">episode_rewards = [1.2, 0.8, 1.5, 1.1, 1.4]
-avg_reward = sum(episode_rewards) / len(episode_rewards)
-variance = sum((r - avg_reward) ** 2 for r in episode_rewards) / len(episode_rewards)
-print(&#39;avg =&#39;, round(avg_reward, 4))
-print(&#39;var =&#39;, round(variance, 4))</code></pre>
-<p>平均だけでなく分散を見ると、方策の安定性も評価できます。実運用ではこの二軸が重要です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="振り返り">振り返り</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>探索率が低すぎて行動が固定化する</li>
-<li>報酬設計が目的とずれている</li>
-<li>長期ロールアウトの不安定性を検証しない</li>
-</ol>
+print(&#39;Accumulating V =&#39;, {k: round(v, 6) for k, v in V_acc.items()})
+print(&#39;Replacing V    =&#39;, {k: round(v, 6) for k, v in V_rep.items()})
+print(&#39;Accumulating E =&#39;, {k: round(v, 6) for k, v in E_acc.items()})
+print(&#39;Replacing E    =&#39;, {k: round(v, 6) for k, v in E_rep.items()})</code></pre>
+<p>状態再訪が多い問題では accumulating trace が更新を強めやすく、発散気味な問題では replacing trace が安定しやすい傾向があります。</p>
 
 </article>
   </main>

@@ -99,88 +99,88 @@
   <main>
 <article class="prose-noema">
 <h1 id="sarsa">SARSA</h1>
-<p>SARSAでは、価値更新を紙ではなくコードで追い、再帰の意味を体感します。</p>
+<p>SARSA は「次に実際に選ぶ行動」で更新する on-policy 手法です。探索を含んだ方策そのものを改善するので、リスクの高い行動を避けたい場面で挙動が安定しやすい特徴があります。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>SARSAに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>状態 s</strong>: エージェントが観測している環境の要約です。</li>
-<li><strong>行動 a</strong>: 状態で選べる操作です。行動が次状態と報酬を変えます。</li>
-<li><strong>報酬 r</strong>: 行動の直後に得る評価信号です。将来報酬の合計を最大化します。</li>
-<li><strong>オンポリシー</strong>: 実際に選んだ次行動で更新する方式です。</li>
-<li><strong>探索依存更新</strong>: 探索方策の影響を受けたまま価値が更新されます。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<h2 id="背景と目的">背景と目的</h2>
+<p>Q学習は次状態で最大価値を参照するため、探索中でも強気な更新になりやすいです。</p>
+<p>SARSA は実際に選んだ次行動を参照するため、探索ノイズを含んだ現実的な期待値に近づきます。</p>
+<p>更新式の違いがどのような方策差につながるかを、同じ環境設定で比較します。</p>
 
-<h2 id="検証-1-sarsaの初期系列">検証 1: SARSAの初期系列</h2>
-<p>SARSAでは行動込みの更新を扱うため、基準となる割引報酬を先に計算します。</p>
+<pre><code class="language-python">import random
+from collections import defaultdict
 
-<pre><code class="language-python">rewards = [0.2, 0.8, 0.4, 1.0]
-gamma = 0.89
-g = 0.0
-for r in reversed(rewards):
-    g = r + gamma * g
-print(&#39;task = sarsa&#39;, &#39;reference_return=&#39;, round(g, 6))</code></pre>
-<p>この基準を元にon-policy更新を確認します。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+random.seed(7)
 
-<h2 id="検証-2-ベルマン更新を1回行う">検証 2: ベルマン更新を1回行う</h2>
-<p>次に、価値更新を1ステップだけ計算します。1回更新でも、再帰構造の意味は十分に見えてきます。</p>
-
-<pre><code class="language-python">v_next = {&#39;s0&#39;: 0.4, &#39;s1&#39;: 0.8}
-reward = {&#39;left&#39;: 0.2, &#39;right&#39;: 1.0}
-trans = {&#39;left&#39;: &#39;s0&#39;, &#39;right&#39;: &#39;s1&#39;}
-v_s = max(reward[a] + gamma * v_next[trans[a]] for a in [&#39;left&#39;, &#39;right&#39;])
-print(&#39;updated V(s)=&#39;, round(v_s, 6))</code></pre>
-<p>ベルマン更新は『今の価値』を『次状態の価値』で再定義する操作です。この再帰が強化学習の中心です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="定義の確認">定義の確認</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>←</mo><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>+</mo><mi>α</mi><mo>[</mo><mi>r</mi><mo>+</mo><mi>γ</mi><mi>Q</mi><mo>(</mo><msup><mi>s</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup><mo separator="true">,</mo><msup><mi>a</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup><mo>)</mo><mo>−</mo><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>]</mo></mrow><annotation encoding="application/x-tex">Q(s,a) \leftarrow Q(s,a) + \alpha[r + \gamma Q(s&#x27;,a&#x27;) - Q(s,a)]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.751892em;"></span><span class="strut bottom" style="height:1.001892em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mrel">←</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mopen">[</span><span class="mord mathit" style="margin-right:0.02778em;">r</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">a</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mbin">−</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mclose">]</span></span></span></span></li>
-</ol>
-
-<h2 id="検証-3-q値更新を比較する">検証 3: Q値更新を比較する</h2>
-<p>ここで Q学習の更新式をコードに写し、数値の動きを確認します。式を読むだけでは掴みにくい感覚を得る段階です。</p>
-
-<pre><code class="language-python">Q = {(&#39;s0&#39;,&#39;left&#39;): 0.3, (&#39;s0&#39;,&#39;right&#39;): 0.1, (&#39;s1&#39;,&#39;left&#39;): 0.5, (&#39;s1&#39;,&#39;right&#39;): 0.7}
+gamma = 0.95
 alpha = 0.2
-r, s, a, s_next = 1.0, &#39;s0&#39;, &#39;right&#39;, &#39;s1&#39;
-td_target = r + gamma * max(Q[(s_next,&#39;left&#39;)], Q[(s_next,&#39;right&#39;)])
-Q[(s,a)] += alpha * (td_target - Q[(s,a)])
-print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
-<p>更新後の値が過去の値とどれだけ違うかは、学習率と TD 誤差で決まります。ここが調整ポイントです。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+epsilon = 0.2
+actions = [&#39;safe&#39;, &#39;risky&#39;]
 
-<h2 id="検証-4-探索と活用の切り替え">検証 4: 探索と活用の切り替え</h2>
-<p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
 
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
-<p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def step(state, action):
+    # 2段階のエピソードにして、s&#39; での行動選択が効くようにする
+    if state == &#39;s0&#39;:
+        if action == &#39;safe&#39;:
+            return &#39;s1&#39;, 0.2
+        return &#39;s1&#39;, (0.7 if random.random() &lt; 0.5 else -0.6)
 
-<h2 id="検証-5-方策評価の簡易チェック">検証 5: 方策評価の簡易チェック</h2>
-<p>最後に、方策の平均報酬を簡易的に比較します。アルゴリズムの評価は、更新式だけでなく結果の検証が不可欠です。</p>
+    if state == &#39;s1&#39;:
+        if action == &#39;safe&#39;:
+            return &#39;terminal&#39;, 0.6
+        return &#39;terminal&#39;, (1.2 if random.random() &lt; 0.2 else -1.0)
 
-<pre><code class="language-python">episode_rewards = [1.2, 0.8, 1.5, 1.1, 1.4]
-avg_reward = sum(episode_rewards) / len(episode_rewards)
-variance = sum((r - avg_reward) ** 2 for r in episode_rewards) / len(episode_rewards)
-print(&#39;avg =&#39;, round(avg_reward, 4))
-print(&#39;var =&#39;, round(variance, 4))</code></pre>
-<p>平均だけでなく分散を見ると、方策の安定性も評価できます。実運用ではこの二軸が重要です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+    return &#39;terminal&#39;, 0.0
 
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>探索率が低すぎて行動が固定化する</li>
-<li>報酬設計が目的とずれている</li>
-<li>長期ロールアウトの不安定性を検証しない</li>
-</ol>
+
+def eps_greedy(Q, state):
+    if random.random() &lt; epsilon:
+        return random.choice(actions)
+    qs = [Q[(state, a)] for a in actions]
+    return actions[0] if qs[0] &gt;= qs[1] else actions[1]</code></pre>
+<h2 id="1ステップ更新の式">1ステップ更新の式</h2>
+<p>SARSA:</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>←</mo><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>+</mo><mi>α</mi><mo>{</mo><mi>r</mi><mo>+</mo><mi>γ</mi><mi>Q</mi><mo>(</mo><msup><mi>s</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup><mo separator="true">,</mo><msup><mi>a</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup><mo>)</mo><mo>−</mo><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>}</mo></mrow><annotation encoding="application/x-tex">Q(s,a) \leftarrow Q(s,a) + \alpha \{r + \gamma Q(s&#x27;,a&#x27;) - Q(s,a)\}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.801892em;"></span><span class="strut bottom" style="height:1.051892em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mrel">←</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mopen">{</span><span class="mord mathit" style="margin-right:0.02778em;">r</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">a</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mbin">−</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mclose">}</span></span></span></span></span></p>
+<p>Q学習:</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>←</mo><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>+</mo><mi>α</mi><mo>{</mo><mi>r</mi><mo>+</mo><mi>γ</mi><msub><mi>max</mi><mrow><msup><mi>a</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup></mrow></msub><mi>Q</mi><mo>(</mo><msup><mi>s</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup><mo separator="true">,</mo><msup><mi>a</mi><mrow><mi mathvariant="normal">′</mi></mrow></msup><mo>)</mo><mo>−</mo><mi>Q</mi><mo>(</mo><mi>s</mi><mo separator="true">,</mo><mi>a</mi><mo>)</mo><mo>}</mo></mrow><annotation encoding="application/x-tex">Q(s,a) \leftarrow Q(s,a) + \alpha \{r + \gamma \max_{a&#x27;}Q(s&#x27;,a&#x27;) - Q(s,a)\}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.801892em;"></span><span class="strut bottom" style="height:1.5479720000000001em;vertical-align:-0.7460800000000001em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mrel">←</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mopen">{</span><span class="mord mathit" style="margin-right:0.02778em;">r</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mop op-limits"><span class="vlist"><span style="top:0.6460800000000001em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord"><span class="mord mathit">a</span><span class="vlist"><span style="top:-0.289em;margin-right:0.07142857142857144em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-scriptstyle scriptscriptstyle cramped"><span class="mord scriptscriptstyle cramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span><span style="top:8.326672684688674e-17em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span><span class="mop">max</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">a</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathrm">′</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mbin">−</span><span class="mord mathit">Q</span><span class="mopen">(</span><span class="mord mathit">s</span><span class="mpunct">,</span><span class="mord mathit">a</span><span class="mclose">)</span><span class="mclose">}</span></span></span></span></span></p>
+<p>差は目標値の作り方だけですが、学習結果の方策が変わります。</p>
+
+<pre><code class="language-python">Q_sarsa = defaultdict(float)
+Q_q = defaultdict(float)
+
+for _ in range(800):
+    # SARSA episode
+    s = &#39;s0&#39;
+    a = eps_greedy(Q_sarsa, s)
+    while s != &#39;terminal&#39;:
+        s_next, r = step(s, a)
+        if s_next == &#39;terminal&#39;:
+            target = r
+            Q_sarsa[(s, a)] += alpha * (target - Q_sarsa[(s, a)])
+            break
+        a_next = eps_greedy(Q_sarsa, s_next)
+        target = r + gamma * Q_sarsa[(s_next, a_next)]
+        Q_sarsa[(s, a)] += alpha * (target - Q_sarsa[(s, a)])
+        s, a = s_next, a_next
+
+    # Q-learning episode
+    s = &#39;s0&#39;
+    while s != &#39;terminal&#39;:
+        a = eps_greedy(Q_q, s)
+        s_next, r = step(s, a)
+        if s_next == &#39;terminal&#39;:
+            target = r
+        else:
+            target = r + gamma * max(Q_q[(s_next, x)] for x in actions)
+        Q_q[(s, a)] += alpha * (target - Q_q[(s, a)])
+        s = s_next
+
+print(&#39;SARSA Q(s0) =&#39;, {a: round(Q_sarsa[(&#39;s0&#39;, a)], 4) for a in actions})
+print(&#39;Q-learn Q(s0)=&#39;, {a: round(Q_q[(&#39;s0&#39;, a)], 4) for a in actions})
+print(&#39;SARSA Q(s1) =&#39;, {a: round(Q_sarsa[(&#39;s1&#39;, a)], 4) for a in actions})
+print(&#39;Q-learn Q(s1)=&#39;, {a: round(Q_q[(&#39;s1&#39;, a)], 4) for a in actions})</code></pre>
+<p>高分散な <code>risky</code> を過大評価しにくいのが SARSA の利点です。安全性を重視する制御問題で採用される理由はここにあります。</p>
 
 </article>
   </main>

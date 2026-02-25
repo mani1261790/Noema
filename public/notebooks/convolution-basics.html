@@ -103,6 +103,11 @@
 このノートでは、畳み込みの計算を手で追える形から始め、stride・padding・pooling の役割を確認し、最後に小さな画像分類を実装します。</p>
 <p>さらに、分類CNNがどう Fully Convolutional Network（FCN）へ拡張されるかまでつなげます。</p>
 
+<h2 id="背景と目的">背景と目的</h2>
+<p>画像の局所構造を活かすには、全結合よりも畳み込みの帰納バイアスが有効です。</p>
+<p>CNNの仕組みを理解すると、受容野や特徴抽出の設計意図を説明できます。</p>
+<p>カーネル操作と特徴マップの変化を追跡します。</p>
+
 <pre><code class="language-python">import numpy as np
 import matplotlib.pyplot as plt
 

@@ -99,90 +99,52 @@
   <main>
 <article class="prose-noema">
 <h1 id="価値反復法">価値反復法</h1>
-<p>価値反復法では、価値更新を紙ではなくコードで追い、再帰の意味を体感します。</p>
+<p>価値反復法は、方策を明示的に評価せず、価値の最適ベルマン更新を直接反復します。状態数が大きい問題で計算を単純化しやすいのが利点です。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>価値反復法に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
-<ul>
-<li><strong>状態 s</strong>: エージェントが観測している環境の要約です。</li>
-<li><strong>行動 a</strong>: 状態で選べる操作です。行動が次状態と報酬を変えます。</li>
-<li><strong>報酬 r</strong>: 行動の直後に得る評価信号です。将来報酬の合計を最大化します。</li>
-<li><strong>価値バックアップ</strong>: ベルマン最適方程式で価値を反復更新する操作です。</li>
-<li><strong>貪欲方策</strong>: 推定価値が最大の行動を選ぶ方策です。</li>
-</ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<h2 id="背景と目的">背景と目的</h2>
+<p>方策反復法との違いは、毎回の改善ステップを省いて価値更新に集約する点です。</p>
+<p>両者の更新式の違いを理解すると、問題規模に応じた手法選択ができます。</p>
+<p>同じ2状態MDPで価値反復を実行し、最終方策を抽出します。</p>
 
-<h2 id="観察-1-価値反復の初期化">観察 1: 価値反復の初期化</h2>
-<p>価値反復の1ステップ更新を追うため、初期の報酬列を定義します。</p>
+<pre><code class="language-python">states = [&#39;s0&#39;, &#39;s1&#39;]
+actions = [&#39;left&#39;, &#39;right&#39;]
+gamma = 0.9
 
-<pre><code class="language-python">rewards = [0.0, 0.6, 0.4, 1.3]
-gamma = 0.93
-g = 0.0
-for r in reversed(rewards):
-    g = r + gamma * g
-print(&#39;task = value-iteration&#39;, &#39;init_value=&#39;, round(g, 6))</code></pre>
-<p>この初期化から最適価値への収束過程を観察します。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+P = {
+    &#39;s0&#39;: {
+        &#39;left&#39;: [(&#39;s0&#39;, 0.2), (&#39;s1&#39;, 1.0)],
+        &#39;right&#39;: [(&#39;s1&#39;, 0.4), (&#39;s1&#39;, 0.4)],
+    },
+    &#39;s1&#39;: {
+        &#39;left&#39;: [(&#39;s0&#39;, 0.0), (&#39;s0&#39;, 0.0)],
+        &#39;right&#39;: [(&#39;s1&#39;, 0.8), (&#39;s1&#39;, 0.8)],
+    },
+}
 
-<h2 id="観察-2-ベルマン更新を1回行う">観察 2: ベルマン更新を1回行う</h2>
-<p>次に、価値更新を1ステップだけ計算します。1回更新でも、再帰構造の意味は十分に見えてきます。</p>
+def action_value(s, a, V):
+    trans = P[s][a]
+    return sum(0.5 * (r + gamma * V[ns]) for ns, r in trans)</code></pre>
+<pre><code class="language-python">V = {&#39;s0&#39;: 0.0, &#39;s1&#39;: 0.0}
 
-<pre><code class="language-python">v_next = {&#39;s0&#39;: 0.4, &#39;s1&#39;: 0.8}
-reward = {&#39;left&#39;: 0.2, &#39;right&#39;: 1.0}
-trans = {&#39;left&#39;: &#39;s0&#39;, &#39;right&#39;: &#39;s1&#39;}
-v_s = max(reward[a] + gamma * v_next[trans[a]] for a in [&#39;left&#39;, &#39;right&#39;])
-print(&#39;updated V(s)=&#39;, round(v_s, 6))</code></pre>
-<p>ベルマン更新は『今の価値』を『次状態の価値』で再定義する操作です。この再帰が強化学習の中心です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+for it in range(40):
+    newV = {}
+    for s in states:
+        newV[s] = max(action_value(s, a, V) for a in actions)
+    diff = max(abs(newV[s] - V[s]) for s in states)
+    V = newV
+    if it % 5 == 0:
+        print(f&quot;iter={it}: V(s0)={V[&#39;s0&#39;]:.4f}, V(s1)={V[&#39;s1&#39;]:.4f}, diff={diff:.6f}&quot;)
+    if diff &lt; 1e-6:
+        break
 
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>G</mi><mi>t</mi></msub><mo>=</mo><msub><mo>∑</mo><mrow><mi>k</mi><mo>≥</mo><mn>0</mn></mrow></msub><msup><mi>γ</mi><mi>k</mi></msup><msub><mi>R</mi><mrow><mi>t</mi><mo>+</mo><mi>k</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">G_t = \sum_{k\ge 0} \gamma^k R_{t+k+1}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.849108em;"></span><span class="strut bottom" style="height:1.244297em;vertical-align:-0.395189em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">G</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span><span class="mrel">≥</span><span class="mord mathrm">0</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.00773em;">R</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.00773em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.03148em;">k</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>Q</mi><mo>←</mo><mi>Q</mi><mo>+</mo><mi>α</mi><mspace width="0.16667em"></mspace><msub><mi>δ</mi><mrow><mi>T</mi><mi>D</mi></mrow></msub></mrow><annotation encoding="application/x-tex">Q \leftarrow Q + \alpha\,\delta_{TD}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit">Q</span><span class="mrel">←</span><span class="mord mathit">Q</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathit" style="margin-right:0.03785em;">δ</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03785em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.13889em;">T</span><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-</ol>
+policy_star = {}
+for s in states:
+    q_left = action_value(s, &#39;left&#39;, V)
+    q_right = action_value(s, &#39;right&#39;, V)
+    policy_star[s] = &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
 
-<h2 id="観察-3-q値更新を比較する">観察 3: Q値更新を比較する</h2>
-<p>ここで Q学習の更新式をコードに写し、数値の動きを確認します。式を読むだけでは掴みにくい感覚を得る段階です。</p>
-
-<pre><code class="language-python">Q = {(&#39;s0&#39;,&#39;left&#39;): 0.3, (&#39;s0&#39;,&#39;right&#39;): 0.1, (&#39;s1&#39;,&#39;left&#39;): 0.5, (&#39;s1&#39;,&#39;right&#39;): 0.7}
-alpha = 0.2
-r, s, a, s_next = 1.0, &#39;s0&#39;, &#39;right&#39;, &#39;s1&#39;
-td_target = r + gamma * max(Q[(s_next,&#39;left&#39;)], Q[(s_next,&#39;right&#39;)])
-Q[(s,a)] += alpha * (td_target - Q[(s,a)])
-print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
-<p>更新後の値が過去の値とどれだけ違うかは、学習率と TD 誤差で決まります。ここが調整ポイントです。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-4-探索と活用の切り替え">観察 4: 探索と活用の切り替え</h2>
-<p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
-
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
-<p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-5-方策評価の簡易チェック">観察 5: 方策評価の簡易チェック</h2>
-<p>最後に、方策の平均報酬を簡易的に比較します。アルゴリズムの評価は、更新式だけでなく結果の検証が不可欠です。</p>
-
-<pre><code class="language-python">episode_rewards = [1.2, 0.8, 1.5, 1.1, 1.4]
-avg_reward = sum(episode_rewards) / len(episode_rewards)
-variance = sum((r - avg_reward) ** 2 for r in episode_rewards) / len(episode_rewards)
-print(&#39;avg =&#39;, round(avg_reward, 4))
-print(&#39;var =&#39;, round(variance, 4))</code></pre>
-<p>平均だけでなく分散を見ると、方策の安定性も評価できます。実運用ではこの二軸が重要です。</p>
-<p>この節では、状態 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>探索率が低すぎて行動が固定化する</li>
-<li>報酬設計が目的とずれている</li>
-<li>長期ロールアウトの不安定性を検証しない</li>
-</ol>
-
+print(&#39;optimal V =&#39;, {k: round(v, 6) for k, v in V.items()})
+print(&#39;greedy policy from V =&#39;, policy_star)</code></pre>
 </article>
   </main>
   <script src="/highlight/highlight.min.js"></script>
