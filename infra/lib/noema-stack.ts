@@ -327,8 +327,23 @@ export class NoemaStack extends Stack {
         NOEMA_PIP_TIMEOUT_SECONDS: "120"
       }
     });
+    const pythonRunnerHeavyFunction = new lambda.DockerImageFunction(this, "PythonRunnerHeavyFunction", {
+      functionName: `${prefix}-python-runner-heavy`,
+      architecture: lambda.Architecture.X86_64,
+      memorySize: 3072,
+      timeout: Duration.seconds(120),
+      ephemeralStorageSize: Size.mebibytes(2048),
+      code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, "../lambda/python-runner-heavy"), {
+        platform: ecrAssets.Platform.LINUX_AMD64
+      }),
+      environment: {
+        NOEMA_BASE_MODULES: "torch,xgboost",
+        NOEMA_PIP_TIMEOUT_SECONDS: "120"
+      }
+    });
 
     apiFunction.addEnvironment("PYTHON_RUNNER_FUNCTION_NAME", pythonRunnerFunction.functionName);
+    apiFunction.addEnvironment("PYTHON_RUNNER_HEAVY_FUNCTION_NAME", pythonRunnerHeavyFunction.functionName);
 
     const workerLogGroup = new logs.LogGroup(this, "WorkerLogGroup", {
       logGroupName: `/aws/lambda/${prefix}-qa-worker`,
@@ -391,6 +406,7 @@ export class NoemaStack extends Stack {
     qaQueue.grantSendMessages(apiFunction);
     notebookBucket.grantReadWrite(apiFunction);
     pythonRunnerFunction.grantInvoke(apiFunction);
+    pythonRunnerHeavyFunction.grantInvoke(apiFunction);
 
     questionsTable.grantReadWriteData(workerFunction);
     answersTable.grantReadWriteData(workerFunction);
@@ -613,7 +629,12 @@ export class NoemaStack extends Stack {
       new cloudwatch.GraphWidget({
         title: "Lambda Errors",
         width: 12,
-        left: [apiFunction.metricErrors(), workerFunction.metricErrors()]
+        left: [
+          apiFunction.metricErrors(),
+          workerFunction.metricErrors(),
+          pythonRunnerFunction.metricErrors(),
+          pythonRunnerHeavyFunction.metricErrors()
+        ]
       }),
       new cloudwatch.GraphWidget({
         title: "SQS Queue Depth",
@@ -623,7 +644,12 @@ export class NoemaStack extends Stack {
       new cloudwatch.GraphWidget({
         title: "Lambda Duration",
         width: 12,
-        left: [apiFunction.metricDuration(), workerFunction.metricDuration(), pythonRunnerFunction.metricDuration()]
+        left: [
+          apiFunction.metricDuration(),
+          workerFunction.metricDuration(),
+          pythonRunnerFunction.metricDuration(),
+          pythonRunnerHeavyFunction.metricDuration()
+        ]
       }),
       new cloudwatch.GraphWidget({
         title: "DynamoDB Throttles",

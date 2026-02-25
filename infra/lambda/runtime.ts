@@ -228,6 +228,7 @@ const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
+const PYTHON_RUNNER_HEAVY_FUNCTION_NAME = process.env.PYTHON_RUNNER_HEAVY_FUNCTION_NAME || "";
 const MAX_RUNTIME_CODE_CHARS = 120_000;
 const COLAB_GITHUB_REPO = (process.env.COLAB_GITHUB_REPO || "mani1261790/Noema").trim();
 const COLAB_GITHUB_REF = (process.env.COLAB_GITHUB_REF || "main").trim();
@@ -2586,9 +2587,8 @@ function normalizeExpectedModules(raw: unknown): string[] {
 
   for (const item of raw) {
     if (seen.size >= 24) break;
-    const moduleName = asString(item).trim().split(".")[0];
+    const moduleName = normalizeModuleName(asString(item));
     if (!moduleName) continue;
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(moduleName)) continue;
     seen.add(moduleName);
   }
 
@@ -2600,9 +2600,13 @@ async function invokePythonRunner(payload: Record<string, unknown>) {
     throw new Error("PYTHON_RUNNER_FUNCTION_NAME is not configured.");
   }
 
+  const expectedModules = normalizeExpectedModules(payload.expectedModules);
+  const importsFromCode = extractImportedModules(asString(payload.code));
+  const functionName = selectPythonRunnerFunctionName(expectedModules, importsFromCode);
+
   const invokeResult = await lambdaClient.send(
     new InvokeCommand({
-      FunctionName: PYTHON_RUNNER_FUNCTION_NAME,
+      FunctionName: functionName,
       InvocationType: "RequestResponse",
       Payload: Buffer.from(JSON.stringify(payload), "utf8")
     })
@@ -2623,6 +2627,62 @@ async function invokePythonRunner(payload: Record<string, unknown>) {
   }
 
   return decoded;
+}
+
+const HEAVY_PYTHON_MODULES = new Set([
+  "torch",
+  "xgboost"
+]);
+
+function normalizeModuleName(value: string): string {
+  const moduleName = value.trim().split(".")[0].replace(/-/g, "_").toLowerCase();
+  if (!moduleName) return "";
+  if (!/^[a-z_][a-z0-9_]*$/.test(moduleName)) return "";
+  return moduleName;
+}
+
+function extractImportedModules(code: string): string[] {
+  if (!code) return [];
+  const seen = new Set<string>();
+  const lines = code.split(/\r?\n/);
+
+  const importPattern = /^\s*import\s+([A-Za-z0-9_.,\s]+)(?:\s+as\s+[A-Za-z0-9_]+)?\s*$/;
+  const fromPattern = /^\s*from\s+([A-Za-z0-9_\.]+)\s+import\s+/;
+
+  for (const line of lines) {
+    if (seen.size >= 24) break;
+    const fromMatch = line.match(fromPattern);
+    if (fromMatch) {
+      const moduleName = normalizeModuleName(fromMatch[1]);
+      if (moduleName) seen.add(moduleName);
+      continue;
+    }
+
+    const importMatch = line.match(importPattern);
+    if (!importMatch) continue;
+    const rawModules = importMatch[1].split(",");
+    for (const rawModule of rawModules) {
+      if (seen.size >= 24) break;
+      const noAlias = rawModule.split(/\s+as\s+/i)[0];
+      const moduleName = normalizeModuleName(noAlias);
+      if (moduleName) seen.add(moduleName);
+    }
+  }
+
+  return Array.from(seen);
+}
+
+function selectPythonRunnerFunctionName(expectedModules: string[], importsFromCode: string[]): string {
+  if (!PYTHON_RUNNER_HEAVY_FUNCTION_NAME) {
+    return PYTHON_RUNNER_FUNCTION_NAME;
+  }
+  const candidates = new Set<string>([...importsFromCode, ...expectedModules]);
+  for (const moduleName of candidates) {
+    if (HEAVY_PYTHON_MODULES.has(moduleName)) {
+      return PYTHON_RUNNER_HEAVY_FUNCTION_NAME;
+    }
+  }
+  return PYTHON_RUNNER_FUNCTION_NAME;
 }
 
 export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: AuthUser): Promise<PythonRuntimeExecuteResult> {
