@@ -8,6 +8,7 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as cloudwatchActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as cognito from "aws-cdk-lib/aws-cognito";
+import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -312,23 +313,14 @@ export class NoemaStack extends Stack {
       }
     });
 
-    const pythonRunnerFunction = new lambda.Function(this, "PythonRunnerFunction", {
+    const pythonRunnerFunction = new lambda.DockerImageFunction(this, "PythonRunnerFunction", {
       functionName: `${prefix}-python-runner`,
-      runtime: lambda.Runtime.PYTHON_3_12,
       architecture: lambda.Architecture.X86_64,
-      handler: "handler.lambda_handler",
       memorySize: 2048,
       timeout: Duration.seconds(120),
       ephemeralStorageSize: Size.mebibytes(2048),
-      code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/python-runner"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
-          command: [
-            "bash",
-            "-lc",
-            "set -euo pipefail && pip install --disable-pip-version-check -r requirements.txt -t /asset-output && cp -au . /asset-output"
-          ]
-        }
+      code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, "../lambda/python-runner"), {
+        platform: ecrAssets.Platform.LINUX_AMD64
       }),
       environment: {
         NOEMA_BASE_MODULES: "",
