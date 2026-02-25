@@ -98,90 +98,438 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+import statistics
+import time</code></pre>
 <h1 id="連続時間拡散モデルとフローマッチング理論">連続時間拡散モデルとフローマッチング理論</h1>
-<p>連続時間拡散モデルとフローマッチング理論では、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
-
-<h2 id="概念の土台">概念の土台</h2>
-<p>連続時間拡散モデルとフローマッチング理論に入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>このノートでは、連続時間拡散と Flow Matching を同じ座標系で理解します。狙いは「式を覚える」ことではなく、</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>確率フロー ODE</strong>: 拡散過程と同じ周辺分布を持つ連続時間の決定論的方程式です。</li>
-<li><strong>フローマッチング</strong>: 目標ベクトル場に速度場を一致させる学習方式です。</li>
+<li>どんな中間経路（path）を選ぶか</li>
+<li>その経路に沿う速度場（vector field）をどう学習するか</li>
+<li>その速度場を積分して、どう生成するか</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>を一貫して追えるようにすることです。</p>
 
-<h2 id="検証-1-連続時間拡散の初期点">検証 1: 連続時間拡散の初期点</h2>
-<p>連続時間モデルの直感を作るため、時間方向に扱う初期潜在点を準備します。</p>
+<p>Flow Matching の基本は、ノイズ点 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">x_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> とデータ点 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">x_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を結ぶ経路 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">x_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を設計し、対応する目標速度 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>u</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">u_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">u</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を回帰することです。</p>
+<p>最初に記号をそろえます。</p>
+<ul>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>t</mi><mo>∈</mo><mo>[</mo><mn>0</mn><mo separator="true">,</mo><mn>1</mn><mo>]</mo></mrow><annotation encoding="application/x-tex">t\in[0,1]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">t</span><span class="mrel">∈</span><span class="mopen">[</span><span class="mord mathrm">0</span><span class="mpunct">,</span><span class="mord mathrm">1</span><span class="mclose">]</span></span></span></span>: 時刻</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">x_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span>: 初期ノイズ点</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">x_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span>: データ点</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">x_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span>: 時刻 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>t</mi></mrow><annotation encoding="application/x-tex">t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.61508em;"></span><span class="strut bottom" style="height:0.61508em;vertical-align:0em;"></span><span class="base textstyle uncramped"><span class="mord mathit">t</span></span></span></span> の中間点</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>u</mi><mi>t</mi></msub><mo>=</mo><mfrac><mrow><mi>d</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><msub><mi>x</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">u_t=\frac{d}{dt}x_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.8801079999999999em;"></span><span class="strut bottom" style="height:1.2251079999999999em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">u</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">d</span><span class="mord mathit">t</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit">d</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span>: 経路が持つ教師速度</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>v</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">v_\theta(x,t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">v</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span></span></span></span>: ニューラルネットが出す予測速度</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">p_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span>: 生成開始時点（<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>t</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">t=0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.64444em;"></span><span class="strut bottom" style="height:0.64444em;vertical-align:0em;"></span><span class="base textstyle uncramped"><span class="mord mathit">t</span><span class="mrel">=</span><span class="mord mathrm">0</span></span></span></span>）の初期分布</li>
+</ul>
+<p>学習目的は</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>min</mi><mi>θ</mi></msub><mspace width="0.277778em"></mspace><msub><mrow><mi mathvariant="double-struck">E</mi></mrow><mrow><mi>t</mi><mo separator="true">,</mo><msub><mi>x</mi><mn>0</mn></msub><mo separator="true">,</mo><msub><mi>x</mi><mn>1</mn></msub></mrow></msub><mrow><mo fence="true">[</mo><mi mathvariant="normal">∥</mi><msub><mi>v</mi><mi>θ</mi></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo separator="true">,</mo><mi>t</mi><mo>)</mo><mo>−</mo><msub><mi>u</mi><mi>t</mi></msub><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo separator="true">,</mo><msub><mi>x</mi><mn>1</mn></msub><mo separator="true">,</mo><mi>t</mi><mo>)</mo><msup><mi mathvariant="normal">∥</mi><mn>2</mn></msup><mo fence="true">]</mo></mrow></mrow><annotation encoding="application/x-tex">\min_\theta\; \mathbb{E}_{t,x_0,x_1}\left[\|v_\theta(x_t,t)-u_t(x_0,x_1,t)\|^2\right]
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.8641079999999999em;"></span><span class="strut bottom" style="height:1.6162159999999997em;vertical-align:-0.7521079999999999em;"></span><span class="base displaystyle textstyle uncramped"><span class="mop op-limits"><span class="vlist"><span style="top:0.6521079999999999em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span style="top:-2.7755575615628914e-17em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span><span class="mop">min</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mspace thickspace"></span><span class=""><span class="mord displaystyle textstyle uncramped"><span class="mord mathbb">E</span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.07142857142857144em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-scriptstyle scriptscriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.07142857142857144em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-scriptstyle scriptscriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="minner displaystyle textstyle uncramped"><span class="style-wrap reset-textstyle textstyle uncramped" style="top:0em;"><span class="delimsizing size1">[</span></span><span class="mord mathrm">∥</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">v</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mbin">−</span><span class="mord"><span class="mord mathit">u</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mord"><span class="mord mathrm">∥</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="style-wrap reset-textstyle textstyle uncramped" style="top:0em;"><span class="delimsizing size1">]</span></span></span></span></span></span></span></p>
+<p>です。二乗誤差回帰の一般事実として、各点 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">(x,t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span></span></span></span> における最適予測は条件付き期待値になります。したがって最適解は</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msup><mi>v</mi><mo>∗</mo></msup><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo><mo>=</mo><mrow><mi mathvariant="double-struck">E</mi></mrow><mo>[</mo><msub><mi>u</mi><mi>t</mi></msub><mo>∣</mo><msub><mi>x</mi><mi>t</mi></msub><mo>=</mo><mi>x</mi><mo>]</mo></mrow><annotation encoding="application/x-tex">v^*(x,t)=\mathbb{E}[u_t\mid x_t=x]
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">v</span><span class="vlist"><span style="top:-0.413em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord">∗</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord displaystyle textstyle uncramped"><span class="mord mathbb">E</span></span><span class="mopen">[</span><span class="mord"><span class="mord mathit">u</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mord mathit">x</span><span class="mclose">]</span></span></span></span></span></p>
+<p>であり、「各ペア速度をそのまま暗記」ではなく「同じ <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">(x,t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span></span></span></span> に集まる速度の平均場」を学習している、と読むのが正確です。</p>
+<p>学習後は ODE</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mfrac><mrow><mi>d</mi><mi>x</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mo>=</mo><msub><mi>v</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo><mo separator="true">,</mo><mspace width="1em"></mspace><mi>x</mi><mo>(</mo><mn>0</mn><mo>)</mo><mo>∼</mo><msub><mi>p</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\frac{dx}{dt}=v_\theta(x,t),\quad x(0)\sim p_0
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.37144em;"></span><span class="strut bottom" style="height:2.05744em;vertical-align:-0.686em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord reset-textstyle displaystyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.686em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle cramped"><span class="mord textstyle cramped"><span class="mord mathit">d</span><span class="mord mathit">t</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.677em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathit">d</span><span class="mord mathit">x</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">v</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mord mspace quad"></span><span class="mord mathit">x</span><span class="mopen">(</span><span class="mord mathrm">0</span><span class="mclose">)</span><span class="mrel">∼</span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></span></p>
+<p>を積分して生成します。</p>
+<p>連続時間拡散モデルとの接続（上級・初回は読み飛ばしてもOK）:</p>
+<p>前向き過程を SDE</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>d</mi><mi>x</mi><mo>=</mo><msub><mi>f</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mi>d</mi><mi>t</mi><mo>+</mo><msub><mi>g</mi><mi>t</mi></msub><mi>d</mi><msub><mi>W</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">dx = f_t(x)dt + g_t dW_t
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord mathit">d</span><span class="mord mathit">x</span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mord mathit">d</span><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">d</span><span class="mord"><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.13889em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></span></p>
+<p>で定めたとき、ここで</p>
+<ul>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>W</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">W_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.68333em;"></span><span class="strut bottom" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.13889em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span>: ブラウン運動（連続時間のランダム揺らぎ）</li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">p_t(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span>: 時刻 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>t</mi></mrow><annotation encoding="application/x-tex">t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.61508em;"></span><span class="strut bottom" style="height:0.61508em;vertical-align:0em;"></span><span class="base textstyle uncramped"><span class="mord mathit">t</span></span></span></span> の分布密度</li>
+<li>score <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><msub><mi>p</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\nabla_x \log p_t(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span>: 密度の対数勾配（高密度方向を指す量）</li>
+</ul>
+<p>です。代表的な前提（例えば <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>g</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">g_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.625em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> が状態非依存の設定）では確率流 ODE を</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mfrac><mrow><mi>d</mi><mi>x</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mo>=</mo><msub><mi>f</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>−</mo><mfrac><mrow><mn>1</mn></mrow><mrow><mn>2</mn></mrow></mfrac><msubsup><mi>g</mi><mi>t</mi><mn>2</mn></msubsup><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><msub><mi>p</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\frac{dx}{dt}=f_t(x)-\frac{1}{2}g_t^2\nabla_x \log p_t(x)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.37144em;"></span><span class="strut bottom" style="height:2.05744em;vertical-align:-0.686em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord reset-textstyle displaystyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.686em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle cramped"><span class="mord textstyle cramped"><span class="mord mathit">d</span><span class="mord mathit">t</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.677em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathit">d</span><span class="mord mathit">x</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.10764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mbin">−</span><span class="mord reset-textstyle displaystyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.686em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle cramped"><span class="mord textstyle cramped"><span class="mord mathrm">2</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.677em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped"><span class="mord textstyle uncramped"><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="vlist"><span style="top:0.247em;margin-left:-0.03588em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span style="top:-0.4129999999999999em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></span></p>
+<p>と書けます。拡散側は score を経由して速度場を得るのに対し、Flow Matching は経路と教師速度を直接設計して速度場を学習します。</p>
+<p>注意: 拡散文献では時間向きを data→noise で書くことが多いのに対し、このノートは Flow Matching の実装導線に合わせて noise→data 向きで記述しています。</p>
+<p>注意: このノートでは <code>x_0=ノイズ, x_1=データ</code> と置きます。拡散文献の一部では <code>x_0</code> をデータと書くため、添字の意味を都度確認してください。</p>
 
-<pre><code class="language-python">import random
-random.seed(37)
-z = [round(random.gauss(0, 0.9) + t * 0.1, 3) for t in range(5)]
-print(&#39;task = continuous-diffusion-flow-matching&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>この初期点列を使って流れ場近似を確認します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+<p>まず2次元データを用意します。ノイズ源は標準ガウス、ターゲットは2峰の2次元混合ガウスです。</p>
 
-<h2 id="検証-2-単純なデコーダを書く">検証 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
+<pre><code class="language-python">random.seed(41)
 
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
+def sample_noise_2d(n: int):
+    out = []
+    for _ in range(n):
+        out.append((random.gauss(0.0, 1.0), random.gauss(0.0, 1.0)))
+    return out
 
-<h2 id="定義の確認">定義の確認</h2>
+
+def sample_data_2d(n: int):
+    out = []
+    for _ in range(n):
+        if random.random() &lt; 0.5:
+            x = random.gauss(-2.2, 0.45)
+            y = random.gauss(1.6, 0.55)
+        else:
+            x = random.gauss(2.1, 0.5)
+            y = random.gauss(-1.5, 0.5)
+        out.append((x, y))
+    return out
+
+
+def describe_2d(xs):
+    mx = statistics.mean(x for x, _ in xs)
+    my = statistics.mean(y for _, y in xs)
+    sx = statistics.pstdev(x for x, _ in xs)
+    sy = statistics.pstdev(y for _, y in xs)
+    q1 = sum(1 for x, y in xs if x &lt; 0 and y &gt;= 0) / len(xs)
+    q3 = sum(1 for x, y in xs if x &gt;= 0 and y &lt; 0) / len(xs)
+    return {&#39;mx&#39;: mx, &#39;my&#39;: my, &#39;sx&#39;: sx, &#39;sy&#39;: sy, &#39;q1&#39;: q1, &#39;q3&#39;: q3}
+
+
+noise_data = sample_noise_2d(3200)
+target_data = sample_data_2d(3200)
+
+print(&#39;noise stats =&#39;, {k: round(v, 4) for k, v in describe_2d(noise_data).items()})
+print(&#39;target stats=&#39;, {k: round(v, 4) for k, v in describe_2d(target_data).items()})</code></pre>
+<p>次に2種類のパスを定義します。</p>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mfrac><mrow><mi>d</mi><mi>x</mi></mrow><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mo>=</mo><msub><mi>v</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\frac{dx}{dt} = v_{\theta}(x,t)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.8801079999999999em;"></span><span class="strut bottom" style="height:1.2251079999999999em;vertical-align:-0.345em;"></span><span class="base textstyle uncramped"><span class="mord reset-textstyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.345em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">d</span><span class="mord mathit">t</span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.394em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord scriptstyle uncramped"><span class="mord mathit">d</span><span class="mord mathit">x</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mrel">=</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">v</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>min</mi><mrow><mi>θ</mi></mrow></msub><mrow><mi mathvariant="double-struck">E</mi></mrow><mi mathvariant="normal">∥</mi><msub><mi>v</mi><mrow><mi>θ</mi></mrow></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo separator="true">,</mo><mi>t</mi><mo>)</mo><mo>−</mo><msub><mi>u</mi><mi>t</mi></msub><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mo>)</mo><msup><mi mathvariant="normal">∥</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\min_{\theta}\mathbb{E}\|v_{\theta}(x_t,t)-u_t(x_t)\|^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.8141079999999999em;"></span><span class="strut bottom" style="height:1.064108em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mop"><span class="mop">min</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord textstyle uncramped"><span class="mord mathbb">E</span></span><span class="mord mathrm">∥</span><span class="mord"><span class="mord mathit" style="margin-right:0.03588em;">v</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03588em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mbin">−</span><span class="mord"><span class="mord mathit">u</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mord"><span class="mord mathrm">∥</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord mathrm">2</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
+<li>線形パス（独立カップリング版の CFM）</li>
 </ol>
-
-<h2 id="検証-3-ノイズを加えて復元する">検証 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
-
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-4-混合分布の感覚を作る">検証 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
-
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="検証-5-学習指標を定義する">検証 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
-
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="まとめ">まとめ</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
+<ul>
+<li><code>x_t = (1-t)x_0 + t x_1</code></li>
+<li>速度は定数 <code>u_t = x_1 - x_0</code></li>
+</ul>
+<ol start="2">
+<li>三角関数パス（連続時間拡散のノイズ減衰を意識した滑らかな経路）</li>
 </ol>
-<p>連続時間拡散モデルとフローマッチング理論 はこのセクションの最終ステップです。先頭ノートから順に再実行し、流れ全体を確認してください。</p>
+<ul>
+<li><code>x_t = alpha(t) x_1 + sigma(t) x_0</code></li>
+<li>ここで <code>alpha(t)=sin(pi t/2)</code>, <code>sigma(t)=cos(pi t/2)</code></li>
+</ul>
+<p>DDPM 的な離散式 <code>x_t = sqrt(alpha_bar_t) x_1 + sqrt(1-alpha_bar_t) x_0</code> を連続時間で見ると、「データ係数を増やしノイズ係数を減らす」経路設計になります。このノートの三角関数パスは、その直観を連続時間で観察しやすくした簡易版です。</p>
+<p>係数の違いも押さえておきます。線形は <code>alpha+sigma=1</code>、三角関数は <code>alpha^2+sigma^2=1</code> です。例えば <code>t=0.5</code> では線形が <code>(0.5, 0.5)</code>、三角関数が <code>(0.707..., 0.707...)</code> なので、中間の混ざり方が異なります。</p>
+<p>注意: ここでの線形パスは <code>x_0, x_1</code> を独立に引いた組を使っており、厳密な OT カップリングではありません。</p>
+
+<p>参考資料で扱う OT-CFM（Optimal-Transport Conditional Flow Matching）では、損失関数の形自体は同じでも、学習に使う <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>(</mo><msub><mi>x</mi><mn>0</mn></msub><mo separator="true">,</mo><msub><mi>x</mi><mn>1</mn></msub><mo>)</mo></mrow><annotation encoding="application/x-tex">(x_0, x_1)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span></span></span></span> の組を最適輸送カップリングで作る点が重要です。</p>
+<p>直観的には、ノイズ側の点とデータ側の点を「できるだけ無理のない対応」で結び、学習すべきベクトル場を素直にする工夫です。ミニバッチ単位で近似 OT を解く実装が一般的で、画像規模では計算コストと近似精度のトレードオフ設計が実務上のポイントになります。</p>
+
+<pre><code class="language-python">def linear_bridge(x0, x1, t):
+    x = (1.0 - t) * x0[0] + t * x1[0]
+    y = (1.0 - t) * x0[1] + t * x1[1]
+    vx = x1[0] - x0[0]
+    vy = x1[1] - x0[1]
+    return (x, y), (vx, vy)
+
+
+def trig_bridge(x0, x1, t):
+    # alpha(0)=0, sigma(0)=1; alpha(1)=1, sigma(1)=0
+    alpha = math.sin(0.5 * math.pi * t)
+    sigma = math.cos(0.5 * math.pi * t)
+    alpha_dot = 0.5 * math.pi * math.cos(0.5 * math.pi * t)
+    sigma_dot = -0.5 * math.pi * math.sin(0.5 * math.pi * t)
+
+    x = alpha * x1[0] + sigma * x0[0]
+    y = alpha * x1[1] + sigma * x0[1]
+    vx = alpha_dot * x1[0] + sigma_dot * x0[0]
+    vy = alpha_dot * x1[1] + sigma_dot * x0[1]
+    return (x, y), (vx, vy)
+
+
+def path_length_demo(n=600):
+    # 同じカップル(x0,x1)に対し、2パスの移動距離を比較
+    total_linear = 0.0
+    total_trig = 0.0
+    for _ in range(n):
+        x0 = noise_data[random.randrange(len(noise_data))]
+        x1 = target_data[random.randrange(len(target_data))]
+
+        # linear length (closed form)
+        dl = math.sqrt((x1[0] - x0[0]) ** 2 + (x1[1] - x0[1]) ** 2)
+
+        # trig length (numerical)
+        prev, _ = trig_bridge(x0, x1, 0.0)
+        dt = 1.0 / 120
+        s = 0.0
+        for i in range(1, 121):
+            t = i * dt
+            cur, _ = trig_bridge(x0, x1, t)
+            s += math.sqrt((cur[0] - prev[0]) ** 2 + (cur[1] - prev[1]) ** 2)
+            prev = cur
+
+        total_linear += dl
+        total_trig += s
+
+    return total_linear / n, total_trig / n
+
+
+lin_len, trig_len = path_length_demo()
+print(&#39;avg path length linear =&#39;, round(lin_len, 4))
+print(&#39;avg path length trig   =&#39;, round(trig_len, 4))
+print(&#39;ratio trig/linear      =&#39;, round(trig_len / lin_len, 4))</code></pre>
+<p>速度場モデル <code>v_theta(x,t)</code> は、2次元入力 + 時刻に対する低容量回帰器にします。U-Netではなく軽量モデルを使うのは、目的が理論理解だからです。</p>
+<p>この設定でも、Flow Matching の学習が「ODEのロールアウトなし」にできることは確認できます。</p>
+
+<pre><code class="language-python"># feature map for vector field regression
+# phi(x,t) -&gt; 8 features
+def vf_features(x, y, t):
+    return [1.0, x, y, t, x * t, y * t, x * x, y * y]
+def vf_predict(theta, x, y, t):
+    # theta has 16 params: first 8 for vx, last 8 for vy
+    f = vf_features(x, y, t)
+    vx = sum(theta[i] * f[i] for i in range(8))
+    vy = sum(theta[8 + i] * f[i] for i in range(8))
+    return vx, vy
+def train_flow_matching(objective=&#39;linear&#39;, steps=2600, batch_size=128, lr=0.012, seed=2026):
+    rng = random.Random(seed)
+    theta = [0.0] * 16
+    history = []
+    bridge = linear_bridge if objective == &#39;linear&#39; else trig_bridge
+    for step in range(steps + 1):
+        grads = [0.0] * 16
+        loss = 0.0
+        for _ in range(batch_size):
+            x0 = noise_data[rng.randrange(len(noise_data))]
+            x1 = target_data[rng.randrange(len(target_data))]
+            t = rng.random()
+            (xtx, xty), (utx, uty) = bridge(x0, x1, t)
+            pvx, pvy = vf_predict(theta, xtx, xty, t)
+            ex = pvx - utx
+            ey = pvy - uty
+            f = vf_features(xtx, xty, t)
+            for i in range(8):
+                grads[i] += 2.0 * ex * f[i]
+                grads[8 + i] += 2.0 * ey * f[i]
+            loss += ex * ex + ey * ey
+        inv_bs = 1.0 / batch_size
+        grads = [g * inv_bs for g in grads]
+        loss *= inv_bs
+        # gradient clip
+        gnorm = math.sqrt(sum(g * g for g in grads))
+        if gnorm &gt; 60.0:
+            scale = 60.0 / gnorm
+            grads = [g * scale for g in grads]
+        wd = 2e-4
+        theta = [theta[i] - lr * (grads[i] + wd * theta[i]) for i in range(16)]
+        if step % 260 == 0:
+            history.append((step, loss, math.sqrt(sum(v * v for v in theta))))
+    return theta, history
+theta_lin, hist_lin = train_flow_matching(objective=&#39;linear&#39;)
+theta_trig, hist_trig = train_flow_matching(objective=&#39;trig&#39;)
+print(&#39;linear objective history:&#39;)
+for step, loss, norm in hist_lin:
+    print(&#39;step=&#39;, f&#39;{step:04d}&#39;, &#39;loss=&#39;, round(loss, 5), &#39;||theta||=&#39;, round(norm, 4))
+print()
+print(&#39;trig objective history:&#39;)
+for step, loss, norm in hist_trig:
+    print(&#39;step=&#39;, f&#39;{step:04d}&#39;, &#39;loss=&#39;, round(loss, 5), &#39;||theta||=&#39;, round(norm, 4))</code></pre>
+<pre><code class="language-python">def integrate_ode(theta, n=2600, n_steps=90, seed=505, clip=6.0):
+    rng = random.Random(seed)
+    xs = [(rng.gauss(0.0, 1.0), rng.gauss(0.0, 1.0)) for _ in range(n)]
+
+    dt = 1.0 / n_steps
+    for k in range(n_steps):
+        t = k * dt
+        nxt = []
+        for x, y in xs:
+            vx, vy = vf_predict(theta, x, y, t)
+            xn = x + dt * vx
+            yn = y + dt * vy
+            # 数値爆発を防ぐためのガード。理論上の流れそのものではなく数値安定化の処理。
+            xn = max(-clip, min(clip, xn))
+            yn = max(-clip, min(clip, yn))
+            nxt.append((xn, yn))
+        xs = nxt
+
+    return xs
+
+
+gen_lin = integrate_ode(theta_lin)
+gen_trig = integrate_ode(theta_trig)
+
+print(&#39;target stats =&#39;, {k: round(v, 4) for k, v in describe_2d(target_data).items()})
+print(&#39;gen linear   =&#39;, {k: round(v, 4) for k, v in describe_2d(gen_lin).items()})
+print(&#39;gen trig     =&#39;, {k: round(v, 4) for k, v in describe_2d(gen_trig).items()})</code></pre>
+<pre><code class="language-python">def summary_stat_mse(samples, target_ref):
+    # 指標1: 1次/2次統計と象限比率の差分をまとめた粗いMSE
+    s = describe_2d(samples)
+    t = describe_2d(target_ref)
+    keys = [&#39;mx&#39;, &#39;my&#39;, &#39;sx&#39;, &#39;sy&#39;, &#39;q1&#39;, &#39;q3&#39;]
+    return sum((s[k] - t[k]) ** 2 for k in keys) / len(keys)
+
+
+def wasserstein_1d(a, b):
+    aa = sorted(a)
+    bb = sorted(b)
+    n = min(len(aa), len(bb))
+    return sum(abs(aa[i] - bb[i]) for i in range(n)) / n
+
+
+def sliced_wasserstein_2d(samples, target_ref, n_dirs=24, seed=999):
+    rng = random.Random(seed)
+    total = 0.0
+    for _ in range(n_dirs):
+        ang = rng.random() * 2.0 * math.pi
+        ux = math.cos(ang)
+        uy = math.sin(ang)
+        proj_s = [ux * x + uy * y for x, y in samples]
+        proj_t = [ux * x + uy * y for x, y in target_ref]
+        total += wasserstein_1d(proj_s, proj_t)
+    return total / n_dirs
+
+
+def mode_center_mse(samples):
+    # 指標3: 2モード中心への平均二乗距離（小さいほど中心に乗る）
+    c1 = (-2.2, 1.6)
+    c2 = (2.1, -1.5)
+    err = 0.0
+    for x, y in samples:
+        d1 = (x - c1[0]) ** 2 + (y - c1[1]) ** 2
+        d2 = (x - c2[0]) ** 2 + (y - c2[1]) ** 2
+        err += min(d1, d2)
+    return err / len(samples)
+
+
+mse_lin = summary_stat_mse(gen_lin, target_data)
+mse_trig = summary_stat_mse(gen_trig, target_data)
+sw_lin = sliced_wasserstein_2d(gen_lin, target_data)
+sw_trig = sliced_wasserstein_2d(gen_trig, target_data)
+mc_lin = mode_center_mse(gen_lin)
+mc_trig = mode_center_mse(gen_trig)
+
+print(&#39;summary-stat MSE linear =&#39;, round(mse_lin, 6))
+print(&#39;summary-stat MSE trig   =&#39;, round(mse_trig, 6))
+print(&#39;sliced-W1 linear        =&#39;, round(sw_lin, 6))
+print(&#39;sliced-W1 trig          =&#39;, round(sw_trig, 6))
+print(&#39;mode-center MSE linear  =&#39;, round(mc_lin, 6))
+print(&#39;mode-center MSE trig    =&#39;, round(mc_trig, 6))
+
+lin_better = (mse_lin &lt;= mse_trig) + (sw_lin &lt;= sw_trig) + (mc_lin &lt;= mc_trig)
+if lin_better &gt;= 2:
+    print(&#39;linear path model is better on majority of toy metrics.&#39;)
+else:
+    print(&#39;trig path model is better on majority of toy metrics (or tied).&#39;)</code></pre>
+<p>ここで見える実務的な含意は次です。</p>
+<ul>
+<li>パス設計は学習難易度に効く。短く素直なパスは回帰が安定しやすい。</li>
+<li>ただし「どのパスが最良か」はモデル容量やデータ形状にも依存する。</li>
+<li>Flow Matching は経路上の教師速度を直接学習するので、拡散系の連続時間理論と接続しやすい。</li>
+</ul>
+<p>上の比較は 1 指標だけでなく、統計誤差・sliced Wasserstein・モード中心誤差の複数指標で見ています。要するに、連続時間拡散と Flow Matching は別物ではなく、同じ「連続時間の輸送」を違う座標で見ている関係です。</p>
+<p>補足: 1回だけの値で断定せず、複数seedで平均と分散を見て「指標ごとに増減方向が一致しているか」を確認するのが安全です。</p>
+
+<pre><code class="language-python"># 失敗例: 時間情報 t を入力しないと何が起きるか
+# 比較条件をできるだけ揃えるため、with-t側と同じ容量(16パラメータ)・同反復・同seed条件に近づける
+
+def vf_features_no_t(x, y, t):
+    # tを使わない代わりに、同容量化のため8次元特徴を使う
+    return [1.0, x, y, x * x, y * y, x * y, abs(x), abs(y)]
+
+
+def vf_predict_no_t(theta, x, y, t):
+    f = vf_features_no_t(x, y, t)
+    vx = sum(theta[i] * f[i] for i in range(8))
+    vy = sum(theta[8 + i] * f[i] for i in range(8))
+    return vx, vy
+
+
+def train_no_t(objective=&#39;linear&#39;, steps=2600, batch_size=128, lr=0.012, seed=2026):
+    rng = random.Random(seed)
+    theta = [0.0] * 16
+    bridge = linear_bridge if objective == &#39;linear&#39; else trig_bridge
+
+    for _ in range(steps + 1):
+        grads = [0.0] * 16
+        for _ in range(batch_size):
+            x0 = noise_data[rng.randrange(len(noise_data))]
+            x1 = target_data[rng.randrange(len(target_data))]
+            t = rng.random()
+            (xtx, xty), (utx, uty) = bridge(x0, x1, t)
+            pvx, pvy = vf_predict_no_t(theta, xtx, xty, t)
+            ex = pvx - utx
+            ey = pvy - uty
+            f = vf_features_no_t(xtx, xty, t)
+            for i in range(8):
+                grads[i] += 2.0 * ex * f[i]
+                grads[8 + i] += 2.0 * ey * f[i]
+
+        inv_bs = 1.0 / batch_size
+        grads = [g * inv_bs for g in grads]
+
+        gnorm = math.sqrt(sum(g * g for g in grads))
+        if gnorm &gt; 60.0:
+            scale = 60.0 / gnorm
+            grads = [g * scale for g in grads]
+
+        wd = 2e-4
+        theta = [theta[i] - lr * (grads[i] + wd * theta[i]) for i in range(16)]
+    return theta
+
+
+def integrate_no_t(theta, n=2600, n_steps=90, seed=505, clip=6.0):
+    rng = random.Random(seed)
+    xs = [(rng.gauss(0.0, 1.0), rng.gauss(0.0, 1.0)) for _ in range(n)]
+    dt = 1.0 / n_steps
+    for k in range(n_steps):
+        t = k * dt
+        nxt = []
+        for x, y in xs:
+            vx, vy = vf_predict_no_t(theta, x, y, t)
+            xn = x + dt * vx
+            yn = y + dt * vy
+            xn = max(-clip, min(clip, xn))
+            yn = max(-clip, min(clip, yn))
+            nxt.append((xn, yn))
+        xs = nxt
+    return xs
+
+
+def metric_triplet(samples):
+    return (
+        summary_stat_mse(samples, target_data),
+        sliced_wasserstein_2d(samples, target_data),
+        mode_center_mse(samples),
+    )
+
+
+def mean_std(vals):
+    m = statistics.mean(vals)
+    s = statistics.pstdev(vals)
+    return m, s
+
+
+theta_no_t = train_no_t(objective=&#39;linear&#39;)
+eval_seeds = [501, 502, 503, 504, 505]
+with_t_metrics = []
+no_t_metrics = []
+
+for sd in eval_seeds:
+    g_with = integrate_ode(theta_lin, seed=sd)
+    g_not = integrate_no_t(theta_no_t, seed=sd)
+    with_t_metrics.append(metric_triplet(g_with))
+    no_t_metrics.append(metric_triplet(g_not))
+
+with_mse = [m[0] for m in with_t_metrics]
+with_sw = [m[1] for m in with_t_metrics]
+with_mc = [m[2] for m in with_t_metrics]
+no_mse = [m[0] for m in no_t_metrics]
+no_sw = [m[1] for m in no_t_metrics]
+no_mc = [m[2] for m in no_t_metrics]
+
+wm, ws = mean_std(with_mse)
+nm, ns = mean_std(no_mse)
+ww, wws = mean_std(with_sw)
+nw, nws = mean_std(no_sw)
+wc, wcs = mean_std(with_mc)
+nc, ncs = mean_std(no_mc)
+
+print(&#39;seeds =&#39;, eval_seeds)
+print(&#39;summary-stat MSE with-t =&#39;, round(wm, 6), &#39;+/-&#39;, round(ws, 6))
+print(&#39;summary-stat MSE no-t   =&#39;, round(nm, 6), &#39;+/-&#39;, round(ns, 6))
+print(&#39;sliced-W1 with-t        =&#39;, round(ww, 6), &#39;+/-&#39;, round(wws, 6))
+print(&#39;sliced-W1 no-t          =&#39;, round(nw, 6), &#39;+/-&#39;, round(nws, 6))
+print(&#39;mode-center with-t      =&#39;, round(wc, 6), &#39;+/-&#39;, round(wcs, 6))
+print(&#39;mode-center no-t        =&#39;, round(nc, 6), &#39;+/-&#39;, round(ncs, 6))</code></pre>
+<p>時間入力 <code>t</code> を消すと、同じ場所 <code>x</code> に対して全時刻で同じ速度しか出せません。これでは「初期は大きく動いて、終盤は微調整する」といった連続時間生成の本質を表現しにくくなります。</p>
+<p>この比較では、<code>with-t</code> と <code>no-t</code> でパラメータ数・学習反復数・評価seed群を可能な範囲で揃えています。それでも一般には最適化の偶然差や特徴設計差は残るため、最終判断は複数runで確認する運用が安全です。</p>
+<p>実装上の含意として、Flow Matching では <code>t</code> の埋め込み設計（sin-cos 埋め込みやMLP）を丁寧に作る価値が高い、という点を押さえておけば十分です。</p>
 
 </article>
   </main>
