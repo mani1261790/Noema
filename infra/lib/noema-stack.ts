@@ -280,7 +280,7 @@ export class NoemaStack extends Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
-      timeout: Duration.seconds(20),
+      timeout: Duration.seconds(29),
       logGroup: apiLogGroup,
       environment: {
         QUESTIONS_TABLE: questionsTable.tableName,
@@ -331,7 +331,7 @@ export class NoemaStack extends Stack {
         }
       }),
       environment: {
-        NOEMA_BASE_MODULES: "numpy,pandas,scipy,matplotlib,sklearn,seaborn,sympy,statsmodels,networkx",
+        NOEMA_BASE_MODULES: "",
         NOEMA_PIP_TIMEOUT_SECONDS: "120"
       }
     });

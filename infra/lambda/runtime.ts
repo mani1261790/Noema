@@ -172,7 +172,23 @@ type PythonRuntimeExecuteResult = {
   durationMs: number;
   timedOut: boolean;
   installedPackages: string[];
+  outputs: PythonRuntimeOutput[];
 };
+
+type PythonRuntimeOutput =
+  | {
+      type: "text/plain";
+      text: string;
+    }
+  | {
+      type: "text/html";
+      html: string;
+    }
+  | {
+      type: "image/png";
+      data: string;
+      alt?: string;
+    };
 
 type GetAnswerResult =
   | { kind: "not_found" }
@@ -210,6 +226,7 @@ const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
+const MAX_RUNTIME_CODE_CHARS = 120_000;
 const COLAB_GITHUB_REPO = (process.env.COLAB_GITHUB_REPO || "mani1261790/Noema").trim();
 const COLAB_GITHUB_REF = (process.env.COLAB_GITHUB_REF || "main").trim();
 
@@ -2550,13 +2567,42 @@ export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: A
     ? response.installedPackages.map((pkg) => String(pkg).trim()).filter(Boolean).slice(0, 50)
     : [];
 
+  const outputs: PythonRuntimeOutput[] = [];
+  if (Array.isArray(response.outputs)) {
+    for (const item of response.outputs.slice(0, 12)) {
+      if (!item || typeof item !== "object") continue;
+      const type = asString((item as Record<string, unknown>).type).trim();
+      if (type === "text/plain") {
+        const text = asString((item as Record<string, unknown>).text).slice(0, 120_000);
+        if (!text) continue;
+        outputs.push({ type: "text/plain", text });
+        continue;
+      }
+      if (type === "text/html") {
+        const html = asString((item as Record<string, unknown>).html).slice(0, 160_000);
+        if (!html) continue;
+        outputs.push({ type: "text/html", html });
+        continue;
+      }
+      if (type === "image/png") {
+        const data = asString((item as Record<string, unknown>).data).trim();
+        if (!data) continue;
+        if (data.length > 800_000) continue;
+        if (!/^[A-Za-z0-9+/=\s]+$/.test(data)) continue;
+        const alt = asString((item as Record<string, unknown>).alt).slice(0, 120);
+        outputs.push({ type: "image/png", data: data.replace(/\s+/g, ""), alt: alt || undefined });
+      }
+    }
+  }
+
   return {
     stdout: asString(response.stdout).slice(0, 40_000),
     stderr: asString(response.stderr).slice(0, 40_000),
     error: asString(response.error) || null,
     durationMs: toNumber(response.durationMs),
     timedOut: Boolean(response.timedOut),
-    installedPackages
+    installedPackages,
+    outputs
   };
 }
 
@@ -2646,7 +2692,7 @@ export function parsePythonRuntimeInput(event: APIGatewayProxyEventV2): PythonRu
   const expectedModules = normalizeExpectedModules(payload.expectedModules);
 
   if (!notebookId || !code.trim()) return null;
-  if (code.length > 20_000) return null;
+  if (code.length > MAX_RUNTIME_CODE_CHARS) return null;
 
   return {
     notebookId,

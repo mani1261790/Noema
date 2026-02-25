@@ -1281,8 +1281,6 @@
       margin: 0;
       padding: 9px 10px;
       border-top: 1px solid var(--border);
-      font-size: 12px;
-      white-space: pre-wrap;
       color: var(--text);
       background:
         linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 32%, transparent), transparent 62%),
@@ -1290,7 +1288,53 @@
       display: none;
     }
 
-    .code-output.visible { display: block; }
+    .code-output.visible {
+      display: grid;
+      gap: 8px;
+    }
+
+    .code-output-text {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.6;
+      font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      padding: 0;
+    }
+
+    .code-output-stderr {
+      color: color-mix(in oklab, var(--text) 78%, #ffbfc7);
+    }
+
+    .code-output-error {
+      color: color-mix(in oklab, #ff8f9f 82%, var(--text));
+      font-weight: 600;
+    }
+
+    .code-output-meta {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .code-output-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid color-mix(in oklab, var(--border) 92%, transparent);
+      background: color-mix(in oklab, var(--code-bg) 90%, black);
+    }
+
+    .code-output-html {
+      width: 100%;
+      min-height: 56px;
+      border: 1px solid color-mix(in oklab, var(--border) 92%, transparent);
+      border-radius: 10px;
+      background: color-mix(in oklab, var(--code-bg) 92%, black);
+    }
 
     .resizer {
       width: 8px;
@@ -3530,7 +3574,60 @@
         return payload;
       }
 
-      function renderPythonRunOutput(payload) {
+      function appendOutputText(output, text, className = "") {
+        if (!text) return;
+        const pre = document.createElement("pre");
+        pre.className = className ? `code-output-text ${className}` : "code-output-text";
+        pre.textContent = text;
+        output.appendChild(pre);
+      }
+
+      function appendOutputHtml(output, html, index) {
+        if (!html) return;
+        const frame = document.createElement("iframe");
+        frame.className = "code-output-html";
+        frame.setAttribute("sandbox", "allow-same-origin");
+        frame.setAttribute("loading", "lazy");
+        frame.setAttribute("referrerpolicy", "no-referrer");
+        frame.setAttribute("aria-label", `HTML output ${index + 1}`);
+        frame.srcdoc =
+          "<!doctype html><html><head><meta charset='utf-8'><style>" +
+          "html,body{margin:0;padding:0;background:transparent;color:#dbe4f5;font:12px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}" +
+          "table{border-collapse:collapse;font-size:12px;}" +
+          "th,td{border:1px solid rgba(138,159,194,.36);padding:4px 6px;text-align:left;}" +
+          "th{background:rgba(122,151,201,.16);font-weight:600;}" +
+          "code,pre{font-family:'JetBrains Mono','SF Mono','Menlo','Consolas',monospace;}" +
+          "pre{white-space:pre-wrap;overflow-wrap:anywhere;}" +
+          "</style></head><body>" +
+          html +
+          "</body></html>";
+
+        frame.addEventListener("load", () => {
+          try {
+            const frameDocument = frame.contentDocument;
+            if (!frameDocument || !frameDocument.body) return;
+            const bodyHeight = frameDocument.body.scrollHeight;
+            frame.style.height = `${Math.min(Math.max(bodyHeight + 2, 56), 520)}px`;
+          } catch {}
+        });
+
+        output.appendChild(frame);
+      }
+
+      function appendOutputImage(output, base64Data, alt) {
+        if (!base64Data) return;
+        const image = document.createElement("img");
+        image.className = "code-output-image";
+        image.loading = "lazy";
+        image.decoding = "async";
+        image.alt = alt || "python output image";
+        image.src = `data:image/png;base64,${base64Data}`;
+        output.appendChild(image);
+      }
+
+      function renderPythonRunOutput(output, payload) {
+        output.replaceChildren();
+
         const stdout = payload && typeof payload.stdout === "string" ? payload.stdout.trim() : "";
         const stderr = payload && typeof payload.stderr === "string" ? payload.stderr.trim() : "";
         const errorText = payload && typeof payload.error === "string" ? payload.error.trim() : "";
@@ -3538,14 +3635,63 @@
         const installedPackages = Array.isArray(payload?.installedPackages)
           ? payload.installedPackages.map((pkg) => String(pkg).trim()).filter(Boolean)
           : [];
+        const outputs = Array.isArray(payload?.outputs) ? payload.outputs : [];
 
-        const lines = [];
-        if (stdout) lines.push(stdout);
-        if (stderr) lines.push(stderr);
-        if (errorText) lines.push(`Error: ${errorText}`);
-        if (installedPackages.length) lines.push(`[installed] ${installedPackages.join(", ")}`);
-        lines.push(`[runtime] AWS Python ${durationMs}ms`);
-        return lines.join("\n") || "(no output)";
+        let hasOutput = false;
+        outputs.forEach((item, index) => {
+          if (!item || typeof item !== "object") return;
+          const type = typeof item.type === "string" ? item.type : "";
+          if (type === "text/plain") {
+            const text = typeof item.text === "string" ? item.text : "";
+            if (!text.trim()) return;
+            appendOutputText(output, text);
+            hasOutput = true;
+            return;
+          }
+          if (type === "text/html") {
+            const html = typeof item.html === "string" ? item.html : "";
+            if (!html.trim()) return;
+            appendOutputHtml(output, html, index);
+            hasOutput = true;
+            return;
+          }
+          if (type === "image/png") {
+            const data = typeof item.data === "string" ? item.data.replace(/\s+/g, "") : "";
+            if (!data) return;
+            const alt = typeof item.alt === "string" ? item.alt : "";
+            appendOutputImage(output, data, alt);
+            hasOutput = true;
+          }
+        });
+
+        if (stdout) {
+          appendOutputText(output, stdout);
+          hasOutput = true;
+        }
+        if (stderr) {
+          appendOutputText(output, stderr, "code-output-stderr");
+          hasOutput = true;
+        }
+        if (errorText) {
+          appendOutputText(output, `Error: ${errorText}`, "code-output-error");
+          hasOutput = true;
+        }
+
+        const metaParts = [];
+        if (durationMs > 0) {
+          metaParts.push(`実行時間 ${durationMs}ms`);
+        }
+        if (installedPackages.length) {
+          metaParts.push(`追加インストール: ${installedPackages.join(", ")}`);
+        }
+        if (metaParts.length) {
+          appendOutputText(output, metaParts.join("  |  "), "code-output-meta");
+          hasOutput = true;
+        }
+
+        if (!hasOutput) {
+          appendOutputText(output, "(no output)");
+        }
       }
 
       function ensureHighlightLibrary() {
@@ -3748,7 +3894,7 @@
         }
       }
 
-      const EXECUTION_CONTEXT_CHAR_LIMIT = 19000;
+      const EXECUTION_CONTEXT_CHAR_LIMIT = 110000;
 
       function getCellSource(codeBlock, index) {
         const editor = state.activeEditorMap.get(index);
@@ -3865,7 +4011,7 @@
           };
           rail.appendChild(button);
 
-          const output = document.createElement("pre");
+          const output = document.createElement("div");
           output.className = "code-output";
           wrapper.appendChild(output);
 
@@ -3878,7 +4024,8 @@
             button.classList.remove("is-done", "is-failed");
             button.classList.add("is-running");
             output.classList.add("visible");
-            output.textContent = "AWS Python runtime executing...";
+            output.replaceChildren();
+            appendOutputText(output, "実行中...", "code-output-meta");
 
             try {
               const payload = await runPythonOnServer(
@@ -3887,7 +4034,7 @@
                 state.activeSection || "intro",
                 context.expectedModules
               );
-              output.textContent = renderPythonRunOutput(payload);
+              renderPythonRunOutput(output, payload);
               const runtimeFailed = Boolean(payload && typeof payload.error === "string" && payload.error.trim());
               if (runtimeFailed) {
                 button.classList.add("is-failed");
@@ -3895,7 +4042,12 @@
                 button.classList.add("is-done");
               }
             } catch (error) {
-              output.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+              output.replaceChildren();
+              appendOutputText(
+                output,
+                `Error: ${error instanceof Error ? error.message : String(error)}`,
+                "code-output-error"
+              );
               button.classList.add("is-failed");
             } finally {
               button.disabled = false;

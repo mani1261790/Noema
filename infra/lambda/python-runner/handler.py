@@ -9,16 +9,16 @@ import time
 import traceback
 from typing import Any
 
-MAX_CODE_CHARS = 20000
+MAX_CODE_CHARS = 120000
 MAX_EXPECTED_MODULES = 24
-EXEC_TIMEOUT_SECONDS = 12
+EXEC_TIMEOUT_SECONDS = 18
 TMP_SITE_PACKAGES = "/tmp/noema-site-packages"
 TMP_RUNTIME_HOME = "/tmp/noema-home"
 TMP_XDG_CONFIG_HOME = "/tmp/noema-config"
 TMP_MPL_CONFIG_DIR = "/tmp/noema-mplconfig"
 BASE_MODULES_RAW = os.environ.get(
     "NOEMA_BASE_MODULES",
-    "numpy,pandas,scipy,matplotlib,sklearn,seaborn,sympy,statsmodels,networkx",
+    "",
 )
 
 PACKAGE_MAP = {
@@ -34,6 +34,8 @@ PACKAGE_MAP = {
 MODULE_RE = re.compile(r"No module named ['\"]([^'\"]+)['\"]")
 
 EXEC_WRAPPER = r'''
+import ast
+import base64
 import contextlib
 import io
 import json
@@ -45,18 +47,116 @@ code = payload.get("code", "")
 
 stdout_buffer = io.StringIO()
 stderr_buffer = io.StringIO()
+outputs = []
 
 ok = True
 error = None
 
 scope = {"__name__": "__main__"}
 
+MAX_TEXT_CHARS = 120_000
+MAX_HTML_CHARS = 150_000
+MAX_IMAGES = 2
+MAX_IMAGE_BYTES = 450_000
+
+def _truncate(text, limit):
+    if not isinstance(text, str):
+        text = str(text)
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n... [truncated]"
+
+def _append_value_output(value):
+    if value is None:
+        return
+
+    try:
+        to_html = getattr(value, "to_html", None)
+        if callable(to_html):
+            html = to_html()
+            if isinstance(html, str) and html.strip():
+                outputs.append(
+                    {
+                        "type": "text/html",
+                        "html": _truncate(html, MAX_HTML_CHARS),
+                    }
+                )
+    except Exception:
+        pass
+
+    try:
+        value_repr = repr(value)
+    except Exception:
+        value_repr = str(value)
+
+    if value_repr and value_repr != "None":
+        outputs.append(
+            {
+                "type": "text/plain",
+                "text": _truncate(value_repr, MAX_TEXT_CHARS),
+            }
+        )
+
+def _append_matplotlib_outputs():
+    try:
+        import matplotlib
+    except Exception:
+        return
+    try:
+        matplotlib.use("Agg")
+    except Exception:
+        pass
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return
+
+    fignums = list(plt.get_fignums())
+    for index, fig_num in enumerate(fignums[:MAX_IMAGES], start=1):
+        buffer = None
+        try:
+            fig = plt.figure(fig_num)
+            buffer = io.BytesIO()
+            fig.savefig(buffer, format="png", bbox_inches="tight")
+            raw = buffer.getvalue()
+            if len(raw) > MAX_IMAGE_BYTES:
+                continue
+            outputs.append(
+                {
+                    "type": "image/png",
+                    "data": base64.b64encode(raw).decode("ascii"),
+                    "alt": f"plot-{index}",
+                }
+            )
+        except Exception:
+            continue
+        finally:
+            try:
+                buffer.close()
+            except Exception:
+                pass
+
+    if fignums:
+        try:
+            plt.close("all")
+        except Exception:
+            pass
+
 try:
+    parsed = ast.parse(code, mode="exec")
+    trailing_expr = None
+    if parsed.body and isinstance(parsed.body[-1], ast.Expr):
+        trailing_expr = parsed.body.pop().value
+
     with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
-        exec(compile(code, "<noema-exec>", "exec"), scope, scope)
-except Exception:
+        exec(compile(parsed, "<noema-exec>", "exec"), scope, scope)
+        if trailing_expr is not None:
+            value = eval(compile(ast.Expression(trailing_expr), "<noema-exec>", "eval"), scope, scope)
+            _append_value_output(value)
+        _append_matplotlib_outputs()
+except Exception as exc:
     ok = False
-    error = "Python execution failed"
+    error = f"{exc.__class__.__name__}: {exc}"
     traceback.print_exc(file=stderr_buffer)
 
 print(
@@ -66,6 +166,7 @@ print(
             "error": error,
             "stdout": stdout_buffer.getvalue(),
             "stderr": stderr_buffer.getvalue(),
+            "outputs": outputs,
         },
         ensure_ascii=False,
     )
@@ -228,6 +329,7 @@ def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
             "stdout": "",
             "stderr": "Execution timed out.",
             "error": "Execution timed out.",
+            "outputs": [],
         }
 
     if completed.returncode != 0:
@@ -237,6 +339,7 @@ def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
             "stdout": "",
             "stderr": (completed.stderr or "Python runner process failed."),
             "error": "Python runner process failed.",
+            "outputs": [],
         }
 
     try:
@@ -248,6 +351,7 @@ def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
             "stdout": "",
             "stderr": "Python runner response decode failed.",
             "error": "Python runner response decode failed.",
+            "outputs": [],
         }
 
     return {
@@ -256,6 +360,7 @@ def _run_code_once(code: str, timeout_seconds: int) -> dict[str, Any]:
         "stdout": str(payload.get("stdout", "")),
         "stderr": str(payload.get("stderr", "")),
         "error": str(payload.get("error") or "") or None,
+        "outputs": payload.get("outputs") if isinstance(payload.get("outputs"), list) else [],
     }
 
 
@@ -301,6 +406,7 @@ def _execute_with_auto_install(code: str, modules_hint: list[str]) -> dict[str, 
         "durationMs": duration_ms,
         "installedPackages": list(dict.fromkeys(installed)),
         "failedModules": failed,
+        "outputs": result.get("outputs") if isinstance(result.get("outputs"), list) else [],
     }
 
 
