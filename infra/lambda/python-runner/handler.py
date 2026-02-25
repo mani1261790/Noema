@@ -12,6 +12,7 @@ from typing import Any
 MAX_CODE_CHARS = 120000
 MAX_EXPECTED_MODULES = 24
 EXEC_TIMEOUT_SECONDS = 18
+EXEC_WALL_SOFT_LIMIT_SECONDS = 22
 TMP_SITE_PACKAGES = "/tmp/noema-site-packages"
 TMP_RUNTIME_HOME = "/tmp/noema-home"
 TMP_XDG_CONFIG_HOME = "/tmp/noema-config"
@@ -32,6 +33,8 @@ PACKAGE_MAP = {
 }
 
 MODULE_RE = re.compile(r"No module named ['\"]([^'\"]+)['\"]")
+INSTALL_PROGRESS_ERROR_PREFIX = "Dependency installation in progress:"
+INSTALL_PROGRESS_ERROR_CODE = "DEPENDENCY_INSTALLING"
 
 EXEC_WRAPPER = r'''
 import ast
@@ -381,20 +384,65 @@ def _preload_modules(modules: list[str]) -> tuple[list[str], list[str]]:
 
 
 def _execute_with_auto_install(code: str, modules_hint: list[str]) -> dict[str, Any]:
-    installed, failed = _preload_modules(modules_hint)
+    installed: list[str] = []
+    failed: list[str] = []
 
     start = time.time()
     result = _run_code_once(code, EXEC_TIMEOUT_SECONDS)
     timed_out = bool(result.get("timedOut"))
 
-    if not result.get("ok") and not timed_out:
+    seen_missing: set[str] = set()
+    hint_queue = [module_name for module_name in modules_hint if module_name]
+    hint_index = 0
+    max_missing_install_attempts = max(8, min(16, len(hint_queue) + 2))
+    install_attempts = 0
+
+    while not result.get("ok") and not timed_out and install_attempts < max_missing_install_attempts:
         missing_module = _extract_missing_module(str(result.get("stderr") or ""))
-        if missing_module:
-            ok, package_name = _install_package(missing_module)
-            if ok:
-                installed.append(package_name)
-                result = _run_code_once(code, EXEC_TIMEOUT_SECONDS)
-                timed_out = bool(result.get("timedOut"))
+        if not missing_module:
+            while hint_index < len(hint_queue) and hint_queue[hint_index] in seen_missing:
+                hint_index += 1
+            if hint_index < len(hint_queue):
+                missing_module = hint_queue[hint_index]
+                hint_index += 1
+            else:
+                break
+        if missing_module in seen_missing:
+            break
+
+        seen_missing.add(missing_module)
+        install_attempts += 1
+
+        ok, package_name = _install_package(missing_module)
+        if not ok:
+            failed.append(missing_module)
+            break
+
+        installed.append(package_name)
+        elapsed = time.time() - start
+        remaining = int(EXEC_WALL_SOFT_LIMIT_SECONDS - elapsed)
+        if remaining < 4:
+            duration_ms = int((time.time() - start) * 1000)
+            return {
+                "stdout": "",
+                "stderr": str(result.get("stderr") or ""),
+                "error": f"{INSTALL_PROGRESS_ERROR_PREFIX} {package_name}. Retry.",
+                "errorCode": INSTALL_PROGRESS_ERROR_CODE,
+                "retryable": True,
+                "timedOut": False,
+                "durationMs": duration_ms,
+                "installedPackages": list(dict.fromkeys(installed)),
+                "failedModules": list(dict.fromkeys(failed)),
+                "outputs": [],
+            }
+
+        result = _run_code_once(code, max(4, min(EXEC_TIMEOUT_SECONDS, remaining)))
+        timed_out = bool(result.get("timedOut"))
+
+    if not result.get("ok") and not timed_out:
+        unresolved_module = _extract_missing_module(str(result.get("stderr") or ""))
+        if unresolved_module and unresolved_module not in failed:
+            failed.append(unresolved_module)
 
     duration_ms = int((time.time() - start) * 1000)
 
@@ -405,8 +453,10 @@ def _execute_with_auto_install(code: str, modules_hint: list[str]) -> dict[str, 
         "timedOut": timed_out,
         "durationMs": duration_ms,
         "installedPackages": list(dict.fromkeys(installed)),
-        "failedModules": failed,
+        "failedModules": list(dict.fromkeys(failed)),
         "outputs": result.get("outputs") if isinstance(result.get("outputs"), list) else [],
+        "retryable": False,
+        "errorCode": None,
     }
 
 

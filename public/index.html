@@ -3511,6 +3511,10 @@
         return Array.from(hints).slice(0, 24);
       }
 
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
       async function preloadNotebookPackages(container, notebookId) {
         if (!state.loggedIn) return;
         const token = getToken();
@@ -3545,33 +3549,59 @@
           throw new Error("コード実行にはログインが必要です。");
         }
 
-        const response = await fetch(`${API_BASE}/api/runtime/python`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            notebookId,
-            sectionId,
-            code: source,
-            expectedModules: normalizeModuleHints(expectedModules)
-          })
+        const body = JSON.stringify({
+          notebookId,
+          sectionId,
+          code: source,
+          expectedModules: normalizeModuleHints(expectedModules)
         });
 
-        let payload = {};
-        try {
-          payload = await response.json();
-        } catch {
-          payload = {};
+        const maxAttempts = 4;
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          let response = null;
+          let payload = {};
+          try {
+            response = await fetch(`${API_BASE}/api/runtime/python`, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                Authorization: `Bearer ${token}`
+              },
+              body
+            });
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+            throw lastError;
+          }
+
+          try {
+            payload = await response.json();
+          } catch {
+            payload = {};
+          }
+
+          if (!response.ok) {
+            const errorText =
+              payload && typeof payload.error === "string"
+                ? payload.error
+                : `Python実行APIエラー (status ${response.status})`;
+            lastError = new Error(errorText);
+            throw lastError;
+          }
+
+          const runtimeRetryable = payload && payload.retryable === true;
+          const runtimeErrorCode = payload && typeof payload.errorCode === "string" ? payload.errorCode : "";
+          if (runtimeRetryable && runtimeErrorCode === "DEPENDENCY_INSTALLING" && attempt < maxAttempts) {
+            await sleep(1000 * attempt);
+            continue;
+          }
+
+          return payload;
         }
 
-        if (!response.ok) {
-          const errorText = payload && typeof payload.error === "string" ? payload.error : "Python実行に失敗しました。";
-          throw new Error(errorText);
-        }
-
-        return payload;
+        throw lastError || new Error("Python実行に失敗しました。");
       }
 
       function appendOutputText(output, text, className = "") {

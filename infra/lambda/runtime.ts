@@ -169,6 +169,8 @@ type PythonRuntimeExecuteResult = {
   stdout: string;
   stderr: string;
   error: string | null;
+  errorCode: string | null;
+  retryable: boolean;
   durationMs: number;
   timedOut: boolean;
   installedPackages: string[];
@@ -2671,6 +2673,8 @@ export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: A
     stdout: asString(response.stdout).slice(0, 40_000),
     stderr: asString(response.stderr).slice(0, 40_000),
     error: asString(response.error) || null,
+    errorCode: asString(response.errorCode) || null,
+    retryable: Boolean(response.retryable),
     durationMs: toNumber(response.durationMs),
     timedOut: Boolean(response.timedOut),
     installedPackages,
