@@ -4635,10 +4635,10 @@
       }
 
       function syncChatFabState() {
-        const visible = state.loggedIn && !!state.activeNotebook && (!state.chatOpen || isCompactMobileView());
+        const visible = !!state.activeNotebook && (!state.chatOpen || isCompactMobileView());
         el.chatFab.classList.toggle("visible", visible);
         if (el.openChatMobile) {
-          el.openChatMobile.classList.toggle("is-hidden", !(state.loggedIn && !!state.activeNotebook));
+          el.openChatMobile.classList.toggle("is-hidden", !state.activeNotebook);
         }
         const label = state.chatOpen ? "Assistantを閉じる" : "Assistantを開く";
         el.chatFab.setAttribute("aria-label", label);
