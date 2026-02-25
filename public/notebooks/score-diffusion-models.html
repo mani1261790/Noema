@@ -98,89 +98,317 @@
 <body>
   <main>
 <article class="prose-noema">
+<pre><code class="language-python">import math
+import random
+import statistics
+import time</code></pre>
 <h1 id="スコアベースモデルと拡散モデル">スコアベースモデルと拡散モデル</h1>
-<p>スコアベースモデルと拡散モデルでは、生成の仕組みを抽象用語で終わらせず、毎段階をコードで確認します。</p>
+<p>このノートでは、スコアベースモデルと拡散モデルを「なぜその設計になるのか」から順に確認します。ポイントは、</p>
+<ol>
+<li>データ密度そのものではなく、<code>log p(x)</code> の勾配（スコア）を学ぶ</li>
+<li>そのスコア（または等価なノイズ予測）を使って逆方向にサンプリングする</li>
+</ol>
+<p>という流れです。数式だけでなく、1次元データの最小実装で動作を確かめます。</p>
 
-<h2 id="概念の土台">概念の土台</h2>
-<p>スコアベースモデルと拡散モデルに入る前に、つまずきやすい用語を先にそろえます。以降のコードでは、変数がどの概念を表しているかを対応付けながら読んでください。</p>
+<p>スコアは</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><mi>p</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">\nabla_x \log p(x)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord mathit">p</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></span></p>
+<p>です。密度の絶対値より「どちらへ動くと密度が上がるか」を直接教えてくれる量なので、サンプリング更新に使いやすいのが利点です。</p>
+<p>拡散モデルでは、前向き過程でデータにノイズを足し、逆過程でノイズを除去します。DDPM の前向き過程は離散時間で</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>q</mi><mo>(</mo><msub><mi>x</mi><mi>t</mi></msub><mi mathvariant="normal">∣</mi><msub><mi>x</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>)</mo><mo>=</mo><mrow><mi mathvariant="script">N</mi></mrow><mo>(</mo><msqrt><mrow><mn>1</mn><mo>−</mo><msub><mi>β</mi><mi>t</mi></msub></mrow></msqrt><msub><mi>x</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo separator="true">,</mo><msub><mi>β</mi><mi>t</mi></msub><mi>I</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">q(x_t|x_{t-1})=\mathcal{N}(\sqrt{1-\beta_t}x_{t-1},\beta_t I)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.9838800000000001em;"></span><span class="strut bottom" style="height:1.24001em;vertical-align:-0.2561299999999999em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord mathit" style="margin-right:0.03588em;">q</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathrm">∣</span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mrel">=</span><span class="mord displaystyle textstyle uncramped"><span class="mord mathcal" style="margin-right:0.14736em;">N</span></span><span class="mopen">(</span><span class="sqrt mord"><span class="sqrt-sign" style="top:-0.09388000000000007em;"><span class="style-wrap reset-textstyle textstyle uncramped"><span class="delimsizing size1">√</span></span></span><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="mord displaystyle textstyle cramped"><span class="mord mathrm">1</span><span class="mbin">−</span><span class="mord"><span class="mord mathit" style="margin-right:0.05278em;">β</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05278em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span><span style="top:-0.90388em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="reset-textstyle textstyle uncramped sqrt-line"></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">−</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mpunct">,</span><span class="mord"><span class="mord mathit" style="margin-right:0.05278em;">β</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05278em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit" style="margin-right:0.07847em;">I</span><span class="mclose">)</span></span></span></span></span></p>
+<p>と書け、さらに</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mi>t</mi></msub><mo>=</mo><msqrt><mrow><msub><mover accent="true"><mi>α</mi><mo>¯</mo></mover><mi>t</mi></msub></mrow></msqrt><msub><mi>x</mi><mn>0</mn></msub><mo>+</mo><msqrt><mrow><mn>1</mn><mo>−</mo><msub><mover accent="true"><mi>α</mi><mo>¯</mo></mover><mi>t</mi></msub></mrow></msqrt><mspace width="0.16667em"></mspace><mi>ϵ</mi><mo separator="true">,</mo><mspace width="1em"></mspace><mi>ϵ</mi><mo>∼</mo><mrow><mi mathvariant="script">N</mi></mrow><mo>(</mo><mn>0</mn><mo separator="true">,</mo><mi>I</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">x_t=\sqrt{\bar\alpha_t}x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,
+\quad \epsilon\sim\mathcal{N}(0,I)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.8810950000000001em;"></span><span class="strut bottom" style="height:1.1310950000000002em;vertical-align:-0.25em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="sqrt mord"><span class="sqrt-sign" style="top:-0.0027649999999999064em;"><span class="style-wrap reset-textstyle textstyle uncramped">√</span></span><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="mord displaystyle textstyle cramped"><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord mathit" style="margin-right:0.0037em;">α</span></span><span style="top:0em;margin-left:0.05556em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>¯</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.0037em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span><span style="top:-0.7627649999999999em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="reset-textstyle textstyle uncramped sqrt-line"></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">+</span><span class="sqrt mord"><span class="sqrt-sign" style="top:-0.04109499999999999em;"><span class="style-wrap reset-textstyle textstyle uncramped">√</span></span><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="mord displaystyle textstyle cramped"><span class="mord mathrm">1</span><span class="mbin">−</span><span class="mord"><span class="mord accent"><span class="vlist"><span style="top:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="mord mathit" style="margin-right:0.0037em;">α</span></span><span style="top:0em;margin-left:0.05556em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="accent-body"><span>¯</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.0037em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span><span style="top:-0.801095em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span><span class="reset-textstyle textstyle uncramped sqrt-line"></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:1em;">​</span></span>​</span></span></span><span class="mord mspace thinspace"></span><span class="mord mathit">ϵ</span><span class="mpunct">,</span><span class="mord mspace quad"></span><span class="mord mathit">ϵ</span><span class="mrel">∼</span><span class="mord displaystyle textstyle uncramped"><span class="mord mathcal" style="margin-right:0.14736em;">N</span></span><span class="mopen">(</span><span class="mord mathrm">0</span><span class="mpunct">,</span><span class="mord mathit" style="margin-right:0.07847em;">I</span><span class="mclose">)</span></span></span></span></span></p>
+<p>で直接サンプルできます。</p>
+
+<p>まず学習対象として、2モードの1次元分布を作ります。1モードだと拡散の価値が見えにくいので、モード間の遷移が必要なデータを使います。</p>
+
+<pre><code class="language-python">random.seed(37)
+
+def sample_data(n: int):
+    xs = []
+    for _ in range(n):
+        if random.random() &lt; 0.58:
+            xs.append(random.gauss(-2.1, 0.48))
+        else:
+            xs.append(random.gauss(1.9, 0.55))
+    return xs
+
+
+def describe(xs):
+    left = sum(1 for x in xs if x &lt; 0.0) / len(xs)
+    right = 1.0 - left
+    return {
+        &#39;mean&#39;: statistics.mean(xs),
+        &#39;std&#39;: statistics.pstdev(xs),
+        &#39;left&#39;: left,
+        &#39;right&#39;: right,
+    }
+
+
+data = sample_data(2600)
+st = describe(data)
+print(&#39;dataset size =&#39;, len(data))
+print(&#39;mean/std     =&#39;, round(st[&#39;mean&#39;], 4), round(st[&#39;std&#39;], 4))
+print(&#39;left/right   =&#39;, round(st[&#39;left&#39;], 4), round(st[&#39;right&#39;], 4))</code></pre>
+<p>次に「ノイズ付きデータでスコアを学ぶ」体験をします。Denoising Score Matching の教師信号は</p>
+<p><code>target = -(x_t - x_0) / sigma^2</code></p>
+<p>で、<code>x_t = x_0 + sigma * eps</code> のとき <code>target = -eps/sigma</code> になります。</p>
+<p>なぜこれでスコアが学べるかというと、条件付き期待値をとると</p>
+<p><code>E[target | x_t] = ∇_{x_t} log p_sigma(x_t)</code></p>
+<p>が成り立つためです。つまり、各サンプルではノイジーな教師でも、平均的には「ノイズ付き分布のスコア」を向いています。ここが初学者が最初に躓きやすいポイントです。</p>
+
+<pre><code class="language-python"># RBF特徴のスコアモデル: s_theta(x, sigma)
+# 多項式より発散しにくく、初学者が挙動を追いやすい
+SCORE_CENTERS = [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0]
+SCORE_RBF_SCALE = 1.2
+
+
+def score_features(x, sigma):
+    rbfs = [math.exp(-0.5 * ((x - c) / SCORE_RBF_SCALE) ** 2) for c in SCORE_CENTERS]
+    return [1.0] + rbfs + [sigma] + [sigma * r for r in rbfs]
+
+
+def score_predict(theta, x, sigma):
+    feats = score_features(x, sigma)
+    return sum(w * f for w, f in zip(theta, feats))
+
+
+def dsm_batch(theta, x0_batch, sigma, rng):
+    loss = 0.0
+    grad = [0.0] * len(theta)
+    n = len(x0_batch)
+    for x0 in x0_batch:
+        eps = rng.gauss(0.0, 1.0)
+        xt = x0 + sigma * eps
+        target = -(xt - x0) / (sigma * sigma)
+        pred = score_predict(theta, xt, sigma)
+        err = pred - target
+
+        feats = score_features(xt, sigma)
+        for i in range(len(theta)):
+            grad[i] += 2.0 * err * feats[i]
+        loss += err * err
+
+    return loss / n, [g / n for g in grad]
+
+
+def train_score_model(dataset, sigmas, steps=1800, batch_size=128, lr=0.004, seed=123):
+    rng = random.Random(seed)
+    n_feat = 1 + len(SCORE_CENTERS) + 1 + len(SCORE_CENTERS)
+    theta = [0.0] * n_feat
+    history = []
+
+    for step in range(steps + 1):
+        sigma = sigmas[rng.randrange(len(sigmas))]
+        x0_batch = [dataset[rng.randrange(len(dataset))] for _ in range(batch_size)]
+        loss, grad = dsm_batch(theta, x0_batch, sigma, rng)
+
+        # 勾配クリップで安定化
+        gnorm = math.sqrt(sum(g * g for g in grad))
+        if gnorm &gt; 20.0:
+            scale = 20.0 / gnorm
+            grad = [g * scale for g in grad]
+
+        wd = 2e-4
+        theta = [t - lr * (g + wd * t) for t, g in zip(theta, grad)]
+
+        if step % 180 == 0:
+            history.append((step, loss, sigma, theta[:]))
+
+    return theta, history
+
+
+sigmas = [0.2, 0.35, 0.55, 0.85, 1.1]
+score_theta, score_hist = train_score_model(data, sigmas)
+
+for step, loss, sigma, th in score_hist:
+    print(f&#39;step={step:04d}&#39;, &#39;sigma=&#39;, sigma, &#39;loss=&#39;, round(loss, 5), &#39;||theta||=&#39;, round(math.sqrt(sum(v*v for v in th)), 4))</code></pre>
+<pre><code class="language-python"># 学習したスコアの向きを確認
+# x を少し動かしたとき、score の符号が密度上昇方向と整合しているかを見る
+
+def score_direction_demo(theta, sigma):
+    probes = [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0]
+    for x in probes:
+        s = score_predict(theta, x, sigma)
+        direction = &#39;right(+)&#39; if s &gt; 0 else &#39;left(-)&#39;
+        print(&#39;x=&#39;, f&#39;{x:&gt;4.1f}&#39;, &#39;score=&#39;, round(s, 4), &#39;move=&#39;, direction)
+
+print(&#39;score direction at sigma=0.35&#39;)
+score_direction_demo(score_theta, sigma=0.35)</code></pre>
+<p>次に DDPM 形式へ移ります。ここではノイズ予測モデル <code>eps_theta(x_t, t)</code> を直接学習します。実際の U-Net の代わりに、時間ごとの低容量予測器</p>
+<p><code>eps_hat = a_t * x_t + b_t + c_t * x_t^3 / 8</code></p>
+<p>を使い、目的関数（ノイズMSE）と逆拡散式のつながりを確認します。</p>
+
+<pre><code class="language-python">def make_beta_schedule(T, beta_start=0.0008, beta_end=0.12):
+    betas = []
+    for i in range(T):
+        r = i / (T - 1) if T &gt; 1 else 0.0
+        betas.append(beta_start + (beta_end - beta_start) * r)
+    return betas
+
+
+def cumulative_product(vals):
+    out = []
+    c = 1.0
+    for v in vals:
+        c *= v
+        out.append(c)
+    return out
+
+
+T = 50
+betas = make_beta_schedule(T)
+alphas = [1.0 - b for b in betas]
+alpha_bars = cumulative_product(alphas)
+
+print(&#39;beta[0], beta[-1] =&#39;, round(betas[0], 6), round(betas[-1], 6))
+print(&#39;alpha_bar[0], alpha_bar[-1] =&#39;, round(alpha_bars[0], 6), round(alpha_bars[-1], 6))
+print(&#39;note: alpha_bar[-1] が十分小さいので x_T はほぼガウスに近い&#39;)</code></pre>
+<pre><code class="language-python">def sample_xt(x0, t, rng):
+    eps = rng.gauss(0.0, 1.0)
+    ab = alpha_bars[t]
+    xt = math.sqrt(ab) * x0 + math.sqrt(1.0 - ab) * eps
+    return xt, eps
+# eps predictor parameters per time step
+# eps_hat = a_t * x_t + b_t + c_t * x_t^3 / 8
+# 低容量ながら、単純線形より非線形性を少し持てるようにする
+def init_eps_model(T):
+    return [0.0] * T, [0.0] * T, [0.0] * T  # a_t, b_t, c_t
+def train_eps_predictor(dataset, T, steps=5000, batch_size=128, lr=0.03, seed=777):
+    rng = random.Random(seed)
+    a, b, c = init_eps_model(T)
+    history = []
+    for step in range(steps + 1):
+        t = rng.randrange(T)
+        ga = 0.0
+        gb = 0.0
+        gc = 0.0
+        loss = 0.0
+        for _ in range(batch_size):
+            x0 = dataset[rng.randrange(len(dataset))]
+            xt, eps = sample_xt(x0, t, rng)
+            x3 = (xt * xt * xt) / 8.0
+            pred = a[t] * xt + b[t] + c[t] * x3
+            err = pred - eps
+            ga += 2.0 * err * xt
+            gb += 2.0 * err
+            gc += 2.0 * err * x3
+            loss += err * err
+        ga /= batch_size
+        gb /= batch_size
+        gc /= batch_size
+        loss /= batch_size
+        a[t] -= lr * ga
+        b[t] -= lr * gb
+        c[t] -= lr * gc
+        # stability
+        a[t] = max(-4.0, min(4.0, a[t]))
+        b[t] = max(-4.0, min(4.0, b[t]))
+        c[t] = max(-4.0, min(4.0, c[t]))
+        if step % 350 == 0:
+            history.append((step, loss, t, a[t], b[t], c[t]))
+    return a, b, c, history
+a_t, b_t, c_t, eps_hist = train_eps_predictor(data, T)
+for step, loss, t, av, bv, cv in eps_hist:
+    print(f&#39;step={step:04d}&#39;, &#39;sampled t=&#39;, t, &#39;loss=&#39;, round(loss, 5), &#39;a_t=&#39;, round(av, 4), &#39;b_t=&#39;, round(bv, 4), &#39;c_t=&#39;, round(cv, 4))</code></pre>
+<pre><code class="language-python">def eps_predict(xt, t, a, b, c):
+    return a[t] * xt + b[t] + c[t] * (xt * xt * xt) / 8.0
+
+
+def reverse_sample_ddpm(a, b, c, n=2600, seed=404):
+    rng = random.Random(seed)
+    samples = [rng.gauss(0.0, 1.0) for _ in range(n)]  # x_T
+
+    for t in range(T - 1, -1, -1):
+        bt = betas[t]
+        at = alphas[t]
+        ab = alpha_bars[t]
+
+        new_samples = []
+        for xt in samples:
+            eps_hat = eps_predict(xt, t, a, b, c)
+            mu = (xt - (bt / math.sqrt(max(1e-8, 1.0 - ab))) * eps_hat) / math.sqrt(at)
+
+            if t &gt; 0:
+                z = rng.gauss(0.0, 1.0)
+                sigma = math.sqrt(bt)
+                x_prev = mu + sigma * z
+            else:
+                x_prev = mu
+
+            x_prev = max(-6.0, min(6.0, x_prev))
+            new_samples.append(x_prev)
+        samples = new_samples
+
+    return samples
+
+
+gen_samples = reverse_sample_ddpm(a_t, b_t, c_t)
+real_stats = describe(data)
+gen_stats = describe(gen_samples)
+
+print(&#39;real mean/std  =&#39;, round(real_stats[&#39;mean&#39;], 4), round(real_stats[&#39;std&#39;], 4))
+print(&#39;gen  mean/std  =&#39;, round(gen_stats[&#39;mean&#39;], 4), round(gen_stats[&#39;std&#39;], 4))
+print(&#39;real left/right=&#39;, round(real_stats[&#39;left&#39;], 4), round(real_stats[&#39;right&#39;], 4))
+print(&#39;gen  left/right=&#39;, round(gen_stats[&#39;left&#39;], 4), round(gen_stats[&#39;right&#39;], 4))</code></pre>
+<pre><code class="language-python"># t ごとの予測品質を簡易評価
+def eval_eps_mse(dataset, t, a, b, c, n=500, seed=888):
+    rng = random.Random(seed + t)
+    loss = 0.0
+    for _ in range(n):
+        x0 = dataset[rng.randrange(len(dataset))]
+        xt, eps = sample_xt(x0, t, rng)
+        pred = eps_predict(xt, t, a, b, c)
+        loss += (pred - eps) ** 2
+    return loss / n
+for t in [0, 7, 14, 21, 28, 35, 42, 49]:
+    print(&#39;t=&#39;, f&#39;{t:&gt;2}&#39;, &#39;mse=&#39;, round(eval_eps_mse(data, t, a_t, b_t, c_t), 5),
+          &#39;a_t=&#39;, round(a_t[t], 4), &#39;b_t=&#39;, round(b_t[t], 4), &#39;c_t=&#39;, round(c_t[t], 4))</code></pre>
+<p>ここまでで、次の対応関係が見えます。</p>
 <ul>
-<li><strong>確率分布</strong>: データがどの値を取りやすいかを表す規則です。生成モデルの土台です。</li>
-<li><strong>サンプリング</strong>: 分布から実際のデータ点を取り出す操作です。生成結果そのものに対応します。</li>
-<li><strong>目的関数</strong>: 学習で最適化する指標です。モデルの学習挙動を決めます。</li>
-<li><strong>スコア</strong>: 対数密度の勾配です。高密度方向を示します。</li>
-<li><strong>ノイズスケジュール</strong>: 拡散過程でノイズ量を時刻ごとに決める設計です。</li>
+<li>スコアベース学習: <code>∇ log p_t(x)</code> を直接推定</li>
+<li>DDPM学習: ノイズ <code>eps</code> を推定（実はスコアと同値変換できる）</li>
+<li>逆過程サンプリング: 推定した方向情報で <code>x_T -&gt; x_0</code> を辿る</li>
 </ul>
-<p>このノートでは、ここで定義した語を実験セルの変数・式に直接対応させて確認します。</p>
+<p>つまり、モデルが学んでいる本質は「密度が高くなる方向」です。表現がスコアかノイズかの違いはありますが、目的は同じです。</p>
+<p>このノートの予測器はあえて低容量なので、生成統計（特に分散）が実データより小さくなります。ここは失敗ではなく、容量制約がサンプル品質へどう影響するかを見るための設定です。</p>
+<p>今回は <code>alpha_bar[-1]</code> を小さくするスケジュールを使い、<code>x_T ~ N(0,1)</code> で開始する逆過程との前提を揃えています。</p>
 
-<h2 id="観察-1-拡散向けノイズ初期化">観察 1: 拡散向けノイズ初期化</h2>
-<p>スコアベースモデルではノイズ段階が鍵です。初期ノイズ列を作ります。</p>
-
-<pre><code class="language-python">import random
-random.seed(31)
-z = [round(random.gauss(0, 1.2), 3) for _ in range(5)]
-print(&#39;task = score-diffusion-models&#39;)
-print(&#39;latent z =&#39;, z)</code></pre>
-<p>ノイズから復元する流れをここから追跡します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-2-単純なデコーダを書く">観察 2: 単純なデコーダを書く</h2>
-<p>次に、潜在変数を観測空間へ写像する簡易デコーダを作ります。生成モデルの基本構造をコードで可視化します。</p>
-
-<pre><code class="language-python">weights = [1.4, -0.6, 0.8, 0.5, -1.1]
-bias = 0.2
-x_hat = sum(zi * wi for zi, wi in zip(z, weights)) + bias
-print(&#39;decoded scalar =&#39;, round(x_hat, 5))
-print(&#39;abs scale =&#39;, round(abs(x_hat), 5))</code></pre>
-<p>実際の生成モデルは高次元ですが、構造は同じです。潜在を観測へ写像し、再構成品質を改善します。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="計算の対応表">計算の対応表</h2>
-<ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>s</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msub><mi mathvariant="normal">∇</mi><mi>x</mi></msub><mi>log</mi><msub><mi>p</mi><mi>t</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo></mrow><annotation encoding="application/x-tex">s_t(x) = \nabla_x\log p_t(x)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">x</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mop">lo<span style="margin-right:0.01389em;">g</span></span><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>d</mi><mi>x</mi><mo>=</mo><mi>f</mi><mo>(</mo><mi>x</mi><mo separator="true">,</mo><mi>t</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>d</mi><mi>t</mi><mo>+</mo><mi>g</mi><mo>(</mo><mi>t</mi><mo>)</mo><mspace width="0.16667em"></mspace><mi>d</mi><mi>w</mi></mrow><annotation encoding="application/x-tex">dx = f(x,t)\,dt + g(t)\,dw</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit">d</span><span class="mord mathit">x</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.10764em;">f</span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mpunct">,</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">d</span><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="mopen">(</span><span class="mord mathit">t</span><span class="mclose">)</span><span class="mord mspace thinspace"></span><span class="mord mathit">d</span><span class="mord mathit" style="margin-right:0.02691em;">w</span></span></span></span></li>
-</ol>
-
-<h2 id="観察-3-ノイズを加えて復元する">観察 3: ノイズを加えて復元する</h2>
-<p>ここで、拡散系モデルの直感を最小実験で確認します。ノイズ付加と復元の往復を短いコードで体験します。</p>
-
-<pre><code class="language-python">x0 = 1.5
-beta = 0.12
-noise = -0.3
-xt = ((1 - beta) ** 0.5) * x0 + (beta ** 0.5) * noise
-x0_hat = (xt - (beta ** 0.5) * noise) / ((1 - beta) ** 0.5)
-print(&#39;x0, xt, x0_hat =&#39;, round(x0, 5), round(xt, 5), round(x0_hat, 5))</code></pre>
-<p>復元誤差を観察すると、ノイズスケジュールの意味が見えてきます。理論と実装をつなぐ重要な観測点です。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-4-混合分布の感覚を作る">観察 4: 混合分布の感覚を作る</h2>
-<p>次に、複数モードを持つ分布を手で作ります。モード崩壊の議論に入る前の下地として有効です。</p>
-
-<pre><code class="language-python">mix = [(-2.0, 0.4), (1.5, 0.6)]
-samples = []
-for m, w in mix:
-    samples.append(round(m + (w * 0.1), 3))
-print(&#39;mode-aware samples =&#39;, samples)</code></pre>
-<p>混合分布の直感があると、生成結果の『多様性』を定量評価する発想が自然になります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="観察-5-学習指標を定義する">観察 5: 学習指標を定義する</h2>
-<p>最後に、生成品質を観察する最小指標を作ります。見た目だけで判断しない習慣を作ることが狙いです。</p>
-
-<pre><code class="language-python">recon_errors = [0.42, 0.31, 0.29, 0.36, 0.33]
-avg = sum(recon_errors) / len(recon_errors)
-worst = max(recon_errors)
-best = min(recon_errors)
-print(&#39;avg/best/worst =&#39;, round(avg, 4), round(best, 4), round(worst, 4))</code></pre>
-<p>平均値と外れ値を同時に見ると、モデルが安定しているかを判断しやすくなります。</p>
-<p>この節では、潜在変数 が入出力のどこを決めるかを中心に読める状態になれば十分です。</p>
-
-<h2 id="要点整理">要点整理</h2>
-<p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>
-<ol>
-<li>見た目の良さだけで比較してしまう</li>
-<li>多様性と品質のトレードオフを観測しない</li>
-<li>ノイズスケジュールの意味を理解しないまま調整する</li>
-</ol>
+<pre><code class="language-python"># 失敗例: 逆過程ステップを間引くとどうなるか
+def reverse_sample_with_skip(a, b, c, skip=1, n=2200, seed=909):
+    rng = random.Random(seed)
+    xs = [rng.gauss(0.0, 1.0) for _ in range(n)]
+    t_values = list(range(T - 1, -1, -skip))
+    if t_values[-1] != 0:
+        t_values.append(0)
+    for idx, t in enumerate(t_values):
+        bt = betas[t]
+        at = alphas[t]
+        ab = alpha_bars[t]
+        new_xs = []
+        for xt in xs:
+            eps_hat = eps_predict(xt, t, a, b, c)
+            mu = (xt - (bt / math.sqrt(max(1e-8, 1.0 - ab))) * eps_hat) / math.sqrt(at)
+            if t &gt; 0:
+                z = rng.gauss(0.0, 1.0)
+                sigma = math.sqrt(bt)
+                x_prev = mu + sigma * z
+            else:
+                x_prev = mu
+            x_prev = max(-6.0, min(6.0, x_prev))
+            new_xs.append(x_prev)
+        xs = new_xs
+    return xs
+for skip in [1, 2, 5, 10]:
+    smp = reverse_sample_with_skip(a_t, b_t, c_t, skip=skip)
+    st = describe(smp)
+    print(&#39;skip=&#39;, skip, &#39;mean/std=&#39;, round(st[&#39;mean&#39;], 4), round(st[&#39;std&#39;], 4), &#39;left/right=&#39;, round(st[&#39;left&#39;], 4), round(st[&#39;right&#39;], 4))
+print(&#39;target left/right =&#39;, round(real_stats[&#39;left&#39;], 4), round(real_stats[&#39;right&#39;], 4))</code></pre>
+<p>逆過程を粗くすると生成品質が落ちやすいのは、各ステップで行う「少しずつの方向修正」を省略してしまうためです。実務では、ステップ数とサンプル品質のトレードオフを見ながら、DDIM などの高速化手法を選びます。</p>
+<p>このノートで押さえるべき本質は、「拡散モデルはノイズを足す過程を作ることで、逆向き学習を安定化している」という点です。これが「なぜ拡散モデルが強いか」の出発点になります。</p>
 
 </article>
   </main>
