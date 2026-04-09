@@ -333,7 +333,6 @@ export class NoemaStack extends Stack {
     });
 
     const pythonRunnerFunction = new lambda.DockerImageFunction(this, "PythonRunnerFunction", {
-      functionName: `${prefix}-python-runner`,
       architecture: lambda.Architecture.X86_64,
       memorySize: 2048,
       timeout: Duration.seconds(120),
@@ -347,7 +346,6 @@ export class NoemaStack extends Stack {
       }
     });
     const pythonRunnerHeavyFunction = new lambda.DockerImageFunction(this, "PythonRunnerHeavyFunction", {
-      functionName: `${prefix}-python-runner-heavy`,
       architecture: lambda.Architecture.X86_64,
       memorySize: 3072,
       timeout: Duration.seconds(120),

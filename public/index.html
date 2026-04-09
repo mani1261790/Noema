@@ -2307,7 +2307,6 @@
               <option value="gemini:gemini-2.5-flash">Gemini API / 2.5 Flash</option>
               <option value="bedrock:default">Bedrock</option>
             </select>
-            <button class="button-ghost assistant-settings-btn" id="assistant-settings-btn" type="button">Settings</button>
           </div>
         </div>
 
@@ -2727,6 +2726,108 @@
           provider: provider || "openai",
           modelId: modelId === "default" ? "" : modelId
         };
+      }
+
+      function detectApiKeyProvider(text) {
+        const value = String(text || "").trim();
+        if (!value) return "";
+        if (/^sk-[A-Za-z0-9_-]{20,}$/.test(value)) return "openai";
+        if (/^AIza[0-9A-Za-z_-]{20,}$/.test(value)) return "gemini";
+        return "";
+      }
+
+      function storeAssistantApiKey(provider, apiKey) {
+        const next = {
+          ...state.llmSettings,
+          openaiApiKey: provider === "openai" ? apiKey : state.llmSettings.openaiApiKey,
+          geminiApiKey: provider === "gemini" ? apiKey : state.llmSettings.geminiApiKey
+        };
+        writeLlmSettings(next);
+      }
+
+      function clearAssistantApiKey(provider) {
+        const next = {
+          ...state.llmSettings,
+          openaiApiKey: provider === "openai" ? "" : state.llmSettings.openaiApiKey,
+          geminiApiKey: provider === "gemini" ? "" : state.llmSettings.geminiApiKey
+        };
+        writeLlmSettings(next);
+      }
+
+      function assistantApiKeyHelpText() {
+        return [
+          "APIキー未設定です。",
+          "このチャットに APIキーだけ を送ると保存します。",
+          "OpenAI は `sk-...`、Gemini は `AIza...` をそのまま送ってください。",
+          "変更: `/openai-key 新しいキー` または `/gemini-key 新しいキー`",
+          "削除: `/apikey clear openai` または `/apikey clear gemini`",
+          "ヘルプ: `/apikey help`"
+        ].join("\n");
+      }
+
+      function handleAssistantApiKeyCommand(rawText, target) {
+        const text = String(rawText || "").trim();
+        if (!text) {
+          return { handled: false };
+        }
+
+        if (text === "/apikey help") {
+          return {
+            handled: true,
+            role: "system",
+            message: assistantApiKeyHelpText()
+          };
+        }
+
+        const clearMatch = text.match(/^\/apikey\s+clear\s+(openai|gemini)$/i);
+        if (clearMatch) {
+          const provider = clearMatch[1].toLowerCase();
+          clearAssistantApiKey(provider);
+          return {
+            handled: true,
+            role: "system",
+            message: `${provider === "openai" ? "OpenAI" : "Gemini"} APIキーを削除しました。`
+          };
+        }
+
+        const explicitMatch = text.match(/^\/(openai-key|gemini-key)\s+(.+)$/i);
+        if (explicitMatch) {
+          const provider = explicitMatch[1].toLowerCase().startsWith("openai") ? "openai" : "gemini";
+          const apiKey = explicitMatch[2].trim();
+          if (!detectApiKeyProvider(apiKey)) {
+            return {
+              handled: true,
+              role: "system",
+              message: "APIキーの形式を確認してください。`/apikey help` で使い方を表示できます。"
+            };
+          }
+          storeAssistantApiKey(provider, apiKey);
+          return {
+            handled: true,
+            role: "system",
+            message: `${provider === "openai" ? "OpenAI" : "Gemini"} APIキーを保存しました。`
+          };
+        }
+
+        const detectedProvider = detectApiKeyProvider(text);
+        if (detectedProvider) {
+          storeAssistantApiKey(detectedProvider, text);
+          return {
+            handled: true,
+            role: "system",
+            message: `${detectedProvider === "openai" ? "OpenAI" : "Gemini"} APIキーを保存しました。必要ならモデル選択を切り替えて続けて質問してください。変更方法: /apikey help`
+          };
+        }
+
+        if ((target.provider === "openai" && !state.llmSettings.openaiApiKey) || (target.provider === "gemini" && !state.llmSettings.geminiApiKey)) {
+          return {
+            handled: true,
+            role: "system",
+            message: assistantApiKeyHelpText()
+          };
+        }
+
+        return { handled: false };
       }
 
       function refreshChatProviderUi() {
@@ -4728,8 +4829,7 @@
         if (provider === "openai") {
           const apiKey = String(state.llmSettings.openaiApiKey || "").trim();
           if (!apiKey) {
-            openAssistantSettings();
-            throw new Error("OpenAI API Key を Settings で登録してください。");
+            throw new Error(assistantApiKeyHelpText());
           }
           body.apiKey = apiKey;
         }
@@ -4737,8 +4837,7 @@
         if (provider === "gemini") {
           const apiKey = String(state.llmSettings.geminiApiKey || "").trim();
           if (!apiKey) {
-            openAssistantSettings();
-            throw new Error("Gemini API Key を Settings で登録してください。");
+            throw new Error(assistantApiKeyHelpText());
           }
           body.apiKey = apiKey;
         }
@@ -4796,6 +4895,12 @@
         const sectionId = state.selectedSection || state.activeSection || "intro";
         const questionText = buildQuestionTextWithSelection(text, state.selectedContext);
         const target = selectedLlmTarget();
+        const keyCommand = handleAssistantApiKeyCommand(text, target);
+        if (keyCommand.handled) {
+          pushMessage(keyCommand.role || "system", keyCommand.message || "");
+          el.chatInput.value = "";
+          return;
+        }
 
         pushMessage("user", text);
         el.chatInput.value = "";
@@ -5178,12 +5283,6 @@
             selectedModel: String(el.chatModelSelect.value || "openai:gpt-5-nano")
           };
           writeLlmSettings(state.llmSettings);
-        });
-      }
-
-      if (el.assistantSettingsBtn) {
-        el.assistantSettingsBtn.addEventListener("click", function () {
-          openAssistantSettings();
         });
       }
 
