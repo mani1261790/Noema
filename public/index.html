@@ -1507,7 +1507,8 @@
     #chat-log {
       min-height: 0;
       flex: 1;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       border-radius: 16px;
       padding: 12px;
       display: flex;
@@ -1534,6 +1535,7 @@
       display: flex;
       align-items: flex-end;
       gap: 8px;
+      min-width: 0;
     }
 
     .msg-wrap.user {
@@ -1578,6 +1580,10 @@
       line-height: 1.7;
       white-space: normal;
       max-width: min(90%, 520px);
+      min-width: 0;
+      overflow-x: hidden;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .msg.user {
@@ -1613,6 +1619,41 @@
       line-height: 1.7;
     }
 
+    .msg-text-block :is(p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6) {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+
+    .msg-text-block > :not(:first-child) {
+      margin-top: 10px;
+    }
+
+    .msg-text-block ul,
+    .msg-text-block ol {
+      padding-left: 1.2em;
+    }
+
+    .msg-text-block code {
+      font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+      font-size: 12px;
+      padding: 0.1em 0.4em;
+      border-radius: 6px;
+      background: color-mix(in oklab, var(--code-bg) 86%, var(--panel-soft));
+      border: 1px solid color-mix(in oklab, var(--code-border) 78%, transparent);
+    }
+
+    .msg-text-block a {
+      color: color-mix(in oklab, var(--accent) 76%, white);
+      text-decoration: underline;
+      text-underline-offset: 0.16em;
+    }
+
+    .msg-text-block blockquote {
+      padding-left: 12px;
+      border-left: 2px solid color-mix(in oklab, var(--accent) 42%, var(--glass-edge-soft));
+      color: var(--muted);
+    }
+
     .msg-text-block + .msg-text-block {
       margin-top: 8px;
     }
@@ -1641,7 +1682,7 @@
       margin: 0;
       padding: 10px 12px;
       background: var(--code-bg);
-      overflow-x: auto;
+      overflow-x: hidden;
       overflow-y: hidden;
     }
 
@@ -1650,7 +1691,9 @@
       font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
       font-size: 12px;
       line-height: 1.58;
-      white-space: pre;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .msg-code-block .hljs {
@@ -1659,6 +1702,47 @@
     }
 
     .msg-meta { color: var(--muted); font-size: 11px; margin-top: 6px; }
+
+    .history-session-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .history-session-item {
+      width: 100%;
+      text-align: left;
+      border-radius: 14px;
+      border: 1px solid var(--glass-edge-soft);
+      padding: 12px;
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 42%, transparent), transparent 64%),
+        color-mix(in oklab, var(--panel-strong) 90%, transparent);
+      color: var(--text);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 60%, transparent);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      cursor: pointer;
+    }
+
+    .history-session-item:hover {
+      border-color: color-mix(in oklab, var(--accent) 38%, var(--glass-edge-soft));
+    }
+
+    .history-session-title {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .history-session-preview,
+    .history-session-meta {
+      display: block;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+      margin-top: 4px;
+    }
 
     .controls {
       display: grid;
@@ -2410,6 +2494,9 @@
         selectedSection: "",
         selectedContext: null,
         chatOpen: false,
+        chatView: "messages",
+        chatSessionId: "",
+        chatHistorySessions: [],
         messages: [],
         busy: false,
         loggedIn: false,
@@ -4447,6 +4534,18 @@
         const previousSelectedContext = state.selectedContext;
         const previousOpenChapters = { ...state.openChapters };
         const previousEditorMap = new Map(state.activeEditorMap);
+        const previousMessages = state.messages.slice();
+        const previousChatView = state.chatView;
+        const previousChatSessionId = state.chatSessionId;
+        const previousChatHistorySessions = Array.isArray(state.chatHistorySessions) ? state.chatHistorySessions.slice() : [];
+        const notebookChanged = !previousNotebook || previousNotebook.id !== target.id;
+
+        if (notebookChanged) {
+          state.messages = [];
+          state.chatView = "messages";
+          state.chatSessionId = "";
+          state.chatHistorySessions = [];
+        }
 
         state.activeNotebook = target;
         if (chapterId) {
@@ -4504,6 +4603,10 @@
           state.selectedContext = previousSelectedContext;
           state.openChapters = previousOpenChapters;
           state.activeEditorMap = previousEditorMap;
+          state.messages = previousMessages;
+          state.chatView = previousChatView;
+          state.chatSessionId = previousChatSessionId;
+          state.chatHistorySessions = previousChatHistorySessions;
           const msg = error instanceof Error ? error.message : "読み込みエラー";
           if (previousNotebook) {
             renderSidebar();
@@ -4668,11 +4771,43 @@
       }
 
       function pushMessage(role, text, meta) {
+        state.chatView = "messages";
         state.messages.push({ role, text, meta: meta || {} });
         renderMessages();
       }
 
+      function renderHistorySessionList() {
+        const sessions = Array.isArray(state.chatHistorySessions) ? state.chatHistorySessions : [];
+        if (!sessions.length) {
+          el.chatLog.innerHTML = '<p class="muted-empty">履歴セッションはまだありません。</p>';
+          return;
+        }
+
+        el.chatLog.innerHTML = `
+          <div class="history-session-list">
+            ${sessions
+              .map((session) => {
+                const title = escapeHtml(String(session.title || "Untitled session"));
+                const preview = escapeHtml(String(session.preview || ""));
+                const meta = `${Number(session.messageCount || 0)} messages ・ ${escapeHtml(formatRelativeVisitTime(session.lastMessageAt || session.createdAt || ""))}`;
+                return `
+                  <button class="history-session-item" type="button" data-session-id="${escapeHtmlAttribute(session.sessionId || "")}">
+                    <span class="history-session-title">${title}</span>
+                    <span class="history-session-preview">${preview}</span>
+                    <span class="history-session-meta">${meta}</span>
+                  </button>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
       function renderMessages() {
+        if (state.chatView === "sessions") {
+          renderHistorySessionList();
+          return;
+        }
         if (!state.messages.length) {
           el.chatLog.innerHTML = "";
           return;
@@ -4719,6 +4854,107 @@
         return value;
       }
 
+      function escapeHtmlAttribute(value) {
+        return escapeHtml(String(value || ""));
+      }
+
+      function renderInlineMarkdown(source) {
+        const placeholders = [];
+        let text = String(source || "");
+
+        text = text.replace(/`([^`]+)`/g, (_, code) => {
+          const token = `__INLINE_CODE_${placeholders.length}__`;
+          placeholders.push(`<code>${escapeHtml(code)}</code>`);
+          return token;
+        });
+
+        text = escapeHtml(text);
+
+        text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, href) => {
+          return `<a href="${escapeHtmlAttribute(href)}" target="_blank" rel="noreferrer">${escapeHtml(label)}</a>`;
+        });
+        text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        text = text.replace(/(^|[^\*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+        text = text.replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>");
+
+        placeholders.forEach((html, index) => {
+          text = text.replace(`__INLINE_CODE_${index}__`, html);
+        });
+
+        return text;
+      }
+
+      function renderMarkdownText(text) {
+        const normalized = String(text || "").replace(/\r\n/g, "\n").trim();
+        if (!normalized) return "";
+
+        const lines = normalized.split("\n");
+        const blocks = [];
+        let index = 0;
+
+        while (index < lines.length) {
+          const line = lines[index];
+          const trimmed = line.trim();
+          if (!trimmed) {
+            index += 1;
+            continue;
+          }
+
+          const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+          if (headingMatch) {
+            const level = Math.min(6, headingMatch[1].length);
+            blocks.push(`<h${level}>${renderInlineMarkdown(headingMatch[2])}</h${level}>`);
+            index += 1;
+            continue;
+          }
+
+          if (/^\s*>\s?/.test(line)) {
+            const quoteLines = [];
+            while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+              quoteLines.push(lines[index].replace(/^\s*>\s?/, ""));
+              index += 1;
+            }
+            blocks.push(`<blockquote>${renderMarkdownText(quoteLines.join("\n"))}</blockquote>`);
+            continue;
+          }
+
+          if (/^\s*[-*+]\s+/.test(line)) {
+            const items = [];
+            while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
+              items.push(`<li>${renderInlineMarkdown(lines[index].replace(/^\s*[-*+]\s+/, ""))}</li>`);
+              index += 1;
+            }
+            blocks.push(`<ul>${items.join("")}</ul>`);
+            continue;
+          }
+
+          if (/^\s*\d+\.\s+/.test(line)) {
+            const items = [];
+            while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
+              items.push(`<li>${renderInlineMarkdown(lines[index].replace(/^\s*\d+\.\s+/, ""))}</li>`);
+              index += 1;
+            }
+            blocks.push(`<ol>${items.join("")}</ol>`);
+            continue;
+          }
+
+          const paragraphLines = [];
+          while (index < lines.length) {
+            const current = lines[index];
+            const currentTrimmed = current.trim();
+            if (!currentTrimmed) break;
+            if (/^(#{1,6})\s+/.test(currentTrimmed) || /^\s*>\s?/.test(current) || /^\s*[-*+]\s+/.test(current) || /^\s*\d+\.\s+/.test(current)) {
+              break;
+            }
+            paragraphLines.push(currentTrimmed);
+            index += 1;
+          }
+          blocks.push(`<p>${renderInlineMarkdown(paragraphLines.join(" "))}</p>`);
+        }
+
+        return blocks.join("");
+      }
+
       function splitAssistantMessageSegments(text) {
         const source = String(text || "");
         const segments = [];
@@ -4760,12 +4996,12 @@
             }
 
             if (!String(segment.text || "").trim()) return "";
-            return `<p class="msg-text-block">${escapeHtmlWithLineBreaks(String(segment.text).trim())}</p>`;
+            return `<div class="msg-text-block">${renderMarkdownText(String(segment.text).trim())}</div>`;
           })
           .join("");
 
         if (html) return html;
-        return `<p class="msg-text-block">${escapeHtmlWithLineBreaks(String(text || ""))}</p>`;
+        return `<div class="msg-text-block">${renderMarkdownText(String(text || ""))}</div>`;
       }
 
       async function applyChatSyntaxHighlight() {
@@ -4818,10 +5054,12 @@
 
         const provider = target.provider;
         const modelId = target.modelId || "";
+        const sessionId = state.chatSessionId || crypto.randomUUID();
         const body = {
           notebookId,
           sectionId,
           questionText,
+          sessionId,
           provider,
           modelId
         };
@@ -4861,7 +5099,7 @@
           throw new Error(String(message));
         }
 
-        return payload;
+        return { ...payload, sessionId: String(payload.sessionId || sessionId) };
       }
 
       async function sendQuestion() {
@@ -4912,6 +5150,7 @@
 
         try {
           const answer = await completeAssistantChat(questionText, notebook.id, sectionId, target);
+          state.chatSessionId = String(answer.sessionId || state.chatSessionId || "");
           const refs = (answer.sourceReferences || []).map((source) => `${source.notebookId}${source.location}`).join(", ");
           const meta = { refs };
           if (target.provider === "bedrock" && Number.isFinite(Number(answer.bedrockRemainingToday))) {
@@ -4969,20 +5208,54 @@
           }
 
           const payload = await response.json();
-          const items = Array.isArray(payload?.items) ? payload.items : [];
+          const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
 
-          if (!items.length) {
-            state.messages = [{ role: "system", text: "このノートの履歴はまだありません。", meta: {} }];
+          if (!sessions.length) {
+            state.chatView = "sessions";
+            state.chatHistorySessions = [];
             renderMessages();
             return;
           }
 
-          const sorted = items
-            .slice()
-            .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+          state.chatView = "sessions";
+          state.chatHistorySessions = sessions;
+          renderMessages();
+        } catch (error) {
+          pushMessage("system", error instanceof Error ? error.message : "履歴の取得に失敗しました");
+        } finally {
+          el.chatHistory.disabled = false;
+          el.chatHistory.textContent = before || "History";
+        }
+      }
 
+      async function openHistorySession(sessionId) {
+        const notebook = state.activeNotebook;
+        const token = getToken();
+        if (!notebook || !token || !sessionId) {
+          return;
+        }
+
+        el.chatHistory.disabled = true;
+        try {
+          const response = await fetch(
+            `${API_BASE}/api/questions/history?notebookId=${encodeURIComponent(notebook.id)}&sessionId=${encodeURIComponent(sessionId)}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          let payload = {};
+          try {
+            payload = await response.json();
+          } catch {}
+
+          if (!response.ok) {
+            throw new Error(payload && payload.error ? payload.error : "履歴の取得に失敗しました");
+          }
+
+          const items = Array.isArray(payload?.items) ? payload.items : [];
+          state.chatSessionId = String(payload?.sessionId || sessionId);
+          state.chatView = "messages";
           state.messages = [];
-          sorted.forEach((item) => {
+          items.forEach((item) => {
             if (item.questionText) {
               state.messages.push({ role: "user", text: String(item.questionText), meta: {} });
             }
@@ -4998,7 +5271,6 @@
           pushMessage("system", error instanceof Error ? error.message : "履歴の取得に失敗しました");
         } finally {
           el.chatHistory.disabled = false;
-          el.chatHistory.textContent = before || "History";
         }
       }
 
@@ -5268,12 +5540,23 @@
       });
 
       el.newChat.addEventListener("click", function () {
+        state.chatSessionId = "";
+        state.chatView = "messages";
+        state.chatHistorySessions = [];
         state.messages = [];
         renderMessages();
       });
 
       el.chatHistory.addEventListener("click", function () {
         void loadQuestionHistory();
+      });
+
+      el.chatLog.addEventListener("click", function (event) {
+        const target = event.target instanceof Element ? event.target.closest("[data-session-id]") : null;
+        if (!target) return;
+        const sessionId = String(target.getAttribute("data-session-id") || "").trim();
+        if (!sessionId) return;
+        void openHistorySession(sessionId);
       });
 
       if (el.chatModelSelect) {

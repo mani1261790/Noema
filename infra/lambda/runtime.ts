@@ -49,6 +49,7 @@ type QuestionItem = {
   userId: string;
   notebookId: string;
   sectionId: string;
+  sessionId?: string;
   questionText: string;
   questionHash: string;
   status: QuestionStatus;
@@ -153,6 +154,7 @@ type ChatCompleteInput = {
   notebookId: string;
   sectionId: string;
   questionText: string;
+  sessionId?: string;
   provider: ChatProvider;
   modelId?: string;
   apiKey?: string;
@@ -162,6 +164,7 @@ type ChatCompleteResult = {
   answerText: string;
   sourceReferences: SourceReference[];
   tokensUsed: number;
+  sessionId: string;
   provider: ChatProvider;
   modelId: string;
   bedrockRemainingToday: number | null;
@@ -683,6 +686,7 @@ async function persistCompletedChat(
   modelId: string
 ) {
   const questionId = crypto.randomUUID();
+  const sessionId = input.sessionId?.trim() || crypto.randomUUID();
   const createdAt = nowIso();
   const normalizedModelId = `${input.provider}:${modelId}`;
   const hash = questionHash(`${input.provider}:${input.questionText}`);
@@ -696,6 +700,7 @@ async function persistCompletedChat(
         userEmail: user.email,
         notebookId: input.notebookId,
         sectionId: input.sectionId,
+        sessionId,
         questionText: input.questionText,
         questionHash: hash,
         status: "COMPLETED",
@@ -714,9 +719,11 @@ async function persistCompletedChat(
     tokensCompletion: 0,
     modelId: normalizedModelId,
     latencyMs: 0,
-    createdAt,
-    updatedAt: createdAt
-  });
+      createdAt,
+      updatedAt: createdAt
+    });
+
+  return sessionId;
 }
 
 function extractOpenAIText(payload: unknown): string {
@@ -1506,11 +1513,12 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
     const answerText = result.text || fallbackAnswer(input.questionText, []);
-    await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
+    const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
       sourceReferences,
       tokensUsed,
+      sessionId,
       provider,
       modelId,
       bedrockRemainingToday: adminUser ? null : remainingToday
@@ -1527,11 +1535,12 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
     const answerText = result.text || fallbackAnswer(input.questionText, []);
-    await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
+    const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
       sourceReferences,
       tokensUsed,
+      sessionId,
       provider,
       modelId,
       bedrockRemainingToday: null
@@ -1548,11 +1557,12 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
     const answerText = result.text || fallbackAnswer(input.questionText, []);
-    await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
+    const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
       sourceReferences,
       tokensUsed,
+      sessionId,
       provider,
       modelId,
       bedrockRemainingToday: null
@@ -1759,7 +1769,21 @@ async function batchGetAnswers(questionIds: string[]): Promise<Map<string, Answe
   return map;
 }
 
-export async function listQuestionHistory(user: AuthUser, notebookId: string) {
+function normalizeHistorySessionId(question: QuestionItem) {
+  return String(question.sessionId || question.questionId || "").trim();
+}
+
+function summarizeHistorySessionTitle(questionText: string) {
+  const compact = String(questionText || "")
+    .split(/\n{2,}/)[0]
+    .replace(/\[Selection[\s\S]*$/i, "")
+    .replace(/\[SelectionType[\s\S]*$/i, "")
+    .trim();
+  if (!compact) return "Untitled session";
+  return compact.length > 72 ? `${compact.slice(0, 72)}…` : compact;
+}
+
+export async function listQuestionHistory(user: AuthUser, notebookId: string, sessionId?: string) {
   if (!notebookId.trim()) {
     throw new Error("notebookId is required");
   }
@@ -1804,22 +1828,63 @@ export async function listQuestionHistory(user: AuthUser, notebookId: string) {
   }
 
   const answers = await batchGetAnswers(questions.map((item) => item.questionId));
-  return {
-    items: questions
-      .map((question) => {
-        const answer = answers.get(question.questionId);
-        if (!answer) return null;
+  const completedItems = questions
+    .map((question) => {
+      const answer = answers.get(question.questionId);
+      if (!answer) return null;
+      return {
+        questionId: question.questionId,
+        sessionId: normalizeHistorySessionId(question),
+        sectionId: question.sectionId,
+        questionText: question.questionText,
+        answerText: answer.answerText,
+        sourceReferences: answer.sourceReferences,
+        createdAt: question.createdAt
+      };
+    })
+    .filter(Boolean) as Array<{
+      questionId: string;
+      sessionId: string;
+      sectionId: string;
+      questionText: string;
+      answerText: string;
+      sourceReferences: SourceReference[];
+      createdAt: string;
+    }>;
 
+  const requestedSessionId = String(sessionId || "").trim();
+  if (requestedSessionId) {
+    return {
+      sessionId: requestedSessionId,
+      items: completedItems
+        .filter((item) => item.sessionId === requestedSessionId)
+        .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
+    };
+  }
+
+  const sessions = new Map<string, typeof completedItems>();
+  completedItems.forEach((item) => {
+    const current = sessions.get(item.sessionId) || [];
+    current.push(item);
+    sessions.set(item.sessionId, current);
+  });
+
+  return {
+    sessions: Array.from(sessions.entries())
+      .map(([resolvedSessionId, items]) => {
+        const sorted = items.slice().sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
         return {
-          questionId: question.questionId,
-          sectionId: question.sectionId,
-          questionText: question.questionText,
-          answerText: answer.answerText,
-          sourceReferences: answer.sourceReferences,
-          createdAt: question.createdAt
+          sessionId: resolvedSessionId,
+          title: summarizeHistorySessionTitle(first?.questionText || ""),
+          preview: summarizeHistorySessionTitle(last?.questionText || ""),
+          createdAt: first?.createdAt || "",
+          lastMessageAt: last?.createdAt || "",
+          messageCount: sorted.length * 2
         };
       })
-      .filter(Boolean)
+      .sort((a, b) => String(b.lastMessageAt || "").localeCompare(String(a.lastMessageAt || "")))
   };
 }
 
@@ -3206,12 +3271,14 @@ export function parseChatCompleteInput(event: APIGatewayProxyEventV2): ChatCompl
   const notebookId = asString(payload.notebookId).trim();
   const sectionId = asString(payload.sectionId).trim() || "intro";
   const questionText = asString(payload.questionText).trim();
+  const sessionId = asString(payload.sessionId).trim();
   const providerRaw = asString(payload.provider).trim().toLowerCase();
   const modelId = asString(payload.modelId).trim();
   const apiKey = asString(payload.apiKey).trim();
 
   if (!notebookId || !questionText) return null;
   if (questionText.length > 4000) return null;
+  if (sessionId && !/^[A-Za-z0-9:_-]{1,80}$/.test(sessionId)) return null;
   if (providerRaw !== "openai" && providerRaw !== "gemini" && providerRaw !== "bedrock") return null;
   if (modelId && !/^[A-Za-z0-9._:+/-]{1,120}$/.test(modelId)) return null;
   if (apiKey && apiKey.length > 512) return null;
@@ -3220,6 +3287,7 @@ export function parseChatCompleteInput(event: APIGatewayProxyEventV2): ChatCompl
     notebookId,
     sectionId,
     questionText,
+    sessionId: sessionId || undefined,
     provider: providerRaw,
     modelId: modelId || undefined,
     apiKey: apiKey || undefined

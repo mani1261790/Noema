@@ -158,12 +158,13 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
   if (route === "GET /api/questions/history") {
     const notebookId = (event.queryStringParameters?.notebookId || "").trim();
+    const sessionId = (event.queryStringParameters?.sessionId || "").trim();
     if (!notebookId) {
       return json(400, { error: "notebookId is required" });
     }
 
     try {
-      const result = await listQuestionHistory(user, notebookId);
+      const result = await listQuestionHistory(user, notebookId, sessionId);
       return json(200, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
