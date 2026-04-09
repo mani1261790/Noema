@@ -22,6 +22,12 @@ import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import MarkdownIt from "markdown-it";
 import markdownItKatex from "markdown-it-katex";
+import {
+  extractImportedPythonModules,
+  normalizePythonModuleName,
+  selectPythonRunnerFunctionName,
+  stripHeavyPythonModules
+} from "./python-runtime-routing";
 
 type QuestionStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
 
@@ -215,6 +221,20 @@ type PythonRuntimeOutput =
       data: string;
       alt?: string;
     };
+
+type PythonRunnerInvokeResponse = Record<string, unknown> & {
+  stdout?: unknown;
+  stderr?: unknown;
+  error?: unknown;
+  errorCode?: unknown;
+  retryable?: unknown;
+  durationMs?: unknown;
+  timedOut?: unknown;
+  installedPackages?: unknown;
+  failedModules?: unknown;
+  outputs?: unknown;
+  ok?: unknown;
+};
 
 type GetAnswerResult =
   | { kind: "not_found" }
@@ -3013,7 +3033,7 @@ function normalizeExpectedModules(raw: unknown): string[] {
 
   for (const item of raw) {
     if (seen.size >= 24) break;
-    const moduleName = normalizeModuleName(asString(item));
+    const moduleName = normalizePythonModuleName(asString(item));
     if (!moduleName) continue;
     seen.add(moduleName);
   }
@@ -3040,14 +3060,13 @@ export function assertAdminContentWritable() {
   );
 }
 
-async function invokePythonRunner(payload: Record<string, unknown>) {
-  if (!PYTHON_RUNNER_FUNCTION_NAME) {
-    throw new Error("PYTHON_RUNNER_FUNCTION_NAME is not configured.");
+async function invokePythonRunnerOnce(
+  functionName: string,
+  payload: Record<string, unknown>
+): Promise<PythonRunnerInvokeResponse> {
+  if (!functionName) {
+    throw new Error("Python runner function name is empty.");
   }
-
-  const expectedModules = normalizeExpectedModules(payload.expectedModules);
-  const importsFromCode = extractImportedModules(asString(payload.code));
-  const functionName = selectPythonRunnerFunctionName(expectedModules, importsFromCode);
 
   const invokeResult = await lambdaClient.send(
     new InvokeCommand({
@@ -3059,75 +3078,84 @@ async function invokePythonRunner(payload: Record<string, unknown>) {
 
   const rawPayload = invokeResult.Payload ? Buffer.from(invokeResult.Payload).toString("utf8") : "{}";
 
-  let decoded: Record<string, unknown> = {};
+  let decoded: PythonRunnerInvokeResponse = {};
   try {
-    decoded = JSON.parse(rawPayload) as Record<string, unknown>;
+    decoded = JSON.parse(rawPayload) as PythonRunnerInvokeResponse;
   } catch {
-    throw new Error("Python runner returned a non-JSON response.");
+    throw new Error(`${functionName} returned a non-JSON response.`);
   }
 
   if (invokeResult.FunctionError) {
     const message = asString(decoded.errorMessage || decoded.errorType || "Python runner invocation failed.");
-    throw new Error(message);
+    throw new Error(`${functionName}: ${message}`);
   }
 
   return decoded;
 }
 
-const HEAVY_PYTHON_MODULES = new Set([
-  "torch",
-  "xgboost"
-]);
-
-function normalizeModuleName(value: string): string {
-  const moduleName = value.trim().split(".")[0].replace(/-/g, "_").toLowerCase();
-  if (!moduleName) return "";
-  if (!/^[a-z_][a-z0-9_]*$/.test(moduleName)) return "";
-  return moduleName;
+function appendRunnerFallbackNotice(
+  decoded: PythonRunnerInvokeResponse,
+  primaryFunctionName: string,
+  fallbackFunctionName: string,
+  reason: string
+): PythonRunnerInvokeResponse {
+  const prefix =
+    `[runtime] Fallback: ${primaryFunctionName} failed (${reason}). Retried on ${fallbackFunctionName}.\n`;
+  const stderr = `${prefix}${asString(decoded.stderr)}`;
+  return {
+    ...decoded,
+    stderr: stderr.slice(0, 40_000),
+    runnerFallback: true,
+    runnerUsed: fallbackFunctionName
+  };
 }
 
-function extractImportedModules(code: string): string[] {
-  if (!code) return [];
-  const seen = new Set<string>();
-  const lines = code.split(/\r?\n/);
-
-  const importPattern = /^\s*import\s+([A-Za-z0-9_.,\s]+)(?:\s+as\s+[A-Za-z0-9_]+)?\s*$/;
-  const fromPattern = /^\s*from\s+([A-Za-z0-9_\.]+)\s+import\s+/;
-
-  for (const line of lines) {
-    if (seen.size >= 24) break;
-    const fromMatch = line.match(fromPattern);
-    if (fromMatch) {
-      const moduleName = normalizeModuleName(fromMatch[1]);
-      if (moduleName) seen.add(moduleName);
-      continue;
-    }
-
-    const importMatch = line.match(importPattern);
-    if (!importMatch) continue;
-    const rawModules = importMatch[1].split(",");
-    for (const rawModule of rawModules) {
-      if (seen.size >= 24) break;
-      const noAlias = rawModule.split(/\s+as\s+/i)[0];
-      const moduleName = normalizeModuleName(noAlias);
-      if (moduleName) seen.add(moduleName);
-    }
+async function invokePythonRunner(payload: Record<string, unknown>): Promise<PythonRunnerInvokeResponse> {
+  if (!PYTHON_RUNNER_FUNCTION_NAME) {
+    throw new Error("PYTHON_RUNNER_FUNCTION_NAME is not configured.");
   }
 
-  return Array.from(seen);
-}
+  const expectedModules = normalizeExpectedModules(payload.expectedModules);
+  const importsFromCode = Array.from(
+    new Set([
+      ...extractImportedPythonModules(asString(payload.contextCode)),
+      ...extractImportedPythonModules(asString(payload.code))
+    ])
+  );
+  const functionName = selectPythonRunnerFunctionName(
+    expectedModules,
+    importsFromCode,
+    PYTHON_RUNNER_FUNCTION_NAME,
+    PYTHON_RUNNER_HEAVY_FUNCTION_NAME
+  );
+  const fallbackFunctionName =
+    functionName === PYTHON_RUNNER_HEAVY_FUNCTION_NAME && PYTHON_RUNNER_FUNCTION_NAME !== functionName
+      ? PYTHON_RUNNER_FUNCTION_NAME
+      : "";
 
-function selectPythonRunnerFunctionName(expectedModules: string[], importsFromCode: string[]): string {
-  if (!PYTHON_RUNNER_HEAVY_FUNCTION_NAME) {
-    return PYTHON_RUNNER_FUNCTION_NAME;
-  }
-  const candidates = new Set<string>([...importsFromCode, ...expectedModules]);
-  for (const moduleName of candidates) {
-    if (HEAVY_PYTHON_MODULES.has(moduleName)) {
-      return PYTHON_RUNNER_HEAVY_FUNCTION_NAME;
+  try {
+    return await invokePythonRunnerOnce(functionName, payload);
+  } catch (primaryError) {
+    if (!fallbackFunctionName) {
+      throw primaryError;
+    }
+
+    const fallbackPayload = {
+      ...payload,
+      expectedModules: stripHeavyPythonModules(expectedModules)
+    };
+    try {
+      const decoded = await invokePythonRunnerOnce(fallbackFunctionName, fallbackPayload);
+      const reason = primaryError instanceof Error ? primaryError.message : String(primaryError);
+      return appendRunnerFallbackNotice(decoded, functionName, fallbackFunctionName, reason);
+    } catch (fallbackError) {
+      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(
+        `Primary Python runner failed (${primaryMessage}). Fallback runner failed (${fallbackMessage}).`
+      );
     }
   }
-  return PYTHON_RUNNER_FUNCTION_NAME;
 }
 
 export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: AuthUser): Promise<PythonRuntimeExecuteResult> {
