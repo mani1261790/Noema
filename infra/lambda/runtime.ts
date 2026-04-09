@@ -1476,15 +1476,18 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
   await putAccessLog(user.userId, input.notebookId, `CHAT_${provider.toUpperCase()}`);
 
   if (provider === "bedrock") {
-    let remainingToday = 0;
-    try {
-      remainingToday = await acquireBedrockDailySlot(`bedrock:${user.userId}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("ConditionalCheckFailed")) {
-        throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
+    const adminUser = isAdmin(user);
+    let remainingToday: number | null = null;
+    if (!adminUser) {
+      try {
+        remainingToday = await acquireBedrockDailySlot(`bedrock:${user.userId}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("ConditionalCheckFailed")) {
+          throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
+        }
+        throw error;
       }
-      throw error;
     }
     const modelId = resolveBedrockModelId(
       input.modelId?.trim().toLowerCase() === "default" ? "" : input.modelId?.trim() || "",
@@ -1495,7 +1498,9 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     try {
       result = await callBedrock(prompt, modelId);
     } catch (error) {
-      await releaseBedrockDailySlot(`bedrock:${user.userId}`);
+      if (!adminUser) {
+        await releaseBedrockDailySlot(`bedrock:${user.userId}`);
+      }
       throw error;
     }
     await recordQuestionRateLimitUsage(rateLimitScope);
@@ -1508,7 +1513,7 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
       tokensUsed,
       provider,
       modelId,
-      bedrockRemainingToday: remainingToday
+      bedrockRemainingToday: adminUser ? null : remainingToday
     };
   }
 
