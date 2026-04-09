@@ -23,9 +23,10 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "
 import MarkdownIt from "markdown-it";
 import markdownItKatex from "markdown-it-katex";
 import {
+  extractMissingPythonModuleFromText,
   extractImportedPythonModules,
   normalizePythonModuleName,
-  selectPythonRunnerFunctionName,
+  requestedHeavyPythonModules,
   stripHeavyPythonModules
 } from "./python-runtime-routing";
 
@@ -3110,6 +3111,61 @@ function appendRunnerFallbackNotice(
   };
 }
 
+function buildRunnerInvocationFailureResponse(functionName: string, message: string): PythonRunnerInvokeResponse {
+  const text = String(message || "Python runner invocation failed.");
+  return {
+    ok: false,
+    stdout: "",
+    stderr: `[runtime] ${functionName}: ${text}`.slice(0, 40_000),
+    error: `Python runner invocation failed: ${text}`.slice(0, 2_000),
+    errorCode: "RUNNER_INVOCATION_FAILED",
+    retryable: true,
+    durationMs: 0,
+    timedOut: false,
+    installedPackages: [],
+    failedModules: [],
+    outputs: [],
+    runnerUsed: functionName
+  };
+}
+
+async function safeInvokePythonRunnerOnce(
+  functionName: string,
+  payload: Record<string, unknown>
+): Promise<PythonRunnerInvokeResponse> {
+  try {
+    return await invokePythonRunnerOnce(functionName, payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return buildRunnerInvocationFailureResponse(functionName, message);
+  }
+}
+
+function responseFailedModules(response: PythonRunnerInvokeResponse): string[] {
+  if (!Array.isArray(response.failedModules)) return [];
+  return response.failedModules.map((name) => normalizePythonModuleName(asString(name))).filter(Boolean);
+}
+
+function responseSuggestsHeavyDependencyFailure(
+  response: PythonRunnerInvokeResponse,
+  heavyModules: string[]
+): boolean {
+  if (!heavyModules.length) return false;
+  const heavySet = new Set(heavyModules);
+  for (const moduleName of responseFailedModules(response)) {
+    if (heavySet.has(moduleName)) return true;
+  }
+
+  const missingFromStderr = extractMissingPythonModuleFromText(asString(response.stderr));
+  if (missingFromStderr && heavySet.has(missingFromStderr)) return true;
+
+  const missingFromError = extractMissingPythonModuleFromText(asString(response.error));
+  if (missingFromError && heavySet.has(missingFromError)) return true;
+
+  const message = `${asString(response.error)}\n${asString(response.stderr)}`.toLowerCase();
+  return heavyModules.some((moduleName) => message.includes(moduleName.toLowerCase()));
+}
+
 async function invokePythonRunner(payload: Record<string, unknown>): Promise<PythonRunnerInvokeResponse> {
   if (!PYTHON_RUNNER_FUNCTION_NAME) {
     throw new Error("PYTHON_RUNNER_FUNCTION_NAME is not configured.");
@@ -3122,40 +3178,41 @@ async function invokePythonRunner(payload: Record<string, unknown>): Promise<Pyt
       ...extractImportedPythonModules(asString(payload.code))
     ])
   );
-  const functionName = selectPythonRunnerFunctionName(
-    expectedModules,
-    importsFromCode,
-    PYTHON_RUNNER_FUNCTION_NAME,
-    PYTHON_RUNNER_HEAVY_FUNCTION_NAME
-  );
-  const fallbackFunctionName =
-    functionName === PYTHON_RUNNER_HEAVY_FUNCTION_NAME && PYTHON_RUNNER_FUNCTION_NAME !== functionName
-      ? PYTHON_RUNNER_FUNCTION_NAME
-      : "";
 
-  try {
-    return await invokePythonRunnerOnce(functionName, payload);
-  } catch (primaryError) {
-    if (!fallbackFunctionName) {
-      throw primaryError;
-    }
+  const requestedHeavyModules = requestedHeavyPythonModules([...importsFromCode, ...expectedModules]);
+  const standardPayload = {
+    ...payload,
+    expectedModules: stripHeavyPythonModules(expectedModules),
+    blockedModules: requestedHeavyModules
+  };
+  const standardResponse = await safeInvokePythonRunnerOnce(PYTHON_RUNNER_FUNCTION_NAME, standardPayload);
 
-    const fallbackPayload = {
-      ...payload,
-      expectedModules: stripHeavyPythonModules(expectedModules)
-    };
-    try {
-      const decoded = await invokePythonRunnerOnce(fallbackFunctionName, fallbackPayload);
-      const reason = primaryError instanceof Error ? primaryError.message : String(primaryError);
-      return appendRunnerFallbackNotice(decoded, functionName, fallbackFunctionName, reason);
-    } catch (fallbackError) {
-      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
-      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      throw new Error(
-        `Primary Python runner failed (${primaryMessage}). Fallback runner failed (${fallbackMessage}).`
-      );
-    }
+  if (!PYTHON_RUNNER_HEAVY_FUNCTION_NAME || requestedHeavyModules.length === 0) {
+    return standardResponse;
   }
+
+  const shouldEscalate =
+    Boolean(standardResponse.error) && responseSuggestsHeavyDependencyFailure(standardResponse, requestedHeavyModules);
+  if (!shouldEscalate) {
+    return standardResponse;
+  }
+
+  const heavyResponse = await safeInvokePythonRunnerOnce(PYTHON_RUNNER_HEAVY_FUNCTION_NAME, payload);
+  if (!heavyResponse.error) {
+    return appendRunnerFallbackNotice(
+      heavyResponse,
+      PYTHON_RUNNER_FUNCTION_NAME,
+      PYTHON_RUNNER_HEAVY_FUNCTION_NAME,
+      asString(standardResponse.error || standardResponse.stderr || "heavy dependency required")
+    );
+  }
+
+  return appendRunnerFallbackNotice(
+    standardResponse,
+    PYTHON_RUNNER_HEAVY_FUNCTION_NAME,
+    PYTHON_RUNNER_FUNCTION_NAME,
+    asString(heavyResponse.error || heavyResponse.stderr || "heavy runner unavailable")
+  );
 }
 
 export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: AuthUser): Promise<PythonRuntimeExecuteResult> {
@@ -3219,10 +3276,10 @@ export async function runPythonRuntime(input: PythonRuntimeExecuteInput, user: A
 export async function preloadPythonRuntime(input: PythonRuntimePreloadInput, user: AuthUser) {
   await putAccessLog(user.userId, input.notebookId, "PRELOAD_NOTEBOOK_RUNTIME");
 
-  const response = await invokePythonRunner({
+  const response = await safeInvokePythonRunnerOnce(PYTHON_RUNNER_FUNCTION_NAME, {
     action: "preload",
     notebookId: input.notebookId,
-    expectedModules: input.expectedModules,
+    expectedModules: stripHeavyPythonModules(normalizeExpectedModules(input.expectedModules)),
     userId: user.userId
   });
 

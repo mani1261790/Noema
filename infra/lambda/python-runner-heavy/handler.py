@@ -417,9 +417,15 @@ def _preload_modules(modules: list[str]) -> tuple[list[str], list[str]]:
     return installed, failed
 
 
-def _execute_with_auto_install(code: str, context_code: str, modules_hint: list[str]) -> dict[str, Any]:
+def _execute_with_auto_install(
+    code: str,
+    context_code: str,
+    modules_hint: list[str],
+    blocked_modules: list[str],
+) -> dict[str, Any]:
     installed: list[str] = []
     failed: list[str] = []
+    blocked = set(blocked_modules)
 
     start = time.time()
     result = _run_code_once(code, context_code, EXEC_TIMEOUT_SECONDS)
@@ -434,7 +440,9 @@ def _execute_with_auto_install(code: str, context_code: str, modules_hint: list[
     while not result.get("ok") and not timed_out and install_attempts < max_missing_install_attempts:
         missing_module = _extract_missing_module(str(result.get("stderr") or ""))
         if not missing_module:
-            while hint_index < len(hint_queue) and hint_queue[hint_index] in seen_missing:
+            while hint_index < len(hint_queue) and (
+                hint_queue[hint_index] in seen_missing or hint_queue[hint_index] in blocked
+            ):
                 hint_index += 1
             if hint_index < len(hint_queue):
                 missing_module = hint_queue[hint_index]
@@ -442,6 +450,9 @@ def _execute_with_auto_install(code: str, context_code: str, modules_hint: list[
             else:
                 break
         if missing_module in seen_missing:
+            break
+        if missing_module in blocked:
+            failed.append(missing_module)
             break
 
         seen_missing.add(missing_module)
@@ -498,6 +509,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     try:
         action = str(event.get("action", "execute")).strip().lower()
         modules_hint = _coerce_modules(event.get("expectedModules"))
+        blocked_modules = _coerce_modules(event.get("blockedModules"))
         base_installed, base_failed = _ensure_base_modules()
 
         if action == "preload":
@@ -532,7 +544,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             }
 
         context_code = str(event.get("contextCode") or "")
-        result = _execute_with_auto_install(code, context_code, modules_hint)
+        result = _execute_with_auto_install(code, context_code, modules_hint, blocked_modules)
         result["installedPackages"] = list(dict.fromkeys(base_installed + list(result.get("installedPackages", []))))
         result["failedModules"] = list(dict.fromkeys(base_failed + list(result.get("failedModules", []))))
         return result

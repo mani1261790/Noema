@@ -50,7 +50,7 @@ function checkGuardedTorchCellOnStandardRunner() {
     `spec = importlib.util.spec_from_file_location('noema_runner', r'''${handlerPath}''')`,
     'module = importlib.util.module_from_spec(spec)',
     'spec.loader.exec_module(module)',
-    'event = {"action": "execute", "code": ' + JSON.stringify(source) + ', "contextCode": "", "expectedModules": ["numpy", "matplotlib"]}',
+    'event = {"action": "execute", "code": ' + JSON.stringify(source) + ', "contextCode": "", "expectedModules": ["numpy", "matplotlib"], "blockedModules": ["torch"]}',
     'result = module.lambda_handler(event, None)',
     'print(json.dumps(result))'
   ].join('\n');
@@ -94,7 +94,7 @@ function checkNotebookFirstCell(notebookPath: string) {
     `spec = importlib.util.spec_from_file_location('noema_runner', r'''${handlerPath}''')`,
     'module = importlib.util.module_from_spec(spec)',
     'spec.loader.exec_module(module)',
-    'event = {"action": "execute", "code": ' + JSON.stringify(sourceText(firstCode?.source)) + ', "contextCode": "", "expectedModules": ["numpy", "matplotlib"]}',
+    'event = {"action": "execute", "code": ' + JSON.stringify(sourceText(firstCode?.source)) + ', "contextCode": "", "expectedModules": ["numpy", "matplotlib"], "blockedModules": ["torch"]}',
     'result = module.lambda_handler(event, None)',
     'print(json.dumps(result))'
   ].join('\n');

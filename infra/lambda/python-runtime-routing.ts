@@ -3,6 +3,8 @@ export const HEAVY_PYTHON_MODULES = new Set([
   "xgboost"
 ]);
 
+const MODULE_RE = /No module named ['"]([^'"]+)['"]/;
+
 export function normalizePythonModuleName(value: string): string {
   const moduleName = value.trim().split(".")[0].replace(/-/g, "_").toLowerCase();
   if (!moduleName) return "";
@@ -61,4 +63,20 @@ export function selectPythonRunnerFunctionName(
 
 export function stripHeavyPythonModules(modules: string[]): string[] {
   return modules.filter((moduleName) => !HEAVY_PYTHON_MODULES.has(moduleName));
+}
+
+export function requestedHeavyPythonModules(modules: string[]): string[] {
+  const seen = new Set<string>();
+  const requested: string[] = [];
+  for (const moduleName of modules) {
+    if (!HEAVY_PYTHON_MODULES.has(moduleName) || seen.has(moduleName)) continue;
+    seen.add(moduleName);
+    requested.push(moduleName);
+  }
+  return requested;
+}
+
+export function extractMissingPythonModuleFromText(text: string): string {
+  const match = MODULE_RE.exec(String(text || ""));
+  return normalizePythonModuleName(match?.[1] || "");
 }
