@@ -347,7 +347,7 @@ export class NoemaStack extends Stack {
     });
     const pythonRunnerHeavyFunction = new lambda.DockerImageFunction(this, "PythonRunnerHeavyFunction", {
       architecture: lambda.Architecture.X86_64,
-      memorySize: 3072,
+      memorySize: 3008,
       timeout: Duration.seconds(120),
       ephemeralStorageSize: Size.mebibytes(2048),
       code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, "../lambda/python-runner-heavy"), {
