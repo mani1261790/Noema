@@ -2001,10 +2001,8 @@
       .resizer { display: none !important; }
       .assistant { display: none; }
       .mobile-controls { display: flex; }
-      .fab,
-      .fab.visible {
-        display: none !important;
-      }
+      .fab { display: none; }
+      .fab.visible { display: inline-flex !important; }
       .main {
         border-radius: 0;
         border-left: 0;
@@ -2713,10 +2711,12 @@
         syncLlmSettingsUi();
         setLine(el.assistantSettingsStatus, "info", "");
         el.assistantSettingsOverlay.classList.add("visible");
+        syncChatFabState();
       }
 
       function closeAssistantSettings() {
         el.assistantSettingsOverlay.classList.remove("visible");
+        syncChatFabState();
       }
 
       function selectedLlmTarget() {
@@ -3500,6 +3500,18 @@
         renderPlaygroundHeaderControls();
       }
 
+      function getNextNotebookId() {
+        const chapters = notebookList();
+        const notebooks = chapters.flatMap((chapter) => chapter.notebooks);
+        if (!notebooks.length) return "";
+        const progressStore = readLearningProgressStore();
+        const completedNotebookSet = new Set(
+          Object.keys(progressStore.notebooks || {}).filter((id) => Boolean(progressStore.notebooks[id]?.completed))
+        );
+        const nextNotebook = notebooks.find((nb) => !completedNotebookSet.has(nb.id)) || notebooks[0] || null;
+        return nextNotebook?.id || "";
+      }
+
       function renderHomeDashboard() {
         const chapters = notebookList();
         const notebooks = chapters.flatMap((chapter) => chapter.notebooks);
@@ -3574,8 +3586,8 @@
           })
           .join("");
 
-        const nextNotebook = notebooks.find((nb) => !completedNotebookSet.has(nb.id)) || notebooks[0] || null;
-        const nextNotebookId = nextNotebook?.id || "";
+        const nextNotebookId = getNextNotebookId();
+        const nextNotebook = notebooks.find((nb) => nb.id === nextNotebookId) || notebooks[0] || null;
         const nextNotebookLabel = nextNotebook
           ? `${nextNotebook.title}`
           : "すべての教材を閲覧済みです";
@@ -4324,7 +4336,16 @@
           }
         }
 
-        if (!target) return;
+        if (!target) return false;
+
+        const previousNotebook = state.activeNotebook;
+        const previousSectionIds = Array.isArray(state.sectionIds) ? state.sectionIds.slice() : [];
+        const previousActiveSection = state.activeSection;
+        const previousSelectedText = state.selectedText;
+        const previousSelectedSection = state.selectedSection;
+        const previousSelectedContext = state.selectedContext;
+        const previousOpenChapters = { ...state.openChapters };
+        const previousEditorMap = new Map(state.activeEditorMap);
 
         state.activeNotebook = target;
         if (chapterId) {
@@ -4372,9 +4393,30 @@
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
           window.history.replaceState(null, "", url.toString());
+          return true;
         } catch (error) {
+          state.activeNotebook = previousNotebook;
+          state.sectionIds = previousSectionIds;
+          state.activeSection = previousActiveSection;
+          state.selectedText = previousSelectedText;
+          state.selectedSection = previousSelectedSection;
+          state.selectedContext = previousSelectedContext;
+          state.openChapters = previousOpenChapters;
+          state.activeEditorMap = previousEditorMap;
           const msg = error instanceof Error ? error.message : "読み込みエラー";
-          el.notebookContent.innerHTML = `<p class=\"error-text\">${msg}</p>`;
+          if (previousNotebook) {
+            renderSidebar();
+            renderHeader();
+            renderSections();
+            renderSelectionCard();
+            el.notebookContent.innerHTML = `<p class=\"error-text\">${msg}</p>`;
+          } else {
+            showHomeDashboard();
+            window.setTimeout(() => {
+              window.alert(msg);
+            }, 0);
+          }
+          return false;
         }
       }
 
@@ -4879,15 +4921,31 @@
         const isOpen = Boolean(open);
         el.sidebarOverlay.classList.toggle("visible", isOpen);
         document.body.classList.toggle("sidebar-menu-open", isOpen);
+        syncChatFabState();
       }
 
       function syncChatFabState() {
-        const visible = !!state.activeNotebook && (!state.chatOpen || isCompactMobileView());
+        const catalogReady = Boolean(
+          state.catalog &&
+          Array.isArray(state.catalog.chapters) &&
+          state.catalog.chapters.some((chapter) => Array.isArray(chapter?.notebooks) && chapter.notebooks.length > 0)
+        );
+        const compactMobile = isCompactMobileView();
+        const overlayOpen =
+          el.sidebarOverlay.classList.contains("visible") ||
+          el.chatOverlay.classList.contains("visible") ||
+          el.assistantSettingsOverlay.classList.contains("visible");
+        const visible = catalogReady && !overlayOpen && (!state.chatOpen || compactMobile);
         el.chatFab.classList.toggle("visible", visible);
         if (el.openChatMobile) {
-          el.openChatMobile.classList.toggle("is-hidden", !state.activeNotebook);
+          el.openChatMobile.classList.add("is-hidden");
         }
-        const label = state.chatOpen ? "Assistantを閉じる" : "Assistantを開く";
+        let label = "Assistantを開く";
+        if (state.chatOpen) {
+          label = "Assistantを閉じる";
+        } else if (!state.activeNotebook) {
+          label = state.loggedIn ? "最初の教材を開いてAssistantを開始" : "ログインしてAssistantを開始";
+        }
         el.chatFab.setAttribute("aria-label", label);
         el.chatFab.setAttribute("title", label);
       }
@@ -5175,7 +5233,25 @@
       }
 
       el.chatFab.addEventListener("click", function () {
-        setChatOpen(!state.chatOpen);
+        void (async () => {
+          if (!state.loggedIn) {
+            window.location.href = "/login";
+            return;
+          }
+          if (!state.activeNotebook && !state.chatOpen) {
+            const nextNotebookId = getNextNotebookId();
+            if (!nextNotebookId) {
+              return;
+            }
+            const opened = await selectNotebook(nextNotebookId);
+            if (!opened) {
+              return;
+            }
+            setChatOpen(true);
+            return;
+          }
+          setChatOpen(!state.chatOpen);
+        })();
       });
 
       el.openSidebar.addEventListener("click", function () {
