@@ -234,6 +234,16 @@ const MAX_RUNTIME_CODE_CHARS = 120_000;
 const MAX_RUNTIME_CONTEXT_CODE_CHARS = 120_000;
 const COLAB_GITHUB_REPO = (process.env.COLAB_GITHUB_REPO || "mani1261790/Noema").trim();
 const COLAB_GITHUB_REF = (process.env.COLAB_GITHUB_REF || "main").trim();
+const CONTENT_WRITE_MODE_RAW = (process.env.CONTENT_WRITE_MODE || "github_ssot").trim().toLowerCase();
+const CONTENT_GITHUB_REPO = (process.env.CONTENT_GITHUB_REPO || COLAB_GITHUB_REPO).trim();
+const CONTENT_GITHUB_REF = (process.env.CONTENT_GITHUB_REF || COLAB_GITHUB_REF).trim();
+
+type ContentWritePolicy = {
+  mode: string;
+  canWrite: boolean;
+  githubRepo: string;
+  githubRef: string;
+};
 
 async function streamBodyToString(body: unknown): Promise<string> {
   if (!body || typeof body !== "object") return "";
@@ -1564,6 +1574,12 @@ export async function listCatalog() {
   }
 
   return {
+    source: {
+      type: "github",
+      repo: CONTENT_GITHUB_REPO,
+      ref: CONTENT_GITHUB_REF,
+      commitSha: (process.env.SOURCE_COMMIT_SHA || "").trim() || null
+    },
     chapters: Array.from(chapters.values())
       .sort((a, b) => a.order - b.order)
       .map((chapter) => ({
@@ -1690,6 +1706,7 @@ export async function listAdminNotebooks() {
   });
 
   return {
+    writePolicy: getContentWritePolicy(),
     items: notebooks.map((item) => ({
       notebookId: item.notebookId,
       title: item.title,
@@ -2595,6 +2612,25 @@ function normalizeExpectedModules(raw: unknown): string[] {
   }
 
   return Array.from(seen);
+}
+
+export function getContentWritePolicy(): ContentWritePolicy {
+  const mode = CONTENT_WRITE_MODE_RAW === "aws_direct" ? "aws_direct" : "github_ssot";
+  const canWrite = mode === "aws_direct";
+  return {
+    mode,
+    canWrite,
+    githubRepo: CONTENT_GITHUB_REPO,
+    githubRef: CONTENT_GITHUB_REF
+  };
+}
+
+export function assertAdminContentWritable() {
+  const policy = getContentWritePolicy();
+  if (policy.canWrite) return;
+  throw new Error(
+    `GitHub正本モードのため管理画面からの直接保存は無効です。GitHub (${policy.githubRepo}@${policy.githubRef}) へPR/commitしてください。`
+  );
 }
 
 async function invokePythonRunner(payload: Record<string, unknown>) {

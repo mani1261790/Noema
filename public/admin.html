@@ -911,7 +911,13 @@
         patchProposal: null,
         editorMode: "json",
         previewRefreshTimer: 0,
-        previewRequestSeq: 0
+        previewRequestSeq: 0,
+        writePolicy: {
+          mode: "github_ssot",
+          canWrite: false,
+          githubRepo: "mani1261790/Noema",
+          githubRef: "main"
+        }
       };
 
       function escapeHtml(value) {
@@ -1018,6 +1024,43 @@
         el.editorSaveState.style.color = kind === "error" ? "#ffb7c3" : kind === "success" ? "var(--ok)" : "var(--muted)";
       }
 
+      function isContentWriteLocked() {
+        return !state.writePolicy || state.writePolicy.canWrite !== true;
+      }
+
+      function applyWritePolicy(payload) {
+        const policy = payload && payload.writePolicy && typeof payload.writePolicy === "object"
+          ? payload.writePolicy
+          : null;
+        if (!policy) return;
+        state.writePolicy = {
+          mode: String(policy.mode || "github_ssot").trim().toLowerCase(),
+          canWrite: Boolean(policy.canWrite),
+          githubRepo: String(policy.githubRepo || "mani1261790/Noema").trim(),
+          githubRef: String(policy.githubRef || "main").trim()
+        };
+
+        const locked = isContentWriteLocked();
+        if (locked) {
+          const branch = state.writePolicy.githubRef || "main";
+          const repo = state.writePolicy.githubRepo || "mani1261790/Noema";
+          setLine(
+            el.structureStatus,
+            "warn",
+            `GitHub正本モード: 管理画面からの直接保存は無効です。${repo}@${branch} にcommit/PRしてください。`
+          );
+          setEditorSaveState("自動保存: 無効（GitHub正本モード）", "warn");
+        } else {
+          setLine(el.structureStatus, "info", "構成の自動保存: 有効");
+        }
+
+        el.manualSaveBtn.disabled = locked;
+        el.uploadBtn.disabled = locked;
+        el.addSectionBtn.disabled = locked;
+        el.patchGenerateBtn.disabled = locked || state.patchGenerating;
+        el.patchApplyBtn.disabled = locked || state.patchGenerating || !state.patchProposal;
+      }
+
       function renderPreviewHtml(html, messageIfEmpty) {
         const body = String(html || "").trim();
         if (!body) {
@@ -1113,8 +1156,9 @@
         }
 
         const stale = String(el.ipynbEditor.value || "") !== String(proposal.baseIpynbRaw || "");
-        el.patchApplyBtn.disabled = state.patchGenerating || stale;
-        el.patchRejectBtn.disabled = state.patchGenerating;
+        const locked = isContentWriteLocked();
+        el.patchApplyBtn.disabled = locked || state.patchGenerating || stale;
+        el.patchRejectBtn.disabled = locked || state.patchGenerating;
         el.patchSummary.textContent = proposal.summary || "提案概要はありません。";
         el.patchDiff.textContent = proposal.unifiedDiff || "(no changes)";
         el.patchModelLabel.textContent =
@@ -1549,6 +1593,10 @@
       }
 
       function markStructureDirty(message) {
+        if (isContentWriteLocked()) {
+          setLine(el.structureStatus, "warn", "GitHub正本モードのため構成自動保存は無効です。");
+          return;
+        }
         state.structureDirty = true;
         setLine(el.structureStatus, "warn", message || "構成に未保存の変更があります...");
         if (state.structureSaveTimer) {
@@ -1560,6 +1608,10 @@
       }
 
       async function saveStructure(manual) {
+        if (isContentWriteLocked()) {
+          setLine(el.structureStatus, "warn", "GitHub正本モードのため構成保存は無効です。");
+          return false;
+        }
         if (state.structureSaveTimer) {
           window.clearTimeout(state.structureSaveTimer);
           state.structureSaveTimer = 0;
@@ -1621,6 +1673,10 @@
       }
 
       function markNotebookDirty(message) {
+        if (isContentWriteLocked()) {
+          setEditorSaveState("GitHub正本モードのため自動保存は無効です。", "warn");
+          return;
+        }
         state.notebookDirty = true;
         setEditorSaveState(message || "未保存の変更があります...", "warn");
         if (state.notebookSaveTimer) {
@@ -1632,6 +1688,11 @@
       }
 
       async function saveActiveNotebook(manual) {
+        if (isContentWriteLocked()) {
+          setEditorSaveState("GitHub正本モードのため保存は無効です。", "warn");
+          setEditorStatus("この環境ではGitHubへのcommit/PRで教材を更新してください。", "warn");
+          return false;
+        }
         if (state.notebookSaveTimer) {
           window.clearTimeout(state.notebookSaveTimer);
           state.notebookSaveTimer = 0;
@@ -1695,6 +1756,10 @@
       }
 
       async function generatePatchProposal() {
+        if (isContentWriteLocked()) {
+          setPatchStatus("warn", "GitHub正本モードでは管理画面のPatch提案機能は無効です。GitHub上で修正してください。");
+          return;
+        }
         if (state.patchGenerating) return;
         const notebookId = String(state.activeNotebookId || "").trim();
         if (!notebookId) {
@@ -1751,12 +1816,16 @@
           setPatchStatus("error", message);
         } finally {
           state.patchGenerating = false;
-          el.patchGenerateBtn.disabled = false;
+          el.patchGenerateBtn.disabled = isContentWriteLocked();
           renderPatchProposal();
         }
       }
 
       async function applyPatchProposal() {
+        if (isContentWriteLocked()) {
+          setPatchStatus("warn", "GitHub正本モードでは管理画面から提案採用できません。GitHubで反映してください。");
+          return;
+        }
         const proposal = state.patchProposal;
         if (!proposal) {
           setPatchStatus("warn", "採用できる提案がありません。");
@@ -1861,6 +1930,7 @@
         setLine(el.structureStatus, "info", "教材一覧を読み込み中...");
         try {
           const payload = await api("/api/admin/notebooks", { method: "GET" });
+          applyWritePolicy(payload);
           state.chapters = normalizeCatalog(payload);
 
           const nextOpenMap = {};
@@ -1877,7 +1947,17 @@
           state.structureDirty = false;
 
           renderCatalog();
-          setLine(el.structureStatus, "success", `教材一覧を更新しました (${new Date().toLocaleTimeString()})`);
+          if (isContentWriteLocked()) {
+            const branch = state.writePolicy.githubRef || "main";
+            const repo = state.writePolicy.githubRepo || "mani1261790/Noema";
+            setLine(
+              el.structureStatus,
+              "warn",
+              `GitHub正本モード: ${repo}@${branch} を更新してください（管理画面の直接保存は無効）。`
+            );
+          } else {
+            setLine(el.structureStatus, "success", `教材一覧を更新しました (${new Date().toLocaleTimeString()})`);
+          }
 
           if (state.activeNotebookId) {
             await setActiveNotebook(state.activeNotebookId);
@@ -1915,6 +1995,10 @@
 
       async function handleUpload(event) {
         event.preventDefault();
+        if (isContentWriteLocked()) {
+          setLine(el.uploadStatus, "warn", "GitHub正本モードのため管理画面アップロードは無効です。");
+          return;
+        }
         setLine(el.uploadStatus, "info", "アップロード中...");
         el.uploadBtn.disabled = true;
 

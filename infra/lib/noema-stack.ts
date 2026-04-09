@@ -66,6 +66,19 @@ export class NoemaStack extends Stack {
     const openAiModelLarge = String(this.node.tryGetContext("openAiModelLarge") ?? "");
     const openAiMaxOutputTokens = String(this.node.tryGetContext("openAiMaxOutputTokens") ?? "800");
     const openAiTemperature = String(this.node.tryGetContext("openAiTemperature") ?? "0.2");
+    const defaultContentRef = (() => {
+      const trimmed = githubRefPattern.trim();
+      if (trimmed.startsWith("refs/heads/") && !trimmed.includes("*")) {
+        return trimmed.replace(/^refs\/heads\//, "");
+      }
+      return "main";
+    })();
+    const contentWriteMode = String(this.node.tryGetContext("contentWriteMode") ?? "github_ssot").trim().toLowerCase();
+    const contentGithubRepo = String(this.node.tryGetContext("contentGithubRepo") ?? (githubRepo || "mani1261790/Noema")).trim();
+    const contentGithubRef = String(this.node.tryGetContext("contentGithubRef") ?? defaultContentRef).trim();
+    if (contentWriteMode !== "github_ssot" && contentWriteMode !== "aws_direct") {
+      throw new Error(`Unsupported contentWriteMode context: ${contentWriteMode}. Allowed: github_ssot, aws_direct`);
+    }
     const qaRateLimitMax = String(this.node.tryGetContext("qaRateLimitMax") ?? "6");
     const qaRateLimitWindowMinutes = String(this.node.tryGetContext("qaRateLimitWindowMinutes") ?? "1");
     const bedrockRegion = String(this.node.tryGetContext("bedrockRegion") ?? "us-east-1");
@@ -309,7 +322,11 @@ export class NoemaStack extends Stack {
         BEDROCK_MODEL_SMALL: bedrockModelSmall,
         BEDROCK_MODEL_MID: bedrockModelMid,
         BEDROCK_MODEL_LARGE: bedrockModelLarge,
-        BEDROCK_MAX_TOKENS: bedrockMaxTokens
+        BEDROCK_MAX_TOKENS: bedrockMaxTokens,
+        CONTENT_WRITE_MODE: contentWriteMode,
+        CONTENT_GITHUB_REPO: contentGithubRepo,
+        CONTENT_GITHUB_REF: contentGithubRef,
+        SOURCE_COMMIT_SHA: process.env.GITHUB_SHA || ""
       }
     });
 

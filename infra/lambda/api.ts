@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import {
   askQuestion,
+  assertAdminContentWritable,
   createNotebookColabSession,
   deleteAdminNotebook,
   getAdminNotebookDetail,
@@ -270,6 +271,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
   if (route === "POST /api/admin/notebooks") {
     try {
+      assertAdminContentWritable();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(409, { error: message });
+    }
+    try {
       const notebookId = await upsertNotebookFromEvent(event);
       return json(201, { notebookId });
     } catch (error) {
@@ -302,6 +309,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   if (route === "PATCH /api/admin/notebooks") {
+    try {
+      assertAdminContentWritable();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(409, { error: message });
+    }
     const payload = parseAdminNotebookPatchInput(event);
     if (!payload) {
       return json(400, { error: "notebookId and at least one editable field are required" });
@@ -354,6 +367,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   if (route === "PUT /api/admin/notebooks/{notebookId}" || /^PUT \/api\/admin\/notebooks\/[^/]+$/.test(route)) {
+    try {
+      assertAdminContentWritable();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(409, { error: message });
+    }
     const notebookId = notebookIdFromEvent(event);
     if (!notebookId) {
       return json(400, { error: "notebookId is required" });
@@ -378,6 +397,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   if (route === "DELETE /api/admin/notebooks/{notebookId}" || /^DELETE \/api\/admin\/notebooks\/[^/]+$/.test(route)) {
+    try {
+      assertAdminContentWritable();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(409, { error: message });
+    }
     const notebookId = notebookIdFromEvent(event);
     if (!notebookId) {
       return json(400, { error: "notebookId is required" });
