@@ -239,6 +239,7 @@ const lambdaClient = new LambdaClient({});
 
 const bedrockRegion = process.env.BEDROCK_REGION || process.env.AWS_REGION;
 const bedrockClient = bedrockRegion ? new BedrockRuntimeClient({ region: bedrockRegion }) : null;
+const ALLOWED_BEDROCK_MODEL_IDS = new Set(["amazon.nova-micro-v1:0", "amazon.nova-lite-v1:0"]);
 
 const QUESTIONS_TABLE = requiredEnv("QUESTIONS_TABLE");
 const ANSWERS_TABLE = requiredEnv("ANSWERS_TABLE");
@@ -832,6 +833,32 @@ function routeModel(questionText: string, contextChars: number): ModelSelection 
   return { provider, modelId: chosen };
 }
 
+function resolveBedrockModelId(requestedModelId: string, questionText: string, prompt: string) {
+  const explicitModel = requestedModelId.trim();
+  if (explicitModel) {
+    if (!ALLOWED_BEDROCK_MODEL_IDS.has(explicitModel)) {
+      throw new Error(`Unsupported Bedrock model: ${explicitModel}`);
+    }
+    return explicitModel;
+  }
+
+  const selectedModel = routeModel(questionText, prompt.length);
+  const fallbackModel =
+    (selectedModel.provider === "bedrock" ? selectedModel.modelId : "") ||
+    process.env.BEDROCK_MODEL_SMALL?.trim() ||
+    "";
+
+  if (!fallbackModel) {
+    throw new Error("Bedrock model is not configured. Set BEDROCK_MODEL_SMALL in Deploy Infra.");
+  }
+
+  if (!ALLOWED_BEDROCK_MODEL_IDS.has(fallbackModel)) {
+    throw new Error(`Unsupported Bedrock model: ${fallbackModel}`);
+  }
+
+  return fallbackModel;
+}
+
 async function callOpenAI(prompt: string, modelId: string): Promise<ModelResponse> {
   const apiKey = await getOpenAiApiKey();
   if (!apiKey) {
@@ -935,16 +962,25 @@ async function callBedrock(prompt: string, modelId: string): Promise<ModelRespon
     throw new Error("BEDROCK_REGION is not configured.");
   }
 
-  const response = await bedrockClient.send(
-    new ConverseCommand({
-      modelId,
-      messages: [{ role: "user", content: [{ text: prompt }] }],
-      inferenceConfig: {
-        maxTokens: Number(process.env.BEDROCK_MAX_TOKENS || 800),
-        temperature: Number(process.env.BEDROCK_TEMPERATURE || 0.2)
-      }
-    })
-  );
+  let response;
+  try {
+    response = await bedrockClient.send(
+      new ConverseCommand({
+        modelId,
+        messages: [{ role: "user", content: [{ text: prompt }] }],
+        inferenceConfig: {
+          maxTokens: Number(process.env.BEDROCK_MAX_TOKENS || 800),
+          temperature: Number(process.env.BEDROCK_TEMPERATURE || 0.2)
+        }
+      })
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("model identifier is invalid")) {
+      throw new Error(`Bedrock model identifier is invalid: ${modelId} (region: ${bedrockRegion || "unknown"})`);
+    }
+    throw error;
+  }
 
   const text =
     response.output?.message?.content
@@ -1450,10 +1486,11 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
       }
       throw error;
     }
-    const selectedModel = routeModel(input.questionText, prompt.length);
-    const modelId =
-      (input.modelId?.trim() && input.modelId.trim().toLowerCase() !== "default" ? input.modelId.trim() : "") ||
-      (selectedModel.provider === "bedrock" ? selectedModel.modelId : process.env.BEDROCK_MODEL_SMALL?.trim() || "bedrock");
+    const modelId = resolveBedrockModelId(
+      input.modelId?.trim().toLowerCase() === "default" ? "" : input.modelId?.trim() || "",
+      input.questionText,
+      prompt
+    );
     let result: ModelResponse;
     try {
       result = await callBedrock(prompt, modelId);
