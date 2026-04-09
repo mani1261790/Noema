@@ -1429,6 +1429,81 @@
       line-height: 1.4;
     }
 
+    .assistant-config-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .assistant-model-select,
+    .assistant-settings-input {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--glass-edge-soft);
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 36%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .assistant-model-select {
+      flex: 1;
+    }
+
+    .assistant-settings-btn {
+      flex: 0 0 auto;
+      min-width: 88px;
+    }
+
+    .assistant-settings-panel {
+      width: min(92vw, 420px);
+      margin: auto;
+      height: auto;
+      max-height: min(80vh, 620px);
+    }
+
+    .assistant-settings-body {
+      display: grid;
+      gap: 10px;
+      padding: 4px 4px 8px;
+    }
+
+    .assistant-settings-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+
+    .assistant-settings-copy,
+    .assistant-settings-status {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .assistant-settings-status[data-kind="success"] { color: var(--ok); }
+    .assistant-settings-status[data-kind="error"] { color: #ffb7c3; }
+    .assistant-settings-status[data-kind="warn"] { color: var(--warn); }
+
+    .assistant-settings-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .assistant-settings-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .assistant-settings-actions > * {
+      flex: 1;
+    }
+
     #chat-log {
       min-height: 0;
       flex: 1;
@@ -2015,6 +2090,10 @@
         width: 100%;
         justify-self: stretch;
       }
+      .assistant-config-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
       .chat-mobile-mount .assistant-head-actions .liquid-nav {
         width: 100%;
         justify-content: flex-start;
@@ -2224,6 +2303,14 @@
               </button>
             </div>
           </div>
+          <div class="assistant-config-row">
+            <select id="chat-model-select" class="assistant-model-select" aria-label="LLM model">
+              <option value="openai:gpt-5-nano">OpenAI API / GPT-5 nano</option>
+              <option value="gemini:gemini-2.5-flash">Gemini API / 2.5 Flash</option>
+              <option value="bedrock:default">Bedrock</option>
+            </select>
+            <button class="button-ghost assistant-settings-btn" id="assistant-settings-btn" type="button">Settings</button>
+          </div>
         </div>
 
         <div id="chat-log" class="glass-soft"></div>
@@ -2271,12 +2358,39 @@
     <div class="chat-mobile-mount" id="chat-mobile-mount"></div>
   </div>
 
+  <div class="overlay" id="assistant-settings-overlay">
+    <div class="overlay-panel glass-strong assistant-settings-panel">
+      <div class="overlay-actions">
+        <button class="button-ghost overlay-close" id="assistant-settings-close" type="button" aria-label="閉じる">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6L18 18"></path>
+            <path d="M18 6L6 18"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="assistant-settings-body">
+        <h3 class="assistant-settings-title">API Settings</h3>
+        <p class="assistant-settings-copy">APIキーはこのブラウザにだけ保存されます。</p>
+        <label class="assistant-settings-label" for="openai-api-key">OpenAI API Key</label>
+        <input id="openai-api-key" class="assistant-settings-input" type="password" autocomplete="off" placeholder="sk-..." />
+        <label class="assistant-settings-label" for="gemini-api-key">Gemini API Key</label>
+        <input id="gemini-api-key" class="assistant-settings-input" type="password" autocomplete="off" placeholder="AIza..." />
+        <div class="assistant-settings-actions">
+          <button class="button" id="assistant-settings-save" type="button">保存</button>
+          <button class="button-ghost" id="assistant-settings-clear" type="button">クリア</button>
+        </div>
+        <div class="assistant-settings-status" id="assistant-settings-status"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
       const TOKEN_KEY = "noema_id_token";
       const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
+      const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
       const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
       const KEEP_LATEST_REVISIONS = 10;
       const CONFLICT_RETENTION_DAYS = 30;
@@ -2304,6 +2418,11 @@
         loggedIn: false,
         isAdmin: false,
         authCheckSeq: 0,
+        llmSettings: {
+          selectedModel: "openai:gpt-5-nano",
+          openaiApiKey: "",
+          geminiApiKey: ""
+        },
         resizing: false,
         startX: 0,
         startWidth: 400,
@@ -2343,6 +2462,15 @@
         adminLinkMobile: document.getElementById("admin-link-mobile"),
         newChat: document.getElementById("new-chat"),
         chatHistory: document.getElementById("chat-history"),
+        chatModelSelect: document.getElementById("chat-model-select"),
+        assistantSettingsBtn: document.getElementById("assistant-settings-btn"),
+        assistantSettingsOverlay: document.getElementById("assistant-settings-overlay"),
+        assistantSettingsClose: document.getElementById("assistant-settings-close"),
+        assistantSettingsSave: document.getElementById("assistant-settings-save"),
+        assistantSettingsClear: document.getElementById("assistant-settings-clear"),
+        assistantSettingsStatus: document.getElementById("assistant-settings-status"),
+        openAiApiKeyInput: document.getElementById("openai-api-key"),
+        geminiApiKeyInput: document.getElementById("gemini-api-key"),
         assistantClose: document.getElementById("assistant-close"),
         sidebarOverlay: document.getElementById("sidebar-overlay"),
         chatOverlay: document.getElementById("chat-overlay"),
@@ -2532,6 +2660,78 @@
 
       function getLearningProgressStorageKey() {
         return `${LEARNING_PROGRESS_KEY_PREFIX}:${state.userScopeKey || "anon"}`;
+      }
+
+      function getLlmSettingsStorageKey() {
+        return `${LLM_SETTINGS_KEY_PREFIX}:${state.userScopeKey || "anon"}`;
+      }
+
+      function normalizeLlmSettings(rawSettings) {
+        const parsed = rawSettings && typeof rawSettings === "object" ? rawSettings : {};
+        const selectedModel = String(parsed.selectedModel || "openai:gpt-5-nano").trim();
+        const openaiApiKey = String(parsed.openaiApiKey || "").trim();
+        const geminiApiKey = String(parsed.geminiApiKey || "").trim();
+        return {
+          selectedModel: selectedModel || "openai:gpt-5-nano",
+          openaiApiKey,
+          geminiApiKey
+        };
+      }
+
+      function readLlmSettings() {
+        const key = getLlmSettingsStorageKey();
+        const serialized = localStorage.getItem(key) || "";
+        let parsed = {};
+        try {
+          parsed = serialized ? JSON.parse(serialized) : {};
+        } catch {}
+        return normalizeLlmSettings(parsed);
+      }
+
+      function writeLlmSettings(nextSettings) {
+        const key = getLlmSettingsStorageKey();
+        const normalized = normalizeLlmSettings(nextSettings);
+        localStorage.setItem(key, JSON.stringify(normalized));
+        state.llmSettings = normalized;
+        syncLlmSettingsUi();
+      }
+
+      function syncLlmSettingsUi() {
+        if (el.chatModelSelect) {
+          el.chatModelSelect.value = state.llmSettings.selectedModel || "openai:gpt-5-nano";
+        }
+        if (el.openAiApiKeyInput) {
+          el.openAiApiKeyInput.value = state.llmSettings.openaiApiKey || "";
+        }
+        if (el.geminiApiKeyInput) {
+          el.geminiApiKeyInput.value = state.llmSettings.geminiApiKey || "";
+        }
+        refreshChatProviderUi();
+      }
+
+      function openAssistantSettings() {
+        syncLlmSettingsUi();
+        setLine(el.assistantSettingsStatus, "info", "");
+        el.assistantSettingsOverlay.classList.add("visible");
+      }
+
+      function closeAssistantSettings() {
+        el.assistantSettingsOverlay.classList.remove("visible");
+      }
+
+      function selectedLlmTarget() {
+        const value = String(state.llmSettings.selectedModel || "openai:gpt-5-nano");
+        const [provider, ...rest] = value.split(":");
+        const modelId = rest.join(":") || "";
+        return {
+          provider: provider || "openai",
+          modelId: modelId === "default" ? "" : modelId
+        };
+      }
+
+      function refreshChatProviderUi() {
+        el.chatHistory.disabled = false;
+        el.chatHistory.title = "History";
       }
 
       function createEmptyLearningProgressStore() {
@@ -3111,6 +3311,8 @@
         state.userScopeKey = token ? resolveUserScopeKey(token) : "";
 
         if (state.loggedIn) {
+          state.llmSettings = readLlmSettings();
+          syncLlmSettingsUi();
           [el.loginLink, el.loginLinkMobile].forEach((link) => {
             if (!link) return;
             link.textContent = "ログアウト";
@@ -3137,6 +3339,8 @@
         state.isAdmin = false;
         state.chatOpen = false;
         state.playgroundEnabled = false;
+        state.llmSettings = normalizeLlmSettings({});
+        syncLlmSettingsUi();
         applyEditorSourcesForCurrentMode();
         applyPlaygroundModeToCurrentNotebook();
         closeMobileChatOverlay();
@@ -4463,6 +4667,62 @@
         throw new Error("回答待機がタイムアウトしました");
       }
 
+      async function completeAssistantChat(questionText, notebookId, sectionId, target) {
+        const token = getToken();
+        if (!token) {
+          throw new Error("セッションが切れています。再ログインしてください。");
+        }
+
+        const provider = target.provider;
+        const modelId = target.modelId || "";
+        const body = {
+          notebookId,
+          sectionId,
+          questionText,
+          provider,
+          modelId
+        };
+
+        if (provider === "openai") {
+          const apiKey = String(state.llmSettings.openaiApiKey || "").trim();
+          if (!apiKey) {
+            openAssistantSettings();
+            throw new Error("OpenAI API Key を Settings で登録してください。");
+          }
+          body.apiKey = apiKey;
+        }
+
+        if (provider === "gemini") {
+          const apiKey = String(state.llmSettings.geminiApiKey || "").trim();
+          if (!apiKey) {
+            openAssistantSettings();
+            throw new Error("Gemini API Key を Settings で登録してください。");
+          }
+          body.apiKey = apiKey;
+        }
+
+        const response = await fetch(`${API_BASE}/api/chat/complete`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        let payload = {};
+        try {
+          payload = await response.json();
+        } catch {}
+
+        if (!response.ok) {
+          const message = payload && payload.error ? payload.error : "質問の送信に失敗しました";
+          throw new Error(String(message));
+        }
+
+        return payload;
+      }
+
       async function sendQuestion() {
         if (state.busy || !state.loggedIn) return;
 
@@ -4493,6 +4753,7 @@
 
         const sectionId = state.selectedSection || state.activeSection || "intro";
         const questionText = buildQuestionTextWithSelection(text, state.selectedContext);
+        const target = selectedLlmTarget();
 
         pushMessage("user", text);
         el.chatInput.value = "";
@@ -4503,32 +4764,13 @@
         el.sendChat.setAttribute("title", "送信中");
 
         try {
-          const response = await fetch(`${API_BASE}/api/questions`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              notebookId: notebook.id,
-              sectionId,
-              questionText
-            })
-          });
-
-          if (!response.ok) {
-            let error = "質問の送信に失敗しました";
-            try {
-              const payload = await response.json();
-              if (payload && payload.error) error = payload.error;
-            } catch {}
-            throw new Error(error);
-          }
-
-          const payload = await response.json();
-          const answer = await pollAnswer(payload.questionId, token);
+          const answer = await completeAssistantChat(questionText, notebook.id, sectionId, target);
           const refs = (answer.sourceReferences || []).map((source) => `${source.notebookId}${source.location}`).join(", ");
-          pushMessage("assistant", answer.answerText || "回答が空でした", { refs });
+          const meta = { refs };
+          if (target.provider === "bedrock" && Number.isFinite(Number(answer.bedrockRemainingToday))) {
+            meta.refs = refs ? `${refs} | Bedrock残り ${Number(answer.bedrockRemainingToday)}回/日` : `Bedrock残り ${Number(answer.bedrockRemainingToday)}回/日`;
+          }
+          pushMessage("assistant", answer.answerText || "回答が空でした", meta);
         } catch (error) {
           pushMessage("system", error instanceof Error ? error.message : "質問処理に失敗しました");
         } finally {
@@ -4583,7 +4825,7 @@
           const items = Array.isArray(payload?.items) ? payload.items : [];
 
           if (!items.length) {
-            state.messages = [ { role: "system", text: "このノートの履歴はまだありません。", meta: {} } ];
+            state.messages = [{ role: "system", text: "このノートの履歴はまだありません。", meta: {} }];
             renderMessages();
             return;
           }
@@ -4870,6 +5112,61 @@
       el.chatHistory.addEventListener("click", function () {
         void loadQuestionHistory();
       });
+
+      if (el.chatModelSelect) {
+        el.chatModelSelect.addEventListener("change", function () {
+          state.llmSettings = {
+            ...state.llmSettings,
+            selectedModel: String(el.chatModelSelect.value || "openai:gpt-5-nano")
+          };
+          writeLlmSettings(state.llmSettings);
+        });
+      }
+
+      if (el.assistantSettingsBtn) {
+        el.assistantSettingsBtn.addEventListener("click", function () {
+          openAssistantSettings();
+        });
+      }
+
+      if (el.assistantSettingsClose) {
+        el.assistantSettingsClose.addEventListener("click", function () {
+          closeAssistantSettings();
+        });
+      }
+
+      if (el.assistantSettingsOverlay) {
+        el.assistantSettingsOverlay.addEventListener("click", function (event) {
+          if (event.target === el.assistantSettingsOverlay) {
+            closeAssistantSettings();
+          }
+        });
+      }
+
+      if (el.assistantSettingsSave) {
+        el.assistantSettingsSave.addEventListener("click", function () {
+          writeLlmSettings({
+            selectedModel: el.chatModelSelect ? String(el.chatModelSelect.value || "openai:gpt-5-nano") : "openai:gpt-5-nano",
+            openaiApiKey: String(el.openAiApiKeyInput ? el.openAiApiKeyInput.value : "").trim(),
+            geminiApiKey: String(el.geminiApiKeyInput ? el.geminiApiKeyInput.value : "").trim()
+          });
+          setLine(el.assistantSettingsStatus, "success", "保存しました。");
+          window.setTimeout(() => {
+            closeAssistantSettings();
+          }, 240);
+        });
+      }
+
+      if (el.assistantSettingsClear) {
+        el.assistantSettingsClear.addEventListener("click", function () {
+          writeLlmSettings({
+            selectedModel: el.chatModelSelect ? String(el.chatModelSelect.value || "openai:gpt-5-nano") : "openai:gpt-5-nano",
+            openaiApiKey: "",
+            geminiApiKey: ""
+          });
+          setLine(el.assistantSettingsStatus, "info", "APIキーをクリアしました。");
+        });
+      }
 
       if (el.assistantClose) {
         el.assistantClose.addEventListener("click", function () {

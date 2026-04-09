@@ -81,6 +81,7 @@ export class NoemaStack extends Stack {
     }
     const qaRateLimitMax = String(this.node.tryGetContext("qaRateLimitMax") ?? "6");
     const qaRateLimitWindowMinutes = String(this.node.tryGetContext("qaRateLimitWindowMinutes") ?? "1");
+    const bedrockDailyLimit = String(this.node.tryGetContext("bedrockDailyLimit") ?? "10");
     const bedrockRegion = String(this.node.tryGetContext("bedrockRegion") ?? "us-east-1");
     const allowedBedrockRegions = new Set(["us-east-1", "us-west-2", "ap-northeast-1", "ap-northeast-3"]);
     if (!allowedBedrockRegions.has(bedrockRegion)) {
@@ -318,6 +319,7 @@ export class NoemaStack extends Stack {
         OPENAI_TEMPERATURE: openAiTemperature,
         QA_RATE_LIMIT_MAX: qaRateLimitMax,
         QA_RATE_LIMIT_WINDOW_MINUTES: qaRateLimitWindowMinutes,
+        BEDROCK_DAILY_LIMIT: bedrockDailyLimit,
         BEDROCK_REGION: bedrockRegion,
         BEDROCK_MODEL_SMALL: bedrockModelSmall,
         BEDROCK_MODEL_MID: bedrockModelMid,
@@ -507,6 +509,13 @@ export class NoemaStack extends Stack {
     api.addRoutes({
       path: "/api/questions/history",
       methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
+      path: "/api/chat/complete",
+      methods: [apigwv2.HttpMethod.POST],
       integration: apiIntegration,
       authorizer: jwtAuthorizer
     });

@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "
 import {
   askQuestion,
   assertAdminContentWritable,
+  completeChat,
   createNotebookColabSession,
   deleteAdminNotebook,
   getAdminNotebookDetail,
@@ -20,6 +21,7 @@ import {
   parseAdminNotebookPutInput,
   parseAdminPatchInput,
   parseAskQuestionInput,
+  parseChatCompleteInput,
   parseNotebookColabSessionInput,
   parsePythonRuntimeInput,
   parsePythonRuntimePreloadInput,
@@ -127,6 +129,29 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
           : message.startsWith("Rate limit exceeded")
             ? 429
             : 500;
+      return json(statusCode, { error: message });
+    }
+  }
+
+  if (route === "POST /api/chat/complete") {
+    const payload = parseChatCompleteInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request", details: "notebookId/questionText/provider are required" });
+    }
+
+    try {
+      const result = await completeChat(payload, user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const statusCode =
+        message === "Notebook not found."
+          ? 404
+          : message.includes("API key is not configured")
+            ? 400
+            : message.startsWith("Bedrock daily limit exceeded") || message.startsWith("Rate limit exceeded")
+              ? 429
+              : 500;
       return json(statusCode, { error: message });
     }
   }

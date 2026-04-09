@@ -147,6 +147,26 @@ type AskQuestionInput = {
   questionText: string;
 };
 
+type ChatProvider = "openai" | "gemini" | "bedrock";
+
+type ChatCompleteInput = {
+  notebookId: string;
+  sectionId: string;
+  questionText: string;
+  provider: ChatProvider;
+  modelId?: string;
+  apiKey?: string;
+};
+
+type ChatCompleteResult = {
+  answerText: string;
+  sourceReferences: SourceReference[];
+  tokensUsed: number;
+  provider: ChatProvider;
+  modelId: string;
+  bedrockRemainingToday: number | null;
+};
+
 type AskQuestionResult = {
   questionId: string;
   status: QuestionStatus;
@@ -297,6 +317,7 @@ const ADMIN_EMAILS = new Set(
 const INLINE_QA = (process.env.NOEMA_INLINE_QA || "false").toLowerCase() === "true";
 const QA_RATE_LIMIT_MAX = parsePositiveInt(process.env.QA_RATE_LIMIT_MAX, 6);
 const QA_RATE_LIMIT_WINDOW_MINUTES = parsePositiveInt(process.env.QA_RATE_LIMIT_WINDOW_MINUTES, 1);
+const BEDROCK_DAILY_LIMIT = parsePositiveInt(process.env.BEDROCK_DAILY_LIMIT, 10);
 
 let openAiApiKeyPromise: Promise<string | null> | null = null;
 
@@ -472,23 +493,10 @@ async function putAccessLog(userId: string, notebookId: string, action: string) 
     .catch(() => undefined);
 }
 
-async function ensureQuestionRateLimit(userId: string) {
+async function assertQuestionRateLimitAvailable(userId: string) {
   const now = new Date();
   const windowMs = QA_RATE_LIMIT_WINDOW_MINUTES * 60_000;
   const from = new Date(now.getTime() - windowMs).toISOString();
-  const requestAt = `${now.toISOString()}#${crypto.randomUUID()}`;
-  const expiresAt = Math.floor((now.getTime() + windowMs * 2) / 1000);
-
-  await ddb.send(
-    new PutCommand({
-      TableName: RATE_LIMIT_TABLE,
-      Item: {
-        userId,
-        requestAt,
-        expiresAt
-      }
-    })
-  );
 
   const response = await ddb.send(
     new QueryCommand({
@@ -504,20 +512,94 @@ async function ensureQuestionRateLimit(userId: string) {
     })
   );
 
-  if ((response.Count ?? 0) > QA_RATE_LIMIT_MAX) {
-    await ddb
-      .send(
-        new DeleteCommand({
-          TableName: RATE_LIMIT_TABLE,
-          Key: {
-            userId,
-            requestAt
-          }
-        })
-      )
-      .catch(() => undefined);
+  if ((response.Count ?? 0) >= QA_RATE_LIMIT_MAX) {
     throw new Error("Rate limit exceeded. Please wait and retry.");
   }
+}
+
+async function recordQuestionRateLimitUsage(userId: string) {
+  const now = new Date();
+  const windowMs = QA_RATE_LIMIT_WINDOW_MINUTES * 60_000;
+  const requestAt = `${now.toISOString()}#${crypto.randomUUID()}`;
+  const expiresAt = Math.floor((now.getTime() + windowMs * 2) / 1000);
+
+  await ddb.send(
+    new PutCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Item: {
+        userId,
+        requestAt,
+        expiresAt
+      }
+    })
+  );
+}
+
+function jstDayStart(now: Date): Date {
+  const jstMillis = now.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMillis);
+  const year = jst.getUTCFullYear();
+  const month = jst.getUTCMonth();
+  const date = jst.getUTCDate();
+  return new Date(Date.UTC(year, month, date, -9, 0, 0, 0));
+}
+
+function jstDayKey(now: Date) {
+  const jstMillis = now.getTime() + 9 * 60 * 60 * 1000;
+  const jst = new Date(jstMillis);
+  const year = jst.getUTCFullYear();
+  const month = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const date = String(jst.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+async function acquireBedrockDailySlot(scopeUserId: string) {
+  const now = new Date();
+  const dayStart = jstDayStart(now);
+  const dayKey = `DAY#${jstDayKey(now)}`;
+  const expiresAt = Math.floor((dayStart.getTime() + 3 * 24 * 60 * 60 * 1000) / 1000);
+  const response = await ddb.send(
+    new UpdateCommand({
+      TableName: RATE_LIMIT_TABLE,
+      Key: {
+        userId: scopeUserId,
+        requestAt: dayKey
+      },
+      UpdateExpression: "SET expiresAt = :expiresAt, usageCount = if_not_exists(usageCount, :zero) + :inc",
+      ConditionExpression: "attribute_not_exists(usageCount) OR usageCount < :limit",
+      ExpressionAttributeValues: {
+        ":expiresAt": expiresAt,
+        ":zero": 0,
+        ":inc": 1,
+        ":limit": BEDROCK_DAILY_LIMIT
+      },
+      ReturnValues: "ALL_NEW"
+    })
+  );
+
+  const usageCount = Number(response.Attributes?.usageCount ?? 0);
+  return Math.max(0, BEDROCK_DAILY_LIMIT - usageCount);
+}
+
+async function releaseBedrockDailySlot(scopeUserId: string) {
+  const dayKey = `DAY#${jstDayKey(new Date())}`;
+  await ddb
+    .send(
+      new UpdateCommand({
+        TableName: RATE_LIMIT_TABLE,
+        Key: {
+          userId: scopeUserId,
+          requestAt: dayKey
+        },
+        UpdateExpression: "SET usageCount = if_not_exists(usageCount, :zero) - :dec",
+        ConditionExpression: "attribute_exists(usageCount) AND usageCount > :zero",
+        ExpressionAttributeValues: {
+          ":zero": 0,
+          ":dec": 1
+        }
+      })
+    )
+    .catch(() => undefined);
 }
 
 async function getNotebook(notebookId: string): Promise<NotebookRecord | null> {
@@ -589,6 +671,51 @@ async function upsertAnswer(item: AnswerItem) {
       Item: item
     })
   );
+}
+
+async function persistCompletedChat(
+  input: ChatCompleteInput,
+  user: AuthUser,
+  answerText: string,
+  sourceReferences: SourceReference[],
+  tokensUsed: number,
+  modelId: string
+) {
+  const questionId = crypto.randomUUID();
+  const createdAt = nowIso();
+  const normalizedModelId = `${input.provider}:${modelId}`;
+  const hash = questionHash(`${input.provider}:${input.questionText}`);
+
+  await ddb.send(
+    new PutCommand({
+      TableName: QUESTIONS_TABLE,
+      Item: {
+        questionId,
+        userId: user.userId,
+        userEmail: user.email,
+        notebookId: input.notebookId,
+        sectionId: input.sectionId,
+        questionText: input.questionText,
+        questionHash: hash,
+        status: "COMPLETED",
+        attempts: 1,
+        createdAt,
+        updatedAt: createdAt
+      }
+    })
+  );
+
+  await upsertAnswer({
+    questionId,
+    answerText,
+    sourceReferences,
+    tokensPrompt: tokensUsed,
+    tokensCompletion: 0,
+    modelId: normalizedModelId,
+    latencyMs: 0,
+    createdAt,
+    updatedAt: createdAt
+  });
 }
 
 function extractOpenAIText(payload: unknown): string {
@@ -710,6 +837,13 @@ async function callOpenAI(prompt: string, modelId: string): Promise<ModelRespons
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY (or OPENAI_API_KEY_SSM_PARAMETER) is not configured.");
   }
+  return callOpenAIWithKey(prompt, modelId, apiKey);
+}
+
+async function callOpenAIWithKey(prompt: string, modelId: string, apiKey: string): Promise<ModelResponse> {
+  if (!apiKey.trim()) {
+    throw new Error("OpenAI API key is required.");
+  }
 
   const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const maxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800);
@@ -741,6 +875,58 @@ async function callOpenAI(prompt: string, modelId: string): Promise<ModelRespons
     text: extractOpenAIText(payload),
     inputTokens: toNumber(usage.input_tokens ?? usage.prompt_tokens),
     outputTokens: toNumber(usage.output_tokens ?? usage.completion_tokens)
+  };
+}
+
+async function callGeminiWithKey(prompt: string, modelId: string, apiKey: string): Promise<ModelResponse> {
+  if (!apiKey.trim()) {
+    throw new Error("Gemini API key is required.");
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }]
+          }
+        ],
+        generationConfig: {
+          temperature: Number(process.env.OPENAI_TEMPERATURE || 0.2),
+          maxOutputTokens: Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800)
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Gemini request failed (${response.status}): ${body.slice(0, 300)}`);
+  }
+
+  const payload = (await response.json()) as Record<string, unknown>;
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const firstCandidate = candidates[0] as Record<string, unknown> | undefined;
+  const content = firstCandidate && typeof firstCandidate.content === "object" ? firstCandidate.content as Record<string, unknown> : null;
+  const parts = content && Array.isArray(content.parts) ? content.parts : [];
+  const text = parts
+    .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).text) : ""))
+    .join("\n")
+    .trim();
+  const usage = payload.usageMetadata && typeof payload.usageMetadata === "object"
+    ? payload.usageMetadata as Record<string, unknown>
+    : {};
+
+  return {
+    text,
+    inputTokens: toNumber(usage.promptTokenCount),
+    outputTokens: toNumber(usage.candidatesTokenCount ?? usage.totalTokenCount)
   };
 }
 
@@ -1098,6 +1284,28 @@ function buildPrompt(questionText: string, contexts: Array<{ sectionId: string; 
   ].join("\n");
 }
 
+async function buildQuestionContext(notebookId: string, sectionId: string, questionText: string) {
+  const notebook = await getNotebook(notebookId);
+  if (!notebook) {
+    throw new Error("Notebook not found.");
+  }
+
+  const chunks = Array.isArray(notebook.chunks) ? notebook.chunks : [];
+  const ranked = rankChunks(chunks, sectionId, questionText);
+  const contexts = ranked.map((item) => ({ sectionId: item.sectionId, content: item.content }));
+  const sourceReferences: SourceReference[] = ranked.map((item) => ({
+    notebookId,
+    location: `#${item.sectionId}`
+  }));
+
+  return {
+    notebook,
+    contexts,
+    sourceReferences,
+    prompt: buildPrompt(questionText, contexts)
+  };
+}
+
 function rankChunks(chunks: NotebookChunk[], sectionId: string, questionText: string): NotebookChunk[] {
   const tokens = tokenize(questionText);
   const ranked = chunks
@@ -1123,7 +1331,7 @@ export async function askQuestion(input: AskQuestionInput, user: AuthUser): Prom
   if (!notebook) {
     throw new Error("Notebook not found.");
   }
-  await ensureQuestionRateLimit(user.userId);
+  await assertQuestionRateLimitAvailable(user.userId);
 
   await putAccessLog(user.userId, input.notebookId, "ASK_QUESTION");
 
@@ -1176,6 +1384,8 @@ export async function askQuestion(input: AskQuestionInput, user: AuthUser): Prom
       updatedAt: createdAt
     });
 
+    await recordQuestionRateLimitUsage(user.userId);
+
     return {
       questionId,
       status: "COMPLETED",
@@ -1213,11 +1423,101 @@ export async function askQuestion(input: AskQuestionInput, user: AuthUser): Prom
     })
   );
 
+  await recordQuestionRateLimitUsage(user.userId);
+
   return {
     questionId,
     status: "QUEUED",
     cached: false
   };
+}
+
+export async function completeChat(input: ChatCompleteInput, user: AuthUser): Promise<ChatCompleteResult> {
+  const provider = input.provider;
+  const rateLimitScope = user.userId;
+  await assertQuestionRateLimitAvailable(rateLimitScope);
+  const { prompt, sourceReferences } = await buildQuestionContext(input.notebookId, input.sectionId, input.questionText);
+  await putAccessLog(user.userId, input.notebookId, `CHAT_${provider.toUpperCase()}`);
+
+  if (provider === "bedrock") {
+    let remainingToday = 0;
+    try {
+      remainingToday = await acquireBedrockDailySlot(`bedrock:${user.userId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("ConditionalCheckFailed")) {
+        throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
+      }
+      throw error;
+    }
+    const selectedModel = routeModel(input.questionText, prompt.length);
+    const modelId =
+      (input.modelId?.trim() && input.modelId.trim().toLowerCase() !== "default" ? input.modelId.trim() : "") ||
+      (selectedModel.provider === "bedrock" ? selectedModel.modelId : process.env.BEDROCK_MODEL_SMALL?.trim() || "bedrock");
+    let result: ModelResponse;
+    try {
+      result = await callBedrock(prompt, modelId);
+    } catch (error) {
+      await releaseBedrockDailySlot(`bedrock:${user.userId}`);
+      throw error;
+    }
+    await recordQuestionRateLimitUsage(rateLimitScope);
+    const tokensUsed = result.inputTokens + result.outputTokens;
+    const answerText = result.text || fallbackAnswer(input.questionText, []);
+    await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
+    return {
+      answerText,
+      sourceReferences,
+      tokensUsed,
+      provider,
+      modelId,
+      bedrockRemainingToday: remainingToday
+    };
+  }
+
+  if (provider === "openai") {
+    const modelId = input.modelId?.trim() || process.env.OPENAI_MODEL_SMALL?.trim() || "gpt-5-nano";
+    const apiKey = asString(input.apiKey).trim();
+    if (!apiKey) {
+      throw new Error("OpenAI API key is not configured.");
+    }
+    const result = await callOpenAIWithKey(prompt, modelId, apiKey);
+    await recordQuestionRateLimitUsage(rateLimitScope);
+    const tokensUsed = result.inputTokens + result.outputTokens;
+    const answerText = result.text || fallbackAnswer(input.questionText, []);
+    await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
+    return {
+      answerText,
+      sourceReferences,
+      tokensUsed,
+      provider,
+      modelId,
+      bedrockRemainingToday: null
+    };
+  }
+
+  if (provider === "gemini") {
+    const modelId = input.modelId?.trim() || "gemini-2.5-flash";
+    const apiKey = asString(input.apiKey).trim();
+    if (!apiKey) {
+      throw new Error("Gemini API key is not configured.");
+    }
+    const result = await callGeminiWithKey(prompt, modelId, apiKey);
+    await recordQuestionRateLimitUsage(rateLimitScope);
+    const tokensUsed = result.inputTokens + result.outputTokens;
+    const answerText = result.text || fallbackAnswer(input.questionText, []);
+    await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
+    return {
+      answerText,
+      sourceReferences,
+      tokensUsed,
+      provider,
+      modelId,
+      bedrockRemainingToday: null
+    };
+  }
+
+  throw new Error("Unsupported chat provider.");
 }
 
 export async function maybeInlineProcess(questionId: string): Promise<void> {
@@ -2855,6 +3155,33 @@ export async function createNotebookColabSession(
 export function parseAskQuestionInput(event: APIGatewayProxyEventV2): AskQuestionInput | null {
   const payload = parseJson<unknown>(event);
   return validateAskQuestionInput(payload);
+}
+
+export function parseChatCompleteInput(event: APIGatewayProxyEventV2): ChatCompleteInput | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const notebookId = asString(payload.notebookId).trim();
+  const sectionId = asString(payload.sectionId).trim() || "intro";
+  const questionText = asString(payload.questionText).trim();
+  const providerRaw = asString(payload.provider).trim().toLowerCase();
+  const modelId = asString(payload.modelId).trim();
+  const apiKey = asString(payload.apiKey).trim();
+
+  if (!notebookId || !questionText) return null;
+  if (questionText.length > 4000) return null;
+  if (providerRaw !== "openai" && providerRaw !== "gemini" && providerRaw !== "bedrock") return null;
+  if (modelId && !/^[A-Za-z0-9._:+/-]{1,120}$/.test(modelId)) return null;
+  if (apiKey && apiKey.length > 512) return null;
+
+  return {
+    notebookId,
+    sectionId,
+    questionText,
+    provider: providerRaw,
+    modelId: modelId || undefined,
+    apiKey: apiKey || undefined
+  };
 }
 
 export function parsePythonRuntimeInput(event: APIGatewayProxyEventV2): PythonRuntimeExecuteInput | null {
