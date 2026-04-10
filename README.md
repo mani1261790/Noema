@@ -44,7 +44,6 @@
 npm install
 cp .env.example .env
 npm run db:push
-npm run build:notebooks
 npm run db:seed
 npm run sync:notebooks
 npm run dev
@@ -57,6 +56,8 @@ npm run worker
 ```
 
 本番で永続アップロードを使う場合は `.env` に `S3_BUCKET_NAME` と `S3_REGION` を設定すると、管理画面の教材アップロードは S3 に保存されます。
+
+`npm run build:notebooks` は `public/notebooks`、`public/catalog.json`、`public/highlight`、`public/katex` の配信用生成物を更新したいときだけ実行してください。教材のソースは `content/notebooks` と `content/catalog.json` です。
 
 コスト最小で開始する場合の推奨 LLM 設定:
 

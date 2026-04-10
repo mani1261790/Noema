@@ -1,6 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  NOTEBOOK_SOURCE_DIR,
+  notebookIdFromHtmlPath,
+  renderNotebookHtmlFragmentFromSource
+} from "@/lib/notebook-artifacts";
 import { canonicalizeNotebookFile } from "@/lib/notebook-ingest";
 
 const s3Region = process.env.S3_REGION ?? process.env.AWS_REGION ?? process.env.BEDROCK_REGION;
@@ -54,13 +59,8 @@ export async function saveNotebookArtifacts(params: { notebookId: string; ipynbR
     };
   }
 
-  const notebooksDir = path.join(process.cwd(), "content", "notebooks");
-  const htmlDir = path.join(process.cwd(), "public", "notebooks");
-  await fs.mkdir(notebooksDir, { recursive: true });
-  await fs.mkdir(htmlDir, { recursive: true });
-
-  await fs.writeFile(path.join(notebooksDir, `${params.notebookId}.ipynb`), params.ipynbRaw, "utf8");
-  await fs.writeFile(path.join(htmlDir, `${params.notebookId}.html`), params.html, "utf8");
+  await fs.mkdir(NOTEBOOK_SOURCE_DIR, { recursive: true });
+  await fs.writeFile(path.join(NOTEBOOK_SOURCE_DIR, `${params.notebookId}.ipynb`), params.ipynbRaw, "utf8");
 
   return {
     htmlPath: `/notebooks/${params.notebookId}.html`,
@@ -73,6 +73,11 @@ export async function loadNotebookHtml(htmlPath: string): Promise<string> {
   if (s3 && s3Client) {
     const response = await s3Client.send(new GetObjectCommand({ Bucket: s3.bucket, Key: s3.key }));
     return streamToString(response.Body);
+  }
+
+  const notebookId = notebookIdFromHtmlPath(htmlPath);
+  if (notebookId) {
+    return renderNotebookHtmlFragmentFromSource(notebookId);
   }
 
   const localPath = path.join(process.cwd(), "public", htmlPath.replace(/^\//, ""));
@@ -92,7 +97,7 @@ export async function loadNotebookIpynb(notebookId: string): Promise<string> {
     );
     raw = await streamToString(response.Body);
   } else {
-    const localPath = path.join(process.cwd(), "content", "notebooks", `${notebookId}.ipynb`);
+    const localPath = path.join(NOTEBOOK_SOURCE_DIR, `${notebookId}.ipynb`);
     raw = await fs.readFile(localPath, "utf8");
   }
 

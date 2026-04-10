@@ -1,20 +1,21 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { canonicalizeNotebookFile, notebookToHtml, type NotebookFile } from "../src/lib/notebook-ingest";
-
-const NOTEBOOK_SOURCE_DIR = path.join(process.cwd(), "content", "notebooks");
-const OUTPUT_DIR = path.join(process.cwd(), "public", "notebooks");
-const HIGHLIGHT_OUTPUT_DIR = path.join(process.cwd(), "public", "highlight");
-const KATEX_OUTPUT_DIR = path.join(process.cwd(), "public", "katex");
-const CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
-const CATALOG_OUTPUT_PATH = path.join(process.cwd(), "public", "catalog.json");
+import {
+  NOTEBOOK_CATALOG_PUBLIC_PATH,
+  NOTEBOOK_CATALOG_SOURCE_PATH,
+  NOTEBOOK_HIGHLIGHT_PUBLIC_DIR,
+  NOTEBOOK_KATEX_PUBLIC_DIR,
+  NOTEBOOK_PUBLIC_DIR,
+  NOTEBOOK_SOURCE_DIR
+} from "../src/lib/notebook-artifacts";
 
 async function clearNotebookOutputArtifacts() {
-  const existing = await fs.readdir(OUTPUT_DIR).catch(() => [] as string[]);
+  const existing = await fs.readdir(NOTEBOOK_PUBLIC_DIR).catch(() => [] as string[]);
   await Promise.all(
     existing
       .filter((file) => file.endsWith(".html") || file.endsWith(".ipynb"))
-      .map((file) => fs.unlink(path.join(OUTPUT_DIR, file)))
+      .map((file) => fs.unlink(path.join(NOTEBOOK_PUBLIC_DIR, file)))
   );
 }
 
@@ -137,10 +138,10 @@ ${bodyHtml}
 async function copyHighlightAssets() {
   const cssSource = path.join(process.cwd(), "node_modules", "@highlightjs", "cdn-assets", "styles", "atom-one-dark.min.css");
   const jsSource = path.join(process.cwd(), "node_modules", "@highlightjs", "cdn-assets", "highlight.min.js");
-  const cssOutput = path.join(HIGHLIGHT_OUTPUT_DIR, "atom-one-dark.min.css");
-  const jsOutput = path.join(HIGHLIGHT_OUTPUT_DIR, "highlight.min.js");
+  const cssOutput = path.join(NOTEBOOK_HIGHLIGHT_PUBLIC_DIR, "atom-one-dark.min.css");
+  const jsOutput = path.join(NOTEBOOK_HIGHLIGHT_PUBLIC_DIR, "highlight.min.js");
 
-  await fs.mkdir(HIGHLIGHT_OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(NOTEBOOK_HIGHLIGHT_PUBLIC_DIR, { recursive: true });
   await fs.copyFile(cssSource, cssOutput);
   await fs.copyFile(jsSource, jsOutput);
   console.log(`Copied: ${cssOutput}`);
@@ -150,10 +151,10 @@ async function copyHighlightAssets() {
 async function copyKatexAssets() {
   const katexCssSource = path.join(process.cwd(), "node_modules", "katex", "dist", "katex.min.css");
   const katexFontsSourceDir = path.join(process.cwd(), "node_modules", "katex", "dist", "fonts");
-  const katexCssOutput = path.join(KATEX_OUTPUT_DIR, "katex.min.css");
-  const katexFontsOutputDir = path.join(KATEX_OUTPUT_DIR, "fonts");
+  const katexCssOutput = path.join(NOTEBOOK_KATEX_PUBLIC_DIR, "katex.min.css");
+  const katexFontsOutputDir = path.join(NOTEBOOK_KATEX_PUBLIC_DIR, "fonts");
 
-  await fs.mkdir(KATEX_OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(NOTEBOOK_KATEX_PUBLIC_DIR, { recursive: true });
   await fs.mkdir(katexFontsOutputDir, { recursive: true });
   await fs.copyFile(katexCssSource, katexCssOutput);
 
@@ -169,7 +170,7 @@ async function copyKatexAssets() {
 }
 
 async function main() {
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.mkdir(NOTEBOOK_PUBLIC_DIR, { recursive: true });
   await clearNotebookOutputArtifacts();
   await copyHighlightAssets();
   await copyKatexAssets();
@@ -186,13 +187,13 @@ async function main() {
     const title = path.parse(file).name;
     const html = wrapNotebookHtml(title, htmlFragment);
     const outputName = `${path.parse(file).name}.html`;
-    const outputPath = path.join(OUTPUT_DIR, outputName);
+    const outputPath = path.join(NOTEBOOK_PUBLIC_DIR, outputName);
     await fs.writeFile(outputPath, html, "utf8");
     console.log(`Built: ${outputPath}`);
   }
 
-  await fs.copyFile(CATALOG_SOURCE_PATH, CATALOG_OUTPUT_PATH);
-  console.log(`Copied: ${CATALOG_OUTPUT_PATH}`);
+  await fs.copyFile(NOTEBOOK_CATALOG_SOURCE_PATH, NOTEBOOK_CATALOG_PUBLIC_PATH);
+  console.log(`Copied: ${NOTEBOOK_CATALOG_PUBLIC_PATH}`);
 }
 
 main().catch((error) => {
