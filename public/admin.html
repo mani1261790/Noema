@@ -350,6 +350,11 @@
       line-height: 1.65;
     }
 
+    .draft-controls {
+      display: grid;
+      gap: 12px;
+    }
+
     .field-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -710,7 +715,7 @@
         <button class="button-ghost" id="reload-catalog-btn" type="button">再読込</button>
       </div>
 
-      <div class="status-line" id="structure-status" data-kind="info">構成の自動保存: 有効</div>
+      <div class="status-line" id="structure-status" data-kind="info">教材一覧を読み込み中...</div>
 
       <div class="catalog" id="catalog"></div>
 
@@ -739,6 +744,24 @@
           <section class="settings-banner glass-soft">
             <h2 class="meta-section-title">教材設定ビュー</h2>
             <div class="setting-help" id="settings-mode-note">左の教材一覧からノートを選ぶと、基本情報と関連リンクを確認できます。</div>
+            <div class="draft-controls" id="draft-controls" hidden>
+              <label class="setting-pair">
+                <span class="setting-label">ipynb URL / Path</span>
+                <input
+                  class="readonly-field"
+                  id="meta-source-path"
+                  placeholder="loss-and-gradient-descent.ipynb または https://raw.githubusercontent.com/..."
+                />
+              </label>
+              <div class="setting-help" id="file-help-text">
+                `content/notebooks/` 配下のファイル名、repo 相対パス、または GitHub Raw URL を指定してください。
+              </div>
+              <div class="footer-row">
+                <button class="button" id="submit-notebook-btn" type="button">教材を登録</button>
+                <button class="button-ghost" id="cancel-draft-btn" type="button">登録をやめる</button>
+              </div>
+              <div class="status-line" id="submit-status" data-kind="info"></div>
+            </div>
           </section>
 
           <div class="settings-grid">
@@ -803,25 +826,9 @@
             </section>
 
             <section class="setting-card glass-soft">
-              <h2 class="meta-section-title">教材ファイル</h2>
-              <label class="setting-pair">
-                <span class="setting-label">ipynb ファイル</span>
-                <input class="readonly-field" id="meta-file" type="file" accept=".ipynb,application/json" />
-              </label>
-              <div class="setting-help" id="file-help-text">
-                新規教材を追加するときだけファイルを選択します。既存ノートを見ているときは不要です。
-              </div>
-              <div class="footer-row">
-                <button class="button" id="submit-notebook-btn" type="button">教材を登録</button>
-                <button class="button-ghost" id="cancel-draft-btn" type="button">登録をやめる</button>
-              </div>
-              <div class="status-line" id="submit-status" data-kind="info"></div>
-            </section>
-
-            <section class="setting-card glass-soft">
               <h2 class="meta-section-title">運用メモ</h2>
               <div class="setting-help" id="settings-detail-note">
-                GitHub 正本モードでは、この画面は教材一覧の確認と並びの把握に絞って使います。本文編集や教材追加はリポジトリ上で行ってください。
+                既存教材は閲覧専用です。新規教材を追加できるかどうかは現在の保存ポリシーに従います。
               </div>
             </section>
           </div>
@@ -850,6 +857,7 @@
         editorStatus: document.getElementById("editor-status"),
         reloadNotebookBtn: document.getElementById("reload-notebook-btn"),
         settingsModeNote: document.getElementById("settings-mode-note"),
+        draftControls: document.getElementById("draft-controls"),
         settingsDetailNote: document.getElementById("settings-detail-note"),
         metaNotebookId: document.getElementById("meta-notebook-id"),
         metaTitle: document.getElementById("meta-title"),
@@ -861,7 +869,7 @@
         metaHtmlPath: document.getElementById("meta-html-path"),
         metaTagsInput: document.getElementById("meta-tags-input"),
         metaTagsDisplay: document.getElementById("meta-tags-display"),
-        metaFile: document.getElementById("meta-file"),
+        metaSourcePath: document.getElementById("meta-source-path"),
         fileHelpText: document.getElementById("file-help-text"),
         submitNotebookBtn: document.getElementById("submit-notebook-btn"),
         cancelDraftBtn: document.getElementById("cancel-draft-btn"),
@@ -878,15 +886,11 @@
         activeNotebookId: "",
         draftNotebook: null,
         submittingNotebook: false,
-        structureSaveTimer: 0,
-        dragPayload: null,
-        structureDirty: false,
-        savedStructureHash: "",
         loadSeq: 0,
-        savingStructure: false,
         writePolicy: {
           mode: "github_ssot",
           canWrite: false,
+          canCreate: false,
           githubRepo: "mani1261790/Noema",
           githubRef: "main"
         }
@@ -1008,27 +1012,30 @@
         state.writePolicy = {
           mode: String(policy.mode || "github_ssot").trim().toLowerCase(),
           canWrite: Boolean(policy.canWrite),
+          canCreate: Boolean(policy.canCreate),
           githubRepo: String(policy.githubRepo || "mani1261790/Noema").trim(),
           githubRef: String(policy.githubRef || "main").trim()
         };
 
         const locked = isContentWriteLocked();
-        if (locked) {
-          const branch = state.writePolicy.githubRef || "main";
-          const repo = state.writePolicy.githubRepo || "mani1261790/Noema";
-          setLine(
-            el.structureStatus,
-            "warn",
-            `GitHub正本モード: 管理画面からの直接保存は無効です。${repo}@${branch} にcommit/PRしてください。`
-          );
-          setEditorSaveState("設定表示のみ（GitHub正本モード）", "warn");
-          el.settingsModeNote.textContent = `GitHub正本モードです。教材一覧の確認に使い、本文編集や追加は ${repo}@${branch} で行ってください。`;
-          el.settingsDetailNote.textContent = "ドラッグ順やタイトル欄は、管理画面からの直接更新が有効な環境でだけ反映されます。現在は読み取り中心です。";
+        const canCreate = state.writePolicy.canCreate === true;
+        el.createNotebookBtn.disabled = !canCreate;
+        el.createNotebookBtn.title = canCreate ? "" : "この環境では新規教材追加は無効です。";
+        if (locked && canCreate) {
+          setLine(el.structureStatus, "info", "教材一覧を確認できます。既存教材は閲覧専用で、新規教材の追加のみこの画面から行えます。");
+          setEditorSaveState("既存教材は閲覧専用です", "info");
+          el.settingsModeNote.textContent = "既存教材は閲覧専用です。必要な更新はリポジトリ側で行い、新規教材の追加だけこの画面から行います。";
+          el.settingsDetailNote.textContent = "並び替えやタイトル変更の管理画面操作は廃止しました。ここでは設定確認と新規登録だけを扱います。";
+        } else if (locked) {
+          setLine(el.structureStatus, "info", "教材一覧を確認できます。この環境では既存教材も新規教材も管理画面からは保存しません。");
+          setEditorSaveState("既存教材は閲覧専用です", "info");
+          el.settingsModeNote.textContent = "既存教材は閲覧専用です。新規教材の追加もこの環境では無効です。";
+          el.settingsDetailNote.textContent = "管理画面は設定確認専用です。教材追加が必要な場合はリポジトリ側で追加するか、保存先が有効な環境を使ってください。";
         } else {
-          setLine(el.structureStatus, "info", "構成の自動保存: 有効");
-          setEditorSaveState("構成編集が可能です", "success");
-          el.settingsModeNote.textContent = "教材一覧の並び替えとタイトル変更をこの画面から行えます。";
-          el.settingsDetailNote.textContent = "本文編集 UI は廃止し、管理画面は構成とリンク確認に絞っています。";
+          setLine(el.structureStatus, "info", "教材一覧を確認できます。新規教材の追加はこの画面から行えます。");
+          setEditorSaveState("既存教材は閲覧専用です", "info");
+          el.settingsModeNote.textContent = "既存教材は閲覧専用です。新規教材の追加だけこの画面から行えます。";
+          el.settingsDetailNote.textContent = "本文編集 UI と構成編集 UI は廃止し、管理画面は設定確認と新規登録に絞っています。";
         }
       }
 
@@ -1152,23 +1159,6 @@
         return "";
       }
 
-      function getStructurePayload() {
-        return state.chapters.map((chapter, chapterIndex) => ({
-          id: chapter.id,
-          title: chapter.title,
-          order: chapterIndex + 1,
-          notebooks: chapter.notebooks.map((notebook, notebookIndex) => ({
-            id: notebook.id,
-            title: notebook.title,
-            order: notebookIndex + 1
-          }))
-        }));
-      }
-
-      function structureHash() {
-        return JSON.stringify(getStructurePayload());
-      }
-
       function updateCount() {
         const notebookCount = state.chapters.reduce((sum, chapter) => sum + chapter.notebooks.length, 0);
         el.countLabel.textContent = `${state.chapters.length} sections / ${notebookCount} notebooks`;
@@ -1195,8 +1185,7 @@
 
       function setNotebookFormMode(mode) {
         const isDraft = mode === "draft";
-        const locked = isContentWriteLocked();
-        const editable = isDraft || !locked;
+        const editable = isDraft;
 
         el.metaTitle.readOnly = !editable;
         el.metaColab.readOnly = !editable;
@@ -1204,7 +1193,8 @@
         el.metaTagsInput.readOnly = !editable;
         el.metaChapterSelect.disabled = !editable;
         el.metaNewChapter.readOnly = !editable;
-        el.metaFile.disabled = !isDraft;
+        el.metaSourcePath.readOnly = !editable;
+        el.draftControls.hidden = !isDraft;
         el.submitNotebookBtn.hidden = !isDraft;
         el.cancelDraftBtn.hidden = !isDraft;
         el.openLearningLink.hidden = isDraft;
@@ -1246,8 +1236,8 @@
           el.metaVideo.value = "";
           el.metaHtmlPath.value = "";
           el.metaTagsInput.value = "";
-          el.metaFile.value = "";
-          el.fileHelpText.textContent = "新規教材を追加するときだけファイルを選択します。既存ノートを見ているときは不要です。";
+          el.metaSourcePath.value = "";
+          el.fileHelpText.textContent = "`content/notebooks/` 配下の ipynb を参照するときだけ指定します。既存ノート表示では不要です。";
           setLine(el.submitStatus, "info", "");
           renderTags([]);
           setActionLink(el.openLearningLink, "");
@@ -1285,20 +1275,21 @@
         el.metaHtmlPath.value = notebook.htmlPath || "";
         el.metaTagsInput.value = (notebook.tags || []).join(", ");
         el.fileHelpText.textContent = isDraft
-          ? "登録時に使う ipynb ファイルを選択してください。"
-          : "既存ノートの登録ファイルはここでは変更しません。";
+          ? "`content/notebooks/` 配下のファイル名、repo 相対パス、または GitHub Raw URL を指定してください。"
+          : "既存ノートの参照元 ipynb はここでは変更しません。";
         renderTags(notebook.tags || []);
         setActionLink(el.openLearningLink, isDraft ? "" : notebook.id ? `/index.html?notebookId=${encodeURIComponent(notebook.id)}` : "");
         setActionLink(el.openColabLink, isDraft ? "" : notebook.colabUrl || "");
         setActionLink(el.openVideoLink, isDraft ? "" : notebook.videoUrl || "");
         setActionLink(el.openHtmlLink, isDraft ? "" : notebook.htmlPath || "");
+        el.metaSourcePath.value = isDraft ? notebook.sourcePath || "" : "";
         setLine(el.submitStatus, "info", "");
         setNotebookFormMode(isDraft ? "draft" : "view");
       }
 
       function chapterTemplate(chapter) {
         const opened = state.openMap[chapter.id] !== false;
-        const locked = isContentWriteLocked();
+        const locked = true;
         const notebooksHtml = chapter.notebooks
           .map((notebook) => {
             const active = notebook.id === state.activeNotebookId;
@@ -1339,52 +1330,6 @@
         bindCatalogEvents();
       }
 
-      function moveChapter(sourceChapterId, targetChapterId) {
-        if (!sourceChapterId || !targetChapterId || sourceChapterId === targetChapterId) return;
-        const next = state.chapters.slice();
-        const sourceIndex = next.findIndex((chapter) => chapter.id === sourceChapterId);
-        const targetIndex = next.findIndex((chapter) => chapter.id === targetChapterId);
-        if (sourceIndex < 0 || targetIndex < 0) return;
-
-        const [source] = next.splice(sourceIndex, 1);
-        next.splice(targetIndex, 0, source);
-        state.chapters = reindexChapters(next);
-        markStructureDirty("セクション順を変更しました。自動保存します...");
-        renderCatalog();
-      }
-
-      function moveNotebook(notebookId, fromChapterId, toChapterId, beforeNotebookId) {
-        if (!notebookId || !fromChapterId || !toChapterId) return;
-        const next = state.chapters.map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.slice() }));
-        const fromChapter = next.find((chapter) => chapter.id === fromChapterId);
-        const toChapter = next.find((chapter) => chapter.id === toChapterId);
-        if (!fromChapter || !toChapter) return;
-
-        const fromIndex = fromChapter.notebooks.findIndex((item) => item.id === notebookId);
-        if (fromIndex < 0) return;
-
-        const [moving] = fromChapter.notebooks.splice(fromIndex, 1);
-
-        if (!beforeNotebookId) {
-          toChapter.notebooks.push(moving);
-        } else {
-          const targetIndex = toChapter.notebooks.findIndex((item) => item.id === beforeNotebookId);
-          if (targetIndex < 0) {
-            toChapter.notebooks.push(moving);
-          } else {
-            toChapter.notebooks.splice(targetIndex, 0, moving);
-          }
-        }
-
-        state.chapters = reindexChapters(next);
-        markStructureDirty("ノート順を変更しました。自動保存します...");
-        renderCatalog();
-      }
-
-      function clearDropHighlights() {
-        el.catalog.querySelectorAll(".is-over").forEach((node) => node.classList.remove("is-over"));
-      }
-
       function bindCatalogEvents() {
         el.catalog.querySelectorAll("[data-action='toggle-chapter']").forEach((button) => {
           button.addEventListener("click", function () {
@@ -1397,30 +1342,14 @@
         });
 
         el.catalog.querySelectorAll("[data-role='chapter-title']").forEach((input) => {
-          input.addEventListener("input", function () {
-            const chapterCard = input.closest("[data-chapter-id]");
-            if (!chapterCard) return;
-            const chapterId = chapterCard.getAttribute("data-chapter-id") || "";
-            const chapter = findChapter(chapterId);
-            if (!chapter) return;
-            chapter.title = String(input.value || "");
-            markStructureDirty("セクション名を変更しました。自動保存します...");
-            renderHeaderMeta();
+          input.addEventListener("focus", function () {
+            input.blur();
           });
         });
 
         el.catalog.querySelectorAll("[data-role='notebook-title']").forEach((input) => {
-          input.addEventListener("input", function () {
-            const row = input.closest("[data-notebook-id]");
-            if (!row) return;
-            const notebookId = row.getAttribute("data-notebook-id") || "";
-            const notebook = findNotebook(notebookId);
-            if (!notebook) return;
-            notebook.title = String(input.value || "");
-            if (state.activeNotebookId === notebookId) {
-              renderHeaderMeta();
-            }
-            markStructureDirty("ノートタイトルを変更しました。自動保存します...");
+          input.addEventListener("focus", function () {
+            input.blur();
           });
         });
 
@@ -1431,83 +1360,6 @@
             const notebookId = row.getAttribute("data-notebook-id") || "";
             if (!notebookId || notebookId === state.activeNotebookId) return;
             void setActiveNotebook(notebookId);
-          });
-        });
-
-        el.catalog.querySelectorAll(".drag-handle[draggable='true']").forEach((handle) => {
-          handle.addEventListener("dragstart", function (event) {
-            const kind = handle.getAttribute("data-drag-kind") || "";
-            if (kind === "chapter") {
-              state.dragPayload = { kind: "chapter", chapterId: handle.getAttribute("data-chapter-id") || "" };
-            } else if (kind === "notebook") {
-              state.dragPayload = {
-                kind: "notebook",
-                notebookId: handle.getAttribute("data-notebook-id") || "",
-                fromChapterId: handle.getAttribute("data-from-chapter-id") || ""
-              };
-            }
-            if (event.dataTransfer) {
-              event.dataTransfer.effectAllowed = "move";
-              event.dataTransfer.setData("text/plain", JSON.stringify(state.dragPayload || {}));
-            }
-          });
-
-          handle.addEventListener("dragend", function () {
-            state.dragPayload = null;
-            clearDropHighlights();
-          });
-        });
-
-        el.catalog.querySelectorAll("[data-drop-chapter-id]").forEach((target) => {
-          target.addEventListener("dragover", function (event) {
-            event.preventDefault();
-            clearDropHighlights();
-            target.classList.add("is-over");
-          });
-
-          target.addEventListener("drop", function (event) {
-            event.preventDefault();
-            clearDropHighlights();
-            const targetChapterId = target.getAttribute("data-drop-chapter-id") || "";
-            const payload = state.dragPayload;
-            if (!payload || !targetChapterId) return;
-
-            if (payload.kind === "chapter") {
-              moveChapter(payload.chapterId, targetChapterId);
-              return;
-            }
-
-            if (payload.kind === "notebook") {
-              moveNotebook(payload.notebookId, payload.fromChapterId, targetChapterId, null);
-            }
-          });
-        });
-
-        el.catalog.querySelectorAll("[data-drop-list-chapter-id]").forEach((dropList) => {
-          dropList.addEventListener("dragover", function (event) {
-            event.preventDefault();
-            clearDropHighlights();
-            dropList.classList.add("is-over");
-          });
-
-          dropList.addEventListener("dragleave", function () {
-            dropList.classList.remove("is-over");
-          });
-
-          dropList.addEventListener("drop", function (event) {
-            event.preventDefault();
-            clearDropHighlights();
-            const payload = state.dragPayload;
-            const targetChapterId = dropList.getAttribute("data-drop-list-chapter-id") || "";
-            if (!payload || payload.kind !== "notebook" || !targetChapterId) return;
-
-            const rows = Array.from(dropList.querySelectorAll("[data-notebook-id]"));
-            const before = rows.find((row) => {
-              const rect = row.getBoundingClientRect();
-              return event.clientY < rect.top + rect.height / 2;
-            });
-            const beforeNotebookId = before ? before.getAttribute("data-notebook-id") || "" : "";
-            moveNotebook(payload.notebookId, payload.fromChapterId, targetChapterId, beforeNotebookId || undefined);
           });
         });
 
@@ -1522,100 +1374,6 @@
             void setActiveNotebook(notebookId);
           });
         });
-      }
-
-      function validateStructureBeforeSave() {
-        if (!state.chapters.length) {
-          return "セクションがありません。";
-        }
-
-        for (const chapter of state.chapters) {
-          if (!String(chapter.title || "").trim()) {
-            return "空のセクション名は保存できません。";
-          }
-        }
-
-        return "";
-      }
-
-      function markStructureDirty(message) {
-        if (isContentWriteLocked()) {
-          setLine(el.structureStatus, "warn", "GitHub正本モードのため構成自動保存は無効です。");
-          return;
-        }
-        state.structureDirty = true;
-        setLine(el.structureStatus, "warn", message || "構成に未保存の変更があります...");
-        if (state.structureSaveTimer) {
-          window.clearTimeout(state.structureSaveTimer);
-        }
-        state.structureSaveTimer = window.setTimeout(() => {
-          void saveStructure(false);
-        }, 900);
-      }
-
-      async function saveStructure(manual) {
-        if (isContentWriteLocked()) {
-          setLine(el.structureStatus, "warn", "GitHub正本モードのため構成保存は無効です。");
-          return false;
-        }
-        if (state.structureSaveTimer) {
-          window.clearTimeout(state.structureSaveTimer);
-          state.structureSaveTimer = 0;
-        }
-
-        const error = validateStructureBeforeSave();
-        if (error) {
-          setLine(el.structureStatus, "error", error);
-          return false;
-        }
-
-        const payload = getStructurePayload();
-        const nextHash = JSON.stringify(payload);
-        if (!manual && !state.structureDirty && nextHash === state.savedStructureHash) {
-          return true;
-        }
-
-        state.savingStructure = true;
-        setLine(el.structureStatus, "info", manual ? "構成を保存中..." : "構成を自動保存中...");
-
-        try {
-          const updates = [];
-          state.chapters.forEach((chapter) => {
-            chapter.notebooks.forEach((notebook, index) => {
-              updates.push({
-                notebookId: notebook.id,
-                title: notebook.title,
-                chapter: chapter.title,
-                sortOrder: index + 1,
-                tags: notebook.tags,
-                colabUrl: notebook.colabUrl,
-                videoUrl: notebook.videoUrl || ""
-              });
-            });
-          });
-
-          for (const update of updates) {
-            await api("/api/admin/notebooks", {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify(update)
-            });
-          }
-
-          state.savingStructure = false;
-          state.structureDirty = false;
-          state.savedStructureHash = nextHash;
-          setLine(
-            el.structureStatus,
-            "success",
-            `${manual ? "構成を保存" : "構成を自動保存"}しました (${new Date().toLocaleTimeString()})`
-          );
-          return true;
-        } catch (saveError) {
-          state.savingStructure = false;
-          setLine(el.structureStatus, "error", saveError instanceof Error ? saveError.message : String(saveError));
-          return false;
-        }
       }
 
       async function setActiveNotebook(notebookId) {
@@ -1665,7 +1423,7 @@
           }
 
           renderCatalog();
-          setEditorSaveState(isContentWriteLocked() ? "設定表示のみ" : "構成編集が可能です", isContentWriteLocked() ? "warn" : "success");
+          setEditorSaveState("既存教材は閲覧専用です", "info");
           setEditorStatus(`${normalized} の設定を読み込みました。`, "success");
         } catch (loadError) {
           const message = loadError instanceof Error ? loadError.message : String(loadError);
@@ -1691,21 +1449,8 @@
             state.activeNotebookId = firstNotebookId();
           }
 
-          state.savedStructureHash = structureHash();
-          state.structureDirty = false;
-
           renderCatalog();
-          if (isContentWriteLocked()) {
-            const branch = state.writePolicy.githubRef || "main";
-            const repo = state.writePolicy.githubRepo || "mani1261790/Noema";
-            setLine(
-              el.structureStatus,
-              "warn",
-              `GitHub正本モード: ${repo}@${branch} を更新してください（管理画面の直接保存は無効）。`
-            );
-          } else {
-            setLine(el.structureStatus, "success", `教材一覧を更新しました (${new Date().toLocaleTimeString()})`);
-          }
+          setLine(el.structureStatus, "success", `教材一覧を更新しました (${new Date().toLocaleTimeString()})`);
 
           if (state.activeNotebookId) {
             await setActiveNotebook(state.activeNotebookId);
@@ -1721,6 +1466,11 @@
       }
 
       function createNotebookDraft() {
+        if (state.writePolicy.canCreate !== true) {
+          setLine(el.structureStatus, "error", "この環境では新規教材追加は無効です。");
+          setLine(el.submitStatus, "error", "保存先が未設定のため教材を追加できません。");
+          return;
+        }
         const defaultChapter = state.chapters[0];
         state.draftNotebook = {
           id: "__draft__",
@@ -1729,12 +1479,34 @@
           colabUrl: "https://colab.research.google.com/",
           videoUrl: "",
           htmlPath: "",
+          sourcePath: "",
           chapterId: defaultChapter ? defaultChapter.id : "__new__",
           chapterTitle: defaultChapter ? defaultChapter.title : "",
-          file: null
         };
         setLine(el.submitStatus, "info", "");
         void setActiveNotebook("__draft__");
+      }
+
+      function normalizeNotebookSourcePath(input) {
+        const value = String(input || "").trim();
+        if (!value) return "";
+        if (/^https?:\/\//i.test(value)) return value;
+        const normalized = value.replace(/^\.?\//, "");
+        if (normalized.startsWith("content/notebooks/")) {
+          return `https://raw.githubusercontent.com/${state.writePolicy.githubRepo}/${state.writePolicy.githubRef}/${normalized}`;
+        }
+        if (normalized.endsWith(".ipynb")) {
+          return `https://raw.githubusercontent.com/${state.writePolicy.githubRepo}/${state.writePolicy.githubRef}/content/notebooks/${normalized.replace(/^content\/notebooks\//, "")}`;
+        }
+        return `https://raw.githubusercontent.com/${state.writePolicy.githubRepo}/${state.writePolicy.githubRef}/content/notebooks/${normalized}.ipynb`;
+      }
+
+      function notebookFilenameFromSource(input) {
+        const value = String(input || "").trim();
+        if (!value) return "notebook.ipynb";
+        const target = value.split("?")[0].split("#")[0];
+        const name = target.split("/").pop() || "notebook.ipynb";
+        return name.endsWith(".ipynb") ? name : `${name}.ipynb`;
       }
 
       async function submitDraftNotebook() {
@@ -1747,15 +1519,15 @@
         const colabUrl = String(el.metaColab.value || "").trim();
         const videoUrl = String(el.metaVideo.value || "").trim();
         const tags = String(el.metaTagsInput.value || "").trim();
-        const file = el.metaFile.files && el.metaFile.files[0] ? el.metaFile.files[0] : null;
+        const sourcePath = String(el.metaSourcePath.value || "").trim();
 
         const targetChapter =
           selectedChapterId === "__new__"
             ? newChapterTitle
             : (findChapter(selectedChapterId)?.title || "").trim();
 
-        if (!title || !colabUrl || !targetChapter || !file) {
-          setLine(el.submitStatus, "error", "タイトル / セクション / Colab URL / ipynb ファイルは必須です。");
+        if (!title || !colabUrl || !targetChapter || !sourcePath) {
+          setLine(el.submitStatus, "error", "タイトル / セクション / Colab URL / ipynb URL or Path は必須です。");
           return;
         }
 
@@ -1764,6 +1536,17 @@
         setLine(el.submitStatus, "info", "教材を登録中...");
 
         try {
+          const resolvedSourceUrl = normalizeNotebookSourcePath(sourcePath);
+          const fileResponse = await fetch(resolvedSourceUrl);
+          if (!fileResponse.ok) {
+            throw new Error(`ipynb を取得できませんでした (${fileResponse.status})`);
+          }
+          const ipynbRaw = await fileResponse.text();
+          const notebookBlob = new Blob([ipynbRaw], { type: "application/x-ipynb+json" });
+          const notebookFile = new File([notebookBlob], notebookFilenameFromSource(sourcePath), {
+            type: "application/x-ipynb+json"
+          });
+
           const target = state.chapters.find((chapter) => chapter.title === targetChapter);
           const order = target ? target.notebooks.length + 1 : 1;
           const form = new FormData();
@@ -1773,7 +1556,7 @@
           form.set("tags", tags);
           form.set("colabUrl", colabUrl);
           form.set("videoUrl", videoUrl);
-          form.set("file", file);
+          form.set("file", notebookFile);
 
           const result = await api("/api/admin/notebooks", {
             method: "POST",
@@ -1845,6 +1628,11 @@
             updateDraftNotebook({ videoUrl: String(el.metaVideo.value || "").trim() });
           }
         });
+        el.metaSourcePath.addEventListener("input", function () {
+          if (state.draftNotebook) {
+            updateDraftNotebook({ sourcePath: String(el.metaSourcePath.value || "").trim() });
+          }
+        });
         el.metaTagsInput.addEventListener("input", function () {
           const tags = String(el.metaTagsInput.value || "")
             .split(",")
@@ -1855,37 +1643,13 @@
             renderTags(tags);
             return;
           }
-          const notebook = findNotebook(state.activeNotebookId);
-          if (!notebook || isContentWriteLocked()) return;
-          notebook.tags = tags;
-          renderTags(tags);
-          markStructureDirty("タグを変更しました。自動保存します...");
-        });
-        el.metaTitle.addEventListener("change", function () {
-          if (state.draftNotebook || isContentWriteLocked()) return;
-          const notebook = findNotebook(state.activeNotebookId);
-          if (!notebook) return;
-          notebook.title = String(el.metaTitle.value || "");
-          renderCatalog();
-          markStructureDirty("ノートタイトルを変更しました。自動保存します...");
-        });
-        el.metaColab.addEventListener("change", function () {
-          if (state.draftNotebook || isContentWriteLocked()) return;
-          const notebook = findNotebook(state.activeNotebookId);
-          if (!notebook) return;
-          notebook.colabUrl = String(el.metaColab.value || "").trim();
-          markStructureDirty("Colab URL を変更しました。自動保存します...");
-        });
-        el.metaVideo.addEventListener("change", function () {
-          if (state.draftNotebook || isContentWriteLocked()) return;
-          const notebook = findNotebook(state.activeNotebookId);
-          if (!notebook) return;
-          notebook.videoUrl = String(el.metaVideo.value || "").trim();
-          markStructureDirty("Video URL を変更しました。自動保存します...");
+          if (!state.draftNotebook) {
+            renderTags(findNotebook(state.activeNotebookId)?.tags || []);
+          }
         });
 
         window.addEventListener("beforeunload", function (event) {
-          if (state.structureDirty || state.savingStructure || state.submittingNotebook) {
+          if (state.submittingNotebook) {
             event.preventDefault();
             event.returnValue = "";
           }

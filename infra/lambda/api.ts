@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import {
   askQuestion,
+  assertAdminNotebookCreatable,
   assertAdminContentWritable,
   completeChat,
   createNotebookColabSession,
@@ -314,7 +315,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
   if (route === "POST /api/admin/notebooks") {
     try {
-      assertAdminContentWritable();
+      assertAdminNotebookCreatable();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return json(409, { error: message });

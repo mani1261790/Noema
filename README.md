@@ -46,7 +46,7 @@ cp .env.example .env
 npm run dev
 ```
 
-本番で永続アップロードを使う場合は `.env` に `S3_BUCKET_NAME` と `S3_REGION` を設定すると、管理画面の教材アップロードは S3 に保存されます。
+本番で管理画面から新規教材を取り込む場合は `.env` に `S3_BUCKET_NAME` と `S3_REGION` を設定してください。既存教材の編集はリポジトリ正本のまま維持し、新規追加時の HTML / ipynb 保存先だけを S3 に持たせる前提です。
 
 `npm run build:notebooks` は `public/notebooks`、`public/catalog.json`、`public/highlight`、`public/katex` の配信用生成物を更新したいときだけ実行してください。教材のソースは `content/notebooks` と `content/catalog.json` です。
 

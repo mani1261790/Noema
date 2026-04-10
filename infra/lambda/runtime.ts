@@ -286,6 +286,7 @@ const CONTENT_GITHUB_REF = (process.env.CONTENT_GITHUB_REF || COLAB_GITHUB_REF).
 type ContentWritePolicy = {
   mode: string;
   canWrite: boolean;
+  canCreate: boolean;
   githubRepo: string;
   githubRef: string;
 };
@@ -3061,9 +3062,11 @@ function normalizeExpectedModules(raw: unknown): string[] {
 export function getContentWritePolicy(): ContentWritePolicy {
   const mode = CONTENT_WRITE_MODE_RAW === "aws_direct" ? "aws_direct" : "github_ssot";
   const canWrite = mode === "aws_direct";
+  const canCreate = canWrite || Boolean(NOTEBOOK_BUCKET);
   return {
     mode,
     canWrite,
+    canCreate,
     githubRepo: CONTENT_GITHUB_REPO,
     githubRef: CONTENT_GITHUB_REF
   };
@@ -3074,6 +3077,14 @@ export function assertAdminContentWritable() {
   if (policy.canWrite) return;
   throw new Error(
     `GitHub正本モードのため管理画面からの直接保存は無効です。GitHub (${policy.githubRepo}@${policy.githubRef}) へPR/commitしてください。`
+  );
+}
+
+export function assertAdminNotebookCreatable() {
+  const policy = getContentWritePolicy();
+  if (policy.canCreate) return;
+  throw new Error(
+    `この環境では新規教材追加の保存先が未設定です。NOTEBOOK_BUCKET を設定するか、GitHub (${policy.githubRepo}@${policy.githubRef}) 側で教材を追加してください。`
   );
 }
 
