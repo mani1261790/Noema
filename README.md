@@ -12,7 +12,7 @@
 
 ## 想定アーキテクチャ（MVP）
 
-- Frontend: Next.js + Tailwind CSS
+- Frontend: static HTML UI + thin Next.js redirect/download shell
 - Static Contents: Jupyter Book または nbconvert で生成し S3 配信
 - Auth: Amazon Cognito（OAuth2 + Email/Password）
 - API: API Gateway + AWS Lambda
@@ -43,21 +43,14 @@
 ```bash
 npm install
 cp .env.example .env
-npm run db:push
-npm run db:seed
-npm run sync:notebooks
 npm run dev
-```
-
-別ターミナルでワーカーを起動（非同期処理確認時）:
-
-```bash
-npm run worker
 ```
 
 本番で永続アップロードを使う場合は `.env` に `S3_BUCKET_NAME` と `S3_REGION` を設定すると、管理画面の教材アップロードは S3 に保存されます。
 
 `npm run build:notebooks` は `public/notebooks`、`public/catalog.json`、`public/highlight`、`public/katex` の配信用生成物を更新したいときだけ実行してください。教材のソースは `content/notebooks` と `content/catalog.json` です。
+
+AWS の notebook metadata を DynamoDB に同期したい場合だけ `npm run sync:notebooks:aws -- --table <NOTEBOOKS_TABLE>` を使います。
 
 コスト最小で開始する場合の推奨 LLM 設定:
 

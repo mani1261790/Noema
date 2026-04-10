@@ -1,7 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
 import sanitizeHtml from "sanitize-html";
-import { prisma } from "@/lib/prisma";
 import { loadNotebookHtml } from "@/lib/storage";
 
 export type NotebookSummary = {
@@ -43,45 +42,19 @@ async function readChapterOrderMap(): Promise<Map<string, number>> {
 }
 
 export async function getCatalog(): Promise<Catalog> {
-  try {
-    const chapterOrderMap = await readChapterOrderMap();
-    const rows = await prisma.notebook.findMany({ orderBy: [{ chapter: "asc" }, { sortOrder: "asc" }] });
-    if (rows.length > 0) {
-      const byChapter = new Map<string, ChapterSummary>();
-      for (const row of rows) {
-        const chapterId = row.chapter.toLowerCase().replace(/\s+/g, "-");
-        const chapter = byChapter.get(chapterId) ?? {
-          id: chapterId,
-          title: row.chapter,
-          order: chapterOrderMap.get(row.chapter) ?? byChapter.size + 1,
-          notebooks: []
-        };
-        chapter.notebooks.push({
-          id: row.id,
-          title: row.title,
-          order: row.sortOrder,
-          tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
-          htmlPath: row.htmlPath,
-          colabUrl: row.colabUrl,
-          videoUrl: row.videoUrl ?? undefined
-        });
-        byChapter.set(chapterId, chapter);
-      }
-      return {
-        chapters: [...byChapter.values()]
-          .sort((a, b) => a.order - b.order)
-          .map((chapter) => ({
-            ...chapter,
-            notebooks: chapter.notebooks.slice().sort((a, b) => a.order - b.order)
-          }))
-      };
-    }
-  } catch {
-    // Falls back to file catalog when db is not initialized.
-  }
-
   const raw = await fs.readFile(catalogPath, "utf8");
-  return JSON.parse(raw) as Catalog;
+  const catalog = JSON.parse(raw) as Catalog;
+  const chapterOrderMap = await readChapterOrderMap();
+
+  return {
+    chapters: (catalog.chapters ?? [])
+      .map((chapter, index) => ({
+        ...chapter,
+        order: chapterOrderMap.get(chapter.title) ?? chapter.order ?? index + 1,
+        notebooks: (chapter.notebooks ?? []).slice().sort((a, b) => a.order - b.order)
+      }))
+      .sort((a, b) => a.order - b.order)
+  };
 }
 
 export async function getNotebookById(notebookId: string): Promise<NotebookSummary | null> {
