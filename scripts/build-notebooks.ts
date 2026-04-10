@@ -9,6 +9,15 @@ const KATEX_OUTPUT_DIR = path.join(process.cwd(), "public", "katex");
 const CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
 const CATALOG_OUTPUT_PATH = path.join(process.cwd(), "public", "catalog.json");
 
+async function clearNotebookOutputArtifacts() {
+  const existing = await fs.readdir(OUTPUT_DIR).catch(() => [] as string[]);
+  await Promise.all(
+    existing
+      .filter((file) => file.endsWith(".html") || file.endsWith(".ipynb"))
+      .map((file) => fs.unlink(path.join(OUTPUT_DIR, file)))
+  );
+}
+
 function wrapNotebookHtml(title: string, bodyHtml: string): string {
   const safeTitle = title.replace(/[<>]/g, "");
   return `<!doctype html>
@@ -161,6 +170,7 @@ async function copyKatexAssets() {
 
 async function main() {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await clearNotebookOutputArtifacts();
   await copyHighlightAssets();
   await copyKatexAssets();
 
@@ -172,7 +182,6 @@ async function main() {
     const raw = await fs.readFile(sourcePath, "utf8");
     const notebook = JSON.parse(raw) as NotebookFile;
     const canonicalNotebook = canonicalizeNotebookFile(notebook);
-    const canonicalRaw = `${JSON.stringify(canonicalNotebook, null, 2)}\n`;
     const htmlFragment = notebookToHtml(canonicalNotebook);
     const title = path.parse(file).name;
     const html = wrapNotebookHtml(title, htmlFragment);
@@ -180,10 +189,6 @@ async function main() {
     const outputPath = path.join(OUTPUT_DIR, outputName);
     await fs.writeFile(outputPath, html, "utf8");
     console.log(`Built: ${outputPath}`);
-
-    const ipynbOutputPath = path.join(OUTPUT_DIR, file);
-    await fs.writeFile(ipynbOutputPath, canonicalRaw, "utf8");
-    console.log(`Copied: ${ipynbOutputPath}`);
   }
 
   await fs.copyFile(CATALOG_SOURCE_PATH, CATALOG_OUTPUT_PATH);

@@ -492,6 +492,12 @@ export class NoemaStack extends Stack {
     });
 
     api.addRoutes({
+      path: "/api/notebooks/{notebookId}/download",
+      methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration
+    });
+
+    api.addRoutes({
       path: "/api/questions",
       methods: [apigwv2.HttpMethod.POST],
       integration: apiIntegration,

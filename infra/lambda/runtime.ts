@@ -2044,7 +2044,7 @@ function buildDefaultColabUrl(notebookId: string): string {
   if (!safeNotebookId) {
     return "https://colab.research.google.com/";
   }
-  return `https://colab.research.google.com/github/${COLAB_GITHUB_REPO}/blob/${COLAB_GITHUB_REF}/public/notebooks/${encodeURIComponent(safeNotebookId)}.ipynb`;
+  return `https://colab.research.google.com/github/${COLAB_GITHUB_REPO}/blob/${COLAB_GITHUB_REF}/content/notebooks/${encodeURIComponent(safeNotebookId)}.ipynb`;
 }
 
 function normalizeColabUrl(raw: string, notebookId: string): string {
@@ -2053,8 +2053,8 @@ function normalizeColabUrl(raw: string, notebookId: string): string {
     return buildDefaultColabUrl(notebookId);
   }
 
-  if (value.includes("/content/notebooks/")) {
-    return value.replace("/content/notebooks/", "/public/notebooks/");
+  if (value.includes("/public/notebooks/")) {
+    return value.replace("/public/notebooks/", "/content/notebooks/");
   }
 
   return value;
@@ -2214,6 +2214,22 @@ export async function getAdminNotebookDetail(notebookId: string) {
       updatedAt: existing.updatedAt || ""
     },
     ipynbRaw
+  };
+}
+
+export async function downloadNotebookIpynb(notebookId: string): Promise<APIGatewayProxyStructuredResultV2 | null> {
+  const existing = await getNotebook(notebookId);
+  if (!existing) return null;
+
+  const ipynbRaw = await loadStoredNotebookIpynbRaw(notebookId, existing.chunks ?? []);
+  return {
+    statusCode: 200,
+    headers: {
+      "content-type": "application/x-ipynb+json; charset=utf-8",
+      "content-disposition": `attachment; filename="${notebookId}.ipynb"`,
+      "cache-control": "public, max-age=0, must-revalidate"
+    },
+    body: ipynbRaw
   };
 }
 

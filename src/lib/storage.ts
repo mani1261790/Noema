@@ -50,7 +50,6 @@ export async function saveNotebookArtifacts(params: { notebookId: string; ipynbR
 
     return {
       htmlPath: `s3://${s3Bucket}/${htmlKey}`,
-      ipynbPath: `s3://${s3Bucket}/${ipynbKey}`,
       usingS3: true
     };
   }
@@ -65,7 +64,6 @@ export async function saveNotebookArtifacts(params: { notebookId: string; ipynbR
 
   return {
     htmlPath: `/notebooks/${params.notebookId}.html`,
-    ipynbPath: `/notebooks/${params.notebookId}.ipynb`,
     usingS3: false
   };
 }

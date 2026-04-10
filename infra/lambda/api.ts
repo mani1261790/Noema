@@ -5,6 +5,7 @@ import {
   completeChat,
   createNotebookColabSession,
   deleteAdminNotebook,
+  downloadNotebookIpynb,
   getAdminNotebookDetail,
   getAuthUser,
   getQuestionAnswer,
@@ -96,6 +97,22 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       const message = error instanceof Error ? error.message : String(error);
       return json(500, { error: message });
     }
+  }
+
+  if (
+    route === "GET /api/notebooks/{notebookId}/download" ||
+    /^GET \/api\/notebooks\/[^/]+\/download$/.test(route)
+  ) {
+    const notebookId = publicNotebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const result = await downloadNotebookIpynb(notebookId);
+    if (!result) {
+      return json(404, { error: "Notebook not found" });
+    }
+    return result;
   }
 
   const user = getAuthUser(event);
