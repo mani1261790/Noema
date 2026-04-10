@@ -167,7 +167,8 @@ try:
         shown_fignums = set()
         plt = None
         if parsed_context.body:
-            exec(compile(parsed_context, "<noema-context>", "exec"), scope, scope)
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                exec(compile(parsed_context, "<noema-context>", "exec"), scope, scope)
         try:
             import matplotlib.pyplot as plt
             preexisting_fignums = set(plt.get_fignums())
