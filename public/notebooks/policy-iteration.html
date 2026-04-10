@@ -116,6 +116,39 @@
 <p>この性質は、業務環境でアルゴリズムを監査可能な形で運用する際に有利です。</p>
 <p>2状態MDPで方策反復を最後まで実行し、収束方策を確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>eval_policy</code> を何回回せば、評価が十分と言えるのか。</li>
+<li><code>policy stable</code> は、何を見て止めているのか。</li>
+<li><code>P[s][a]</code> の2つの遷移は、何を表しているのか。</li>
+<li>評価と改善を分けると、何がそんなに扱いやすくなるのか。</li>
+<li>方策反復が最適解に近づく理由を、どう理解すればよいのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>policy evaluation</code>: 今の方策がどれくらい良いかを、価値関数として見積もる手続きです。方策は変えずに価値だけを更新します。</li>
+<li><code>policy improvement</code>: 評価した価値を使って、より良い行動に方策を更新することです。各状態での選択を見直します。</li>
+<li><code>stable policy</code>: 改善しても方策が変わらなくなった状態です。これ以上の更新が止まる目安になります。</li>
+<li><code>expected action value</code>: ある状態である行動を取ったときの、期待される将来価値です。<code>action_value</code> が計算している量です。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>iter=... policy=... V=...</code> で、評価と改善が交互に進んでいるか。</li>
+<li><code>policy stable -&gt; stop</code> が出るかどうか。</li>
+<li>最終的な policy と <code>V</code> の組が、収束結果として読めるか。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>action_value</code> が期待値計算になっている理由を、確率付き遷移に結びつけて説明する必要がある。</li>
+<li>2状態MDPで見える収束を、一般の状態数ではどう解釈するかの補足がない。</li>
+</ul>
+
+<h2 id="コード-1-更新式や補助関数を定義する">コード 1: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>iter=... policy=... V=...</code> で、評価と改善が交互に進んでいるか。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">states = [&#39;s0&#39;, &#39;s1&#39;]
 actions = [&#39;left&#39;, &#39;right&#39;]
 gamma = 0.9
@@ -158,6 +191,9 @@ def improve_policy(V):
         best = &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
         policy[s] = best
     return policy</code></pre>
+<h2 id="コード-2-方策評価と改善の準備をする">コード 2: 方策評価と改善の準備をする</h2>
+<p>このセルでは 方策評価と改善の準備をする ための最小コードを動かします。 実行時は「<code>policy stable -&gt; stop</code> が出るかどうか。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">V = {&#39;s0&#39;: 0.0, &#39;s1&#39;: 0.0}
 policy = {&#39;s0&#39;: &#39;left&#39;, &#39;s1&#39;: &#39;left&#39;}
 

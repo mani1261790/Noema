@@ -98,10 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math
-import random
-import statistics
-import time</code></pre>
 <h1 id="エネルギーベースモデル">エネルギーベースモデル</h1>
 <p>エネルギーベースモデル（EBM）は、確率分布を「正規化された確率」ではなく「エネルギー関数」で表す考え方です。データらしい点には低いエネルギーを、データらしくない点には高いエネルギーを与えるように学習します。</p>
 <p>このノートでは、1次元の最小実装で EBM の核を確認します。特に、SGLD と Replay Buffer を使った学習が何をしているかをコードで追います。</p>
@@ -111,6 +107,57 @@ import time</code></pre>
 <p>EBMを理解すると、スコア推定やサンプリングの視点で生成を捉え直せます。</p>
 <p>エネルギー勾配とサンプリング更新を対応付けます。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>エネルギーが低いと、なぜ確率が高いと言えるのか。</li>
+<li>分配関数 <code>Z</code> は、なぜ計算しにくいのか。</li>
+<li>SGLD で作る負例は、普通のサンプルとどう違うのか。</li>
+<li>Replay Buffer は、なぜ学習を安定させるのか。</li>
+<li>EBM では、学習がうまくいったかを何で判断すればよいのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>エネルギー関数</code>: データらしさを数値で表す関数です。低いほどその点が出やすい、と考えます。</li>
+<li><code>分配関数</code>: エネルギーを確率に変換するときに必要な正規化定数です。高次元ではこれを厳密に計算するのが難しくなります。</li>
+<li><code>SGLD</code>: 勾配で低エネルギー側へ動かしながら、ノイズも加えるサンプリング法です。EBM の負例を作るのに使います。</li>
+<li><code>Replay Buffer</code>: 以前に作った負例を貯めて、次の学習にも使う仕組みです。毎回ゼロからサンプルし直さずに済むので、学習が安定しやすくなります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>real_stats</code> と <code>model_stats</code> を見て、学習後の分布がどれだけ似ているかを確認する。</li>
+<li><code>approx_partition</code> と <code>approx_density</code> の出力を見て、分配関数近似がどれくらい荒いかを確認する。</li>
+<li><code>SGLDステップ不足</code> の比較で、負例サンプリングが甘いと何が崩れるかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>approx_partition</code> の値の荒さをどう解釈するか。</li>
+<li><code>model_stats</code> と <code>real_stats</code> の差を何として見るか。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>エネルギーを下げる・上げる更新が、確率モデルの学習にどう対応するのかの直結した説明がまだ足りない。</li>
+<li>Replay Buffer が負例分布の近似として効く理由が、初学者向けにはもう一段必要だ。</li>
+<li>エネルギー更新が確率モデル学習に対応する直結した説明。</li>
+<li>Replay Buffer が負例近似として効く理由。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>ここでの SGLD と近似分配関数は教育用の簡略実装である点。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>real_stats</code> と <code>model_stats</code> を見て、学習後の分布がどれだけ似ているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import math
+import random
+import statistics
+import time</code></pre>
 <p>EBM の基本式は次です。</p>
 <p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>p</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mi>exp</mi><mo>(</mo><mo>−</mo><msub><mi>E</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>)</mo></mrow><mrow><msub><mi>Z</mi><mi>θ</mi></msub></mrow></mfrac><mo separator="true">,</mo><mspace width="2em"></mspace><msub><mi>Z</mi><mi>θ</mi></msub><mo>=</mo><mo>∫</mo><mi>exp</mi><mo>(</mo><mo>−</mo><msub><mi>E</mi><mi>θ</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>)</mo><mi>d</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">p_\theta(x)=\frac{\exp(-E_\theta(x))}{Z_\theta},\qquad Z_\theta=\int \exp(-E_\theta(x))dx
 </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:1.427em;"></span><span class="strut bottom" style="height:2.28925em;vertical-align:-0.86225em;"></span><span class="base displaystyle textstyle uncramped"><span class="mord"><span class="mord mathit">p</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mrel">=</span><span class="mord reset-textstyle displaystyle textstyle uncramped"><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span><span class="mfrac"><span class="vlist"><span style="top:0.686em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle cramped"><span class="mord textstyle cramped"><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">Z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.07153em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span><span style="top:-0.22999999999999998em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped frac-line"></span></span><span style="top:-0.677em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle textstyle uncramped"><span class="mord textstyle uncramped"><span class="mop">exp</span><span class="mopen">(</span><span class="mord">−</span><span class="mord"><span class="mord mathit" style="margin-right:0.05764em;">E</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">)</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="sizing reset-size5 size5 reset-textstyle textstyle uncramped nulldelimiter"></span></span><span class="mpunct">,</span><span class="mord mspace qquad"></span><span class="mord"><span class="mord mathit" style="margin-right:0.07153em;">Z</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.07153em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="op-symbol large-op mop" style="margin-right:0.44445em;top:-0.0011249999999999316em;">∫</span><span class="mop">exp</span><span class="mopen">(</span><span class="mord">−</span><span class="mord"><span class="mord mathit" style="margin-right:0.05764em;">E</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.05764em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mopen">(</span><span class="mord mathit">x</span><span class="mclose">)</span><span class="mclose">)</span><span class="mord mathit">d</span><span class="mord mathit">x</span></span></span></span></span></p>
@@ -328,6 +375,9 @@ for step, e_d, e_n, gap, th, rs in history:
         f&#39;theta={[round(v,4) for v in th]}&#39;,
         f&#39;replay={rs}&#39;
     )</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>approx_partition</code> と <code>approx_density</code> の出力を見て、分配関数近似がどれくらい荒いかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def draw_model_samples(theta, n=2600):
     init = [random.uniform(-4.5, 4.5) for _ in range(n)]
     return sgld_samples(theta, init, n_steps=60, step_size=0.05, noise_std=0.07)
@@ -343,6 +393,9 @@ print(&#39;model mean/std =&#39;, round(model_stats[&#39;mean&#39;], 4), round(m
 print(&#39;real  left/right =&#39;, round(real_stats[&#39;left&#39;], 4), round(real_stats[&#39;right&#39;], 4))
 print(&#39;model left/right =&#39;, round(model_stats[&#39;left&#39;], 4), round(model_stats[&#39;right&#39;], 4))
 print(&#39;trained theta =&#39;, [round(v, 4) for v in trained_theta])</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>SGLDステップ不足</code> の比較で、負例サンプリングが甘いと何が崩れるかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def approx_partition(theta, x_min=-6.0, x_max=6.0, n_grid=5000):
     dx = (x_max - x_min) / n_grid
     s = 0.0

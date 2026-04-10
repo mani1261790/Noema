@@ -98,6 +98,64 @@
 <body>
   <main>
 <article class="prose-noema">
+<h1 id="事前学習-pre-training">事前学習（Pre-training）</h1>
+<p>事前学習は、大量の未ラベルテキストから「次にどのトークンが来るか」を予測することで、言語の統計構造を学ぶ段階です。<br>
+このノートでは、データ準備、N-gramからニューラル言語モデルへの流れ、評価（perplexity）、計算コスト感覚、そして機械論的解釈可能性の入口までを一貫して確認します。</p>
+
+<h2 id="背景と目的">背景と目的</h2>
+<p>事前学習は LLM の基盤能力を作る段階ですが、それだけで最終用途の性能や安全性が決まり切るわけではありません。SFT・RLHF・RAG・ツール利用は、その基盤の上でタスク適応、応答方針、更新性を大きく変えます。</p>
+<p>事前学習の目的を理解すると、どこが土台で、どこが後工程で改善できるかを切り分けて考えられます。</p>
+<p>学習目標と獲得能力の対応を整理します。</p>
+
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>未ラベルの文章を次トークン予測するだけで、どうして言語モデルになるのか。</li>
+<li>N-gram とニューラル言語モデルは、何が違っていて何が共通しているのか。</li>
+<li>クロスエントロピーや perplexity は、どの値なら良いと考えればいいのか。</li>
+<li>重複や汚染データがあると、どんな失敗につながるのか。</li>
+<li>機械論的解釈可能性は、ここで何を見ようとしているのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>事前学習</code>: 大量の文章から、次に来る単語や文字の傾向を学ぶ段階です。後の微調整より前に、言語の基本的な性質を身につけます。</li>
+<li><code>次トークン予測</code>: 直前までの文脈を見て、次に来るトークンを当てる学習目です。LLM の基本的な学習目的です。</li>
+<li><code>クロスエントロピー損失</code>: 予測した確率分布と正解のずれを測る損失です。小さいほど正しいトークンに高い確率を与えられています。</li>
+<li><code>パープレキシティ</code>: 言語モデルがどれだけ迷っているかを表す指標です。低いほど、次のトークンをより自信を持って予測できています。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>train_lengths</code> と <code>val_lengths</code> を見て、学習用と検証用が分かれているかを確認する。</li>
+<li><code>sample_unigram</code> の生成結果を見て、ベースラインがどれだけ単純な振る舞いかを確認する。</li>
+<li><code>estimate_flops</code> の出力を見て、パラメータ数とトークン数が計算量にどう効くかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>perplexity</code> は小さいほど良いですが、同じコーパス・同じ語彙・同じ単位で計算した値同士でだけ比べます。</li>
+<li>unigram / bigram は事前学習そのものではなく、より強いモデルと比べるための古典的ベースラインです。</li>
+<li>train/val の差が小さくても、この toy 設定だけで実際の LLM 品質までは判断できません。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>パープレキシティを実際にどう読めばよいか、良し悪しの判断基準が説明されていない。</li>
+<li><code>FLOPs ≈ 6 * N_params * N_tokens</code> がどの仮定に基づく近似かが説明されていない。</li>
+<li>N-gram はベースラインで、現代 LLM の実装ではないこと。</li>
+<li>toy perplexity と合成コーパスでは、実データの規模感を再現しないこと。</li>
+<li>perplexity の絶対値を、この小さなコーパスでどう読めばよいかがまだ曖昧。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>これは char-level の教育用 proxy で、実際の token-level pretraining ではない。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>train_lengths</code> と <code>val_lengths</code> を見て、学習用と検証用が分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">import math
 import random
 import re
@@ -116,15 +174,6 @@ except ModuleNotFoundError:
     nn = None
     optim = None
     TORCH_AVAILABLE = False</code></pre>
-<h1 id="事前学習-pre-training">事前学習（Pre-training）</h1>
-<p>事前学習は、大量の未ラベルテキストから「次にどのトークンが来るか」を予測することで、言語の統計構造を学ぶ段階です。<br>
-このノートでは、データ準備、N-gramからニューラル言語モデルへの流れ、評価（perplexity）、計算コスト感覚、そして機械論的解釈可能性の入口までを一貫して確認します。</p>
-
-<h2 id="背景と目的">背景と目的</h2>
-<p>LLMの能力の大半は事前学習で形成され、後工程の限界もここで決まります。</p>
-<p>事前学習の目的を理解すると、下流タスクで何が改善可能かを見極められます。</p>
-<p>学習目標と獲得能力の対応を整理します。</p>
-
 <p>言語モデルの基本目的は次の確率を最大化することです。</p>
 <p><code>P(w_1, ..., w_T) = Π_t P(w_t | w_{&lt;t})</code></p>
 <p>ここで <code>w_{&lt;t}</code> は <code>w_1 ... w_{t-1}</code>（時刻 <code>t</code> より前のトークン列）です。<br>
@@ -167,6 +216,9 @@ val_docs = docs[split:]
 
 print(&#39;train docs:&#39;, len(train_docs), &#39;val docs:&#39;, len(val_docs))
 print(&#39;sample train tokens:&#39;, &#39;&#39;.join(train_docs[0][:30]))</code></pre>
+<h2 id="コード-2-結果を図で確かめる">コード 2: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>sample_unigram</code> の生成結果を見て、ベースラインがどれだけ単純な振る舞いかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">train_lengths = np.array([len(d) for d in train_docs], dtype=np.int64)
 val_lengths = np.array([len(d) for d in val_docs], dtype=np.int64)
 
@@ -255,6 +307,11 @@ def perplexity_bigram(seqs):
 
 print(&#39;val perplexity unigram:&#39;, round(perplexity_unigram(val_ids), 4))
 print(&#39;val perplexity bigram :&#39;, round(perplexity_bigram(val_ids), 4))</code></pre>
+<p>ここでの unigram / bigram は「事前学習の入口を理解するための比較対象」です。現代の LLM そのものではありません。さらに、このノートの perplexity は小さな文字集合で計算しているので、値の絶対的な大小よりも「モデル間でどちらが下がったか」を読むために使います。</p>
+
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>estimate_flops</code> の出力を見て、パラメータ数とトークン数が計算量にどう効くかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def sample_unigram(max_len=40):
     probs = np.array([unigram_prob(i) for i in range(V)], dtype=np.float64)
     probs = probs / probs.sum()
@@ -290,6 +347,9 @@ ce = -math.log(probs[target] + 1e-12)
 print(&#39;probs =&#39;, np.round(probs, 4))
 print(&#39;cross entropy =&#39;, round(float(ce), 6))
 print(&#39;perplexity for this token =&#39;, round(float(math.exp(ce)), 6))</code></pre>
+<h2 id="コード-4-更新式や補助関数を定義する">コード 4: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>estimate_flops</code> の出力を見て、パラメータ数とトークン数が計算量にどう効くかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">if TORCH_AVAILABLE:
     torch.manual_seed(0)
 

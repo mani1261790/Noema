@@ -98,9 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math
-import numpy as np
-import matplotlib.pyplot as plt</code></pre>
 <h1 id="スケーリング則">スケーリング則</h1>
 <p>LLMの事前学習では、モデルサイズ <code>N</code>、学習トークン数 <code>D</code>、計算資源 <code>C</code> を大きくすると、検証損失がべき乗的に下がる傾向があります。<br>
 このノートでは、実験データからべき乗則を推定し、同一計算資源（isoflops）での最適配分を計算する流れを確認します。</p>
@@ -110,6 +107,56 @@ import matplotlib.pyplot as plt</code></pre>
 <p>スケーリング則を理解すると、限られた予算で最適な訓練計画を立てられます。</p>
 <p>対数スケールでの性能変化を読み解きます。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>なぜ損失を log-log で見るとべき乗則が見えやすいのか。</li>
+<li><code>L_inf</code> は何を意味していて、なぜ先に決める必要があるのか。</li>
+<li>同じ計算資源なら、モデルサイズとデータ量をどう配分すべきなのか。</li>
+<li><code>C ≈ 6ND</code> という近似は、何を表しているのか。</li>
+<li>スケーリング則がそのまま当てはまらなくなるのは、どんなときか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>スケーリング則</code>: モデルサイズやデータ量を増やしたときに、損失がどう変わるかを表す経験則です。どこに計算資源を使うかを考える土台になります。</li>
+<li><code>下限損失 L_inf</code>: どれだけ規模を大きくしても近づくだけで、完全には下がり切らない損失の下限です。べき乗則を当てはめるときの基準になります。</li>
+<li><code>べき指数</code>: モデルサイズやデータ量を増やしたとき、損失がどの速さで下がるかを表す数です。値が大きいほど、増量の効き方が強いです。</li>
+<li><code>isoflops</code>: 同じ計算量で比較する考え方です。限られた予算の中で、モデルを大きくするかデータを増やすかを比べるために使います。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li>左右のプロットで、観測点とフィット線が log スケール上でどれくらい一直線に見えるかを確認する。</li>
+<li><code>fit_joint['L_inf']</code> と各フィット結果を見て、下限値と指数が極端でないかを確認する。</li>
+<li><code>N_star</code> と <code>D_star</code> の推移を見て、計算資源が増えたときの配分が常識的かを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li>きれいに直線が出ても、合成データ上の結果であり、実データのノイズ構造そのものではありません。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>合成データで当てた指数を、本番の観測データでどう検証するかが説明されていない。</li>
+<li>アーキテクチャ変更やデータ品質の違いで、スケーリング則がどう崩れるかが説明されていない。</li>
+<li>ここでの fit は生成式の回収テストで、実験的発見ではないこと。</li>
+<li>L_inf の候補探索が教育用の toy 手順であること。</li>
+<li>L_inf を共有する仮定が、どこまで強いのかの補足が欲しい。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>この notebook は合成データ上の教育用フィットで、実 scaling experiment ではない。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「左右のプロットで、観測点とフィット線が log スケール上でどれくらい一直線に見えるかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import math
+import numpy as np
+import matplotlib.pyplot as plt</code></pre>
 <p>よく使う近似は次の形です。</p>
 <p><code>L(N, D) ≈ L_inf + a * N^{-alpha} + b * D^{-beta}</code></p>
 <ul>
@@ -139,6 +186,9 @@ L_of_D = L_inf_true + B_true * (D_billion ** (-beta_true)) + rng.normal(0, 0.01,
 print(&#39;N sweep losses:&#39;, np.round(L_of_N, 4))
 print(&#39;D sweep losses:&#39;, np.round(L_of_D, 4))
 print(&#39;unit note: N uses params count, D uses token count in isoflops section&#39;)</code></pre>
+<h2 id="コード-2-結果を図で確かめる">コード 2: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>fit_joint['L_inf']</code> と各フィット結果を見て、下限値と指数が極端でないかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">plt.figure(figsize=(7.2, 3.6))
 plt.subplot(1, 2, 1)
 plt.plot(N_million, L_of_N, marker=&#39;o&#39;)
@@ -158,7 +208,8 @@ plt.show()</code></pre>
 <p><code>L_inf</code> が未知なので、候補値を走査しながら<br>
 <code>log(L - L_inf)</code> と <code>log(x)</code> の一次回帰で指数を推定します。</p>
 <p><code>L_inf</code> は観測損失の最小値より少し小さい値にしかなりえないので、<br>
-その近傍を候補として探索します。</p>
+その近傍を候補として探索します。<br>
+ここでの探索範囲は、合成データを扱う教育用の便宜的な設定です。 実データでは観測最小値からかなり離れた <code>L_inf</code> が推定されることもあるため、より広い候補範囲や制約付き最適化で floor を推定するのが一般的です。</p>
 
 <pre><code class="language-python">def fit_power_with_fixed_floor(x, y, floor):
     # y ~= floor + A * x^{-exponent}
@@ -204,6 +255,9 @@ print(&#39;Shared-floor fit summary:&#39;)
 print(&#39;L_inf =&#39;, round(fit_joint[&#39;L_inf&#39;], 5), &#39;total_mse =&#39;, round(fit_joint[&#39;total_mse&#39;], 7))
 print(&#39;N_fit =&#39;, {k: round(v, 5) for k, v in fit_joint[&#39;N_fit&#39;].items() if k != &#39;pred&#39;})
 print(&#39;D_fit =&#39;, {k: round(v, 5) for k, v in fit_joint[&#39;D_fit&#39;].items() if k != &#39;pred&#39;})</code></pre>
+<h2 id="コード-3-結果を図で確かめる">コード 3: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>N_star</code> と <code>D_star</code> の推移を見て、計算資源が増えたときの配分が常識的かを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">plt.figure(figsize=(7.2, 3.5))
 plt.subplot(1, 2, 1)
 plt.scatter(N_million, L_of_N, label=&#39;observed&#39;)
@@ -267,6 +321,9 @@ D_star = np.array(D_star)
 print(&#39;first 4 optimal pairs (N*, D*):&#39;)
 for i in range(4):
     print(f&quot;C={C_values[i]:.1e} -&gt; N*={N_star[i]/1e6:.2f}M params, D*={D_star[i]/1e9:.2f}B tokens&quot;)</code></pre>
+<h2 id="コード-4-結果を図で確かめる">コード 4: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>N_star</code> と <code>D_star</code> の推移を見て、計算資源が増えたときの配分が常識的かを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">plt.figure(figsize=(7.2, 3.6))
 plt.plot(C_values, N_star / 1e6, marker=&#39;o&#39;, label=&#39;optimal N* (M params)&#39;)
 plt.plot(C_values, D_star / 1e9, marker=&#39;s&#39;, label=&#39;optimal D* (B tokens)&#39;)

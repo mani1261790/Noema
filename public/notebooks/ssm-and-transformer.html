@@ -106,6 +106,53 @@
 <p>どちらが有利かは系列長・必要な依存距離・計算予算で変わります。</p>
 <p>同じ系列に対して2つの表現を作り、予測誤差を比較します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>SSM</code> と <code>Transformer</code> は、情報を集める仕組みがどう違うのか。</li>
+<li><code>y_target</code> は何を正解として作っているのか。</li>
+<li><code>x[5]</code> と <code>x[25]</code> のイベントが、なぜ長距離依存の例になるのか。</li>
+<li><code>自己注意</code> の重みは何を見て決まっているのか。</li>
+<li><code>SSM-like MSE</code> と <code>Transformer-like MSE</code> のどちらをどう解釈すればいいのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>状態空間モデル</code>: 逐次更新で系列を処理するモデルです。過去の情報を内部状態にたくわえていきます。</li>
+<li><code>自己注意</code>: 各時点が過去のどこをどれだけ見るかを重み付けする仕組みです。遠い過去を直接参照できます。</li>
+<li><code>長距離依存</code>: 遠い過去の情報が今の予測に効くことです。系列が長いほど重要になります。</li>
+<li><code>更新コスト</code>: 1ステップ処理するために必要な計算の重さです。長い系列では設計上の制約になります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>SSM-like MSE</code> と <code>Transformer-like MSE</code> が両方表示されるか。</li>
+<li><code>x</code> の 5番目と 25番目のイベントが、結果に影響していそうか。</li>
+<li><code>y_target</code> と各予測のズレを MSE で比較できるか。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>MSE SSM</code> と <code>MSE Transformer</code> をそのまま優劣と読まない注意。</li>
+<li>長距離依存がどこで効いているかの見方。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>ここでの Transformer が簡略版であることの説明。</li>
+<li><code>MSE</code> の差が、そのまま本物のモデル優劣を意味しない注意書き。</li>
+<li>このノートの Transformer が簡略代理である注意。</li>
+<li>MSE 比較が本物の性能順位ではない説明。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>ここでは小さな教材用比較であり、実装済み Transformer の代表性能ではない点。</li>
+</ul>
+
+<h2 id="コード-1-入力データを作る">コード 1: 入力データを作る</h2>
+<p>このセルでは 入力データを作る ための最小コードを動かします。 実行時は「<code>SSM-like MSE</code> と <code>Transformer-like MSE</code> が両方表示されるか。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">import numpy as np
 np.random.seed(2)
 
@@ -117,6 +164,9 @@ x[25] = 0.8  # 長距離イベント
 y_target = np.zeros(T)
 for t in range(1, T):
     y_target[t] = 0.7 * y_target[t - 1] + x[t]</code></pre>
+<h2 id="コード-2-入力データを作る">コード 2: 入力データを作る</h2>
+<p>このセルでは 入力データを作る ための最小コードを動かします。 実行時は「<code>x</code> の 5番目と 25番目のイベントが、結果に影響していそうか。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># SSM: h_t = a h_{t-1} + b x_t, y_t = c h_t
 a, b, c = 0.8, 1.0, 1.0
 h = 0.0
@@ -140,7 +190,7 @@ mse_ssm = np.mean((y_ssm - y_target) ** 2)
 mse_attn = np.mean((y_attn - y_target) ** 2)
 print(&#39;SSM-like MSE        =&#39;, round(mse_ssm, 6))
 print(&#39;Transformer-like MSE=&#39;, round(mse_attn, 6))</code></pre>
-<p>SSMは更新コストが低く長系列に有利です。Transformer側は学習済みmulti-head self-attentionの簡略近似として実装しており、長距離参照の考え方を確認することを目的にしています。</p>
+<p>SSMは更新コストが低く長系列に有利です。ここでの Transformer 側は、学習された content-based attention ではなく距離に応じた positional smoothing を使う簡略代理です。そのため、この MSE 比較は『本物の Transformer が優れているか』を測る実験ではなく、系列集約の考え方の違いを見るための教材用比較です。</p>
 
 </article>
   </main>

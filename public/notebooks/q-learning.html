@@ -116,6 +116,36 @@
 <p>オフポリシー更新の意味を理解すると、探索戦略の設計自由度が上がります。</p>
 <p>行動価値更新と方策抽出を分けて確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>なぜ <code>max</code> を使うと、オフポリシーになるのか。</li>
+<li><code>Q(s,a)</code> は、状態の価値 <code>V(s)</code> と何が違うのか。</li>
+<li><code>reference_return</code> を先に計算するのは、何を確認するためなのか。</li>
+<li>方策を明示せずに、どうやって最適行動を学ぶのか。</li>
+<li>探索率が高くても学習が進むのは、なぜなのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>Q-function</code>: 状態と行動の組が、将来どれくらい得かを表す関数です。行動を直接比較できます。</li>
+<li><code>off-policy</code>: 実際に行動する方策と、学習で目指す方策が違っていても学べる性質です。Q学習はこれに当たります。</li>
+<li><code>TD target</code>: 更新で目標にする値です。Q学習では報酬に次状態の最大Q値を足した形になります。</li>
+<li><code>greedy policy</code>: 各状態で Q が最大の行動を選ぶ方策です。学習後の行動選択でよく使います。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>reference_return=</code> が、割引報酬の基準値として出ているか。</li>
+<li><code>Q(s0,right)=</code> の更新後値が、TD target に合わせて変わっているか。</li>
+<li><code>choose_action(...)</code> の結果で、探索と活用が切り替わっているか。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>max_{a'}</code> が『実際に選んだ行動』ではない点を、on-policy との対比で説明する補足がない。</li>
+<li>最後に方策をどう抽出するかを、Q値の一覧から結びつける説明が足りない。</li>
+</ul>
+
 <h2 id="検証-1-q学習の更新準備">検証 1: Q学習の更新準備</h2>
 <p>Q学習の更新式確認のため、割引率と報酬列を先に定義します。</p>
 
@@ -156,11 +186,19 @@ print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
 <h2 id="検証-4-探索と活用の切り替え">検証 4: 探索と活用の切り替え</h2>
 <p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
 
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
+<pre><code class="language-python">import random
+
+random.seed(7)
+
+def choose_action(q_left, q_right, epsilon):
+    if random.random() &lt; epsilon:
+        return random.choice([&#39;left&#39;, &#39;right&#39;])
     return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
+
+samples_high_eps = [choose_action(0.4, 0.7, 0.5) for _ in range(8)]
+samples_low_eps = [choose_action(0.4, 0.7, 0.1) for _ in range(8)]
+print(&#39;epsilon=0.5 -&gt;&#39;, samples_high_eps)
+print(&#39;epsilon=0.1 -&gt;&#39;, samples_low_eps)</code></pre>
 <p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
 
 <h2 id="検証-5-方策評価の簡易チェック">検証 5: 方策評価の簡易チェック</h2>

@@ -98,12 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math
-import random
-from collections import Counter, defaultdict
-from statistics import mean
-
-random.seed(42)</code></pre>
 <h1 id="生成モデルの全体像">生成モデルの全体像</h1>
 <p>生成モデルは、データを分類するのではなく「データそのものを作る」ためのモデルです。画像生成、文章生成、音声生成だけでなく、欠損補完、異常検知、シミュレーションの近似などにも使われます。</p>
 
@@ -112,6 +106,54 @@ random.seed(42)</code></pre>
 <p>全体像を整理すると、各モデルの強みと弱みを目的別に使い分けられます。</p>
 <p>分布モデリングの系譜を共通軸で比較します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>生成モデルは、結局なにを学習していて、何を新しく出力するモデルなのか。</li>
+<li>「分布を学ぶ」とは、コードの中でどの値や頻度を合わせることなのか。</li>
+<li>多次元ベルヌーイは何が簡単で、どこから相関を表せなくなるのか。</li>
+<li>潜在変数や混合モデルを入れると、見えない何が説明できるようになるのか。</li>
+<li>自己回帰、VAE、GAN、フロー、拡散は、何を基準に選べばよいのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>生成モデル</code>: データの正解ラベルを当てるのではなく、データらしいサンプルを作れるように確率分布を学ぶモデルです。新しい入力を分類するのではなく、新しい出力を生成するのが目的です。</li>
+<li><code>識別モデル</code>: 入力がどのクラスかを判定するモデルです。生成モデルのようにデータそのものを作るのではなく、境界や判定ルールを学びます。</li>
+<li><code>潜在変数</code>: 観測されていないけれど、データの背後で原因になっていると考える変数です。直接見えない構造を表すために使います。</li>
+<li><code>モード崩壊</code>: 本当は複数あるはずのデータの山のうち、生成器が一部しか出さなくなる失敗です。見た目がそれっぽくても多様性が足りなくなります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li>toy_data の <code>observed patterns and frequencies</code> と <code>most frequent pattern</code> を見て、どのパターンが多いかを確認する。</li>
+<li><code>estimated pixel-wise probabilities</code> と <code>samples from model</code> の出力を見て、独立ベルヌーイがどんなサンプルを作るかを確認する。</li>
+<li><code>diversity proxy</code>、<code>collapsed diversity proxy</code>、<code>choose_generative_family</code> の出力を見て、多様性低下と手法選択のつながりを確認する。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>多次元ベルヌーイで各次元を独立に置くと、どの相関が消えてしまうのかの説明がまだ足りない。</li>
+<li>尤度、品質、多様性、速度の各軸が、実際のモデル選択でどう衝突するのかの説明がもう一段必要だ。</li>
+<li>多次元ベルヌーイで独立仮定を置くと、どの依存関係が失われるかの説明。</li>
+<li>尤度・品質・多様性・速度の衝突の説明。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>このノートが比較しているのは『表現の入口』であり、実運用の最終性能比較ではない点。</li>
+<li>実データでは独立仮定がどこで破綻しやすいかの注意。</li>
+</ul>
+
+<h2 id="コード-1-入力データを作る">コード 1: 入力データを作る</h2>
+<p>このセルでは 入力データを作る ための最小コードを動かします。 実行時は「toy_data の <code>observed patterns and frequencies</code> と <code>most frequent pattern</code> を見て、どのパターンが多いかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import math
+import random
+from collections import Counter, defaultdict
+from statistics import mean
+
+random.seed(42)</code></pre>
 <p>生成モデルを学ぶときに最初につまずきやすい点は、「何を学習しているのか」が見えにくいことです。</p>
 <p>識別モデルは「猫か犬か」の境界を学習します。一方で生成モデルは、データがどのような確率分布から来ているかを学びます。言い換えると、データらしさの地形を学習して、その地形から新しいサンプルを引くのが生成モデルです。</p>
 
@@ -178,6 +220,9 @@ my = mean(y for _, y in data_2d)
 print(&#39;single Gaussian mean estimate =&#39;, (round(mx, 3), round(my, 3)))
 print(&#39;example points near cluster centers:&#39;)
 print(&#39;A sample:&#39;, cluster_a[0], &#39;B sample:&#39;, cluster_b[0])</code></pre>
+<h2 id="コード-2-反復の進み方を観察する">コード 2: 反復の進み方を観察する</h2>
+<p>このセルでは 反復の進み方を観察する ための最小コードを動かします。 実行時は「<code>estimated pixel-wise probabilities</code> と <code>samples from model</code> の出力を見て、独立ベルヌーイがどんなサンプルを作るかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># 真のクラスタラベルを使った理想的な2成分近似（教育用）
 mx_a = mean(x for x, _ in cluster_a)
 my_a = mean(y for _, y in cluster_a)
@@ -307,6 +352,9 @@ print(&#39;naive reverse result  =&#39;, round(x_rev_naive, 3), &#39;(without ep
 nll_values = [neg_log_likelihood_bernoulli(x, p_hat) for x in toy_data]
 print(&#39;mean NLL =&#39;, round(mean(nll_values), 4))
 print(&#39;max NLL  =&#39;, round(max(nll_values), 4), &#39;(outlier-like sample indicator)&#39;)</code></pre>
+<h2 id="コード-3-計算結果を確かめる">コード 3: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>diversity proxy</code>、<code>collapsed diversity proxy</code>、<code>choose_generative_family</code> の出力を見て、多様性低下と手法選択のつながりを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># 多様性の簡易指標: 生成サンプル中のユニークパターン率
 # 注意: 離散空間サイズ（ここでは最大16パターン）に強く依存する
 samples = sample_bernoulli(p_hat, n_samples=200)

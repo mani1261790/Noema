@@ -122,6 +122,50 @@
 <p>状態・行動・報酬の関係を整理できると、各アルゴリズムの更新式を読み解けます。</p>
 <p>小さな環境で報酬設計と価値更新の意味を確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>報酬 <code>reward</code> を足し合わせた <code>return</code> と、1回ごとの報酬は何が違うのか。</li>
+<li><code>gamma</code> を入れると、将来の報酬をどう扱っていることになるのか。</li>
+<li><code>V(s)</code> と <code>Q(s,a)</code> は、何をどこまで見積もっているのか。</li>
+<li>ベルマン更新で次状態の価値を使うのは、なぜ妥当なのか。</li>
+<li><code>epsilon</code> を変えると、行動選択は実際にどう変わるのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>return</code>: ある時点から先に得る報酬を、割引込みでまとめた合計です。単発の報酬とは別に、将来まで含めた得を表します。</li>
+<li><code>discount factor</code>: 将来の報酬をどれだけ小さく見るかを決める係数です。<code>gamma</code> が大きいほど遠い将来を重視します。</li>
+<li><code>value function</code>: 状態や行動が、この先どれくらい得かを数値で表したものです。<code>V</code> は状態、<code>Q</code> は状態と行動の組を見ます。</li>
+<li><code>epsilon-greedy</code>: 基本は高い価値の行動を選び、一定確率で探索も混ぜる選び方です。学習しながら試行錯誤するための簡単な方法です。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>print('task = rl-foundation', 'return=', ...)</code> の <code>return</code> が、割引和として正しく出ているか。</li>
+<li><code>print('updated V(s)=', ...)</code> で、1回のベルマン更新後に <code>V(s)</code> が変化しているか。</li>
+<li><code>print('Q(s0,right)=', ...)</code> で、Q値が更新前の値から動いているか。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>mode=explore</code> ならランダム行動、<code>mode=greedy</code> なら現在の価値推定で一番良い行動を選んでいます。</li>
+<li>このセルは価値更新式そのものではなく、学習中にどの行動を集めるかを見るための <code>epsilon-greedy</code> の最小例です。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>reward</code>、<code>return</code>、<code>value</code> の違いを、同じ例でつないで説明する補足が足りない。</li>
+<li><code>gamma</code> を上げ下げしたときに、何が得で何が危険になるのかの直感がない。</li>
+<li><code>choose_action</code> はランダム探索ではなく、閾値分岐に見える。</li>
+<li><code>epsilon</code> が高いと何が起きるかを、実際の分岐例で見せていない。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>ここでは <code>epsilon-greedy</code> の最小例を見せており、探索戦略の理論比較や最適化までは扱いません。</li>
+</ul>
+
 <h2 id="検証-1-割引報酬の基礎">検証 1: 割引報酬の基礎</h2>
 <p>強化学習の原点として、割引和の計算を基礎例で確認します。</p>
 
@@ -163,11 +207,22 @@ print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
 <h2 id="検証-4-探索と活用の切り替え">検証 4: 探索と活用の切り替え</h2>
 <p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
 
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
+<pre><code class="language-python">import random
+
+random.seed(11)
+
+
+def choose_action(q_left, q_right, epsilon):
+    greedy = &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
+    if random.random() &lt; epsilon:
+        action = random.choice([&#39;left&#39;, &#39;right&#39;])
+        return {&#39;mode&#39;: &#39;explore&#39;, &#39;action&#39;: action, &#39;greedy&#39;: greedy}
+    return {&#39;mode&#39;: &#39;greedy&#39;, &#39;action&#39;: greedy, &#39;greedy&#39;: greedy}
+
+
+for eps in [0.5, 0.1]:
+    out = choose_action(0.4, 0.7, eps)
+    print(f&quot;epsilon={eps:.1f}&quot;, &#39;mode=&#39;, out[&#39;mode&#39;], &#39;action=&#39;, out[&#39;action&#39;], &#39;greedy=&#39;, out[&#39;greedy&#39;])</code></pre>
 <p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
 
 <h2 id="検証-5-方策評価の簡易チェック">検証 5: 方策評価の簡易チェック</h2>

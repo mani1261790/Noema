@@ -98,11 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math
-import random
-from statistics import mean
-
-random.seed(33)</code></pre>
 <h1 id="vae-variational-autoencoder">VAE（Variational Autoencoder）</h1>
 <p>VAEは、オートエンコーダの「再構成能力」に、生成モデルとしての「サンプリング可能性」を加えたモデルです。潜在変数を確率分布で扱うことで、学習後に新しいデータを生成できるのが最大の特徴です。</p>
 
@@ -111,6 +106,58 @@ random.seed(33)</code></pre>
 <p>ELBOの意味を理解すると、再構成と正則化のバランスを制御できます。</p>
 <p>エンコーダ・デコーダ・再パラメータ化を実装で確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>普通のオートエンコーダと VAE は、何が決定的に違うのか。</li>
+<li>ELBO は、具体的に何を大きくするための式なのか。</li>
+<li>再パラメータ化トリックは、なぜ勾配計算を助けるのか。</li>
+<li>beta を大きくすると、なぜ再構成が悪くなりやすいのか。</li>
+<li>posterior collapse では、モデル内部で何が起きているのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>ELBO</code>: VAE が最大化する目的関数です。再構成を良くする項と、潜在分布を事前分布に近づける項を足し合わせたものです。</li>
+<li><code>近似事後分布</code>: 本当の事後分布の代わりに、学習しやすい形で近似した分布です。VAE ではエンコーダ <code>q(z|x)</code> がこれに当たります。</li>
+<li><code>再パラメータ化トリック</code>: <code>z</code> を直接乱数で引く代わりに、<code>mu + sigma * eps</code> の形に書き換える方法です。乱数部分と学習パラメータを分けることで、勾配を通しやすくします。</li>
+<li><code>posterior collapse</code>: エンコーダが入力情報をほとんど使わず、<code>q(z|x)</code> が事前分布に近づきすぎる状態です。潜在変数が実質的に役に立たなくなります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>reconstruction term</code>、<code>KL term</code>、<code>ELBO</code> の値を見て、どちらの項が学習を押しているかを確認する。</li>
+<li><code>eps samples</code> と <code>z samples</code> を見て、再パラメータ化で乱数がどう潜在値に変わるかを確認する。</li>
+<li><code>beta=1 final</code>、<code>beta=4 final</code>、<code>latent summary</code>、<code>collapse risk</code> の出力を見て、KL を強くしたときの変化を確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>reconstruction term</code> は大きいほど再構成が良く、<code>KL term</code> は小さいほど事前分布に近いので、ELBO はその綱引きで決まります。</li>
+<li><code>beta=1</code> と <code>beta=4</code> を比べるときは、再構成誤差だけでなく潜在平均や分散がつぶれすぎていないかも一緒に見ます。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>ELBO がなぜ <code>recon - KL</code> の形になるのか、確率モデルの前提からの導出がまだ足りない。</li>
+<li>posterior collapse の診断で、KL だけでは十分でない理由と、相互情報量を併用する意味がもう少し必要だ。</li>
+<li>ELBO が recon と KL の差になる導出の説明。</li>
+<li>posterior collapse を KL だけで見ない理由。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>ここでの VAE は最小例であり、高品質生成の実装そのものではない点。</li>
+</ul>
+
+<h2 id="コード-1-入力データを作る">コード 1: 入力データを作る</h2>
+<p>このセルでは 入力データを作る ための最小コードを動かします。 実行時は「<code>reconstruction term</code>、<code>KL term</code>、<code>ELBO</code> の値を見て、どちらの項が学習を押しているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import math
+import random
+from statistics import mean
+
+random.seed(33)</code></pre>
 <p>まず、なぜ普通のオートエンコーダだけでは不十分かを整理します。</p>
 <p>通常のAEは <code>x -&gt; z -&gt; x_hat</code> の再構成は上手でも、潜在空間 <code>z</code> がバラバラだと「どこからサンプルを引けば自然なデータが出るか」が分かりません。VAEはここに事前分布 <code>p(z)</code> を入れて、潜在空間を生成に使える形へ整えます。</p>
 
@@ -151,6 +198,8 @@ elbo = recon - kl
 print(&#39;reconstruction term =&#39;, round(recon, 4))
 print(&#39;KL term             =&#39;, round(kl, 4))
 print(&#39;ELBO                =&#39;, round(elbo, 4))</code></pre>
+<p>普通のオートエンコーダは「再構成が良いこと」だけを押しますが、VAE はそこに <code>KL</code> を足して「生成しやすい潜在空間であること」も同時に求めます。だから <code>reconstruction term</code> が良くても <code>KL</code> を無視しすぎると、サンプルしやすい潜在空間になりません。</p>
+
 <h2 id="2-再パラメータ化トリック">2. 再パラメータ化トリック</h2>
 <p><code>z ~ q_phi(z|x)</code> をそのままサンプリングすると、勾配が流しにくくなります。VAEでは</p>
 <p><code>z = mu + sigma * eps, eps ~ N(0,1)</code></p>
@@ -187,6 +236,9 @@ data = make_toy_data()
 print(&#39;dataset size =&#39;, len(data))
 print(&#39;mean(data)   =&#39;, round(mean(data), 3))
 print(&#39;min/max      =&#39;, round(min(data), 3), round(max(data), 3))</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>eps samples</code> と <code>z samples</code> を見て、再パラメータ化で乱数がどう潜在値に変わるかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def encode(x, params):
     a, b, c, d, _, _ = params
     mu = a * x + b
@@ -233,6 +285,9 @@ fixed_eps = [random.gauss(0.0, 1.0) for _ in range(len(data))]
 obj0, recon0, kl0 = elbo_dataset(data, params0, beta=1.0, eps_list=fixed_eps)
 print(&#39;initial objective =&#39;, round(obj0, 4))
 print(&#39;initial recon=&#39;, round(recon0, 4), &#39;initial KL=&#39;, round(kl0, 4))</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>beta=1 final</code>、<code>beta=4 final</code>、<code>latent summary</code>、<code>collapse risk</code> の出力を見て、KL を強くしたときの変化を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def finite_diff_grad(data, params, beta, recon_var, eps_list, h=1e-3):
     grads = [0.0] * len(params)
     for i in range(len(params)):
@@ -283,6 +338,9 @@ final4 = trace_beta4[-1]
 
 print(&#39;beta=1 final: objective={:.4f}, recon={:.4f}, KL={:.4f}&#39;.format(*final1))
 print(&#39;beta=4 final: objective={:.4f}, recon={:.4f}, KL={:.4f}&#39;.format(*final4))</code></pre>
+<h2 id="コード-4-更新式や補助関数を定義する">コード 4: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>beta=1 final</code>、<code>beta=4 final</code>、<code>latent summary</code>、<code>collapse risk</code> の出力を見て、KL を強くしたときの変化を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def summarize_latent_stats(data, params):
     mus = []
     vars_ = []
@@ -320,6 +378,9 @@ gen = generate_from_prior(params_beta1, n=10)
 print(&#39;samples from prior z~N(0,1):&#39;)
 for z, xh in gen:
     print(&#39;z=&#39;, round(z, 3), &#39;-&gt; x_hat=&#39;, round(xh, 3))</code></pre>
+<h2 id="コード-5-更新式や補助関数を定義する">コード 5: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>beta=1 final</code>、<code>beta=4 final</code>、<code>latent summary</code>、<code>collapse risk</code> の出力を見て、KL を強くしたときの変化を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def latent_mean(x, params):
     mu, _ = encode(x, params)
     return mu

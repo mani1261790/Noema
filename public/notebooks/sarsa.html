@@ -116,6 +116,49 @@
 <p>SARSA は実際に選んだ次行動を参照するため、探索ノイズを含んだ現実的な期待値に近づきます。</p>
 <p>更新式の違いがどのような方策差につながるかを、同じ環境設定で比較します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>どうして『次に実際に選ぶ行動』を使うと on-policy になるのか。</li>
+<li>Q学習と比べて、何が保守的になるのか。</li>
+<li><code>safe</code> と <code>risky</code> の差は、どの更新で広がるのか。</li>
+<li><code>a_next</code> を毎回同じ方策から選ぶ意味は何か。</li>
+<li>何を見れば、SARSA が危険な行動を避けたと判断できるのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>on-policy</code>: 実際に行動する方策そのものを学習する方法です。探索込みの方策を直接改善します。</li>
+<li><code>SARSA tuple</code>: <code>s, a, r, s', a'</code> の5つ組を指す呼び方です。次の行動まで含めて更新します。</li>
+<li><code>epsilon-greedy policy</code>: 普段はよさそうな行動を選び、一定確率でランダム探索も混ぜる方策です。SARSA の行動選択に使われます。</li>
+<li><code>risky action</code>: 期待値は高く見えても、失敗すると大きく損をする行動です。SARSA の比較例ではこの差が重要です。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>SARSA Q(s0)</code> と <code>Q-learn Q(s0)</code> を比べて、値の差が出ているか。</li>
+<li><code>SARSA Q(s1)</code> と <code>Q-learn Q(s1)</code> を比べて、同じ傾向が出ているか。</li>
+<li><code>risky</code> の値が <code>safe</code> より抑えられているか。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>Q_sarsa</code> と <code>Q_q</code> の差を、絶対値ではなく方策の違いとして読むこと。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>a_next</code> が探索込みの方策から出ることの意味を、更新式と分けて説明する補足がない。</li>
+<li>Q学習との差が、更新式の1か所でどう方策差に広がるかの説明が不足している。</li>
+<li>SARSA の更新が on-policy であることの説明。</li>
+<li>safe/risky の例がポリシー依存の差を見せる toy だという注意。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>この環境は SARSA と Q-learning の性質差を見せるための最小構成で、一般の制御問題そのものではないこと。</li>
+</ul>
+
 <pre><code class="language-python">import random
 from collections import defaultdict
 

@@ -116,6 +116,36 @@
 <p>このトレードオフを理解できると、環境のノイズ特性に合わせて更新長を設計できます。</p>
 <p>同じ軌跡に対して n を変え、目標値がどう変化するかを確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>n=1</code>、<code>n=3</code>、<code>n=T-t</code> で、何がどう変わるのか。</li>
+<li><code>V_boot</code> は、なぜ足されるのか。</li>
+<li><code>n_step_return</code> の <code>n</code> は、どこから数えているのか。</li>
+<li>なぜ <code>n</code> を増やすと、ノイズも増えるのか。</li>
+<li>どんな環境なら、大きい <code>n</code> が有利なのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>n-step return</code>: nステップ先までの実報酬と、その先の推定値を合わせた目標値です。更新に使う未来の長さを調整できます。</li>
+<li><code>bootstrapped value</code>: 実際の報酬の先を、既存の価値推定で埋めた値です。n-step TD では最後に足します。</li>
+<li><code>bias</code>: 推定が系統的にずれることです。短い <code>n</code> はこの影響を受けやすいです。</li>
+<li><code>variance</code>: 推定のぶれの大きさです。長い <code>n</code> は実報酬を多く使うぶん、ぶれやすくなります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>g1</code> と <code>g3</code> の値が、どの程度違うか。</li>
+<li><code>q_after_1</code> と <code>q_after_3</code> が、異なる目標値で更新されているか。</li>
+<li><code>V_boot</code> を使うことで、将来部分が埋められているか。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>n_step_return</code> が、実報酬と bootstrap をどう混ぜるかの説明が足りない。</li>
+<li><code>n=T-t</code> では終端までの実報酬を使い切るので、bootstrap 項が落ちて Monte Carlo return に一致することを明示する必要があります。</li>
+</ul>
+
 <pre><code class="language-python">import math
 
 gamma = 0.9
@@ -128,7 +158,8 @@ def n_step_return(rews, n, gamma, v_boot):
     g = 0.0
     for k in range(n):
         g += (gamma ** k) * rews[k]
-    g += (gamma ** n) * v_boot
+    if n &lt; len(rews):
+        g += (gamma ** n) * v_boot
     return g
 
 for n in [1, 2, 3, 5]:

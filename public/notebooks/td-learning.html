@@ -116,35 +116,82 @@
 <p>ブートストラップ更新を理解すると、オンライン学習系アルゴリズムの基礎が固まります。</p>
 <p>TD誤差が更新方向をどう決めるかを追跡します。</p>
 
-<h2 id="手を動かす-1-td法の初期系列">手を動かす 1: TD法の初期系列</h2>
-<p>TD誤差を観察するため、短い遷移で割引報酬の基準を作ります。</p>
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>TD法は、モンテカルロ法と何が違うのか。</li>
+<li><code>TD誤差</code> は、どの値とどの値の差なのか。</li>
+<li>なぜ先に <code>return</code> を計算してから、TD更新を見るのか。</li>
+<li>この章で Q学習や探索が出るのは、TD法の何を補っているのか。</li>
+<li><code>alpha</code> を変えると、更新の見え方はどう変わるのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>TD error</code>: 今の予測と、1ステップ先を使った予測との差です。学習の方向と大きさを決めます。</li>
+<li><code>bootstrapping</code>: 次の推定値を使って、今の推定値を更新することです。完全な未来を待たずに学習できます。</li>
+<li><code>learning rate</code>: 1回の更新で、どれだけ強く値を動かすかを決める係数です。大きすぎると不安定になります。</li>
+<li><code>Monte Carlo method</code>: エピソードの最後まで見てから、実際の総報酬で価値を更新する方法です。逐次更新ではありません。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>mc_return=</code> が、終端まで足し切った参照値として出ているか。</li>
+<li><code>updated V(s0)=</code> の更新後値が、TD誤差で動いているか。</li>
+<li><code>choose_action(...)</code> の出力で、探索と活用の切り替えが見えるか。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>mode=explore</code> ならランダム行動、<code>mode=greedy</code> なら現在の価値推定で一番良い行動を選んでいます。</li>
+<li>この探索セルは TD(0) の更新式そのものではなく、価値を集めるために一緒に使う行動選択の最小例です。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>TD法が『次の推定値で学ぶ』という直感を、数式とコードを対応づけて説明する補足がない。</li>
+<li>Q学習の例が、TD法のどの部分を示しているのかの説明が薄い。</li>
+<li><code>TD(0)</code> の更新と、探索方策の話が同じ章にある理由がまだ見えにくい。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>この探索セルは TD 更新の補助で、探索戦略そのものの学習ではない。</li>
+</ul>
+
+<h2 id="手を動かす-1-monte-carlo-参照値を作る">手を動かす 1: Monte Carlo 参照値を作る</h2>
+<p>TD誤差を観察する前に、終端まで足し切った割引収益を参照用に作ります。これは bootstrapping ではなく、Monte Carlo return です。</p>
 
 <pre><code class="language-python">rewards = [0.3, 0.0, 0.7, 1.0]
 gamma = 0.87
 g = 0.0
 for r in reversed(rewards):
     g = r + gamma * g
-print(&#39;task = td-learning&#39;, &#39;bootstrap=&#39;, round(g, 6))</code></pre>
-<p>この値を参照してTD更新の動きを比較します。</p>
+print(&#39;task = td-learning&#39;, &#39;mc_return=&#39;, round(g, 6))</code></pre>
+<p>この値は終端までの実報酬を全部使った Monte Carlo return です。次のセルではこれを参照値として置き、TD(0) が <code>r + gamma * V(s')</code> という bootstrapped target で近似的に学ぶ様子を見ます。</p>
 
-<h2 id="手を動かす-2-ベルマン更新を1回行う">手を動かす 2: ベルマン更新を1回行う</h2>
-<p>次に、価値更新を1ステップだけ計算します。1回更新でも、再帰構造の意味は十分に見えてきます。</p>
+<h2 id="手を動かす-2-td-0-の状態価値更新を1回行う">手を動かす 2: TD(0) の状態価値更新を1回行う</h2>
+<p>次に、TD(0) で状態価値を 1 ステップだけ更新します。まずは <code>max</code> を使わない評価側の更新を見て、TD 法の中心であるブートストラップをはっきり区別します。</p>
 
-<pre><code class="language-python">v_next = {&#39;s0&#39;: 0.4, &#39;s1&#39;: 0.8}
-reward = {&#39;left&#39;: 0.2, &#39;right&#39;: 1.0}
-trans = {&#39;left&#39;: &#39;s0&#39;, &#39;right&#39;: &#39;s1&#39;}
-v_s = max(reward[a] + gamma * v_next[trans[a]] for a in [&#39;left&#39;, &#39;right&#39;])
-print(&#39;updated V(s)=&#39;, round(v_s, 6))</code></pre>
-<p>ベルマン更新は『今の価値』を『次状態の価値』で再定義する操作です。この再帰が強化学習の中心です。</p>
+<pre><code class="language-python">alpha = 0.2
+V = {&#39;s0&#39;: 0.3, &#39;s1&#39;: 0.8}
+r, s, s_next = 1.0, &#39;s0&#39;, &#39;s1&#39;
+td_target = r + gamma * V[s_next]
+td_error = td_target - V[s]
+V[s] = V[s] + alpha * td_error
+print(&#39;TD target =&#39;, round(td_target, 6))
+print(&#39;TD error =&#39;, round(td_error, 6))
+print(&#39;updated V(s0)=&#39;, round(V[s], 6))</code></pre>
+<p>TD(0) では、<code>r + gamma * V(s')</code> を 1 ステップ先の目標値として使い、今の <code>V(s)</code> を少しだけ寄せます。これが TD 法の基本で、次のセルで Q 学習との差分として <code>max</code> を導入します。</p>
 
 <h2 id="数式メモ">数式メモ</h2>
 <ol>
 <li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>G</mi><mi>t</mi></msub><mo>=</mo><msub><mo>∑</mo><mrow><mi>k</mi><mo>≥</mo><mn>0</mn></mrow></msub><msup><mi>γ</mi><mi>k</mi></msup><msub><mi>R</mi><mrow><mi>t</mi><mo>+</mo><mi>k</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">G_t = \sum_{k\ge 0} \gamma^k R_{t+k+1}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.849108em;"></span><span class="strut bottom" style="height:1.244297em;vertical-align:-0.395189em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">G</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mrel">=</span><span class="mop"><span class="op-symbol small-op mop" style="top:-0.0000050000000000050004em;">∑</span><span class="vlist"><span style="top:0.30001em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span><span class="mrel">≥</span><span class="mord mathrm">0</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="vlist"><span style="top:-0.363em;margin-right:0.05em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle uncramped"><span class="mord mathit" style="margin-right:0.03148em;">k</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord"><span class="mord mathit" style="margin-right:0.00773em;">R</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.00773em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.03148em;">k</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>Q</mi><mo>←</mo><mi>Q</mi><mo>+</mo><mi>α</mi><mspace width="0.16667em"></mspace><msub><mi>δ</mi><mrow><mi>T</mi><mi>D</mi></mrow></msub></mrow><annotation encoding="application/x-tex">Q \leftarrow Q + \alpha\,\delta_{TD}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit">Q</span><span class="mrel">←</span><span class="mord mathit">Q</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathit" style="margin-right:0.03785em;">δ</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.03785em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.13889em;">T</span><span class="mord mathit" style="margin-right:0.02778em;">D</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span></li>
+<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>V</mi><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo><mo>←</mo><mi>V</mi><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo><mo>+</mo><mi>α</mi><mo>[</mo><msub><mi>r</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>+</mo><mi>γ</mi><mi>V</mi><mo>(</mo><msub><mi>s</mi><mrow><mi>t</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>)</mo><mo>−</mo><mi>V</mi><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo><mo>]</mo></mrow><annotation encoding="application/x-tex">V(s_t) \leftarrow V(s_t) + \alpha[r_{t+1} + \gamma V(s_{t+1}) - V(s_t)]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.75em;"></span><span class="strut bottom" style="height:1em;vertical-align:-0.25em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mrel">←</span><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.0037em;">α</span><span class="mopen">[</span><span class="mord"><span class="mord mathit" style="margin-right:0.02778em;">r</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:-0.02778em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mbin">+</span><span class="mord mathit" style="margin-right:0.05556em;">γ</span><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit">t</span><span class="mbin">+</span><span class="mord mathrm">1</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.22222em;">V</span><span class="mopen">(</span><span class="mord"><span class="mord mathit">s</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mclose">)</span><span class="mclose">]</span></span></span></span></li>
 </ol>
 
-<h2 id="手を動かす-3-q値更新を比較する">手を動かす 3: Q値更新を比較する</h2>
-<p>ここで Q学習の更新式をコードに写し、数値の動きを確認します。式を読むだけでは掴みにくい感覚を得る段階です。</p>
+<h2 id="手を動かす-3-q学習との差分を見る">手を動かす 3: Q学習との差分を見る</h2>
+<p>ここでは TD の枠組みを Q 学習へ拡張し、状態価値 <code>V</code> の更新が行動価値 <code>Q</code> と <code>max</code> を使う形へどう変わるかを確認します。</p>
 
 <pre><code class="language-python">Q = {(&#39;s0&#39;,&#39;left&#39;): 0.3, (&#39;s0&#39;,&#39;right&#39;): 0.1, (&#39;s1&#39;,&#39;left&#39;): 0.5, (&#39;s1&#39;,&#39;right&#39;): 0.7}
 alpha = 0.2
@@ -157,11 +204,22 @@ print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
 <h2 id="手を動かす-4-探索と活用の切り替え">手を動かす 4: 探索と活用の切り替え</h2>
 <p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
 
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
+<pre><code class="language-python">import random
+
+random.seed(7)
+
+
+def choose_action(q_left, q_right, epsilon):
+    greedy = &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
+    if random.random() &lt; epsilon:
+        action = random.choice([&#39;left&#39;, &#39;right&#39;])
+        return {&#39;mode&#39;: &#39;explore&#39;, &#39;action&#39;: action, &#39;greedy&#39;: greedy}
+    return {&#39;mode&#39;: &#39;greedy&#39;, &#39;action&#39;: greedy, &#39;greedy&#39;: greedy}
+
+
+for eps in [0.5, 0.1]:
+    out = choose_action(0.4, 0.7, eps)
+    print(f&quot;epsilon={eps:.1f}&quot;, &#39;mode=&#39;, out[&#39;mode&#39;], &#39;action=&#39;, out[&#39;action&#39;], &#39;greedy=&#39;, out[&#39;greedy&#39;])</code></pre>
 <p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
 
 <h2 id="手を動かす-5-方策評価の簡易チェック">手を動かす 5: 方策評価の簡易チェック</h2>

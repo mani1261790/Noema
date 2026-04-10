@@ -116,6 +116,47 @@
 <p>タスクに応じて <code>λ</code> を調整できると、学習速度と安定性の両立がしやすくなります。</p>
 <p>前向き視点の λ-return と後ろ向き視点の trace 更新を同じ軌跡で比較します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>lambda_return</code> は、<code>n-step return</code> をどう混ぜているのか。</li>
+<li><code>λ=0</code> と <code>λ=0.95</code> の差を、どこで見ればよいのか。</li>
+<li>eligibility trace の <code>E</code> は、何を覚えているのか。</li>
+<li>前向き視点と後ろ向き視点は、どう対応しているのか。</li>
+<li><code>Final trace</code> を見て、何を理解すればよいのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li>
+<p><code>lambda-return</code>: 複数の n-step return を重み付きで混ぜた目標値です。<code>λ</code> で短期と長期の比率を調整します。</p>
+</li>
+<li>
+<p><code>eligibility trace</code>: どの過去状態をどれだけ更新対象にするかを表す履歴です。TD誤差を過去へ配る役目を持ちます。</p>
+</li>
+<li>
+<p><code>forward view</code>: 将来の報酬列を見て、理想的な目標値を作る見方です。<code>lambda_return</code> がこれに近いです。</p>
+</li>
+<li>
+<p><code>backward view</code>: 現在のTD誤差を、過去の状態に trace で配る見方です。オンライン実装でよく使います。</p>
+</li>
+<li>
+<p><code>λ→1 の極限</code>: 終端までの full return を使う設定では、Monte Carlo return に近づきます。終端で bootstrap を切ることが前提です。</p>
+</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>lambda=</code> ごとの <code>G^lambda</code> が変化しているか。</li>
+<li><code>Updated V = ...</code> で、trace を使った更新結果が出ているか。</li>
+<li><code>Final trace = ...</code> で、過去状態の残り方が見えるか。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>重み <code>w</code> がなぜその形になるのかの説明がない。</li>
+<li><code>lambda-return</code> と trace 更新の同値性を、途中式つきでつなぐ説明が不足している。</li>
+</ul>
+
 <pre><code class="language-python">import math
 
 gamma = 0.9
@@ -128,7 +169,8 @@ def n_step_return(rews, n, gamma, v_boot):
     g = 0.0
     for k in range(n):
         g += (gamma ** k) * rews[k]
-    g += (gamma ** n) * v_boot
+    if n &lt; len(rews):
+        g += (gamma ** n) * v_boot
     return g
 
 

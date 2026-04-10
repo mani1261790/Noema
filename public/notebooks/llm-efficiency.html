@@ -106,6 +106,48 @@
 <p>量子化・蒸留・PEFT・推論最適化の使い分けを理解すると、品質目標を保ったまま配備可能なモデルに落とし込めます。</p>
 <p>各手法がどの資源制約に効くかを、計算量とメモリの観点で確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>モデルの重み以外に、なぜメモリがまだ必要なのか。</li>
+<li>KV cache は、なぜ文脈が長くなるほど効いてくるのか。</li>
+<li>重み量子化・Activation 量子化・KV cache 量子化は、何が違うのか。</li>
+<li>ゼロを増やすだけで、なぜ必ずしも速くならないのか。</li>
+<li>蒸留と PEFT は、どちらも軽量化なのに何が違うのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>KV cache</code>: 生成時に前の計算結果を保存して再利用する仕組みです。長い文脈ほど大きくなり、メモリを圧迫しやすいです。</li>
+<li><code>量子化</code>: 数値をより少ない bit で表す方法です。重みやキャッシュのメモリを減らすために使います。</li>
+<li><code>剪定</code>: 使っていない重みを削る方法です。削っただけでは速くならず、実行方式との相性が必要です。</li>
+<li><code>蒸留</code>: 大きいモデルの振る舞いを小さいモデルに移す方法です。推論を軽くしながら、教師の傾向を学ばせます。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>bytes_for_params</code> の結果を見て、重みだけの理想メモリがどれくらいかを確認する。</li>
+<li><code>kv_cache_bytes</code> の結果を見て、文脈長や層数がメモリにどう効くかを確認する。</li>
+<li><code>recommend_stack</code> の結果を見て、VRAM・遅延・品質優先度から推奨手段が変わるかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>recommend_stack</code> はルールベースの推奨で、最適解の証明ではない。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>理論上の削減量と、実際の GPU メモリ使用量やスループットがずれる理由が説明されていない。</li>
+<li>量子化・剪定・蒸留・推論最適化を、どの順で採用するかの判断基準が説明されていない。</li>
+<li>pruning はゼロを増やしただけでは速くならない、という説明がまだ浅い。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>ここでの式は rough estimate で、実 GPU 実装のオーバーヘッドは含まない。</li>
+</ul>
+
 <p>最初に前提を揃えます。軽量化を考える理由は大きく3つです。</p>
 <p>1つ目はメモリ制約です。GPUメモリにモデル本体・KV cache・一時バッファが収まらないと、そもそも推論できません。2つ目はレイテンシです。応答が遅いと、対話体験が崩れます。3つ目はコストです。同じ問い合わせ数をさばくなら、1トークンあたりの計算とメモリ転送を下げるほど運用が楽になります。</p>
 <p>このノートでは「なぜその手法を使うのか」を数字で確認しながら進めます。</p>
@@ -178,6 +220,9 @@ for seq in [1024, 4096, 8192]:
     int8 = to_gib(kv_cache_bytes(seq_len=seq, bits=8, **cfg))
     int4 = to_gib(kv_cache_bytes(seq_len=seq, bits=4, **cfg))
     print(f&#39;seq={seq:&gt;4}: FP16={fp16:5.2f} GiB, INT8={int8:5.2f} GiB, INT4={int4:5.2f} GiB&#39;)</code></pre>
+<h2 id="コード-1-更新式や補助関数を定義する">コード 1: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>bytes_for_params</code> の結果を見て、重みだけの理想メモリがどれくらいかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def activation_tensor_bytes(batch_size: int, seq_len: int, hidden_size: int, bits: int) -&gt; float:
     elements = batch_size * seq_len * hidden_size
     return elements * bits / 8
@@ -405,6 +450,9 @@ c_steps, c_util = continuous_batch_utilization(requests, slots)
 
 print(&#39;static steps      =&#39;, s_steps, &#39;| utilization =&#39;, round(s_util, 3))
 print(&#39;continuous steps  =&#39;, c_steps, &#39;| utilization =&#39;, round(c_util, 3))</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>kv_cache_bytes</code> の結果を見て、文脈長や層数がメモリにどう効くかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def progress_per_verify_step_toy(draft_block: int, accept_rate: float) -&gt; float:
     # 1回の検証で平均して何トークン進むか（近似）
     return max(draft_block * accept_rate, 1e-6)

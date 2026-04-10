@@ -98,12 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import ast
-import operator as op
-import re
-from html.parser import HTMLParser
-
-import numpy as np</code></pre>
 <h1 id="tool-useとrag">Tool UseとRAG</h1>
 <p>RAG（Retrieval Augmented Generation）は、外部知識を検索してから回答を生成する方式です。<br>
 Tool Useは、計算・検索・Web操作などをツール呼び出しとして明示的に実行する方式です。<br>
@@ -114,6 +108,60 @@ Tool Useは、計算・検索・Web操作などをツール呼び出しとして
 <p>Tool UseとRAGを使えると、最新情報と根拠を伴う回答設計が可能になります。</p>
 <p>検索・参照・生成の分業構造を実装で確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>なぜ検索する前に文書をチャンクに分ける必要があるのか。</li>
+<li>検索結果をそのまま使わず、なぜ再ランキングするのか。</li>
+<li>引用つきの回答は、どこから文を選んでいるのか。</li>
+<li>計算・検索・Web 操作は、どうやって呼び分けるのか。</li>
+<li>hit@k と step success rate は、何が違うのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>RAG</code>: 外部の文書を検索してから回答を作る方式です。モデルの内部知識だけに頼らず、根拠を持たせやすくします。</li>
+<li><code>チャンク</code>: 長い文書を検索しやすい長さに区切った断片です。検索や引用の単位として使います。</li>
+<li><code>リランキング</code>: 最初に拾った候補を、質問との近さで並べ直す処理です。検索結果の精度を上げるために使います。</li>
+<li><code>ツールオーケストレータ</code>: どのツールをどの順で呼ぶかを決める役目です。検索や計算を一つの流れにまとめます。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>retrieve</code> と <code>rerank</code> の結果を見て、検索候補と順位が変わっているかを確認する。</li>
+<li><code>generate_with_citations</code> の出力を見て、引用文と根拠チャンクの対応が取れているかを確認する。</li>
+<li><code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>retrieve</code> と <code>rerank</code> は候補の質を見る指標、<code>generate_with_citations</code> は最終文と根拠の対応を見る指標で、役割が違います。</li>
+<li><code>hit@k</code> や lexical overlap が高くても、最終回答の自然さ・要約のうまさまでは別に確認が必要です。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>引用つき回答が、抽出型の要約なのか自由生成なのかの違いが説明されていない。</li>
+<li>検索品質と最終回答品質を、別々に評価する必要がある理由が説明されていない。</li>
+<li>rerank が埋め込み検索ではなく手作りの類似度であること。</li>
+<li>DOM パーサが本物のブラウザ操作ではなく、HTML 断片の抽出だけであること。</li>
+<li><code>rerank</code> のスコアが手作り線形スコアで、学習済み reranker ではない点の説明が欲しい。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>このパイプラインは本物の生成器そのものではなく、検索と引用の流れを見るための toy 実装です。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>retrieve</code> と <code>rerank</code> の結果を見て、検索候補と順位が変わっているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import ast
+import operator as op
+import re
+from html.parser import HTMLParser
+
+import numpy as np</code></pre>
 <p>まずRAGの最小パイプラインを作ります。</p>
 <p>実行前提: Python 3.10+ と <code>numpy</code> が必要です。未導入なら <code>pip install numpy</code> を実行してください。</p>
 <ol>
@@ -157,6 +205,9 @@ Tool Useは、計算・検索・Web操作などをツール呼び出しとして
 
 for d in knowledge_docs:
     print(d[&#39;id&#39;], d[&#39;title&#39;])</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>generate_with_citations</code> の出力を見て、引用文と根拠チャンクの対応が取れているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def fixed_length_chunk(text, chunk_size=26, overlap=6):
     chunks = []
     i = 0
@@ -200,6 +251,9 @@ for doc in knowledge_docs:
 print(&#39;chunk count:&#39;, len(chunk_db))
 print(&#39;fixed sample   :&#39;, [c[&#39;text&#39;] for c in chunk_db if c[&#39;mode&#39;] == &#39;fixed&#39;][:2])
 print(&#39;sentence sample:&#39;, [c[&#39;text&#39;] for c in chunk_db if c[&#39;mode&#39;] == &#39;sentence&#39;][:2])</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def tokenize_ja_like(s):
     s = re.sub(r&#39;\s+&#39;, &#39;&#39;, s)
     # 教育用: 文字2-gramでトークン化
@@ -269,6 +323,9 @@ index = build_tfidf_index(chunk_db)
 res = retrieve(&#39;ベルマン最適方程式を説明して&#39;, index, top_k=6)
 for r in res:
     print(r[&#39;chunk_id&#39;], round(r[&#39;score&#39;], 4), r[&#39;text&#39;])</code></pre>
+<h2 id="コード-4-更新式や補助関数を定義する">コード 4: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def rerank(query, retrieved):
     q_terms = set(tokenize_ja_like(query))
     reranked = []
@@ -295,6 +352,9 @@ reranked = rerank(query, retrieved)
 print(&#39;top reranked chunks:&#39;)
 for r in reranked[:3]:
     print(r[&#39;chunk_id&#39;], round(r[&#39;rerank_score&#39;], 4), &#39;|&#39;, r[&#39;text&#39;])</code></pre>
+<h2 id="コード-5-更新式や補助関数を定義する">コード 5: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def generate_with_citations(query, ranked_chunks, max_chunks=3):
     ctx = ranked_chunks[:max_chunks]
 
@@ -344,6 +404,8 @@ print(&#39;manual baseline (no-RAG example):&#39;, baseline_no_rag_manual)
 print(&#39;RAG answer                      :&#39;, rag_answer)
 print(&#39;lexical overlap baseline =&#39;, round(lexical_overlap_ratio(baseline_no_rag_manual, rag_out[&#39;used_chunks&#39;]), 4))
 print(&#39;lexical overlap RAG      =&#39;, round(lexical_overlap_ratio(rag_out[&#39;answer_text&#39;], rag_out[&#39;used_chunks&#39;]), 4))</code></pre>
+<p>ここでの <code>generate_with_citations</code> は自由生成モデルではなく、取得した文脈から最も重なる文を抜き出して引用を付ける extractive toy 実装です。<code>rerank</code> も学習済み reranker ではなく手作りスコアなので、「検索して根拠を付ける流れ」を理解するための最小例として読んでください。</p>
+
 <p>ここからTool Useです。<br>
 LLMにすべてを内部推論させるより、外部ツール（検索・計算・Web操作）を明示的に呼び出す設計は、<br>
 失敗箇所の切り分けと監査ログの取得に向いています。<br>
@@ -593,6 +655,9 @@ html = &#39;&#39;&#39;
 
 print(tool_web_agent(html, &#39;Sign In ボタンをクリックして&#39;))
 print(tool_web_agent(html, &#39;delete account ボタンをクリックして&#39;))</code></pre>
+<h2 id="コード-6-更新式や補助関数を定義する">コード 6: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def tool_orchestrator(user_query, html_context=None):
     plan = decide_tool(user_query)
     if plan[&#39;tool&#39;] == &#39;calculator&#39;:
@@ -641,6 +706,9 @@ for q in demo_queries:
     print(&#39;plan:&#39;, out[&#39;plan&#39;])
     print(&#39;final:&#39;, out[&#39;final_answer&#39;])
     print(&#39;---&#39;)</code></pre>
+<h2 id="コード-7-更新式や補助関数を定義する">コード 7: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># 評価: retrieval / citation / routing
 # hit@k = 上位k件のどこかに正解docが含まれる割合
 rag_tests = [
@@ -713,6 +781,9 @@ route_hit = 0
 for q, t in route_tests:
     route_hit += int(decide_tool(q)[&#39;tool&#39;] == t)
 print(&#39;tool routing accuracy =&#39;, round(route_hit / len(route_tests), 3))</code></pre>
+<h2 id="コード-8-計算結果を確かめる">コード 8: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>tool_orchestrator</code> の返り値を見て、calculator・retrieval・HTML 操作の分岐が意図どおりかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># コスト概算（仮定値）
 requests_per_day = 900
 avg_query_tok = 420

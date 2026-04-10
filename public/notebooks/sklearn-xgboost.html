@@ -107,6 +107,36 @@
 <p>scikit-learnとXGBoostを使えると、ベースライン構築から高精度化まで短時間で回せます。</p>
 <p>前処理・モデル・評価のパイプラインを統一的に実装します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>dev</code> と <code>test</code> を分けるのは何のためで、<code>test</code> を途中で見てはいけないのはなぜか。</li>
+<li><code>ROC-AUC</code> と <code>F1</code> は何が違って、どちらを見ればいいのか。</li>
+<li><code>cross_val_predict</code> の OOF 予測は、普通の予測と何が違うのか。</li>
+<li><code>GridSearchCV</code> と <code>RandomizedSearchCV</code> はどう使い分けるのか。</li>
+<li>XGBoost の <code>max_depth</code> や <code>learning_rate</code> は、精度や過学習とどう関係するのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>Pipeline</code>: 前処理とモデルをひとつにつないだ実行手順です。これにより、学習と評価で同じ処理を安全に使えます。</li>
+<li><code>交差検証</code>: データを何回かに分けて学習と評価を繰り返す方法です。1回の分割だけより、結果のぶれを見やすくなります。</li>
+<li><code>OOF予測</code>: そのデータ自身を学習に使っていないモデルで出した予測です。見かけの成績をよく見せにくい、より厳しい予測です。</li>
+<li><code>ROC-AUC</code>: 正例と負例をどれだけ分けられるかを見る指標です。しきい値を1つに固定しない点が、正解率と違います。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>dev</code> と <code>test</code> の件数と陽性率がほぼ同じかを確認する。</li>
+<li><code>baseline_summary</code> と <code>lr_search.best_score_</code> / <code>xgb_search.best_score_</code> を比較する。</li>
+<li><code>final_metrics</code> と混同行列を見て、test での崩れ方を確認する。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>Pipeline</code> がなぜリークを防ぎやすいのかと、<code>scaler</code> を先に入れる意味の説明が必要です。</li>
+<li><code>roc_auc</code> を主要指標にしている理由と、<code>F1</code> との役割分担をもう一段補う必要があります。</li>
+</ul>
+
 <h2 id="実行前準備">実行前準備</h2>
 <p>想定環境は Python 3.10 以上です。<br>
 未導入の場合は次を実行してください。</p>
@@ -161,6 +191,9 @@ summary = pd.DataFrame({
     &quot;benign_ratio(class1)&quot;: [float(y.mean())],
 })
 summary</code></pre>
+<h2 id="コード-1-結果を図で確かめる">コード 1: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>dev</code> と <code>test</code> の件数と陽性率がほぼ同じかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">class_counts = y.value_counts().sort_index()
 class_names = [cancer.target_names[i] for i in class_counts.index]
 
@@ -214,6 +247,9 @@ baseline_summary = {
 }
 
 pd.Series(baseline_summary).round(4)</code></pre>
+<h2 id="コード-2-計算結果を確かめる">コード 2: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>baseline_summary</code> と <code>lr_search.best_score_</code> / <code>xgb_search.best_score_</code> を比較する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">print(&quot;ROC-AUC mean/std:&quot;, round(baseline_summary[&quot;roc_auc_mean&quot;], 4), &quot;/&quot;, round(baseline_summary[&quot;roc_auc_std&quot;], 4))
 print(&quot;F1      mean/std:&quot;, round(baseline_summary[&quot;f1_mean&quot;], 4), &quot;/&quot;, round(baseline_summary[&quot;f1_std&quot;], 4))
 print(&quot;std が小さいほど、分割によるブレが小さく安定していると解釈できます。&quot;)</code></pre>
@@ -321,6 +357,9 @@ cv_compare = pd.DataFrame({
     f&quot;cv_{primary_metric}&quot;: list(candidates.values()),
 }).sort_values(f&quot;cv_{primary_metric}&quot;, ascending=False)
 cv_compare</code></pre>
+<h2 id="コード-3-モデルや係数を推定する">コード 3: モデルや係数を推定する</h2>
+<p>このセルでは モデルや係数を推定する ための最小コードを動かします。 実行時は「<code>final_metrics</code> と混同行列を見て、test での崩れ方を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">winner_name = cv_compare.iloc[0][&quot;model&quot;]
 if winner_name == &quot;Logistic (baseline)&quot;:
     final_model = baseline_lr
@@ -343,6 +382,9 @@ final_metrics = {
 
 print(&quot;selected model:&quot;, winner_name)
 pd.Series(final_metrics).round(4)</code></pre>
+<h2 id="コード-4-結果を図で確かめる">コード 4: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>final_metrics</code> と混同行列を見て、test での崩れ方を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">cm_test = confusion_matrix(y_test, final_pred)
 fig, ax = plt.subplots(figsize=(5, 4.2))
 sns.heatmap(
@@ -360,6 +402,9 @@ ax.set_xlabel(&quot;Predicted&quot;)
 ax.set_ylabel(&quot;Actual&quot;)
 plt.tight_layout()
 plt.show()</code></pre>
+<h2 id="コード-5-結果を図で確かめる">コード 5: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>final_metrics</code> と混同行列を見て、test での崩れ方を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">if xgb_search is not None and winner_name == &quot;XGBoost (tuned)&quot;:
     importances = pd.Series(final_model.feature_importances_, index=X.columns).sort_values(ascending=False).head(12)
     fig, ax = plt.subplots(figsize=(7.2, 5))

@@ -98,7 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math</code></pre>
 <h1 id="最適化と正則化">最適化と正則化</h1>
 <p>最適化と正則化は、損失が下がる理由を『式』と『数値変化』の両方で確認する構成です。</p>
 
@@ -107,12 +106,57 @@
 <p>最適化手法と正則化を使い分けられると、学習安定性と汎化性能を両立できます。</p>
 <p>ハイパーパラメータの変更が挙動に与える影響を比較します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>同じ初期点から <code>plain / weight_decay / small_lr</code> を比べると、何が見えるのか。</li>
+<li><code>data_loss</code> と <code>total_loss</code> は、どう見分ければよいのか。</li>
+<li>勾配降下法とミニバッチ更新は、何が同じで何が違うのか。</li>
+<li>正則化はなぜ『精度を上げる方法』ではなく『崩れを抑える方法』として扱われるのか。</li>
+<li>weight decay と学習率を小さくすることは、何が違うのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>収束</code>: 更新を続けても値が大きく暴れず、ある状態に落ち着いていくことです。学習が進むかどうかの基本的な目安になります。</li>
+<li><code>正則化</code>: モデルが複雑になりすぎるのを抑えるための仕組みです。訓練データに合わせすぎるのを防ぎます。</li>
+<li><code>weight decay</code>: 重みを少しずつ小さくする正則化の考え方です。L2 正則化と近い働きをします。</li>
+<li><code>汎化</code>: 学習に使っていないデータでも、うまく予測できる性質です。訓練損失が低いだけでは足りません。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li>同じ初期点から始めた <code>plain</code>, <code>weight_decay</code>, <code>small_lr</code> で、<code>data_loss</code> と <code>weight_norm</code> がどう変わるかを見る。</li>
+<li><code>weight decay</code> が更新式に入ると、単に loss に penalty を後から足すだけの場合と何が違うかを見る。</li>
+<li>ミニバッチで平均損失と平均勾配を作ると、更新がどう変わるかを見る。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>norm_plain/decay</code> の差が小さい/大きいと何を意味するか。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>theta &lt;- theta - eta ∇L</code> が、ただの式変形ではなく最適化そのものになっている理由の説明が足りない。</li>
+<li>正則化の良し悪しを訓練データだけで判断してはいけない理由と、検証データを使う意味の説明が足りない。</li>
+<li><code>data_loss</code> と <code>total_loss</code> の役割分担の注意。</li>
+<li>正則化の本質が、単発の loss ではなく長い学習軌道で効くこと。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>このノートの比較は1ステップ toy 更新で、汎化性能の比較ではないこと。</li>
+</ul>
+
+<pre><code class="language-python">import math</code></pre>
 <h2 id="実験-1-最適化の初期点を定義する">実験 1: 最適化の初期点を定義する</h2>
 <p>最適化手法比較のため、重みと予測を同じ初期点から開始します。</p>
 
 <pre><code class="language-python">x = [0.9, -0.3, 0.1]
 w = [0.5, -0.2, 0.4]
-z = sum(xi * wi for xi, wi in zip(x, w)) + 0.03
+b = 0.03
+z = sum(xi * wi for xi, wi in zip(x, w)) + b
 y = 1 / (1 + math.exp(-z))
 print(&#39;task = optimization-regularization&#39;, &#39;init_pred=&#39;, round(y, 6))</code></pre>
 <p>同じ初期点を使うことで、手法差を比較しやすくします。</p>
@@ -129,42 +173,116 @@ print(&#39;error =&#39;, round(target - y, 6))</code></pre>
 
 <h2 id="式と実装の往復">式と実装の往復</h2>
 <ol>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>z</mi><mo>=</mo><mi>W</mi><mi>x</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z = W x + b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="mord mathit">x</span><span class="mbin">+</span><span class="mord mathit">b</span></span></span></span></li>
-<li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>θ</mi><mo>←</mo><mi>θ</mi><mo>−</mo><mi>η</mi><mspace width="0.16667em"></mspace><msub><mi mathvariant="normal">∇</mi><mrow><mi>θ</mi></mrow></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\theta \leftarrow \theta - \eta \, \nabla_{\theta} L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mrel">←</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.03588em;">η</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">L</span></span></span></span></li>
+<li>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>z</mi><mo>=</mo><mi>W</mi><mi>x</mi><mo>+</mo><mi>b</mi></mrow><annotation encoding="application/x-tex">z = W x + b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.04398em;">z</span><span class="mrel">=</span><span class="mord mathit" style="margin-right:0.13889em;">W</span><span class="mord mathit">x</span><span class="mbin">+</span><span class="mord mathit">b</span></span></span></span></p>
+</li>
+<li>
+<p><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>θ</mi><mo>←</mo><mi>θ</mi><mo>−</mo><mi>η</mi><mspace width="0.16667em"></mspace><msub><mi mathvariant="normal">∇</mi><mrow><mi>θ</mi></mrow></msub><mi>L</mi></mrow><annotation encoding="application/x-tex">\theta \leftarrow \theta - \eta \, \nabla_{\theta} L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.69444em;"></span><span class="strut bottom" style="height:0.8888799999999999em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mrel">←</span><span class="mord mathit" style="margin-right:0.02778em;">θ</span><span class="mbin">−</span><span class="mord mathit" style="margin-right:0.03588em;">η</span><span class="mord mspace thinspace"></span><span class="mord"><span class="mord mathrm">∇</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord scriptstyle cramped"><span class="mord mathit" style="margin-right:0.02778em;">θ</span></span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span><span class="mord mathit">L</span></span></span></span></p>
+</li>
+<li>
+<p>BCE + sigmoid のとき、出力前活性 <code>z</code> に対する勾配は <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>y</mi><mo>−</mo><mi>t</mi><mi>a</mi><mi>r</mi><mi>g</mi><mi>e</mi><mi>t</mi></mrow><annotation encoding="application/x-tex">y - target</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.61508em;"></span><span class="strut bottom" style="height:0.80952em;vertical-align:-0.19444em;"></span><span class="base textstyle uncramped"><span class="mord mathit" style="margin-right:0.03588em;">y</span><span class="mbin">−</span><span class="mord mathit">t</span><span class="mord mathit">a</span><span class="mord mathit" style="margin-right:0.02778em;">r</span><span class="mord mathit" style="margin-right:0.03588em;">g</span><span class="mord mathit">e</span><span class="mord mathit">t</span></span></span></span></p>
+</li>
 </ol>
 
 <h2 id="実験-3-勾配降下法の一歩">実験 3: 勾配降下法の一歩</h2>
 <p>ここで、重みを一回更新する最小実験を行います。更新前後の損失を比較して、学習の方向が正しいかを確認します。</p>
 
 <pre><code class="language-python">lr = 0.1
-grad = -(target - y) * y * (1 - y)
-w_new = [wi - lr * grad * xi for wi, xi in zip(w, x)]
-z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + 0.1
+grad_z = y - target  # BCE + sigmoid のとき dL/dz
+w_new = [wi - lr * grad_z * xi for wi, xi in zip(w, x)]
+b_new = b - lr * grad_z
+z_new = sum(xi * wi for xi, wi in zip(x, w_new)) + b_new
 y_new = 1 / (1 + math.exp(-z_new))
+print(&#39;grad_z =&#39;, round(grad_z, 6))
+print(&#39;b before/after =&#39;, round(b, 6), round(b_new, 6))
 print(&#39;y before/after =&#39;, round(y, 6), round(y_new, 6))</code></pre>
 <p>この更新で損失が下がれば、勾配方向が合理的だったと言えます。下がらないなら学習率や符号を疑います。</p>
+<p>ここでは重みだけでなく bias も同時に更新し、BCE と勾配の対応が崩れないようにしています。</p>
 
-<h2 id="実験-4-正則化の感覚を作る">実験 4: 正則化の感覚を作る</h2>
-<p>次に、重みが大きくなりすぎることを抑える正則化項を追加します。過学習対策をコードで体験するのが狙いです。</p>
+<h2 id="実験-4-weight-decay-を更新式に入れる">実験 4: weight decay を更新式に入れる</h2>
+<p>ここでは通常更新、weight decay あり、学習率だけ小さくした更新を同じ初期点から比べます。正則化が loss の表示だけでなく、実際の更新方向をどう変えるかを確かめます。</p>
 
-<pre><code class="language-python">l2 = 0.01
-weight_norm = sum(wi * wi for wi in w_new)
-loss_reg = loss + l2 * weight_norm
-print(&#39;weight_norm =&#39;, round(weight_norm, 6))
-print(&#39;regularized loss =&#39;, round(loss_reg, 6))</code></pre>
-<p>正則化は精度を上げる魔法ではなく、汎化の崩れを防ぐ保険です。評価データと合わせて効果を判断してください。</p>
+<pre><code class="language-python">grad_w = [grad_z * xi for xi in x]
 
-<h2 id="実験-5-ミニバッチの考え方">実験 5: ミニバッチの考え方</h2>
-<p>最後に、複数サンプルをまとめて扱う発想を確認します。実務では1件ずつよりバッチ処理が主流です。</p>
+
+def predict_prob(sample, weights, bias):
+    z_cur = sum(si * wi for si, wi in zip(sample, weights)) + bias
+    return 1 / (1 + math.exp(-z_cur))
+
+
+def bce_value(prob, target):
+    return -(target * math.log(prob + eps) + (1 - target) * math.log(1 - prob + eps))
+
+
+l2 = 0.1
+small_lr = 0.03
+
+before_prob = predict_prob(x, w, b)
+before_loss = bce_value(before_prob, target)
+before_norm = math.sqrt(sum(wi * wi for wi in w))
+print(&#39;before:&#39;, &#39;pred=&#39;, round(before_prob, 6), &#39;data_loss=&#39;, round(before_loss, 6), &#39;weight_norm=&#39;, round(before_norm, 6))
+
+updates = [
+    (&#39;plain&#39;, [wi - lr * gwi for wi, gwi in zip(w, grad_w)], b - lr * grad_z, 0.0),
+    (&#39;weight_decay&#39;, [wi - lr * (gwi + l2 * wi) for wi, gwi in zip(w, grad_w)], b - lr * grad_z, l2),
+    (&#39;small_lr&#39;, [wi - small_lr * gwi for wi, gwi in zip(w, grad_w)], b - small_lr * grad_z, 0.0),
+]
+
+for name, ww, bb, penalty in updates:
+    prob = predict_prob(x, ww, bb)
+    data_loss = bce_value(prob, target)
+    weight_norm = math.sqrt(sum(wi * wi for wi in ww))
+    total_loss = data_loss + 0.5 * penalty * sum(wi * wi for wi in ww)
+    print(name, &#39;pred=&#39;, round(prob, 6), &#39;data_loss=&#39;, round(data_loss, 6), &#39;weight_norm=&#39;, round(weight_norm, 6), &#39;total_loss=&#39;, round(total_loss, 6))</code></pre>
+<p>weight decay は <code>grad + l2 * w</code> として更新式に入り、重みが大きい方向を追加で押し戻します。学習率を小さくするだけでは全方向の step を一様に縮めるだけなので、同じ動きにはなりません。</p>
+
+<h2 id="実験-5-ミニバッチで平均損失と平均勾配を見る">実験 5: ミニバッチで平均損失と平均勾配を見る</h2>
+<p>最後に、複数サンプルをまとめて扱う発想を確認します。ここでは各サンプルの損失と勾配を平均してから 1 回だけ更新します。</p>
 
 <pre><code class="language-python">batch = [[0.8, -0.4, 0.2], [0.2, 0.1, -0.3], [0.5, -0.2, 0.7]]
 targets = [1.0, 0.0, 1.0]
-preds = []
-for bx in batch:
-    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + 0.1
-    preds.append(1 / (1 + math.exp(-z_b)))
-print(&#39;preds =&#39;, [round(p, 4) for p in preds])</code></pre>
-<p>ミニバッチを扱えるようになると、計算効率と学習安定性の両面で設計の幅が広がります。</p>
+sample_preds = []
+sample_losses = []
+sample_grad_z = []
+
+for bx, bt in zip(batch, targets):
+    z_b = sum(xi * wi for xi, wi in zip(bx, w_new)) + b_new
+    y_b = 1 / (1 + math.exp(-z_b))
+    loss_b = bce_value(y_b, bt)
+    sample_preds.append(y_b)
+    sample_losses.append(loss_b)
+    sample_grad_z.append(y_b - bt)
+
+grad_w_batch = [
+    sum(g * bx[j] for g, bx in zip(sample_grad_z, batch)) / len(batch)
+    for j in range(len(w_new))
+]
+grad_b_batch = sum(sample_grad_z) / len(batch)
+
+plain_batch_w = [wi - lr * gw for wi, gw in zip(w_new, grad_w_batch)]
+plain_batch_b = b_new - lr * grad_b_batch
+decay_batch_w = [wi - lr * (gw + l2 * wi) for wi, gw in zip(w_new, grad_w_batch)]
+decay_batch_b = b_new - lr * grad_b_batch
+
+
+def mean_batch_loss(weights, bias):
+    vals = []
+    for bx, bt in zip(batch, targets):
+        z_b = sum(xi * wi for xi, wi in zip(bx, weights)) + bias
+        y_b = 1 / (1 + math.exp(-z_b))
+        vals.append(bce_value(y_b, bt))
+    return sum(vals) / len(vals)
+
+
+print(&#39;sample_preds =&#39;, [round(p, 4) for p in sample_preds])
+print(&#39;sample_losses =&#39;, [round(v, 4) for v in sample_losses])
+print(&#39;batch_loss_mean_before =&#39;, round(sum(sample_losses) / len(sample_losses), 6))
+print(&#39;grad_b_batch =&#39;, round(grad_b_batch, 6))
+print(&#39;grad_w_batch =&#39;, [round(v, 6) for v in grad_w_batch])
+print(&#39;batch_loss_mean_plain_after =&#39;, round(mean_batch_loss(plain_batch_w, plain_batch_b), 6))
+print(&#39;batch_loss_mean_decay_after =&#39;, round(mean_batch_loss(decay_batch_w, decay_batch_b), 6))
+print(&#39;norm_plain/decay =&#39;, round(math.sqrt(sum(wi * wi for wi in plain_batch_w)), 6), round(math.sqrt(sum(wi * wi for wi in decay_batch_w)), 6))</code></pre>
+<p>ミニバッチでは各サンプルの損失と勾配を平均してから 1 回更新します。ここに weight decay を重ねると、平均勾配に加えて重みの大きさも同時に押し戻せるので、更新後のノルムの違いとして観察できます。</p>
 
 <h2 id="振り返り">振り返り</h2>
 <p>今回のノートで押さえておくべき誤解しやすい点を整理します。</p>

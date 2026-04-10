@@ -98,11 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math
-import random
-from statistics import mean
-
-random.seed(21)</code></pre>
 <h1 id="潜在変数モデルと混合モデル">潜在変数モデルと混合モデル</h1>
 <p>このノートの主題は、見えていない原因（潜在変数）を導入すると、単純モデルでは説明しにくいデータをどう扱えるようになるか、です。分類ではなく「分布そのもの」を学ぶ生成モデルの視点で、EMアルゴリズムまでを一気につなげます。</p>
 
@@ -111,6 +106,58 @@ random.seed(21)</code></pre>
 <p>潜在変数と混合モデルを理解すると、クラスタ構造や不確実性を表現できます。</p>
 <p>EM的な更新と推論の対応を確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>潜在変数 <code>z</code> は見えないのに、どうやって学習に使えるのか。</li>
+<li>責任率 <code>gamma</code> は、ただの確率なのに何を表しているのか。</li>
+<li>EM の E-step と M-step は、それぞれ何をやっているのか。</li>
+<li>2コイン例は、なぜパラメータが一意に決まらないのか。</li>
+<li>GMM みたいな連続データで、混合モデルは何を良くするのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>潜在変数</code>: 観測データの裏にあると考える、直接は見えない変数です。何が起きたかを説明するための見えない原因として扱います。</li>
+<li><code>責任率</code>: あるデータ点を、各成分がどれくらい担当しているかを表す確率です。硬い0/1の割り当てではなく、あいまいさも含めて持てます。</li>
+<li><code>EMアルゴリズム</code>: 見えない変数をいったん確率で埋めてから、埋めたものとしてパラメータを更新する反復法です。E-step と M-step を交互に回します。</li>
+<li><code>同定不能性</code>: 観測できる情報が少なすぎて、別々のパラメータでも同じ尤度になってしまう状態です。真の答えが一つに決まらないことがあります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>gamma(z=0|x)</code> と <code>gamma(z=1|x)</code> の出力を見て、境界点で確率がどちらにも張り付かないことを確認する。</li>
+<li><code>iter=... pi=... p0=... p1=... ll=...</code> の推移を見て、EM の尤度が単調に上がるかを確認する。</li>
+<li><code>estimated pi</code>、<code>estimated mu0</code>、<code>estimated mu1</code>、<code>final ll</code> を見て、多次元混合ベルヌーイで成分が分かれているかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>ll</code> が単調に上がると何がうれしいのかの読み方。</li>
+<li><code>gamma</code> が0か1に張り付かない点の意味。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>E-step の負担率を、そのまま M-step の重みにしてよい理由のつながりがまだ薄い。</li>
+<li>GMM の対角共分散近似が何を捨てているのか、フル共分散と比べた意味づけが足りない。</li>
+<li>E-step の重みを M-step に使うつながり。</li>
+<li>対角共分散近似が何を捨てているか。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>ここで扱うのは混合ベルヌーイと最小GMMで、全ての潜在変数モデルを含むわけではない点。</li>
+</ul>
+
+<h2 id="コード-1-入力データを作る">コード 1: 入力データを作る</h2>
+<p>このセルでは 入力データを作る ための最小コードを動かします。 実行時は「<code>gamma(z=0|x)</code> と <code>gamma(z=1|x)</code> の出力を見て、境界点で確率がどちらにも張り付かないことを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import math
+import random
+from statistics import mean
+
+random.seed(21)</code></pre>
 <p>まず「なぜ潜在変数が必要か」を直感で押さえます。</p>
 <p>同じコイン投げの観測列に見えても、実は2種類のコインが混ざっている場合があります。観測は表裏だけで、どのコインを使ったかは記録されていない。この「見えていないラベル」が潜在変数です。</p>
 
@@ -260,6 +307,9 @@ print(&#39;worst run ll =&#39;, round(trials[-1][0], 4), &#39;params =&#39;, tup
 vec_data, vec_latent = make_binary_vector_data(n=160)
 print(&#39;sample x[0:3] =&#39;, vec_data[:3])
 print(&#39;latent count =&#39;, vec_latent.count(0), vec_latent.count(1))</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>iter=... pi=... p0=... p1=... ll=...</code> の推移を見て、EM の尤度が単調に上がるかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def bernoulli_vec_prob(x, mu):
     prob = 1.0
     for xi, p in zip(x, mu):
@@ -340,6 +390,9 @@ print(&#39;final ll =&#39;, round(loglik_vec(vec_data, pi, mu0, mu1), 3))</code>
 gmm_data, gmm_true_z = sample_gmm_2d(n=300)
 print(&#39;first 3 points =&#39;, [tuple(round(v, 3) for v in x) for x in gmm_data[:3]])
 print(&#39;true cluster counts =&#39;, gmm_true_z.count(0), gmm_true_z.count(1))</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>estimated pi</code>、<code>estimated mu0</code>、<code>estimated mu1</code>、<code>final ll</code> を見て、多次元混合ベルヌーイで成分が分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def gaussian_pdf_diag(x, mu, var):
     # 対角共分散のみ（教育用に簡略化）
     v0 = max(var[0], 1e-6)
@@ -402,6 +455,9 @@ for t in range(30):
         print(f&#39;iter={t:02d} pis={[round(v,3) for v in pis]} mus={[tuple(round(u,2) for u in m) for m in mus]} ll={ll:.2f}&#39;)
 
 print(&#39;monotonic ll =&#39;, all(ll_trace[i] &lt;= ll_trace[i+1] + 1e-8 for i in range(len(ll_trace)-1)))</code></pre>
+<h2 id="コード-4-反復の進み方を観察する">コード 4: 反復の進み方を観察する</h2>
+<p>このセルでは 反復の進み方を観察する ための最小コードを動かします。 実行時は「<code>estimated pi</code>、<code>estimated mu0</code>、<code>estimated mu1</code>、<code>final ll</code> を見て、多次元混合ベルヌーイで成分が分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># ソフト割当の例: 境界付近では責任率が0/1に張り付きにくい
 mid = ((mus[0][0] + mus[1][0]) / 2, (mus[0][1] + mus[1][1]) / 2)
 probe_points = [

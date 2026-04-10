@@ -98,10 +98,6 @@
 <body>
   <main>
 <article class="prose-noema">
-<pre><code class="language-python">import math
-import random
-import statistics
-import time</code></pre>
 <h1 id="連続時間拡散モデルとフローマッチング理論">連続時間拡散モデルとフローマッチング理論</h1>
 <p>このノートでは、連続時間拡散と Flow Matching を同じ座標系で理解します。狙いは「式を覚える」ことではなく、</p>
 <ul>
@@ -116,6 +112,57 @@ import time</code></pre>
 <p>スコア推定の考え方を理解すると、ノイズ除去過程の設計意図を説明できます。</p>
 <p>前向きノイズ化と逆過程復元の関係を確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>Flow Matching では、何を予測して何を積分しているのか。</li>
+<li>線形パスと三角関数パスは、何が違うのか。</li>
+<li>なぜ <code>t</code> を入力に入れないと、うまく生成できないのか。</li>
+<li>OT-CFM では、なぜカップリングを工夫するのか。</li>
+<li>連続時間拡散と Flow Matching は、どこが同じでどこが違うのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>Flow Matching</code>: 経路上の正しい速度を直接学習する方法です。学習した速度場を積分してサンプルを作ります。</li>
+<li><code>ベクトル場</code>: 各位置と時刻で、どの方向にどれだけ動くかを返す関数です。Flow Matching ではこの速度を近似します。</li>
+<li><code>経路</code>: ノイズからデータへ移る途中の点の並びです。どんな中間の通り道を選ぶかで学習のしやすさが変わります。</li>
+<li><code>OT-CFM</code>: Optimal-Transport Conditional Flow Matching の略です。ノイズ点とデータ点の対応を、輸送コストが小さくなるように選ぶ流れです。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>linear_bridge</code> と <code>trig_bridge</code>、および <code>target stats</code> と <code>gen linear</code> / <code>gen trig</code> の出力を見て、パスの違いを確認する。</li>
+<li><code>training history</code> の <code>loss</code> と <code>theta</code> の変化を見て、速度場の学習が進んでいるかを確認する。</li>
+<li><code>summary-stat MSE</code>、<code>sliced-W1</code>、<code>mode-center MSE</code>、さらに <code>with-t</code> / <code>no-t</code> の比較を見て、時間入力の有無が何を変えるかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>sliced-W1</code> や <code>mode-center MSE</code> をどう比べるか。</li>
+<li><code>with-t</code> と <code>no-t</code> の差を何として読むか。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>教師速度 <code>u_t</code> を回帰する意味と、二乗誤差の最適解が何を表しているのかの説明がまだ浅い。</li>
+<li><code>t</code> の埋め込みをどう作ると表現力が上がるのか、sin-cos や MLP の具体像が足りない。</li>
+<li>二乗誤差の最適解が速度場になる意味。</li>
+<li>sin-cos や MLP の t 埋め込みが効く理由。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>OT-CFM のような本格設定と、ここでの教育用近似の違い。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>linear_bridge</code> と <code>trig_bridge</code>、および <code>target stats</code> と <code>gen linear</code> / <code>gen trig</code> の出力を見て、パスの違いを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
+<pre><code class="language-python">import math
+import random
+import statistics
+import time</code></pre>
 <p>Flow Matching の基本は、ノイズ点 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">x_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">0</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> とデータ点 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mn>1</mn></msub></mrow><annotation encoding="application/x-tex">x_1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathrm">1</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を結ぶ経路 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>x</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">x_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">x</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を設計し、対応する目標速度 <span class="katex"><span class="katex-mathml"><math><semantics><mrow><msub><mi>u</mi><mi>t</mi></msub></mrow><annotation encoding="application/x-tex">u_t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="strut" style="height:0.43056em;"></span><span class="strut bottom" style="height:0.58056em;vertical-align:-0.15em;"></span><span class="base textstyle uncramped"><span class="mord"><span class="mord mathit">u</span><span class="vlist"><span style="top:0.15em;margin-right:0.05em;margin-left:0em;"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span><span class="reset-textstyle scriptstyle cramped"><span class="mord mathit">t</span></span></span><span class="baseline-fix"><span class="fontsize-ensurer reset-size5 size5"><span style="font-size:0em;">​</span></span>​</span></span></span></span></span></span> を回帰することです。</p>
 <p>最初に記号をそろえます。</p>
 <ul>
@@ -325,6 +372,9 @@ print()
 print(&#39;trig objective history:&#39;)
 for step, loss, norm in hist_trig:
     print(&#39;step=&#39;, f&#39;{step:04d}&#39;, &#39;loss=&#39;, round(loss, 5), &#39;||theta||=&#39;, round(norm, 4))</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>training history</code> の <code>loss</code> と <code>theta</code> の変化を見て、速度場の学習が進んでいるかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def integrate_ode(theta, n=2600, n_steps=90, seed=505, clip=6.0):
     rng = random.Random(seed)
     xs = [(rng.gauss(0.0, 1.0), rng.gauss(0.0, 1.0)) for _ in range(n)]
@@ -352,6 +402,9 @@ gen_trig = integrate_ode(theta_trig)
 print(&#39;target stats =&#39;, {k: round(v, 4) for k, v in describe_2d(target_data).items()})
 print(&#39;gen linear   =&#39;, {k: round(v, 4) for k, v in describe_2d(gen_lin).items()})
 print(&#39;gen trig     =&#39;, {k: round(v, 4) for k, v in describe_2d(gen_trig).items()})</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>summary-stat MSE</code>、<code>sliced-W1</code>、<code>mode-center MSE</code>、さらに <code>with-t</code> / <code>no-t</code> の比較を見て、時間入力の有無が何を変えるかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def summary_stat_mse(samples, target_ref):
     # 指標1: 1次/2次統計と象限比率の差分をまとめた粗いMSE
     s = describe_2d(samples)

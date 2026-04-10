@@ -98,6 +98,62 @@
 <body>
   <main>
 <article class="prose-noema">
+<h1 id="自然言語処理-nlp">自然言語処理（NLP）</h1>
+<p>自然言語処理では、まず文字列を数値列に変換し、その数値列から意味や文脈を学習します。<br>
+このノートでは、トークン化と語彙作成から始めて、次トークン予測、SFT（Supervised Fine-Tuning）用データ整形、LoRA/QLoRAの計算感覚までを順に確認します。</p>
+
+<h2 id="背景と目的">背景と目的</h2>
+<p>言語データは曖昧性が高く、前処理と表現設計が性能を左右します。</p>
+<p>NLPの基礎を押さえると、分類・生成・検索のタスクを一貫した視点で扱えます。</p>
+<p>トークン化から評価までの流れを実行して確認します。</p>
+
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>日本語で空白分割がうまくいかないのは、どこで破綻しているのか。</li>
+<li>語彙を作って <code>&lt;unk&gt;</code> を入れるのは、何を守るためなのか。</li>
+<li>embedding はただの表引きに見えるが、何を学習しているのか。</li>
+<li>次トークン予測は、入力とラベルをどうずらして学習しているのか。</li>
+<li>SFT で回答部分だけに loss をかけるのは、なぜ必要で、何を避けているのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>tokenization</code>: 文章を学習用の単位に分ける処理です。単語単位でも文字単位でも設計の結果が変わります。</li>
+<li><code>vocabulary</code>: 学習で使うトークン一覧です。トークンを ID に変換する土台になります。</li>
+<li><code>embedding</code>: トークン ID を実数ベクトルに変換する層です。似た意味の語を近い位置に置くように学習します。</li>
+<li><code>LoRA</code>: 大きな重みを全部更新せず、低ランクの追加行列だけを学習する方法です。少ない追加パラメータで調整できます。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li>空白分割と文字分割で、系列長とトークン列がどう変わるかを見る。</li>
+<li>語彙サイズと <code>encode</code> / <code>decode</code> の往復が崩れていないかを見る。</li>
+<li>SFT の <code>supervised_after_shift</code> が、回答部分だけを数えているかを見る。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>supervised_after_shift</code> は「回答部分が入力長のうち何割を占めるか」を見る比率で、精度そのものではありません。</li>
+<li>生成結果が一見もっともらしくても、この toy 例だけで言語モデル品質全体を判断してはいけません。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>言語モデルで入力を1トークン右にずらして教師ラベルを作る理由の説明が足りない。</li>
+<li><code>ignore_index</code> で指示部分を無視する理由と、無視しないと何が学習されてしまうかの説明が足りない。</li>
+<li><code>&lt;unk&gt;</code> の役割と、未知文字があるとどうなるかの注意。</li>
+<li>word-level embedding の例と char-level LM の例が、なぜ両方必要なのかの説明。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>この章の LM は文字レベルの toy で、実LLMのサブワード学習とは別物であること。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「空白分割と文字分割で、系列長とトークン列がどう変わるかを見る。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">import math
 import re
 from collections import Counter
@@ -115,15 +171,6 @@ except ModuleNotFoundError:
     nn = None
     optim = None
     TORCH_AVAILABLE = False</code></pre>
-<h1 id="自然言語処理-nlp">自然言語処理（NLP）</h1>
-<p>自然言語処理では、まず文字列を数値列に変換し、その数値列から意味や文脈を学習します。<br>
-このノートでは、トークン化と語彙作成から始めて、次トークン予測、SFT（Supervised Fine-Tuning）用データ整形、LoRA/QLoRAの計算感覚までを順に確認します。</p>
-
-<h2 id="背景と目的">背景と目的</h2>
-<p>言語データは曖昧性が高く、前処理と表現設計が性能を左右します。</p>
-<p>NLPの基礎を押さえると、分類・生成・検索のタスクを一貫した視点で扱えます。</p>
-<p>トークン化から評価までの流れを実行して確認します。</p>
-
 <p>最初の関門はトークン化です。<br>
 同じ文でも、単語単位で切るか、文字単位で切るかで系列長や未知語の扱いが変わります。</p>
 <p>日本語は空白で単語境界が明示されないため、<code>split(' ')</code> は失敗しやすい方法です。<br>
@@ -171,6 +218,9 @@ print(&#39;mean length (char)       =&#39;, float(char_lengths.mean()))
 
 # 以降は外部トークナイザ依存を避けるため、文字単位を使用
 tokenized = char_tokenized</code></pre>
+<h2 id="コード-2-結果を図で確かめる">コード 2: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「語彙サイズと <code>encode</code> / <code>decode</code> の往復が崩れていないかを見る。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">x = np.arange(len(raw_texts))
 width = 0.36
 
@@ -185,7 +235,7 @@ plt.tight_layout()
 plt.show()</code></pre>
 <p>次に語彙（vocabulary）を作って、トークンをIDへ変換します。<br>
 <code>&lt;pad&gt;</code> と <code>&lt;unk&gt;</code> を先頭に置くのは実務でもよくある設計です。</p>
-<p>このノートでは文字単位トークンを使っているので、未知語問題は「未知文字」の形で現れます。</p>
+<p>このノートでは文字単位トークンを使っているので、未知語問題は「未知文字」の形で現れます。<code>&lt;unk&gt;</code> が出たときは、その文字の情報を細かく失って「未知として一括処理した」ことを意味します。</p>
 
 <pre><code class="language-python">counter = Counter(tok for toks in tokenized for tok in toks)
 special_tokens = [&#39;&lt;pad&gt;&#39;, &#39;&lt;unk&gt;&#39;]
@@ -325,6 +375,9 @@ formatted = [format_sft(ex) for ex in sft_examples]
 for i, text in enumerate(formatted):
     print(f&#39;--- sample {i} ---&#39;)
     print(text)</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「SFT の <code>supervised_after_shift</code> が、回答部分だけを数えているかを見る。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python"># 文字単位の簡易トークナイズで「回答部のみloss」を可視化
 chars = sorted(set(&#39;&#39;.join(formatted)))
 char_vocab = [&#39;&lt;pad&gt;&#39;, &#39;&lt;unk&gt;&#39;] + chars
@@ -382,8 +435,7 @@ print(&#39;fp16:&#39;, round(base_16bit_gb, 2), &#39;GB&#39;)
 print(&#39;4bit:&#39;, round(base_4bit_gb, 2), &#39;GB&#39;)
 print(&#39;note: optimizer state / activations / metadataは別途必要&#39;)</code></pre>
 <p>最後に、PyTorchで小さな文字レベル言語モデルを学習し、<br>
-次トークン予測とテキスト生成を体験します。</p>
-<p>このセルは教育用の最小例で、実際のLLM学習とは規模も最適化手法も異なります。</p>
+次トークン予測の最小形を見ます。前半の word / char の比較は「トークン化と語彙設計」の話、ここは「実際に次トークン予測をどう学習するか」の話で、役割が違います。</p>
 
 <pre><code class="language-python">if TORCH_AVAILABLE:
     torch.manual_seed(0)

@@ -122,6 +122,48 @@
 <p>期待方程式と最適方程式の違いを理解すると、動的計画法と学習法を接続できます。</p>
 <p>再帰式を反復計算して収束の意味を確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>期待方程式と最適方程式は、どこが数学的に違うのか。</li>
+<li><code>max</code> が入ると、何が「最適」になるのか。</li>
+<li>なぜ局所的な更新だけで、長期報酬を表せるのか。</li>
+<li>Q学習の更新式は、ベルマン最適方程式とどうつながるのか。</li>
+<li>探索率の話が、この章で出てくる理由は何なのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>Bellman expectation equation</code>: ある方策に従ったときの価値を、現在の報酬と次状態の価値で表す式です。方策を固定して評価するときに使います。</li>
+<li><code>Bellman optimality equation</code>: 最もよい行動を選ぶ前提で、最適価値を再帰的に表した式です。<code>max</code> が入るのが特徴です。</li>
+<li><code>bootstrap</code>: 現在の推定値を、次の推定値の材料として使う考え方です。すべての未来を待たずに学習を進められます。</li>
+<li><code>greedy action</code>: 今見えている価値が最も高い行動を選ぶことです。探索を混ぜない純粋な選択です。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>mc_return=</code> が、終端まで足し切った参照値として出ているか。</li>
+<li><code>updated V(s)=</code> が、1回のベルマン更新の結果になっているか。</li>
+<li><code>Q(s0,right)=</code> と <code>choose_action(...)</code> の出力で、更新と行動選択の両方が見えているか。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li>表示されているのは full return で、ブートストラップした目標値ではない。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li>期待方程式、最適方程式、Q更新の関係を、1つの図か表で整理する説明がない。</li>
+<li><code>p(s',r\mid s,a)</code> の確率和が、コードではどう簡略化されているかの説明が足りない。</li>
+<li>終端まで足し切った値と、bootstrapped target の違いがまだ曖昧。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>このセルはベルマン更新の前提確認であって、bootstrapping の実演ではない。</li>
+</ul>
+
 <h2 id="観察-1-ベルマン更新前の準備">観察 1: ベルマン更新前の準備</h2>
 <p>ベルマン方程式へ入る前に、割引率と報酬列を固定して再帰構造を確認します。</p>
 
@@ -130,7 +172,9 @@ gamma = 0.92
 g = 0.0
 for r in reversed(rewards):
     g = r + gamma * g
-print(&#39;task = bellman-equations&#39;, &#39;boot_return=&#39;, round(g, 6))</code></pre>
+print(&#39;task = bellman-equations&#39;, &#39;mc_return=&#39;, round(g, 6))</code></pre>
+<p>この <code>mc_return</code> は終端までの実報酬を足し切った Monte Carlo 参照値です。ベルマン更新で使う bootstrapped target は、次状態価値 <code>V(s')</code> や <code>Q(s', a')</code> を入れた別の量です。</p>
+
 <p>再帰的な更新規則を次セルで定量的に確認します。</p>
 
 <h2 id="観察-2-ベルマン更新を1回行う">観察 2: ベルマン更新を1回行う</h2>
@@ -163,11 +207,22 @@ print(&#39;Q(s0,right)=&#39;, round(Q[(s,a)], 6))</code></pre>
 <h2 id="観察-4-探索と活用の切り替え">観察 4: 探索と活用の切り替え</h2>
 <p>次に、探索率を変えたときの行動選択を見ます。探索不足は局所最適に閉じる典型的な原因です。</p>
 
-<pre><code class="language-python">def choose_action(q_left, q_right, epsilon):
-    if epsilon &gt; 0.3:
-        return &#39;explore&#39;
-    return &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
-print(choose_action(0.4, 0.7, 0.5), choose_action(0.4, 0.7, 0.1))</code></pre>
+<pre><code class="language-python">import random
+
+random.seed(13)
+
+
+def choose_action(q_left, q_right, epsilon):
+    greedy = &#39;left&#39; if q_left &gt;= q_right else &#39;right&#39;
+    if random.random() &lt; epsilon:
+        action = random.choice([&#39;left&#39;, &#39;right&#39;])
+        return {&#39;mode&#39;: &#39;explore&#39;, &#39;action&#39;: action, &#39;greedy&#39;: greedy}
+    return {&#39;mode&#39;: &#39;greedy&#39;, &#39;action&#39;: greedy, &#39;greedy&#39;: greedy}
+
+
+for eps in [0.5, 0.1]:
+    out = choose_action(0.4, 0.7, eps)
+    print(f&quot;epsilon={eps:.1f}&quot;, &#39;mode=&#39;, out[&#39;mode&#39;], &#39;action=&#39;, out[&#39;action&#39;], &#39;greedy=&#39;, out[&#39;greedy&#39;])</code></pre>
 <p>探索率は固定せず、学習段階に応じて減衰させるのが一般的です。初期は広く探索し、後半で活用へ寄せます。</p>
 
 <h2 id="観察-5-方策評価の簡易チェック">観察 5: 方策評価の簡易チェック</h2>

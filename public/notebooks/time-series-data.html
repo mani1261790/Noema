@@ -108,6 +108,53 @@
 <p>時系列特有の検証手順を押さえると、運用時の性能劣化を減らせます。</p>
 <p>ラグ特徴量・時系列分割・予測評価を順に確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>なぜ時系列データは行ごとに独立だと思ってはいけないのか。</li>
+<li><code>lag_1</code> や <code>lag_12</code> みたいな特徴量は何を表しているのか。</li>
+<li><code>shift(1)</code> を入れないと何が起きて、どこがリークになるのか。</li>
+<li>ランダム分割が時系列ではだめなのはなぜか。</li>
+<li><code>one-step forecast</code>、<code>recursive forecast</code>、<code>TimeSeriesSplit</code> の違いがよく分からない。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>ラグ特徴量</code>: 過去の値をそのまま特徴量にしたものです。何か月前の値が今に効くかを見るために使います。</li>
+<li><code>自己相関</code>: 自分自身の過去の値と、今の値がどれだけ似ているかを表す考え方です。季節性や周期性の手がかりになります。</li>
+<li><code>移動平均</code>: 直近の値を平均して、短期的な揺れをならしたものです。全体の流れを見やすくします。</li>
+<li><code>ウォークフォワード評価</code>: 過去で学習して、少し先の未来で評価する方法です。時系列で順番を壊さないための基本です。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>feature_df</code> の行数が <code>dropna()</code> で減っているかを確認する。</li>
+<li><code>naive MAE</code>, <code>ridge MAE</code>, <code>rf MAE</code>, <code>random split ridge MAE</code> を比べる。</li>
+<li><code>TimeSeriesSplit MAE</code> と <code>recursive 12-step</code> の誤差を確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>MAE</code> は小さいほど良く、<code>TimeSeriesSplit MAE</code> は平均だけでなく最悪 fold が極端に悪くないかも見ます。</li>
+<li><code>recursive 12-step</code> は予測値を次のラグへ戻すので、1-step より悪化しやすく、ここでの差が長期予測の難しさです。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>shift(1)</code> と <code>rolling</code> の組み合わせが、なぜ未来を見ていないと言えるのかの説明が必要です。</li>
+<li><code>recursive forecast</code> が前回の予測を次の入力に使う流れを、順番つきで言い換える説明が必要です。</li>
+<li><code>predict_next_months</code> が直前の予測値を履歴に戻す意味。</li>
+<li>random split が時系列で禁物な理由を、リークの観点で明示する説明。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li><code>promo</code> は将来予定が既知の外生変数として置かれた toy 設定であること。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>feature_df</code> の行数が <code>dropna()</code> で減っているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -140,6 +187,9 @@ df = pd.DataFrame({
 })
 
 df.head()</code></pre>
+<h2 id="コード-2-結果を図で確かめる">コード 2: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>naive MAE</code>, <code>ridge MAE</code>, <code>rf MAE</code>, <code>random split ridge MAE</code> を比べる。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">fig, ax = plt.subplots(figsize=(11, 4.4))
 ax.plot(df[&quot;date&quot;], df[&quot;sales&quot;], color=&quot;#2b6cb0&quot;, linewidth=2, label=&quot;sales&quot;)
 ax.scatter(
@@ -179,6 +229,9 @@ plt.show()</code></pre>
 
 feature_df = make_time_features(df)
 feature_df.head()</code></pre>
+<h2 id="コード-3-計算結果を確かめる">コード 3: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>TimeSeriesSplit MAE</code> と <code>recursive 12-step</code> の誤差を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">feature_cols = [
     &quot;promo&quot;,
     &quot;month_sin&quot;,
@@ -280,6 +333,9 @@ print(f&quot;naive MAE                : {naive_mae:.3f}&quot;)
 print(f&quot;chronological ridge MAE  : {ridge_mae:.3f}&quot;)
 print(f&quot;chronological rf MAE     : {rf_mae:.3f}&quot;)
 print(f&quot;random split ridge MAE   : {rand_mae:.3f} (invalid setup)&quot;)</code></pre>
+<h2 id="コード-4-結果を図で確かめる">コード 4: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>TimeSeriesSplit MAE</code> と <code>recursive 12-step</code> の誤差を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">one_step_df = test_df[[&quot;date&quot;, &quot;sales&quot;]].copy()
 one_step_df[&quot;naive&quot;] = naive_pred
 one_step_df[&quot;ridge&quot;] = ridge_pred
@@ -298,7 +354,7 @@ plt.tight_layout()
 plt.show()</code></pre>
 <p>固定起点で12か月先まで当てるには、逐次予測のバックテストが必要です。<br>
 ここでは学習期間を固定し、予測値を次月ラグへ入れながら12ステップ先まで進めます。<br>
-<code>promo</code> は「6か月ごとに実施される既知の計画値」を使える前提にしています。</p>
+<code>promo</code> は「6か月ごとに実施される既知の計画値」を使える前提にしています。広告出稿や価格改定のように将来予定が分かる外生変数なら使えますが、未来時点で未定の変数ならこの形では入れられません。</p>
 
 <pre><code class="language-python">def predict_next_months(history: pd.DataFrame, model, steps: int = 12) -&gt; pd.DataFrame:
     working = history.sort_values(&quot;date&quot;).reset_index(drop=True).copy()
@@ -351,6 +407,9 @@ rf_recursive_mae = mean_absolute_error(test_raw[&quot;sales&quot;], rf_backtest[
 
 print(f&quot;recursive ridge MAE (12-step): {ridge_recursive_mae:.3f}&quot;)
 print(f&quot;recursive rf MAE (12-step)   : {rf_recursive_mae:.3f}&quot;)</code></pre>
+<h2 id="コード-5-結果を図で確かめる">コード 5: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>TimeSeriesSplit MAE</code> と <code>recursive 12-step</code> の誤差を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">recursive_plot = test_raw[[&quot;date&quot;, &quot;sales&quot;]].copy()
 recursive_plot[&quot;ridge_recursive&quot;] = ridge_backtest[&quot;forecast&quot;].to_numpy()
 recursive_plot[&quot;rf_recursive&quot;] = rf_backtest[&quot;forecast&quot;].to_numpy()
@@ -380,6 +439,8 @@ cv_scores = cross_val_score(
 cv_mae = -cv_scores
 print(&quot;TimeSeriesSplit MAE:&quot;, np.round(cv_mae, 3))
 print(&quot;mean:&quot;, round(cv_mae.mean(), 3), &quot;std:&quot;, round(cv_mae.std(), 3))</code></pre>
+<p><code>TimeSeriesSplit MAE</code> は fold ごとに「過去で学習して次の時点を当てた誤差」です。平均だけでなく、最後の fold だけ急に悪化していないかを見ると、直近の分布変化やドリフトを疑えます。<code>random split ridge MAE</code> が見かけ上よく見えても、時系列では未来近傍の情報が混ざるので基準にはしません。</p>
+
 <p>最後に運用想定として、利用可能な全期間で再学習して未来12か月を予測します。</p>
 
 <pre><code class="language-python">ridge_final = clone(ridge_model)
@@ -387,6 +448,9 @@ ridge_final.fit(X_all, y_all)
 
 future_pred = predict_next_months(df, ridge_final, steps=12)
 future_pred.head()</code></pre>
+<h2 id="コード-6-結果を図で確かめる">コード 6: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「<code>TimeSeriesSplit MAE</code> と <code>recursive 12-step</code> の誤差を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">recent_hist = df.tail(24)
 fig, ax = plt.subplots(figsize=(11, 4.4))
 ax.plot(recent_hist[&quot;date&quot;], recent_hist[&quot;sales&quot;], marker=&quot;o&quot;, label=&quot;history (last 24 months)&quot;)

@@ -126,6 +126,36 @@
 <p>Trace の設計（accumulating / replacing）を理解すると、学習安定性をタスクに合わせて調整できます。</p>
 <p>2種類の trace を同じ遷移列で比較します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>accumulating</code> と <code>replacing</code> は、何をどう変えているのか。</li>
+<li>どの状態に、どれだけ責任を配るのか。</li>
+<li>同じ遷移列で2つの trace を比べる意味は何か。</li>
+<li>再訪が多いと accumulating trace が強くなるのは、なぜか。</li>
+<li>なぜ replacing trace のほうが安定しやすいことがあるのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>accumulating trace</code>: 同じ状態に何度も来たぶん、trace を積み上げていく方式です。再訪が多いと更新が強くなります。</li>
+<li><code>replacing trace</code>: 状態を再訪したら、その状態の trace を 1 に置き換える方式です。積み上がりすぎを抑えやすいです。</li>
+<li><code>credit assignment</code>: どの過去の行動や状態に、今の結果の責任を割り当てるかという問題です。trace はこれを扱います。</li>
+<li><code>state revisit</code>: 同じ状態に再び訪れることです。trace の増え方に強く影響します。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>Accumulating V</code> と <code>Replacing V</code> の値の差を比較できるか。</li>
+<li><code>Accumulating E</code> と <code>Replacing E</code> の残り方が違うか。</li>
+<li>再訪の多い <code>s0</code> で、trace の差が特に出ているか。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>E</code> の値が時間とともに減衰する意味を、数値の流れで説明する補足がない。</li>
+<li>1回のTD誤差が、過去状態へどの順で配られるかの説明が足りない。</li>
+</ul>
+
 <pre><code class="language-python">gamma = 0.9
 lam = 0.8
 alpha = 0.1

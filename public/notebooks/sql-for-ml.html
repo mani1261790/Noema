@@ -108,6 +108,52 @@
 <p>SQLを使えると、前処理の多くをDB側で効率的に実行し、再現性を保てます。</p>
 <p>抽出・結合・集計を機械学習用データセット作成の観点で実行します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li><code>users</code>, <code>events</code>, <code>orders</code> を分けているのは、何を学習したいからなのか。</li>
+<li><code>WHERE</code>, <code>ORDER BY</code>, <code>GROUP BY</code> はそれぞれ何が違うのか。</li>
+<li><code>JOIN</code> を使うとき、どの時点のデータ同士を結びつけているのか。</li>
+<li><code>snapshot</code>, 特徴量窓, ラベル窓 はどう違って、なぜ分けるのか。</li>
+<li><code>user_id % 5</code> で fold を作るのはなぜで、普通のランダム分割と何が違うのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>JOIN</code>: 別々のテーブルを、共通するキーで結びつける操作です。ユーザー情報と行動履歴を1つの表にまとめるときに使います。</li>
+<li><code>GROUP BY</code>: 同じ値を持つ行をまとめて集計する操作です。ユーザーごとの回数や合計を作るときによく使います。</li>
+<li><code>CASE WHEN</code>: 条件に応じて値を切り替える書き方です。カテゴリを0/1に変えたいときにも使えます。</li>
+<li><code>スナップショット</code>: ある時点でのデータの切り出しです。未来の情報を混ぜないために、基準時点を固定して考えます。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>table_counts</code> で3テーブルにデータが入っているかを確認する。</li>
+<li><code>feature_rows</code> と <code>label_dist</code> で特徴量とラベルの形を確認する。</li>
+<li><code>clean_stats</code> と <code>leaky_stats</code> が違うか、<code>fold_id</code> が0-4に分かれているかを確認する。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li>clean と leaky の集計差を、何が原因で読めばよいか。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>snapshot</code> の時点以前だけを特徴量にする理由を、未来情報を避ける観点で補う必要があります。</li>
+<li><code>user_id % 5</code> を分割に使うと何がうれしいのかを、再現性と手作業の簡単さの両面から説明する必要があります。</li>
+<li><code>event_time &lt; snapshot</code> と <code>event_time &gt;= snapshot</code> の境界の意味。</li>
+<li>学習用テーブルが point-in-time に切られている説明。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>この SQL は本番 ETL ではなく、リーク理解のための最小例であること。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>table_counts</code> で3テーブルにデータが入っているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">import sqlite3
 from datetime import datetime, timedelta
 from random import Random
@@ -150,6 +196,9 @@ cur.executescript(
     )
 )
 conn.commit()</code></pre>
+<h2 id="コード-2-更新式や補助関数を定義する">コード 2: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「<code>feature_rows</code> と <code>label_dist</code> で特徴量とラベルの形を確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def q(sql: str, params=()):
     return conn.execute(dedent(sql), params).fetchall()
 
@@ -195,6 +244,9 @@ for user_id in range(1, n_users + 1):
     )
 
 conn.commit()</code></pre>
+<h2 id="コード-3-計算結果を確かめる">コード 3: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>clean_stats</code> と <code>leaky_stats</code> が違うか、<code>fold_id</code> が0-4に分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">for row in q(&quot;SELECT user_id, plan, signup_date FROM users&quot;):
     user_id = row[&quot;user_id&quot;]
     plan = row[&quot;plan&quot;]
@@ -234,6 +286,9 @@ conn.commit()</code></pre>
         )
 
 conn.commit()</code></pre>
+<h2 id="コード-4-計算結果を確かめる">コード 4: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>clean_stats</code> と <code>leaky_stats</code> が違うか、<code>fold_id</code> が0-4に分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">activity = q(
     &quot;&quot;&quot;
     SELECT
@@ -288,6 +343,9 @@ for r in activity:
         )
 
 conn.commit()</code></pre>
+<h2 id="コード-5-計算結果を確かめる">コード 5: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>clean_stats</code> と <code>leaky_stats</code> が違うか、<code>fold_id</code> が0-4に分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">table_counts = q(
     &quot;&quot;&quot;
     SELECT &#39;users&#39; AS table_name, COUNT(*) AS n FROM users
@@ -366,6 +424,7 @@ show(joined)</code></pre>
 <li>特徴量窓: <code>snapshot</code> より前30日</li>
 <li>ラベル窓: <code>snapshot</code> 以上かつ <code>snapshot+30日</code> 未満</li>
 </ul>
+<p>point-in-time テーブルでは、1行は「<code>snapshot</code> 時点で見えてよい情報だけ」を表します。ラベルは未来窓から作りますが、その未来情報を特徴量へ戻してはいけません。</p>
 
 <pre><code class="language-python">snapshot = &#39;2024-05-01 00:00:00&#39;
 horizon_days = 30
@@ -418,9 +477,15 @@ LEFT JOIN order_90d o ON u.user_id = o.user_id
 LEFT JOIN label_window l ON u.user_id = l.user_id
 ORDER BY u.user_id
 &quot;&quot;&quot;</code></pre>
+<h2 id="コード-6-計算結果を確かめる">コード 6: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>clean_stats</code> と <code>leaky_stats</code> が違うか、<code>fold_id</code> が0-4に分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">feature_rows = q(feature_sql, {&quot;snapshot&quot;: snapshot, &quot;horizon_days&quot;: horizon_days})
 show(feature_rows, limit=12)
 print(&#39;rows:&#39;, len(feature_rows))</code></pre>
+<h2 id="コード-7-計算結果を確かめる">コード 7: 計算結果を確かめる</h2>
+<p>このセルでは 計算結果を確かめる ための最小コードを動かします。 実行時は「<code>clean_stats</code> と <code>leaky_stats</code> が違うか、<code>fold_id</code> が0-4に分かれているかを確認する。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">label_dist_sql = f&quot;&quot;&quot;
 WITH base AS (
 {feature_sql}
@@ -487,6 +552,8 @@ print(&#39;clean feature mean by label&#39;)
 show(clean_stats)
 print(&#39;leaky feature mean by label&#39;)
 show(leaky_stats)</code></pre>
+<p><code>clean</code> と <code>leaky</code> の差は、未来窓のイベントを見てしまった瞬間に「まだ起きていない購買」を先回りして当てられてしまうことを示しています。SQL の条件式は些細に見えても、<code>snapshot</code> 境界をまたぐだけで学習データ全体が壊れます。</p>
+
 <p>最後に、学習用テーブルを分割できる形へ整えます。<br>
 <code>%</code> は余り演算子で、<code>x % 5</code> は 0〜4 の fold 番号を作ります。<br>
 ここでは分かりやすさ優先で <code>user_id % 5</code> を使います（実務ではハッシュ関数を使うことが多いです）。</p>

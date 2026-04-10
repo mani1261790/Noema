@@ -98,6 +98,62 @@
 <body>
   <main>
 <article class="prose-noema">
+<h1 id="再帰型ニューラルネットワーク-rnn-lstm-gru">再帰型ニューラルネットワーク（RNN/LSTM/GRU）</h1>
+<p>時系列データでは、いま見ている値だけでは正解が決まらないことがよくあります。<br>
+例えば文章なら、次の単語を決めるために前の単語列が必要です。<br>
+RNN系モデルは、過去の情報を「隠れ状態」として持ち運ぶことで、こうした問題を扱います。</p>
+
+<h2 id="背景と目的">背景と目的</h2>
+<p>RNN系は「過去情報を状態として持ち回る」ことで系列依存を扱います。</p>
+<p>LSTM/GRUのゲート機構を理解すると、長期依存で勾配が消える問題をどのように緩和するか説明できます。</p>
+<p>単純RNNからLSTM/GRUへ進み、どこが改善点かをコードで比較します。</p>
+
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>RNN の hidden state は、実際には何を覚えているのか。</li>
+<li>長い系列で情報が消えやすいのは、なぜ掛け算の連鎖で起きるのか。</li>
+<li>LSTM の <code>c_t</code> と 3 つのゲートは、それぞれ何を調整しているのか。</li>
+<li>GRU は LSTM から何を省いて、何を残しているのか。</li>
+<li>短い系列なら RNN でもよくて、長い系列では LSTM/GRU のほうがよくなるのはなぜか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>hidden state</code>: 系列の途中で持ち回る内部の記憶です。次の時刻の計算に前の情報を渡します。</li>
+<li><code>vanishing gradient</code>: 時間が長くなるほど勾配が小さくなり、遠い過去へ学習信号が届きにくくなる現象です。</li>
+<li><code>gate</code>: 情報をどれだけ通すかを決める仕組みです。LSTM や GRU で記憶の流れを制御します。</li>
+<li><code>cell state</code>: LSTM が長期的な記憶を運ぶための経路です。hidden state とは別に保持されます。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>simple_rnn_forward</code> の各時刻の <code>h_t</code> が、入力に応じてどう変わるかを見る。</li>
+<li>異なる <code>whh</code> での gradient scale の曲線が、時間差とともにどう落ちるかを見る。</li>
+<li>RNN/LSTM/GRU の比較で、精度や損失が系列の先頭情報を拾えているかを見る。</li>
+</ol>
+
+<h2 id="出力の読み方">出力の読み方</h2>
+<ul>
+<li><code>train acc</code> と <code>test acc</code> の差をどう読むか。</li>
+</ul>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>|W_h|^T</code> の図が、実際の勾配消失をどこまで単純化しているのかの説明が足りない。</li>
+<li>PyTorch の <code>nn.RNN</code>, <code>nn.LSTM</code>, <code>nn.GRU</code> が、式で書いたゲートや状態にどう対応しているかの説明が足りない。</li>
+<li><code>whh</code> の冪で勾配消失を近似しているのは単純化である注意。</li>
+<li>最初の値を当てるタスクが長期記憶の代理指標である説明。</li>
+</ul>
+
+<h2 id="このノートの守備範囲">このノートの守備範囲</h2>
+<p>このノートでは次の点は入口だけ触れるか、別ノートに分けて扱います。</p>
+<ul>
+<li>この比較は合成タスクで、実際の言語モデリング性能を直接示すものではないこと。</li>
+</ul>
+
+<h2 id="コード-1-実行環境をそろえる">コード 1: 実行環境をそろえる</h2>
+<p>このセルでは 実行環境をそろえる ための最小コードを動かします。 実行時は「<code>simple_rnn_forward</code> の各時刻の <code>h_t</code> が、入力に応じてどう変わるかを見る。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -112,16 +168,6 @@ except ModuleNotFoundError:
     nn = None
     optim = None
     TORCH_AVAILABLE = False</code></pre>
-<h1 id="再帰型ニューラルネットワーク-rnn-lstm-gru">再帰型ニューラルネットワーク（RNN/LSTM/GRU）</h1>
-<p>時系列データでは、いま見ている値だけでは正解が決まらないことがよくあります。<br>
-例えば文章なら、次の単語を決めるために前の単語列が必要です。<br>
-RNN系モデルは、過去の情報を「隠れ状態」として持ち運ぶことで、こうした問題を扱います。</p>
-
-<h2 id="背景と目的">背景と目的</h2>
-<p>RNN系は「過去情報を状態として持ち回る」ことで系列依存を扱います。</p>
-<p>LSTM/GRUのゲート機構を理解すると、長期依存で勾配が消える問題をどのように緩和するか説明できます。</p>
-<p>単純RNNからLSTM/GRUへ進み、どこが改善点かをコードで比較します。</p>
-
 <p>最初に、最も単純なRNNの更新を実装します。</p>
 <p>ここでは 1 次元入力を仮定します。<br>
 <code>x_t</code> は時刻 <code>t</code> の入力、<code>h_t</code> は時刻 <code>t</code> の隠れ状態（記憶）です。<br>
@@ -148,6 +194,9 @@ for row in hist:
     print(f&quot;t={row[&#39;t&#39;]:&gt;2d}, x_t={row[&#39;x_t&#39;]:&gt;5.2f}, pre={row[&#39;pre&#39;]:&gt;7.4f}, h_t={row[&#39;h_t&#39;]:&gt;7.4f}&quot;)
 
 print(&#39;final hidden state =&#39;, round(final_h, 4))</code></pre>
+<h2 id="コード-2-結果を図で確かめる">コード 2: 結果を図で確かめる</h2>
+<p>このセルでは 結果を図で確かめる ための最小コードを動かします。 実行時は「異なる <code>whh</code> での gradient scale の曲線が、時間差とともにどう落ちるかを見る。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">t_axis = [r[&#39;t&#39;] for r in hist]
 x_axis = [r[&#39;x_t&#39;] for r in hist]
 h_axis = [r[&#39;h_t&#39;] for r in hist]
@@ -277,6 +326,9 @@ print(&#39;--- PyTorch parameter count (bias_ih + bias_hh) ---&#39;)
 print(&#39;RNN :&#39;, count_params_pytorch_style(1, input_size, hidden_size))
 print(&#39;LSTM:&#39;, count_params_pytorch_style(4, input_size, hidden_size))
 print(&#39;GRU :&#39;, count_params_pytorch_style(3, input_size, hidden_size))</code></pre>
+<h2 id="コード-3-更新式や補助関数を定義する">コード 3: 更新式や補助関数を定義する</h2>
+<p>このセルでは 更新式や補助関数を定義する ための最小コードを動かします。 実行時は「RNN/LSTM/GRU の比較で、精度や損失が系列の先頭情報を拾えているかを見る。」を意識して、変数名と出力の対応を追ってください。</p>
+
 <pre><code class="language-python">def init_gru_params(input_size=1, hidden_size=2, seed=9):
     rng = np.random.default_rng(seed)
     concat_size = input_size + hidden_size

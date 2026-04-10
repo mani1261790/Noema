@@ -108,6 +108,36 @@
 <p>基礎操作を正確に扱えると、機械学習コードの読み書き速度とデバッグ効率が大きく上がります。</p>
 <p>短い実行例で、文法とデータ変換の対応を確認します。</p>
 
+<h2 id="最初に解きたい疑問">最初に解きたい疑問</h2>
+<ol>
+<li>f&quot;{name}: {students}人, 完了率 {completion_ratio:.0%}&quot; の <code>{:.0%}</code> は何をしていて、なぜ <code>0.45</code> が <code>45%</code> になるのか。</li>
+<li>リスト・辞書・集合は、同じ <code>scores</code> から作っているのに何が違っていて、いつどれを選べばいいのか。</li>
+<li><code>scores[1:4]</code> の <code>4</code> はなぜ含まれないのか。<code>scores[-1]</code> と <code>scores[::2]</code> もどう読めばいいのか。</li>
+<li><code>for score in scores:</code> の中で <code>append</code> しているけれど、<code>labels</code> はいつ増えていくのか。<code>zip(scores, labels)</code> は何を表しているのか。</li>
+<li><code>try</code> で変換に失敗したとき、なぜ <code>except ValueError</code> だけを捕まえているのか。<code>oops</code> 以外で失敗したらどうなるのか。</li>
+</ol>
+
+<h2 id="先に押さえる言葉">先に押さえる言葉</h2>
+<ul>
+<li><code>動的型付け</code>: 変数の型を先に固定せず、実行時に入った値の種類で決まる仕組みです。Python では同じ変数に文字列や数値を入れられますが、そのぶん型の確認が重要になります。</li>
+<li><code>f-string</code>: 文字列の中に変数や式をそのまま埋め込める書き方です。<code>f&quot;...{name}...&quot;</code> の形で使い、表示用の文を短く書けます。</li>
+<li><code>スライス</code>: リストなどの一部分を切り出す書き方です。<code>start:end</code> の形で指定し、<code>end</code> 側は含まれない点がよく混乱します。</li>
+<li><code>Counter</code>: 値ごとに何回出てきたかを数えるための道具です。リストを渡すと、各要素の個数をまとめた結果が返ります。</li>
+</ul>
+
+<h2 id="実行前の見取り図">実行前の見取り図</h2>
+<ol>
+<li><code>print(type(name), type(students), type(completion_ratio))</code> の結果で、文字列・整数・小数がどう見分けられるかを確認する。</li>
+<li><code>print(scores[1:4])</code> と <code>print(scores[::2])</code> の出力で、どこまで抜き出されているかを確認する。</li>
+<li><code>print(list(zip(scores, labels)))</code> と <code>print(&quot;変換失敗: ...&quot;)</code> の出力で、対応関係と失敗した要素を追う。</li>
+</ol>
+
+<h2 id="つまずきやすい点">つまずきやすい点</h2>
+<ul>
+<li><code>f&quot;...{completion_ratio:.0%}&quot;</code> や <code>:.2f</code> の書式指定が何を変えているのかを、1つずつ分解した説明が必要。</li>
+<li><code>math.sqrt(sum((x - avg) ** 2 for x in scores) / len(scores))</code> が「平均との差の二乗平均の平方根」であることと、なぜその式になるのかの言い換えが必要。</li>
+</ul>
+
 <pre><code class="language-python">import math
 from collections import Counter</code></pre>
 <p><code>type</code> は「いま持っている値の性質」を確認する基本ツールです。Python は動的型付けなので、<br>
