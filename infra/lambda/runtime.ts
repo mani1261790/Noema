@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { promises as fs } from "fs";
+import path from "path";
 import {
   BedrockRuntimeClient,
   ConverseCommand
@@ -2048,6 +2050,12 @@ function buildDefaultColabUrl(notebookId: string): string {
   return `https://colab.research.google.com/github/${COLAB_GITHUB_REPO}/blob/${COLAB_GITHUB_REF}/content/notebooks/${encodeURIComponent(safeNotebookId)}.ipynb`;
 }
 
+function buildSourceNotebookRawUrl(notebookId: string): string {
+  return `https://raw.githubusercontent.com/${CONTENT_GITHUB_REPO}/${CONTENT_GITHUB_REF}/content/notebooks/${encodeURIComponent(
+    notebookId
+  )}.ipynb`;
+}
+
 function normalizeColabUrl(raw: string, notebookId: string): string {
   const value = raw.trim();
   if (!value || value === "https://colab.research.google.com" || value === "https://colab.research.google.com/") {
@@ -2196,6 +2204,22 @@ async function loadStoredNotebookIpynbRaw(notebookId: string, fallbackChunks: No
   }
 }
 
+async function loadSourceNotebookIpynbRaw(notebookId: string): Promise<string> {
+  const localPath = path.join(process.cwd(), "content", "notebooks", `${notebookId}.ipynb`);
+
+  try {
+    return await fs.readFile(localPath, "utf8");
+  } catch {
+    // fall through to GitHub raw source
+  }
+
+  const response = await fetch(buildSourceNotebookRawUrl(notebookId));
+  if (!response.ok) {
+    throw new Error(`Source notebook not found (${response.status})`);
+  }
+  return await response.text();
+}
+
 export async function getAdminNotebookDetail(notebookId: string) {
   const existing = await getNotebook(notebookId);
   if (!existing) return null;
@@ -2222,7 +2246,12 @@ export async function downloadNotebookIpynb(notebookId: string): Promise<APIGate
   const existing = await getNotebook(notebookId);
   if (!existing) return null;
 
-  const ipynbRaw = await loadStoredNotebookIpynbRaw(notebookId, existing.chunks ?? []);
+  let ipynbRaw = "";
+  try {
+    ipynbRaw = await loadSourceNotebookIpynbRaw(notebookId);
+  } catch {
+    ipynbRaw = await loadStoredNotebookIpynbRaw(notebookId, existing.chunks ?? []);
+  }
   return {
     statusCode: 200,
     headers: {
