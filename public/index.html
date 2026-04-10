@@ -1293,6 +1293,16 @@
       gap: 8px;
     }
 
+    .code-output-label {
+      margin: 0;
+      font-size: 10px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: color-mix(in oklab, var(--muted) 82%, white);
+    }
+
     .code-output-text {
       margin: 0;
       font-size: 12px;
@@ -4014,16 +4024,35 @@
         throw lastError || new Error("Python実行に失敗しました。");
       }
 
+      function normalizeRenderedOutputText(text) {
+        if (typeof text !== "string") return "";
+        return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\s+$/, "");
+      }
+
+      function ensureOutputLabel(output) {
+        if (!output) return;
+        const current = output.querySelector(".code-output-label");
+        if (current) return;
+        const label = document.createElement("p");
+        label.className = "code-output-label";
+        const cellNumber = Number(output.dataset.cellIndex);
+        label.textContent = Number.isFinite(cellNumber) && cellNumber >= 0 ? `Output | Cell ${cellNumber + 1}` : "Output";
+        output.appendChild(label);
+      }
+
       function appendOutputText(output, text, className = "") {
-        if (!text) return;
+        const normalizedText = normalizeRenderedOutputText(text);
+        if (!normalizedText) return;
+        ensureOutputLabel(output);
         const pre = document.createElement("pre");
         pre.className = className ? `code-output-text ${className}` : "code-output-text";
-        pre.textContent = text;
+        pre.textContent = normalizedText;
         output.appendChild(pre);
       }
 
       function appendOutputHtml(output, html, index) {
         if (!html) return;
+        ensureOutputLabel(output);
         const frame = document.createElement("iframe");
         frame.className = "code-output-html";
         frame.setAttribute("sandbox", "allow-same-origin");
@@ -4056,6 +4085,7 @@
 
       function appendOutputImage(output, base64Data, alt) {
         if (!base64Data) return;
+        ensureOutputLabel(output);
         const image = document.createElement("img");
         image.className = "code-output-image";
         image.loading = "lazy";
@@ -4068,9 +4098,9 @@
       function renderPythonRunOutput(output, payload) {
         output.replaceChildren();
 
-        const stdout = payload && typeof payload.stdout === "string" ? payload.stdout.trim() : "";
-        const stderr = payload && typeof payload.stderr === "string" ? payload.stderr.trim() : "";
-        const errorText = payload && typeof payload.error === "string" ? payload.error.trim() : "";
+        const stdout = payload && typeof payload.stdout === "string" ? normalizeRenderedOutputText(payload.stdout) : "";
+        const stderr = payload && typeof payload.stderr === "string" ? normalizeRenderedOutputText(payload.stderr) : "";
+        const errorText = payload && typeof payload.error === "string" ? normalizeRenderedOutputText(payload.error) : "";
         const durationMs = payload && Number.isFinite(Number(payload.durationMs)) ? Number(payload.durationMs) : 0;
         const installedPackages = Array.isArray(payload?.installedPackages)
           ? payload.installedPackages.map((pkg) => String(pkg).trim()).filter(Boolean)
@@ -4082,8 +4112,8 @@
           if (!item || typeof item !== "object") return;
           const type = typeof item.type === "string" ? item.type : "";
           if (type === "text/plain") {
-            const text = typeof item.text === "string" ? item.text : "";
-            if (!text.trim()) return;
+            const text = typeof item.text === "string" ? normalizeRenderedOutputText(item.text) : "";
+            if (!text) return;
             appendOutputText(output, text);
             hasOutput = true;
             return;
@@ -4456,6 +4486,7 @@
 
           const output = document.createElement("div");
           output.className = "code-output";
+          output.dataset.cellIndex = String(codeIndex);
           wrapper.appendChild(output);
 
           button.addEventListener("click", async () => {
