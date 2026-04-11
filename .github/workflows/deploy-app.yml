@@ -82,9 +82,6 @@ jobs:
       - name: Build notebooks
         run: npm run build:notebooks
 
-      - name: Build pyodide runtime
-        run: npm run build:pyodide
-
       - name: Build app
         run: npm run build
 

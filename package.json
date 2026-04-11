@@ -9,7 +9,6 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "build:notebooks": "tsx scripts/build-notebooks.ts",
-    "build:pyodide": "bash scripts/build-pyodide-runtime.sh",
     "generate:curriculum-shell": "tsx scripts/generate-curriculum-shell.ts",
     "author:curriculum": "tsx scripts/author-curriculum.ts",
     "check:notebook-code": "python3 scripts/check-notebook-code.py",
