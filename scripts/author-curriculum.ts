@@ -1240,22 +1240,6 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
     );
   }
 
-  if (id === "value-function") {
-    overrideFirstModule(
-      "価値関数の直感を作る",
-      "価値関数ノートでは、同じ方策で将来報酬を見積もる感覚を作ります。",
-      [
-        "rewards = [0.2, 0.3, 0.6, 1.0]",
-        "gamma = 0.85",
-        "g = 0.0",
-        "for r in reversed(rewards):",
-        "    g = r + gamma * g",
-        "print('task = value-function', 'v_pi_start=', round(g, 6))"
-      ],
-      "この見積もりを状態ごとに持つのが価値関数です。"
-    );
-  }
-
   if (id === "bellman-equations") {
     overrideFirstModule(
       "ベルマン更新前の準備",
@@ -1269,38 +1253,6 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
         "print('task = bellman-equations', 'boot_return=', round(g, 6))"
       ],
       "再帰的な更新規則を次セルで定量的に確認します。"
-    );
-  }
-
-  if (id === "policy-iteration") {
-    overrideFirstModule(
-      "方策反復の初期評価",
-      "方策反復では、評価→改善の繰り返しに入る前の初期値を確認します。",
-      [
-        "rewards = [0.1, 0.5, 0.9, 1.1]",
-        "gamma = 0.88",
-        "g = 0.0",
-        "for r in reversed(rewards):",
-        "    g = r + gamma * g",
-        "print('task = policy-iteration', 'initial_policy_value=', round(g, 6))"
-      ],
-      "以降で評価値に基づく方策改善を行います。"
-    );
-  }
-
-  if (id === "value-iteration") {
-    overrideFirstModule(
-      "価値反復の初期化",
-      "価値反復の1ステップ更新を追うため、初期の報酬列を定義します。",
-      [
-        "rewards = [0.0, 0.6, 0.4, 1.3]",
-        "gamma = 0.93",
-        "g = 0.0",
-        "for r in reversed(rewards):",
-        "    g = r + gamma * g",
-        "print('task = value-iteration', 'init_value=', round(g, 6))"
-      ],
-      "この初期化から最適価値への収束過程を観察します。"
     );
   }
 
@@ -1419,17 +1371,17 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
   // LLM family.
   if (id === "llm-pretraining") {
     overrideFirstModule(
-      "事前学習コーパスのトークン概算",
-      "事前学習ノートでは、長文コーパスのトークン規模感を最初に確認します。",
+      "最小GPT実装の入口",
+      "事前学習を抽象論ではなく実装として読むために、最小GPTの構成要素へ入る前の導入を置きます。",
       [
-        "text = '事前学習は大規模コーパスから統計構造を学習する。'",
+        "text = 'next token prediction を最小実装で追うと、事前学習の骨格が見える。'",
         "char_len = len(text)",
-        "space_tokens = text.split()",
-        "rough_tokens = max(1, char_len // 2)",
+        "unique_chars = len(set(text))",
+        "rough_tokens = max(1, char_len)",
         "print('task = llm-pretraining')",
-        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
+        "print('chars=', char_len, 'unique_chars=', unique_chars, 'rough_tokens=', rough_tokens)"
       ],
-      "コストとデータ規模の関係をここで掴みます。"
+      "以後はトークン化、attention、損失、最適化を同じコードの延長で見ます。"
     );
   }
 
@@ -1478,22 +1430,6 @@ function overridePack(id: string, title: string, base: TopicPack): TopicPack {
         "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
       ],
       "以降で評価軸と報酬設計に接続します。"
-    );
-  }
-
-  if (id === "domain-specialization") {
-    overrideFirstModule(
-      "ドメイン特化データの入口",
-      "特化モデルでは一般知識との差分を明確にする必要があります。最小文で確認します。",
-      [
-        "text = 'ドメイン特化では専門語の分布と評価指標を先に固定する。'",
-        "char_len = len(text)",
-        "space_tokens = text.split()",
-        "rough_tokens = max(1, char_len // 2)",
-        "print('task = domain-specialization')",
-        "print('chars=', char_len, 'space_tokens=', len(space_tokens), 'rough_tokens=', rough_tokens)"
-      ],
-      "この入口設計が精度と運用コストを左右します。"
     );
   }
 

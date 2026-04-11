@@ -133,15 +133,16 @@ const chapters: ChapterSpec[] = [
     id: "reinforcement-learning",
     title: "強化学習",
     notebooks: [
-      { id: "rl-foundation", title: "強化学習の考え方", tags: ["reinforcement-learning", "mdp", "foundation"] },
-      { id: "value-function", title: "価値関数", tags: ["reinforcement-learning", "value-function", "mdp"] },
+      {
+        id: "rl-foundation",
+        title: "強化学習の考え方と価値関数",
+        tags: ["reinforcement-learning", "mdp", "foundation", "value-function"]
+      },
       {
         id: "bellman-equations",
-        title: "ベルマン方程式（期待方程式・最適方程式）",
+        title: "ベルマン方程式と動的計画法",
         tags: ["reinforcement-learning", "bellman", "dynamic-programming"]
       },
-      { id: "policy-iteration", title: "方策反復法", tags: ["reinforcement-learning", "dynamic-programming", "policy"] },
-      { id: "value-iteration", title: "価値反復法", tags: ["reinforcement-learning", "dynamic-programming", "value"] },
       { id: "td-learning", title: "TD法", tags: ["reinforcement-learning", "temporal-difference", "prediction"] },
       { id: "q-learning", title: "Q学習", tags: ["reinforcement-learning", "q-learning", "off-policy"] },
       { id: "sarsa", title: "SARSA", tags: ["reinforcement-learning", "sarsa", "on-policy"] },
@@ -156,7 +157,12 @@ const chapters: ChapterSpec[] = [
         id: "deep-rl",
         title: "深層強化学習",
         tags: ["reinforcement-learning", "deep-rl", "function-approximation"]
-      }
+      },
+      {
+        id: "reinforcement-learning-overview",
+        title: "強化学習アルゴリズムの整理",
+        tags: ["reinforcement-learning", "overview", "review"]
+      },
     ]
   },
   {
@@ -164,12 +170,11 @@ const chapters: ChapterSpec[] = [
     title: "LLM",
     notebooks: [
       { id: "prompt-engineering", title: "プロンプトエンジニアリング", tags: ["llm", "prompt", "inference"] },
-      { id: "llm-pretraining", title: "事前学習", tags: ["llm", "pretraining", "data"] },
+      { id: "llm-pretraining", title: "事前学習と最小GPT実装", tags: ["llm", "pretraining", "transformer"] },
       { id: "scaling-laws", title: "スケーリング則", tags: ["llm", "scaling-law", "compute"] },
       { id: "fine-tuning", title: "ファインチューニング", tags: ["llm", "fine-tuning", "adaptation"] },
       { id: "hallucination-rlhf", title: "ハルシネーションとRLHF", tags: ["llm", "hallucination", "rlhf"] },
       { id: "tool-use-rag", title: "Tool UseとRAG", tags: ["llm", "tool-use", "rag"] },
-      { id: "domain-specialization", title: "ドメイン特化", tags: ["llm", "domain", "specialization"] },
       {
         id: "llm-efficiency",
         title: "軽量化（圧縮・最適化・効率化）",

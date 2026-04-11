@@ -258,32 +258,21 @@
       "notebooks": [
         {
           "id": "rl-foundation",
-          "title": "強化学習の考え方",
+          "title": "強化学習の考え方と価値関数",
           "order": 1,
           "tags": [
             "reinforcement-learning",
             "mdp",
-            "foundation"
+            "foundation",
+            "value-function"
           ],
           "htmlPath": "/notebooks/rl-foundation.html",
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/rl-foundation.ipynb"
         },
         {
-          "id": "value-function",
-          "title": "価値関数",
-          "order": 2,
-          "tags": [
-            "reinforcement-learning",
-            "value-function",
-            "mdp"
-          ],
-          "htmlPath": "/notebooks/value-function.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/value-function.ipynb"
-        },
-        {
           "id": "bellman-equations",
-          "title": "ベルマン方程式（期待方程式・最適方程式）",
-          "order": 3,
+          "title": "ベルマン方程式と動的計画法",
+          "order": 2,
           "tags": [
             "reinforcement-learning",
             "bellman",
@@ -293,33 +282,9 @@
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/bellman-equations.ipynb"
         },
         {
-          "id": "policy-iteration",
-          "title": "方策反復法",
-          "order": 4,
-          "tags": [
-            "reinforcement-learning",
-            "dynamic-programming",
-            "policy"
-          ],
-          "htmlPath": "/notebooks/policy-iteration.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/policy-iteration.ipynb"
-        },
-        {
-          "id": "value-iteration",
-          "title": "価値反復法",
-          "order": 5,
-          "tags": [
-            "reinforcement-learning",
-            "dynamic-programming",
-            "value"
-          ],
-          "htmlPath": "/notebooks/value-iteration.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/value-iteration.ipynb"
-        },
-        {
           "id": "td-learning",
           "title": "TD法",
-          "order": 6,
+          "order": 3,
           "tags": [
             "reinforcement-learning",
             "temporal-difference",
@@ -331,7 +296,7 @@
         {
           "id": "q-learning",
           "title": "Q学習",
-          "order": 7,
+          "order": 4,
           "tags": [
             "reinforcement-learning",
             "q-learning",
@@ -343,7 +308,7 @@
         {
           "id": "sarsa",
           "title": "SARSA",
-          "order": 8,
+          "order": 5,
           "tags": [
             "reinforcement-learning",
             "sarsa",
@@ -355,7 +320,7 @@
         {
           "id": "n-step-td",
           "title": "n-step TD法",
-          "order": 9,
+          "order": 6,
           "tags": [
             "reinforcement-learning",
             "n-step",
@@ -367,7 +332,7 @@
         {
           "id": "td-lambda",
           "title": "TD(λ)",
-          "order": 10,
+          "order": 7,
           "tags": [
             "reinforcement-learning",
             "td-lambda",
@@ -379,7 +344,7 @@
         {
           "id": "eligibility-trace-td-lambda",
           "title": "後方観測TD(λ)とEligibility Trace",
-          "order": 11,
+          "order": 8,
           "tags": [
             "reinforcement-learning",
             "eligibility-trace",
@@ -391,7 +356,7 @@
         {
           "id": "deep-rl",
           "title": "深層強化学習",
-          "order": 12,
+          "order": 9,
           "tags": [
             "reinforcement-learning",
             "deep-rl",
@@ -399,6 +364,18 @@
           ],
           "htmlPath": "/notebooks/deep-rl.html",
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/deep-rl.ipynb"
+        },
+        {
+          "id": "reinforcement-learning-overview",
+          "title": "強化学習アルゴリズムの整理",
+          "order": 10,
+          "tags": [
+            "reinforcement-learning",
+            "overview",
+            "review"
+          ],
+          "htmlPath": "/notebooks/reinforcement-learning-overview.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/reinforcement-learning-overview.ipynb"
         }
       ]
     },
@@ -421,12 +398,12 @@
         },
         {
           "id": "llm-pretraining",
-          "title": "事前学習",
+          "title": "事前学習と最小GPT実装",
           "order": 2,
           "tags": [
             "llm",
             "pretraining",
-            "data"
+            "transformer"
           ],
           "htmlPath": "/notebooks/llm-pretraining.html",
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-pretraining.ipynb"
@@ -480,21 +457,9 @@
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/tool-use-rag.ipynb"
         },
         {
-          "id": "domain-specialization",
-          "title": "ドメイン特化",
-          "order": 7,
-          "tags": [
-            "llm",
-            "domain",
-            "specialization"
-          ],
-          "htmlPath": "/notebooks/domain-specialization.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/domain-specialization.ipynb"
-        },
-        {
           "id": "llm-efficiency",
           "title": "軽量化（圧縮・最適化・効率化）",
-          "order": 8,
+          "order": 7,
           "tags": [
             "llm",
             "quantization",
