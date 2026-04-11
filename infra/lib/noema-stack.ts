@@ -76,6 +76,10 @@ export class NoemaStack extends Stack {
     const contentWriteMode = String(this.node.tryGetContext("contentWriteMode") ?? "github_ssot").trim().toLowerCase();
     const contentGithubRepo = String(this.node.tryGetContext("contentGithubRepo") ?? (githubRepo || "mani1261790/Noema")).trim();
     const contentGithubRef = String(this.node.tryGetContext("contentGithubRef") ?? defaultContentRef).trim();
+    const enableAccessLogs = String(this.node.tryGetContext("enableAccessLogs") ?? "false") === "true";
+    const enableOperationalMonitoring = String(this.node.tryGetContext("enableOperationalMonitoring") ?? "false") === "true";
+    const enablePointInTimeRecovery = String(this.node.tryGetContext("enablePointInTimeRecovery") ?? "false") === "true";
+    const enableBucketVersioning = String(this.node.tryGetContext("enableBucketVersioning") ?? "false") === "true";
     if (contentWriteMode !== "github_ssot" && contentWriteMode !== "aws_direct") {
       throw new Error(`Unsupported contentWriteMode context: ${contentWriteMode}. Allowed: github_ssot, aws_direct`);
     }
@@ -158,7 +162,7 @@ export class NoemaStack extends Stack {
     const siteBucket = new s3.Bucket(this, "SiteBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
-      versioned: true,
+      versioned: enableBucketVersioning,
       removalPolicy: RemovalPolicy.RETAIN,
       autoDeleteObjects: false
     });
@@ -166,7 +170,7 @@ export class NoemaStack extends Stack {
     const notebookBucket = new s3.Bucket(this, "NotebookBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
-      versioned: true,
+      versioned: enableBucketVersioning,
       lifecycleRules: [
         {
           id: "expire-playground-colab-sessions",
@@ -205,7 +209,7 @@ export class NoemaStack extends Stack {
       tableName: `${prefix}-questions`,
       partitionKey: { name: "questionId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
       removalPolicy: RemovalPolicy.RETAIN
     });
 
@@ -219,7 +223,7 @@ export class NoemaStack extends Stack {
       tableName: `${prefix}-answers`,
       partitionKey: { name: "questionId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
       removalPolicy: RemovalPolicy.RETAIN
     });
 
@@ -228,7 +232,7 @@ export class NoemaStack extends Stack {
       partitionKey: { name: "cacheKey", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expiresAt",
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
       removalPolicy: RemovalPolicy.RETAIN
     });
     const rateLimitTable = new dynamodb.Table(this, "RateLimitTable", {
@@ -237,7 +241,7 @@ export class NoemaStack extends Stack {
       sortKey: { name: "requestAt", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expiresAt",
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
       removalPolicy: RemovalPolicy.RETAIN
     });
 
@@ -245,18 +249,20 @@ export class NoemaStack extends Stack {
       tableName: `${prefix}-notebooks`,
       partitionKey: { name: "notebookId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
       removalPolicy: RemovalPolicy.RETAIN
     });
 
-    const accessLogsTable = new dynamodb.Table(this, "AccessLogsTable", {
-      tableName: `${prefix}-access-logs`,
-      partitionKey: { name: "logId", type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: "expiresAt",
-      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
-      removalPolicy: RemovalPolicy.RETAIN
-    });
+    const accessLogsTable = enableAccessLogs
+      ? new dynamodb.Table(this, "AccessLogsTable", {
+          tableName: `${prefix}-access-logs`,
+          partitionKey: { name: "logId", type: dynamodb.AttributeType.STRING },
+          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+          timeToLiveAttribute: "expiresAt",
+          pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
+          removalPolicy: RemovalPolicy.RETAIN
+        })
+      : null;
 
     const deadLetterQueue = new sqs.Queue(this, "QaDeadLetterQueue", {
       queueName: `${prefix}-qa-dlq`,
@@ -275,16 +281,18 @@ export class NoemaStack extends Stack {
       encryption: sqs.QueueEncryption.SQS_MANAGED
     });
 
-    const alarmTopic = new sns.Topic(this, "AlarmTopic", {
-      topicName: `${prefix}-alarms`
-    });
-    if (alarmEmail) {
+    const alarmTopic = enableOperationalMonitoring
+      ? new sns.Topic(this, "AlarmTopic", {
+          topicName: `${prefix}-alarms`
+        })
+      : null;
+    if (alarmTopic && alarmEmail) {
       alarmTopic.addSubscription(new snsSubscriptions.EmailSubscription(alarmEmail));
     }
 
     const apiLogGroup = new logs.LogGroup(this, "ApiLogGroup", {
       logGroupName: `/aws/lambda/${prefix}-api`,
-      retention: logs.RetentionDays.ONE_MONTH,
+      retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.RETAIN
     });
 
@@ -303,7 +311,7 @@ export class NoemaStack extends Stack {
         CACHE_TABLE: cacheTable.tableName,
         RATE_LIMIT_TABLE: rateLimitTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
-        ACCESS_LOGS_TABLE: accessLogsTable.tableName,
+        ACCESS_LOGS_TABLE: accessLogsTable?.tableName ?? "",
         QA_QUEUE_URL: qaQueue.queueUrl,
         NOTEBOOK_BUCKET: notebookBucket.bucketName,
         QA_MODEL_PROVIDER: qaModelProvider,
@@ -364,7 +372,7 @@ export class NoemaStack extends Stack {
 
     const workerLogGroup = new logs.LogGroup(this, "WorkerLogGroup", {
       logGroupName: `/aws/lambda/${prefix}-qa-worker`,
-      retention: logs.RetentionDays.ONE_MONTH,
+      retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.RETAIN
     });
 
@@ -383,7 +391,7 @@ export class NoemaStack extends Stack {
         CACHE_TABLE: cacheTable.tableName,
         RATE_LIMIT_TABLE: rateLimitTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
-        ACCESS_LOGS_TABLE: accessLogsTable.tableName,
+        ACCESS_LOGS_TABLE: accessLogsTable?.tableName ?? "",
         NOTEBOOK_BUCKET: notebookBucket.bucketName,
         QA_MODEL_PROVIDER: qaModelProvider,
         NOEMA_INLINE_QA: noemaInlineQa,
@@ -419,7 +427,7 @@ export class NoemaStack extends Stack {
     cacheTable.grantReadWriteData(apiFunction);
     rateLimitTable.grantReadWriteData(apiFunction);
     notebooksTable.grantReadWriteData(apiFunction);
-    accessLogsTable.grantReadWriteData(apiFunction);
+    accessLogsTable?.grantReadWriteData(apiFunction);
     qaQueue.grantSendMessages(apiFunction);
     notebookBucket.grantReadWrite(apiFunction);
     pythonRunnerFunction.grantInvoke(apiFunction);
@@ -429,7 +437,7 @@ export class NoemaStack extends Stack {
     answersTable.grantReadWriteData(workerFunction);
     cacheTable.grantReadWriteData(workerFunction);
     notebooksTable.grantReadWriteData(workerFunction);
-    accessLogsTable.grantReadWriteData(workerFunction);
+    accessLogsTable?.grantReadWriteData(workerFunction);
     notebookBucket.grantReadWrite(workerFunction);
     qaQueue.grantConsumeMessages(workerFunction);
 
@@ -587,110 +595,113 @@ export class NoemaStack extends Stack {
       authorizer: jwtAuthorizer
     });
 
-    const apiErrorsAlarm = new cloudwatch.Alarm(this, "ApiErrorsAlarm", {
-      alarmName: `${prefix}-api-errors`,
-      metric: apiFunction.metricErrors({
-        period: Duration.minutes(5),
-        statistic: "sum"
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      datapointsToAlarm: 1,
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
-    });
-    apiErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    let dashboard: cloudwatch.Dashboard | null = null;
+    if (enableOperationalMonitoring && alarmTopic) {
+      const apiErrorsAlarm = new cloudwatch.Alarm(this, "ApiErrorsAlarm", {
+        alarmName: `${prefix}-api-errors`,
+        metric: apiFunction.metricErrors({
+          period: Duration.minutes(5),
+          statistic: "sum"
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+      });
+      apiErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
-    const workerErrorsAlarm = new cloudwatch.Alarm(this, "WorkerErrorsAlarm", {
-      alarmName: `${prefix}-worker-errors`,
-      metric: workerFunction.metricErrors({
-        period: Duration.minutes(5),
-        statistic: "sum"
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      datapointsToAlarm: 1,
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
-    });
-    workerErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      const workerErrorsAlarm = new cloudwatch.Alarm(this, "WorkerErrorsAlarm", {
+        alarmName: `${prefix}-worker-errors`,
+        metric: workerFunction.metricErrors({
+          period: Duration.minutes(5),
+          statistic: "sum"
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+      });
+      workerErrorsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
-    const workerThrottlesAlarm = new cloudwatch.Alarm(this, "WorkerThrottlesAlarm", {
-      alarmName: `${prefix}-worker-throttles`,
-      metric: workerFunction.metricThrottles({
-        period: Duration.minutes(5),
-        statistic: "sum"
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      datapointsToAlarm: 1,
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
-    });
-    workerThrottlesAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      const workerThrottlesAlarm = new cloudwatch.Alarm(this, "WorkerThrottlesAlarm", {
+        alarmName: `${prefix}-worker-throttles`,
+        metric: workerFunction.metricThrottles({
+          period: Duration.minutes(5),
+          statistic: "sum"
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+      });
+      workerThrottlesAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
-    const qaQueueBacklogAlarm = new cloudwatch.Alarm(this, "QaQueueBacklogAlarm", {
-      alarmName: `${prefix}-qa-queue-backlog`,
-      metric: qaQueue.metricApproximateNumberOfMessagesVisible({
-        period: Duration.minutes(5),
-        statistic: "max"
-      }),
-      threshold: 20,
-      evaluationPeriods: 2,
-      datapointsToAlarm: 2,
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
-    });
-    qaQueueBacklogAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      const qaQueueBacklogAlarm = new cloudwatch.Alarm(this, "QaQueueBacklogAlarm", {
+        alarmName: `${prefix}-qa-queue-backlog`,
+        metric: qaQueue.metricApproximateNumberOfMessagesVisible({
+          period: Duration.minutes(5),
+          statistic: "max"
+        }),
+        threshold: 20,
+        evaluationPeriods: 2,
+        datapointsToAlarm: 2,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+      });
+      qaQueueBacklogAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
-    const qaDlqAlarm = new cloudwatch.Alarm(this, "QaDeadLetterQueueAlarm", {
-      alarmName: `${prefix}-qa-dlq-messages`,
-      metric: deadLetterQueue.metricApproximateNumberOfMessagesVisible({
-        period: Duration.minutes(5),
-        statistic: "max"
-      }),
-      threshold: 1,
-      evaluationPeriods: 1,
-      datapointsToAlarm: 1,
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
-    });
-    qaDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      const qaDlqAlarm = new cloudwatch.Alarm(this, "QaDeadLetterQueueAlarm", {
+        alarmName: `${prefix}-qa-dlq-messages`,
+        metric: deadLetterQueue.metricApproximateNumberOfMessagesVisible({
+          period: Duration.minutes(5),
+          statistic: "max"
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING
+      });
+      qaDlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
-    const dashboard = new cloudwatch.Dashboard(this, "OperationsDashboard", {
-      dashboardName: `${prefix}-operations`
-    });
-    dashboard.addWidgets(
-      new cloudwatch.GraphWidget({
-        title: "Lambda Errors",
-        width: 12,
-        left: [
-          apiFunction.metricErrors(),
-          workerFunction.metricErrors(),
-          pythonRunnerFunction.metricErrors(),
-          pythonRunnerHeavyFunction.metricErrors()
-        ]
-      }),
-      new cloudwatch.GraphWidget({
-        title: "SQS Queue Depth",
-        width: 12,
-        left: [qaQueue.metricApproximateNumberOfMessagesVisible(), deadLetterQueue.metricApproximateNumberOfMessagesVisible()]
-      }),
-      new cloudwatch.GraphWidget({
-        title: "Lambda Duration",
-        width: 12,
-        left: [
-          apiFunction.metricDuration(),
-          workerFunction.metricDuration(),
-          pythonRunnerFunction.metricDuration(),
-          pythonRunnerHeavyFunction.metricDuration()
-        ]
-      }),
-      new cloudwatch.GraphWidget({
-        title: "DynamoDB Throttles",
-        width: 12,
-        left: [
-          questionsTable.metricThrottledRequestsForOperation("PutItem"),
-          answersTable.metricThrottledRequestsForOperation("PutItem"),
-          notebooksTable.metricThrottledRequestsForOperation("PutItem")
-        ]
-      })
-    );
+      dashboard = new cloudwatch.Dashboard(this, "OperationsDashboard", {
+        dashboardName: `${prefix}-operations`
+      });
+      dashboard.addWidgets(
+        new cloudwatch.GraphWidget({
+          title: "Lambda Errors",
+          width: 12,
+          left: [
+            apiFunction.metricErrors(),
+            workerFunction.metricErrors(),
+            pythonRunnerFunction.metricErrors(),
+            pythonRunnerHeavyFunction.metricErrors()
+          ]
+        }),
+        new cloudwatch.GraphWidget({
+          title: "SQS Queue Depth",
+          width: 12,
+          left: [qaQueue.metricApproximateNumberOfMessagesVisible(), deadLetterQueue.metricApproximateNumberOfMessagesVisible()]
+        }),
+        new cloudwatch.GraphWidget({
+          title: "Lambda Duration",
+          width: 12,
+          left: [
+            apiFunction.metricDuration(),
+            workerFunction.metricDuration(),
+            pythonRunnerFunction.metricDuration(),
+            pythonRunnerHeavyFunction.metricDuration()
+          ]
+        }),
+        new cloudwatch.GraphWidget({
+          title: "DynamoDB Throttles",
+          width: 12,
+          left: [
+            questionsTable.metricThrottledRequestsForOperation("PutItem"),
+            answersTable.metricThrottledRequestsForOperation("PutItem"),
+            notebooksTable.metricThrottledRequestsForOperation("PutItem")
+          ]
+        })
+      );
+    }
 
     if (createGithubDeployRole && githubRepo) {
       const githubOidcProvider = new iam.OpenIdConnectProvider(this, "GitHubOidcProvider", {
@@ -793,11 +804,15 @@ export class NoemaStack extends Stack {
     new cdk.CfnOutput(this, "QaDeadLetterQueueUrl", {
       value: deadLetterQueue.queueUrl
     });
-    new cdk.CfnOutput(this, "AlarmTopicArn", {
-      value: alarmTopic.topicArn
-    });
-    new cdk.CfnOutput(this, "CloudWatchDashboardName", {
-      value: dashboard.dashboardName
-    });
+    if (alarmTopic) {
+      new cdk.CfnOutput(this, "AlarmTopicArn", {
+        value: alarmTopic.topicArn
+      });
+    }
+    if (dashboard) {
+      new cdk.CfnOutput(this, "CloudWatchDashboardName", {
+        value: dashboard.dashboardName
+      });
+    }
   }
 }

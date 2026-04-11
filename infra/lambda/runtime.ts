@@ -272,7 +272,7 @@ const ANSWERS_TABLE = requiredEnv("ANSWERS_TABLE");
 const CACHE_TABLE = requiredEnv("CACHE_TABLE");
 const RATE_LIMIT_TABLE = requiredEnv("RATE_LIMIT_TABLE");
 const NOTEBOOKS_TABLE = requiredEnv("NOTEBOOKS_TABLE");
-const ACCESS_LOGS_TABLE = requiredEnv("ACCESS_LOGS_TABLE");
+const ACCESS_LOGS_TABLE = process.env.ACCESS_LOGS_TABLE || "";
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
@@ -504,6 +504,7 @@ function validateAskQuestionInput(payload: unknown): AskQuestionInput | null {
 }
 
 async function putAccessLog(userId: string, notebookId: string, action: string) {
+  if (!ACCESS_LOGS_TABLE) return;
   await ddb
     .send(
       new PutCommand({

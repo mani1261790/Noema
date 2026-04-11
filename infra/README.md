@@ -8,9 +8,17 @@ This directory provisions production AWS infrastructure for Noema:
 - DynamoDB tables
 - S3 buckets (site + notebooks)
 - CloudFront distribution
-- CloudWatch alarms + operations dashboard
-- SNS alarm topic (optional email subscription)
+- Optional CloudWatch alarms + operations dashboard
+- Optional SNS alarm topic (optional email subscription)
 - Optional GitHub OIDC deploy role
+
+Low-cost defaults:
+
+- DynamoDB point-in-time recovery is disabled by default
+- S3 bucket versioning is disabled by default
+- Access log DynamoDB writes are disabled by default
+- CloudWatch alarms/dashboard/SNS are disabled by default
+- Lambda log retention defaults to 1 week
 
 ## Prerequisites
 
@@ -48,10 +56,21 @@ Enable alarm notification email and GitHub OIDC role (optional):
 ```bash
 npm run deploy -- --require-approval never \
   -c frontendUrl=https://your-frontend-domain \
+  -c enableOperationalMonitoring=true \
   -c alarmEmail=you@example.com \
   -c createGithubDeployRole=true \
   -c githubRepo=mani1261790/Noema \
   -c githubRefPattern=refs/heads/main
+```
+
+Enable extra durability / audit features only when needed:
+
+```bash
+npm run deploy -- --require-approval never \
+  -c frontendUrl=https://your-frontend-domain \
+  -c enablePointInTimeRecovery=true \
+  -c enableBucketVersioning=true \
+  -c enableAccessLogs=true
 ```
 
 Enable AWS-only QA worker on Bedrock (recommended):
@@ -98,6 +117,6 @@ After deploy, note these stack outputs:
 - `CognitoUserPoolClientId`
 - `NotebookBucketName`
 - `NotebooksTableName`
-- `AlarmTopicArn`
-- `CloudWatchDashboardName`
+- `AlarmTopicArn` (when `enableOperationalMonitoring=true`)
+- `CloudWatchDashboardName` (when `enableOperationalMonitoring=true`)
 - `GitHubDeployRoleArn` (when `createGithubDeployRole=true`)
