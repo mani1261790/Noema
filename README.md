@@ -1,44 +1,77 @@
 # Noema
 
-学習サイト（LLM FAQ + Notebook教材実行連動）構築プロジェクト。
+Noema is a learning platform for beginners studying machine learning, LLMs, reinforcement learning, and world models.
 
-## 目的
+It combines three things in one place:
 
-学部1年生レベルの初学者が、機械学習・LLM・強化学習・世界モデルを段階的に学べる教材プラットフォームを提供する。
+- notebook-based course materials
+- in-context question answering tied to each lesson
+- browser-based Python execution for lightweight experimentation
 
-- 静的教材配信: `ipynb` を HTML 化して高速表示
-- 学習支援: ノート文脈に紐づいた RAG ベース質問応答
-- 運用最適化: S3/CloudFront + サーバレス中心でコストを最小化
+## What Noema Does
 
-## 想定アーキテクチャ（MVP）
+- Serves lesson content from Jupyter notebooks
+- Lets learners open the same material in Colab
+- Answers questions with notebook-aware context
+- Runs Python snippets without requiring local setup
+- Keeps infrastructure mostly serverless to reduce operating cost
 
-- Frontend: static HTML UI + thin Next.js redirect/download shell
-- Static Contents: Jupyter Book または nbconvert で生成し S3 配信
-- Auth: Amazon Cognito（OAuth2 + Email/Password）
-- API: API Gateway + AWS Lambda
-- LLM: Amazon Bedrock（推奨）/ OpenAI API（任意）
-- Data: DynamoDB（質問/回答/キャッシュ/メタデータ）
-- Retrieval: OpenSearch または pgvector
-- CDN: CloudFront
+## Learning Flow
 
-詳細は `docs/system-architecture.md` を参照。
+```mermaid
+flowchart LR
+  A["Learner opens a lesson"] --> B["Notebook source is rendered as lesson content"]
+  B --> C["Learner reads, runs code, or opens Colab"]
+  C --> D["Learner asks a question"]
+  D --> E["Noema retrieves notebook-linked context"]
+  E --> F["LLM generates an answer"]
+  F --> G["Answer is shown with lesson context"]
+```
 
-## MVPで先に作るもの
+## System Overview
 
-1. 認証付き Web アプリ基盤（ログイン必須）
-2. 教材一覧サイドバー + HTML教材表示 + Colabリンク
-3. 質問投稿・回答取得 API
-4. RAGパイプライン（検索→LLM→保存）
-5. 管理者画面（質問ログ閲覧、教材メタ管理）
+```mermaid
+flowchart TD
+  A["content/notebooks/*.ipynb"] --> B["Static lesson pages"]
+  A --> C["Notebook metadata"]
+  B --> D["Learner UI"]
+  C --> D
+  D --> E["API Gateway + Lambda"]
+  E --> F["DynamoDB"]
+  E --> G["Python runner"]
+  E --> H["LLM provider"]
+  H --> I["Amazon Bedrock or OpenAI"]
+  B --> J["S3 + CloudFront"]
+  D --> K["Cognito login"]
+```
 
-## リポジトリ構成（初期）
+## Repository Structure
 
-- `docs/system-architecture.md`: システム設計
-- `docs/openapi.yaml`: API 契約
-- `docs/data-model.md`: データモデル
-- `docs/mvp-roadmap.md`: 実装ロードマップ
+- `content/notebooks`: lesson source notebooks
+- `content/catalog.json`: lesson catalog and ordering
+- `public`: generated public assets
+- `src`: app shell and shared logic
+- `infra`: AWS CDK infrastructure
+- `docs`: architecture and operations notes
 
-## ローカル起動
+## For Learners
+
+The repository is public because the curriculum itself is part of the product.  
+The source of truth for lessons lives in `content/notebooks`, and the platform is built around keeping those notebooks easy to inspect, improve, and reuse.
+
+## For Contributors
+
+### Content Pipeline
+
+```mermaid
+flowchart LR
+  A["Edit ipynb in content/notebooks"] --> B["Update content/catalog.json if needed"]
+  B --> C["Build notebook artifacts"]
+  C --> D["Review rendered lesson output"]
+  D --> E["Deploy app and infrastructure"]
+```
+
+### Local Development
 
 ```bash
 npm install
@@ -46,54 +79,17 @@ cp .env.example .env
 npm run dev
 ```
 
-本番で管理画面から新規教材を取り込む場合は `.env` に `S3_BUCKET_NAME` と `S3_REGION` を設定してください。既存教材の編集はリポジトリ正本のまま維持し、新規追加時の HTML / ipynb 保存先だけを S3 に持たせる前提です。
+Useful commands:
 
-`npm run build:notebooks` は `public/notebooks`、`public/catalog.json`、`public/highlight`、`public/katex` の配信用生成物を更新したいときだけ実行してください。教材のソースは `content/notebooks` と `content/catalog.json` です。
+- `npm run build`
+- `npm run build:notebooks`
+- `npm run typecheck`
+- `python3 scripts/check-notebook-code.py`
 
-AWS の notebook metadata を DynamoDB に同期したい場合だけ `npm run sync:notebooks:aws -- --table <NOTEBOOKS_TABLE>` を使います。
+If you need AWS infrastructure details, see `infra/README.md`.  
+If you need deeper system notes, see:
 
-コスト最小で開始する場合の推奨 LLM 設定:
-
-```bash
-QA_MODEL_PROVIDER=openai
-OPENAI_API_KEY=<your-key>
-OPENAI_MODEL_SMALL=gpt-5-nano
-OPENAI_MODEL_MID=
-OPENAI_MODEL_LARGE=
-```
-
-`gpt-oss-20b` を試す場合は `OPENAI_MODEL_SMALL=gpt-oss-20b` に変更してください。
-
-## AWS インフラ (CDK)
-
-`infra/` に本番インフラ定義があります。
-
-```bash
-cd infra
-npm install
-
-export AWS_PROFILE=noema-prod
-export AWS_REGION=ap-northeast-3
-
-# 初回のみ
-npx cdk bootstrap aws://437089831576/ap-northeast-3
-
-# 差分確認
-npm run diff
-
-# デプロイ
-npm run deploy -- --require-approval never
-```
-
-運用ドキュメント:
-
+- `docs/system-architecture.md`
 - `docs/operations/aws-setup.md`
 - `docs/operations/dev-loop.md`
 - `docs/operations/runbook.md`
-
-## KPI
-
-- 教材ページ表示: p95 < 200ms（CDNキャッシュヒット時）
-- LLM回答生成: 平均 < 1.5s（キュー処理 + キャッシュ前提）
-- キャッシュヒット率: > 30%
-- 教材ビルド成功率: 99%

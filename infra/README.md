@@ -1,122 +1,91 @@
-# Noema Infra (AWS CDK)
+# Noema Infra
 
-This directory provisions production AWS infrastructure for Noema:
+This directory contains the AWS CDK stack for Noema.
 
-- Cognito User Pool + App Client
-- API Gateway (HTTP API) + Lambda (API)
-- SQS + Lambda (Worker)
-- DynamoDB tables
-- S3 buckets (site + notebooks)
-- CloudFront distribution
-- Optional CloudWatch alarms + operations dashboard
-- Optional SNS alarm topic (optional email subscription)
-- Optional GitHub OIDC deploy role
+The stack is intentionally biased toward low fixed cost:
 
-Low-cost defaults:
+- serverless compute
+- pay-per-request databases and queues
+- optional monitoring features
+- low-cost defaults for retention, versioning, and backups
 
-- DynamoDB point-in-time recovery is disabled by default
-- S3 bucket versioning is disabled by default
-- Access log DynamoDB writes are disabled by default
-- CloudWatch alarms/dashboard/SNS are disabled by default
-- Lambda log retention defaults to 1 week
+## Infrastructure Flow
 
-## Prerequisites
+```mermaid
+flowchart TD
+  A["Learner browser"] --> B["CloudFront"]
+  B --> C["S3 site bucket"]
+  B --> D["S3 notebook bucket"]
+  A --> E["Cognito"]
+  A --> F["HTTP API"]
+  F --> G["Lambda API"]
+  G --> H["DynamoDB"]
+  G --> I["SQS"]
+  I --> J["Lambda worker"]
+  G --> K["Python runner"]
+  G --> L["LLM provider"]
+  J --> L
+  L --> M["Bedrock or OpenAI"]
+```
 
-- AWS CLI v2 configured with SSO profile (`noema-prod`)
-- CDK bootstrap (once per account/region)
+## Cost Profile
 
-## Commands
+By default, the stack now avoids several always-on extras:
+
+- DynamoDB point-in-time recovery: disabled
+- S3 bucket versioning: disabled
+- access-log DynamoDB writes: disabled
+- CloudWatch alarms and dashboard: disabled
+- SNS alarm topic: disabled
+- Lambda log retention: 7 days
+
+Enable those only when you need stronger ops visibility or rollback protection.
+
+## Typical Deploy Flow
+
+```mermaid
+flowchart LR
+  A["Update app or infra code"] --> B["cdk synth"]
+  B --> C["cdk deploy"]
+  C --> D["CloudFormation updates AWS resources"]
+  D --> E["Frontend and API serve new behavior"]
+```
+
+## Minimal Commands
 
 ```bash
 cd infra
 npm install
 
-# use your profile and region
 export AWS_PROFILE=noema-prod
 export AWS_REGION=ap-northeast-3
 
-# one-time bootstrap
-npx cdk bootstrap aws://437089831576/ap-northeast-3
-
-# synth
 npm run synth
-
-# deploy (replace with your frontend URL)
 npm run deploy -- --require-approval never -c frontendUrl=https://your-frontend-domain
 ```
 
-If Cognito domain prefix conflicts, deploy with:
+## Optional Flags
 
-```bash
-npm run deploy -- --require-approval never -c cognitoDomainPrefix=noema-mani-auth
-```
-
-Enable alarm notification email and GitHub OIDC role (optional):
+Turn operational features back on only when needed:
 
 ```bash
 npm run deploy -- --require-approval never \
   -c frontendUrl=https://your-frontend-domain \
   -c enableOperationalMonitoring=true \
-  -c alarmEmail=you@example.com \
-  -c createGithubDeployRole=true \
-  -c githubRepo=mani1261790/Noema \
-  -c githubRefPattern=refs/heads/main
-```
-
-Enable extra durability / audit features only when needed:
-
-```bash
-npm run deploy -- --require-approval never \
-  -c frontendUrl=https://your-frontend-domain \
   -c enablePointInTimeRecovery=true \
   -c enableBucketVersioning=true \
   -c enableAccessLogs=true
 ```
 
-Enable AWS-only QA worker on Bedrock (recommended):
+Useful extra flags:
 
-```bash
-npm run deploy -- --require-approval never \
-  -c frontendUrl=https://your-frontend-domain \
-  -c qaModelProvider=bedrock \
-  -c bedrockRegion=us-east-1 \
-  -c bedrockModelSmall=amazon.nova-micro-v1:0 \
-  -c adminEmails=admin@example.com \
-  -c qaRateLimitMax=6 \
-  -c qaRateLimitWindowMinutes=1
-```
+- `-c qaModelProvider=bedrock`
+- `-c qaModelProvider=openai`
+- `-c createGithubDeployRole=true`
+- `-c cognitoDomainPrefix=...`
 
-Enable OpenAI-based QA worker (optional fallback):
+## Notes
 
-```bash
-# store key once (SecureString)
-aws ssm put-parameter \
-  --name /noema/prod/openai-api-key \
-  --type SecureString \
-  --overwrite \
-  --value '<OPENAI_API_KEY>'
-
-npm run deploy -- --require-approval never \
-  -c frontendUrl=https://your-frontend-domain \
-  -c qaModelProvider=openai \
-  -c openAiModelSmall=gpt-5-nano \
-  -c openAiApiKeySsmParameter=/noema/prod/openai-api-key \
-  -c adminEmails=admin@example.com \
-  -c qaRateLimitMax=6 \
-  -c qaRateLimitWindowMinutes=1
-```
-
-## Useful outputs
-
-After deploy, note these stack outputs:
-
-- `CloudFrontDomainName`
-- `CloudFrontDistributionId`
-- `HttpApiUrl`
-- `CognitoUserPoolId`
-- `CognitoUserPoolClientId`
-- `NotebookBucketName`
-- `NotebooksTableName`
-- `AlarmTopicArn` (when `enableOperationalMonitoring=true`)
-- `CloudWatchDashboardName` (when `enableOperationalMonitoring=true`)
-- `GitHubDeployRoleArn` (when `createGithubDeployRole=true`)
+- Current production depends on Cognito, API Gateway, Lambda, DynamoDB, S3, CloudFront, and SQS.
+- Monitoring and audit-heavy features are optional.
+- If you only need the app to run cheaply, leave the optional flags off.
