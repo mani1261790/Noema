@@ -196,13 +196,12 @@ const markdownRenderer = (() => {
   return md;
 })();
 
-const YOUTUBE_DIRECTIVE_RE = /^\s*@\[(?:youtube|yt)\]\((https?:\/\/[^\s)]+)\)\s*$/im;
 const YOUTUBE_DIRECTIVE_GLOBAL_RE = /^\s*@\[(?:youtube|yt)\]\((https?:\/\/[^\s)]+)\)\s*$/gim;
+const REFERENCE_VIDEO_HEADING_RE = /^#{1,6}\s*参考動画(?:（外部）|\(外部\))?\s*$/;
+const MARKDOWN_LINK_ONLY_LINE_RE = /^(\s*(?:[-*+]\s+|\d+\.\s+)?)\[(.+?)\]\((https?:\/\/[^\s)]+)\)\s*$/;
 
-function extractYouTubeDirectiveUrl(markdownText: string): string | null {
-  const match = markdownText.match(YOUTUBE_DIRECTIVE_RE);
-  if (!match || !match[1]) return null;
-  return match[1].trim();
+function extractYouTubeDirectiveUrls(markdownText: string): string[] {
+  return Array.from(markdownText.matchAll(YOUTUBE_DIRECTIVE_GLOBAL_RE), (match) => match[1]?.trim() || "").filter(Boolean);
 }
 
 function stripYouTubeDirective(markdownText: string): string {
@@ -246,10 +245,8 @@ function toYouTubeEmbedUrl(rawUrl: string): string | null {
   return null;
 }
 
-function buildYouTubeEmbedHtml(markdownText: string): string {
-  const directiveUrl = extractYouTubeDirectiveUrl(markdownText);
-  if (!directiveUrl) return "";
-  const embedUrl = toYouTubeEmbedUrl(directiveUrl);
+function buildYouTubeEmbedHtmlFromUrl(rawUrl: string): string {
+  const embedUrl = toYouTubeEmbedUrl(rawUrl);
   if (!embedUrl) return "";
   return [
     '<section class="yt-embed" style="margin:.9rem 0 1.2rem;">',
@@ -258,6 +255,46 @@ function buildYouTubeEmbedHtml(markdownText: string): string {
     "</div>",
     "</section>"
   ].join("");
+}
+
+function renderMarkdownWithInlineYouTubeEmbeds(markdownText: string): string[] {
+  const pieces: string[] = [];
+  const buffer: string[] = [];
+  let inReferenceVideoSection = false;
+
+  const flushBuffer = () => {
+    const bufferedMarkdown = buffer.join("\n").trim();
+    buffer.length = 0;
+    if (bufferedMarkdown) {
+      pieces.push(markdownRenderer.render(bufferedMarkdown));
+    }
+  };
+
+  for (const line of markdownText.split("\n")) {
+    const trimmed = line.trim();
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      flushBuffer();
+      inReferenceVideoSection = REFERENCE_VIDEO_HEADING_RE.test(trimmed);
+      buffer.push(line);
+      continue;
+    }
+
+    const linkOnlyMatch = inReferenceVideoSection ? line.match(MARKDOWN_LINK_ONLY_LINE_RE) : null;
+    const youtubeUrl = linkOnlyMatch ? linkOnlyMatch[3]?.trim() || "" : "";
+    const youtubeEmbedHtml = youtubeUrl ? buildYouTubeEmbedHtmlFromUrl(youtubeUrl) : "";
+
+    if (youtubeEmbedHtml) {
+      flushBuffer();
+      pieces.push(markdownRenderer.render(line));
+      pieces.push(youtubeEmbedHtml);
+      continue;
+    }
+
+    buffer.push(line);
+  }
+
+  flushBuffer();
+  return pieces;
 }
 
 export function notebookToHtml(input: NotebookFile): string {
@@ -271,11 +308,13 @@ export function notebookToHtml(input: NotebookFile): string {
       const normalizedMarkdown = normalizeMathDelimiters(text);
       const visibleMarkdown = stripYouTubeDirective(normalizedMarkdown);
       if (visibleMarkdown) {
-        pieces.push(markdownRenderer.render(visibleMarkdown));
+        pieces.push(...renderMarkdownWithInlineYouTubeEmbeds(visibleMarkdown));
       }
-      const youtubeEmbedHtml = buildYouTubeEmbedHtml(normalizedMarkdown);
-      if (youtubeEmbedHtml) {
-        pieces.push(youtubeEmbedHtml);
+      for (const directiveUrl of extractYouTubeDirectiveUrls(normalizedMarkdown)) {
+        const youtubeEmbedHtml = buildYouTubeEmbedHtmlFromUrl(directiveUrl);
+        if (youtubeEmbedHtml) {
+          pieces.push(youtubeEmbedHtml);
+        }
       }
       continue;
     }

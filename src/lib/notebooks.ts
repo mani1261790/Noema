@@ -101,13 +101,23 @@ export async function getNotebookHtml(htmlPath: string): Promise<string> {
   ];
 
   return sanitizeHtml(candidate, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["article", ...mathTags]),
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["article", "iframe", "section", ...mathTags]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       "*": ["class", "id"],
       a: ["href", "target", "rel"],
       div: ["class", "id", "style", "aria-hidden"],
+      section: ["class", "id", "style", "aria-hidden"],
       span: ["class", "id", "style", "aria-hidden"],
+      iframe: [
+        "src",
+        "title",
+        "loading",
+        "referrerpolicy",
+        "allow",
+        "allowfullscreen",
+        "style"
+      ],
       math: ["xmlns", "display"],
       annotation: ["encoding"],
       mspace: ["width"],
