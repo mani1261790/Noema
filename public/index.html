@@ -589,6 +589,59 @@
     .selection-title { font-weight: 700; margin-bottom: 4px; }
     .selection-text { color: var(--muted); max-height: 48px; overflow: hidden; white-space: pre-wrap; }
 
+    .playground-notice {
+      margin: 0 auto 10px;
+      max-width: 980px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      display: none;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 13px;
+      line-height: 1.65;
+      background:
+        linear-gradient(145deg, color-mix(in oklab, rgba(255, 193, 120, 0.24) 78%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      border: 1px solid color-mix(in oklab, #ffbf78 42%, var(--glass-edge-soft));
+      backdrop-filter: blur(16px) saturate(138%);
+      -webkit-backdrop-filter: blur(16px) saturate(138%);
+      box-shadow:
+        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 62%, transparent),
+        0 10px 22px color-mix(in oklab, rgba(255, 179, 92, 0.18) 78%, transparent);
+    }
+
+    .playground-notice.visible {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .playground-notice-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #fff3de;
+      background: linear-gradient(145deg, #d6812f 0%, #b95f18 100%);
+      border: 1px solid color-mix(in oklab, #ffd1a0 38%, transparent);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22);
+    }
+
+    .playground-notice-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #fff2dd;
+    }
+
+    .playground-notice-copy {
+      color: color-mix(in oklab, var(--text) 88%, #ffe5c4);
+    }
+
     #reader-card {
       max-width: 980px;
       margin: 0 auto;
@@ -2375,6 +2428,14 @@
             <button class="button-ghost" id="clear-selection" type="button">解除</button>
           </div>
 
+          <div id="playground-notice" class="playground-notice" aria-live="polite">
+            <div class="playground-notice-badge">Notice</div>
+            <div>
+              <div class="playground-notice-title">プレイグラウンドの編集内容はこのブラウザだけに保存されます</div>
+              <div class="playground-notice-copy">別デバイスや別ブラウザへ引き継ぐには、プレイグラウンド中に Download して `ipynb` を保存してください。</div>
+            </div>
+          </div>
+
           <div id="reader-card" class="glass-soft">
             <article class="reader-prose" id="notebook-content">教材を読み込み中...</article>
           </div>
@@ -2549,6 +2610,7 @@
         assistantPanel: document.getElementById("assistant-panel"),
         chatFab: document.getElementById("chat-fab"),
         selectionCard: document.getElementById("selection-card"),
+        playgroundNotice: document.getElementById("playground-notice"),
         selectionText: document.getElementById("selection-text"),
         clearSelection: document.getElementById("clear-selection"),
         brandHome: document.getElementById("brand-home"),
@@ -3423,6 +3485,9 @@
         el.headerTitleSelect.classList.add("is-hidden");
         el.headerTitleSelect.disabled = true;
         el.resetPlayground.classList.toggle("is-hidden", !showReset);
+        if (el.playgroundNotice) {
+          el.playgroundNotice.classList.toggle("visible", showReset);
+        }
       }
 
       function setElementVisibility(target, visible) {
@@ -4286,6 +4351,32 @@
 
       function openInNewTab(url) {
         window.open(url, "_blank", "noopener,noreferrer");
+      }
+
+      function triggerIpynbDownload(notebookId, ipynbRaw) {
+        const blob = new Blob([ipynbRaw], { type: "application/x-ipynb+json;charset=utf-8" });
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = `${notebookId}.ipynb`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+
+      async function downloadPlaygroundDraftNotebook() {
+        if (!state.activeNotebook) return;
+        const notebookId = state.activeNotebook.id;
+        const response = await fetch(buildNotebookDownloadUrl(notebookId), { cache: "no-cache" });
+        if (!response.ok) {
+          throw new Error("ノートブックの取得に失敗しました。");
+        }
+        const ipynbRaw = await response.text();
+        const notebookJson = JSON.parse(ipynbRaw);
+        const editedSources = collectEditableCellSources().map((source) => normalizeRunnableSource(source));
+        applyEditedSourcesToIpynb(notebookJson, editedSources);
+        triggerIpynbDownload(notebookId, `${JSON.stringify(notebookJson, null, 2)}\n`);
       }
 
       function navigateTab(tabRef, url) {
@@ -5588,6 +5679,26 @@
         if (!state.loggedIn || !state.playgroundEnabled || !state.activeEditorMap.size) return;
         event.preventDefault();
         void openColabWithPlaygroundDraft();
+      });
+
+      el.downloadBtn.addEventListener("click", function (event) {
+        if (!state.activeNotebook) return;
+        if (!state.loggedIn || !state.playgroundEnabled || !state.activeEditorMap.size) return;
+        event.preventDefault();
+        void (async () => {
+          const originalLabel = el.downloadBtn.textContent || "Download";
+          el.downloadBtn.textContent = "準備中...";
+          el.downloadBtn.setAttribute("aria-disabled", "true");
+          try {
+            await downloadPlaygroundDraftNotebook();
+          } catch (error) {
+            console.warn("Download playground draft failed", error);
+            window.location.href = buildNotebookDownloadUrl(state.activeNotebook.id);
+          } finally {
+            el.downloadBtn.textContent = originalLabel;
+            el.downloadBtn.removeAttribute("aria-disabled");
+          }
+        })();
       });
 
       el.sendChat.addEventListener("click", function () {
