@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="16" fill="#0A1830"/>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <defs>
+    <linearGradient id="bg" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#15385C"/>
+      <stop offset="1" stop-color="#75B7D8"/>
+    </linearGradient>
+  </defs>
+  <g opacity="0.96">
+    <rect x="14" y="14" width="10" height="10" rx="3.2" fill="#F4FBFF"/>
+    <rect x="27" y="14" width="10" height="10" rx="3.2" fill="#BEE4FB"/>
+    <rect x="40" y="14" width="10" height="10" rx="3.2" fill="#F4FBFF"/>
+    <rect x="14" y="27" width="10" height="10" rx="3.2" fill="#BEE4FB"/>
+    <rect x="27" y="27" width="10" height="10" rx="3.2" fill="#F4FBFF"/>
+    <rect x="40" y="27" width="10" height="10" rx="3.2" fill="#BEE4FB"/>
+    <rect x="14" y="40" width="10" height="10" rx="3.2" fill="#F4FBFF"/>
+    <rect x="27" y="40" width="10" height="10" rx="3.2" fill="#BEE4FB"/>
+    <rect x="40" y="40" width="10" height="10" rx="3.2" fill="#F4FBFF"/>
+  </g>
+</svg>

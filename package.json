@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "generate:pwa-assets": "node scripts/generate-pwa-assets.mjs",
     "build:notebooks": "tsx scripts/build-notebooks.ts",
     "generate:curriculum-shell": "tsx scripts/generate-curriculum-shell.ts",
     "author:curriculum": "tsx scripts/author-curriculum.ts",
