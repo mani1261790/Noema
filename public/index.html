@@ -3548,6 +3548,7 @@
         }
         state.playgroundEnabled = Boolean(nextEnabled);
         applyEditorSourcesForCurrentMode();
+        renderHeader();
         renderPlaygroundSidebarControls();
         renderPlaygroundHeaderControls();
         applyPlaygroundModeToCurrentNotebook();
@@ -3778,7 +3779,7 @@
         }
 
         el.downloadBtn.style.display = "";
-        el.colabBtn.style.display = "";
+        el.colabBtn.style.display = state.playgroundEnabled ? "none" : "";
         el.headerTitle.textContent = nb.title;
         el.downloadBtn.href = buildNotebookDownloadUrl(nb.id);
         el.downloadBtn.setAttribute("download", `${nb.id}.ipynb`);
