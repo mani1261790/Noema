@@ -5360,18 +5360,40 @@
           el.chatOverlay.classList.contains("visible") ||
           el.assistantSettingsOverlay.classList.contains("visible");
         const visible = catalogReady && !overlayOpen && (!state.chatOpen || compactMobile);
-        el.chatFab.classList.toggle("visible", visible);
-        if (el.openChatMobile) {
-          el.openChatMobile.classList.add("is-hidden");
-        }
         let label = "Assistantを開く";
         if (state.chatOpen) {
           label = "Assistantを閉じる";
         } else if (!state.activeNotebook) {
           label = state.loggedIn ? "最初の教材を開いてAssistantを開始" : "ログインしてAssistantを開始";
         }
+        el.chatFab.classList.toggle("visible", visible && !compactMobile);
+        if (el.openChatMobile) {
+          el.openChatMobile.classList.toggle("is-hidden", !(visible && compactMobile));
+          el.openChatMobile.setAttribute("aria-label", label);
+          el.openChatMobile.setAttribute("title", label);
+        }
         el.chatFab.setAttribute("aria-label", label);
         el.chatFab.setAttribute("title", label);
+      }
+
+      async function handleAssistantTriggerClick() {
+        if (!state.loggedIn) {
+          window.location.href = "/login";
+          return;
+        }
+        if (!state.activeNotebook && !state.chatOpen) {
+          const nextNotebookId = getNextNotebookId();
+          if (!nextNotebookId) {
+            return;
+          }
+          const opened = await selectNotebook(nextNotebookId);
+          if (!opened) {
+            return;
+          }
+          setChatOpen(true);
+          return;
+        }
+        setChatOpen(!state.chatOpen);
       }
 
       function setChatOpen(open) {
@@ -5663,23 +5685,7 @@
 
       el.chatFab.addEventListener("click", function () {
         void (async () => {
-          if (!state.loggedIn) {
-            window.location.href = "/login";
-            return;
-          }
-          if (!state.activeNotebook && !state.chatOpen) {
-            const nextNotebookId = getNextNotebookId();
-            if (!nextNotebookId) {
-              return;
-            }
-            const opened = await selectNotebook(nextNotebookId);
-            if (!opened) {
-              return;
-            }
-            setChatOpen(true);
-            return;
-          }
-          setChatOpen(!state.chatOpen);
+          await handleAssistantTriggerClick();
         })();
       });
 
@@ -5689,11 +5695,7 @@
 
       if (el.openChatMobile) {
         el.openChatMobile.addEventListener("click", function () {
-          if (!state.loggedIn) {
-            window.location.href = "/login";
-            return;
-          }
-          setChatOpen(true);
+          void handleAssistantTriggerClick();
         });
       }
 
