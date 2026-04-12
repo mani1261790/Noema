@@ -5717,6 +5717,7 @@
         }
         clearNotebookPlaygroundDraft(state.activeNotebook.id);
         applyEditorSourcesForCurrentMode();
+        void applySyntaxHighlight(el.notebookContent);
         el.notebookContent.querySelectorAll(".code-output").forEach((output) => {
           output.classList.remove("visible");
           output.replaceChildren();
