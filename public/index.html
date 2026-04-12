@@ -5711,8 +5711,16 @@
         const shouldReset = window.confirm("プレイグラウンドの編集内容を破棄して初期状態へ戻しますか？");
         if (!shouldReset) return;
 
+        if (state.playgroundSaveTimer) {
+          clearTimeout(state.playgroundSaveTimer);
+          state.playgroundSaveTimer = null;
+        }
         clearNotebookPlaygroundDraft(state.activeNotebook.id);
-        void selectNotebook(state.activeNotebook.id);
+        applyEditorSourcesForCurrentMode();
+        el.notebookContent.querySelectorAll(".code-output").forEach((output) => {
+          output.classList.remove("visible");
+          output.replaceChildren();
+        });
       });
 
       el.sectionSelect.addEventListener("change", function () {
