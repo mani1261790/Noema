@@ -135,6 +135,11 @@ type NotebookColabSessionInput = {
   ipynbRaw: string;
 };
 
+type NotebookColabSessionResult = {
+  notebookPath: string;
+  notebookUrl: string;
+};
+
 const DYNAMODB_ITEM_SOFT_LIMIT_BYTES = 350_000;
 const MAX_CHUNK_CHARACTERS = 1_200;
 
@@ -275,6 +280,7 @@ const NOTEBOOKS_TABLE = requiredEnv("NOTEBOOKS_TABLE");
 const ACCESS_LOGS_TABLE = process.env.ACCESS_LOGS_TABLE || "";
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
+const COLAB_NOTEBOOK_BASE_URL = String(process.env.COLAB_NOTEBOOK_BASE_URL || "").trim().replace(/\/+$/, "");
 const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "";
 const PYTHON_RUNNER_HEAVY_FUNCTION_NAME = process.env.PYTHON_RUNNER_HEAVY_FUNCTION_NAME || "";
 const MAX_RUNTIME_CODE_CHARS = 120_000;
@@ -3398,9 +3404,12 @@ export async function createNotebookColabSession(
   notebookId: string,
   input: NotebookColabSessionInput,
   user: AuthUser
-): Promise<{ notebookPath: string }> {
+): Promise<NotebookColabSessionResult> {
   if (!NOTEBOOK_BUCKET) {
     throw new Error("NOTEBOOK_BUCKET is not configured.");
+  }
+  if (!COLAB_NOTEBOOK_BASE_URL) {
+    throw new Error("COLAB_NOTEBOOK_BASE_URL is not configured.");
   }
 
   const existing = await getNotebook(notebookId);
@@ -3436,7 +3445,8 @@ export async function createNotebookColabSession(
 
   await putAccessLog(user.userId, notebookId, "CREATE_COLAB_SESSION_NOTEBOOK");
   return {
-    notebookPath: `/${key}`
+    notebookPath: `/${key}`,
+    notebookUrl: `${COLAB_NOTEBOOK_BASE_URL}/${key}`
   };
 }
 

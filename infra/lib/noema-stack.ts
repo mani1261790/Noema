@@ -333,6 +333,7 @@ export class NoemaStack extends Stack {
         BEDROCK_MODEL_MID: bedrockModelMid,
         BEDROCK_MODEL_LARGE: bedrockModelLarge,
         BEDROCK_MAX_TOKENS: bedrockMaxTokens,
+        COLAB_NOTEBOOK_BASE_URL: `https://${distribution.distributionDomainName}`,
         CONTENT_WRITE_MODE: contentWriteMode,
         CONTENT_GITHUB_REPO: contentGithubRepo,
         CONTENT_GITHUB_REF: contentGithubRef,

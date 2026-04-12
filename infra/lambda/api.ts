@@ -282,6 +282,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         message === "Notebook not found."
           ? 404
           : message === "NOTEBOOK_BUCKET is not configured."
+            || message === "COLAB_NOTEBOOK_BASE_URL is not configured."
             ? 500
             : message.includes("Invalid ipynb")
               ? 400

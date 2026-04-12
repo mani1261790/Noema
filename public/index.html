@@ -4485,14 +4485,20 @@
             throw new Error(message);
           }
 
+          const notebookUrl =
+            payload && typeof payload.notebookUrl === "string" ? payload.notebookUrl.trim() : "";
           const notebookPath =
             payload && typeof payload.notebookPath === "string" ? payload.notebookPath.trim() : "";
-          if (!notebookPath.startsWith("/")) {
+          const resolvedNotebookUrl = /^https:\/\/[^ ]+$/i.test(notebookUrl)
+            ? notebookUrl
+            : notebookPath.startsWith("/")
+              ? `${window.location.origin}${notebookPath}`
+              : "";
+          if (!resolvedNotebookUrl) {
             throw new Error("Colab 用ノートのURLが不正です。");
           }
 
-          const notebookUrl = `${window.location.origin}${notebookPath}`;
-          const colabUrl = `https://colab.research.google.com/?url=${encodeURIComponent(notebookUrl)}`;
+          const colabUrl = `https://colab.research.google.com/?url=${encodeURIComponent(resolvedNotebookUrl)}`;
           navigateTab(pendingTab, colabUrl);
         } catch (error) {
           console.warn("Open Colab with playground draft failed", error);
