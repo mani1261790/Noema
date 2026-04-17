@@ -6668,6 +6668,11 @@
       }
 
       async function loadCatalog() {
+        const localApiResponse = await fetch("/api/catalog", { cache: "no-cache" }).catch(() => null);
+        if (localApiResponse && localApiResponse.ok) {
+          return normalizeCatalog(await localApiResponse.json());
+        }
+
         const apiResponse = await fetch(`${API_BASE}/api/catalog`, { cache: "no-cache" }).catch(() => null);
         if (apiResponse && apiResponse.ok) {
           return normalizeCatalog(await apiResponse.json());
