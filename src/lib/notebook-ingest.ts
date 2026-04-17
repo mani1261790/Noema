@@ -1,5 +1,5 @@
 import MarkdownIt from "markdown-it";
-import markdownItKatex from "markdown-it-katex";
+import katex from "katex";
 
 export type NotebookCell = {
   cell_type: "markdown" | "code";
@@ -31,6 +31,10 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value).replace(/`/g, "&#96;");
 }
 
 function normalizeMarkdownText(value: string): string {
@@ -359,7 +363,7 @@ const markdownRenderer = (() => {
     breaks: true
   });
 
-  md.use(markdownItKatex);
+  installKatexPlugin(md);
 
   const fallbackHeadingOpen = md.renderer.rules.heading_open;
   type HeadingOpenRule = NonNullable<typeof fallbackHeadingOpen>;
@@ -379,6 +383,148 @@ const markdownRenderer = (() => {
 
   return md;
 })();
+
+function installKatexPlugin(md: MarkdownIt) {
+  const renderMath = (latex: string, displayMode: boolean) => {
+    try {
+      return katex.renderToString(latex, {
+        displayMode,
+        output: "htmlAndMathml",
+        throwOnError: false,
+        strict: "ignore",
+        trust: false
+      });
+    } catch {
+      const escaped = escapeHtml(latex);
+      const safeTex = escapeHtmlAttribute(latex);
+      return displayMode
+        ? `<span class="katex-display" data-tex-source="${safeTex}"><code>${escaped}</code></span>`
+        : `<span class="katex" data-tex-source="${safeTex}"><code>${escaped}</code></span>`;
+    }
+  };
+
+  const isValidInlineMathDelimiter = (state: any, pos: number) => {
+    const prevChar = pos > 0 ? state.src.charCodeAt(pos - 1) : -1;
+    const nextChar = pos + 1 <= state.posMax ? state.src.charCodeAt(pos + 1) : -1;
+
+    let canOpen = true;
+    let canClose = true;
+
+    if (prevChar === 0x20 || prevChar === 0x09 || (nextChar >= 0x30 && nextChar <= 0x39)) {
+      canClose = false;
+    }
+    if (nextChar === 0x20 || nextChar === 0x09) {
+      canOpen = false;
+    }
+
+    return { canOpen, canClose };
+  };
+
+  md.inline.ruler.after("escape", "math_inline", (state, silent) => {
+    if (state.src[state.pos] !== "$") return false;
+
+    const delimiter = isValidInlineMathDelimiter(state, state.pos);
+    if (!delimiter.canOpen) {
+      if (!silent) state.pending += "$";
+      state.pos += 1;
+      return true;
+    }
+
+    const start = state.pos + 1;
+    let match = start;
+    while ((match = state.src.indexOf("$", match)) !== -1) {
+      let pos = match - 1;
+      while (state.src[pos] === "\\") pos -= 1;
+      if ((match - pos) % 2 === 1) break;
+      match += 1;
+    }
+
+    if (match === -1) {
+      if (!silent) state.pending += "$";
+      state.pos = start;
+      return true;
+    }
+
+    if (match - start === 0) {
+      if (!silent) state.pending += "$$";
+      state.pos = start + 1;
+      return true;
+    }
+
+    const closingDelimiter = isValidInlineMathDelimiter(state, match);
+    if (!closingDelimiter.canClose) {
+      if (!silent) state.pending += "$";
+      state.pos = start;
+      return true;
+    }
+
+    if (!silent) {
+      const token = state.push("math_inline", "math", 0);
+      token.markup = "$";
+      token.content = state.src.slice(start, match);
+    }
+
+    state.pos = match + 1;
+    return true;
+  });
+
+  md.block.ruler.after("blockquote", "math_block", (state, start, end, silent) => {
+    let pos = state.bMarks[start] + state.tShift[start];
+    let max = state.eMarks[start];
+
+    if (pos + 2 > max) return false;
+    if (state.src.slice(pos, pos + 2) !== "$$") return false;
+
+    pos += 2;
+    let firstLine = state.src.slice(pos, max);
+    let lastLine = "";
+    let next = start;
+    let found = false;
+
+    if (silent) return true;
+
+    if (firstLine.trim().endsWith("$$")) {
+      firstLine = firstLine.trim().slice(0, -2);
+      found = true;
+    }
+
+    while (!found) {
+      next += 1;
+      if (next >= end) break;
+
+      pos = state.bMarks[next] + state.tShift[next];
+      max = state.eMarks[next];
+
+      if (pos < max && state.tShift[next] < state.blkIndent) {
+        break;
+      }
+
+      if (state.src.slice(pos, max).trim().endsWith("$$")) {
+        const line = state.src.slice(pos, max);
+        const lastDelimiterIndex = line.lastIndexOf("$$");
+        lastLine = line.slice(0, lastDelimiterIndex);
+        found = true;
+      }
+    }
+
+    state.line = next + 1;
+
+    const token = state.push("math_block", "math", 0);
+    token.block = true;
+    token.content =
+      (firstLine && firstLine.trim() ? `${firstLine}\n` : "") +
+      state.getLines(start + 1, next, state.tShift[start], true) +
+      (lastLine && lastLine.trim() ? lastLine : "");
+    token.map = [start, state.line];
+    token.markup = "$$";
+    return true;
+  }, {
+    alt: ["paragraph", "reference", "blockquote", "list"]
+  });
+
+  md.renderer.rules.math_inline = (tokens, idx) => renderMath(tokens[idx].content, false);
+  md.renderer.rules.math_block = (tokens, idx) => `${renderMath(tokens[idx].content, true)}\n`;
+}
 
 const YOUTUBE_DIRECTIVE_GLOBAL_RE = /^\s*@\[(?:youtube|yt)\]\((https?:\/\/[^\s)]+)\)\s*$/gim;
 const REFERENCE_VIDEO_HEADING_RE = /^#{1,6}\s*参考動画(?:（外部）|\(外部\))?\s*$/;

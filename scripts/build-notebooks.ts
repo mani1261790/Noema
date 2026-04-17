@@ -93,12 +93,24 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
       margin: .7rem 0;
     }
     .prose-noema .katex {
-      display: inline;
-      white-space: normal;
       vertical-align: baseline;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .prose-noema .katex,
+    .prose-noema .katex-display,
+    .prose-noema .katex * {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .prose-noema .katex-display {
+      overflow-x: auto;
+      overflow-y: hidden;
       max-width: 100%;
     }
-    .prose-noema .katex .base { white-space: nowrap; }
+    .prose-noema .katex-display > .katex {
+      white-space: nowrap;
+    }
     .prose-noema ul, .prose-noema ol {
       margin: .7rem 0;
       padding-left: 1.4rem;

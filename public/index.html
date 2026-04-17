@@ -780,14 +780,12 @@
     }
     .reader-prose p { line-height: 1.85; }
     .reader-prose .katex {
-      display: inline;
-      white-space: normal;
       vertical-align: baseline;
       user-select: text;
       -webkit-user-select: text;
-      max-width: 100%;
     }
-    .reader-prose .katex .base { white-space: nowrap; }
+    .reader-prose .katex,
+    .reader-prose .katex-display,
     .reader-prose .katex * {
       user-select: text;
       -webkit-user-select: text;
@@ -802,6 +800,7 @@
     .reader-prose .katex-display > .katex {
       display: inline-block;
       min-width: max-content;
+      white-space: nowrap;
     }
     .reader-prose article,
     .reader-prose section,
@@ -2989,7 +2988,7 @@
       const UNREFERENCED_BASE_RETENTION_DAYS = 14;
       const KATEX_CSS_HREF = "/katex/katex.min.css";
       // MathJax v3 is Apache-2.0 licensed.
-      const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js";
+      const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
       const ASSISTANT_MIN_WIDTH = 320;
       const ASSISTANT_MAX_WIDTH = 700;
       const ASSISTANT_CLOSE_THRESHOLD = 220;
@@ -3091,12 +3090,14 @@
 
       function hasKatexCssApplied() {
         const probe = document.createElement("span");
-        probe.className = "katex-mathml";
+        probe.className = "katex";
         probe.style.position = "absolute";
         probe.style.visibility = "hidden";
         probe.style.pointerEvents = "none";
+        probe.innerHTML = '<span class="katex-mathml">x</span><span class="katex-html" aria-hidden="true">x</span>';
         document.body.appendChild(probe);
-        const style = window.getComputedStyle(probe);
+        const mathml = probe.querySelector(".katex-mathml");
+        const style = mathml ? window.getComputedStyle(mathml) : null;
         const width = parseFloat(String(style.width || "999"));
         const height = parseFloat(String(style.height || "999"));
         const hiddenByKatex = style.position === "absolute" && style.overflow === "hidden" && width <= 2 && height <= 2;
