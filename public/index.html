@@ -2110,6 +2110,7 @@
 
     .msg-meta {
       margin-top: 8px;
+      min-width: 0;
       color: var(--muted);
       font-size: 11px;
       line-height: 1.5;
@@ -2122,18 +2123,20 @@
     }
 
     .msg-meta-list {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: 6px;
+      min-width: 0;
     }
 
     .msg-meta-item {
-      display: inline-flex;
-      align-items: center;
+      display: block;
       min-width: 0;
+      width: 100%;
       max-width: 100%;
+      box-sizing: border-box;
       padding: 2px 8px;
-      border-radius: 999px;
+      border-radius: 10px;
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
       background: color-mix(in oklab, var(--panel-soft) 80%, transparent);
       white-space: normal;
