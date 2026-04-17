@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { getPreferredNotebookSourceRelativePath } from "../src/lib/notebook-artifacts";
 
 type CatalogNotebook = {
   id: string;
@@ -2127,7 +2128,15 @@ async function buildNotebookOne(
   ].join("\n");
 
   await Promise.all([
-    fs.writeFile(path.join(notebooksDir, `${notebook.id}.ipynb`), `${JSON.stringify(nb, null, 2)}\n`, "utf8"),
+    fs
+      .mkdir(path.dirname(path.join(notebooksDir, getPreferredNotebookSourceRelativePath(notebook.id))), { recursive: true })
+      .then(() =>
+        fs.writeFile(
+          path.join(notebooksDir, getPreferredNotebookSourceRelativePath(notebook.id)),
+          `${JSON.stringify(nb, null, 2)}\n`,
+          "utf8"
+        )
+      ),
     fs.writeFile(path.join(reportsDir, `${notebook.id}.md`), `${report}\n`, "utf8")
   ]);
 }

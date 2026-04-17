@@ -9,7 +9,6 @@ infra/cdk.out
 infra/dist
 .tmp
 public/pyodide
-public/catalog.json
 public/highlight
 public/katex
 public/notebooks

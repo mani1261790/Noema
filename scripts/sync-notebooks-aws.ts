@@ -4,6 +4,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { marshall } from "@aws-sdk/util-dynamodb";
 import { extractChunks, type NotebookFile } from "@/lib/notebook-ingest";
+import { resolveNotebookSourcePath } from "@/lib/notebook-artifacts";
 
 type Catalog = {
   contentSourceDefaults?: {
@@ -49,21 +50,19 @@ function getArg(flag: string): string | null {
 }
 
 async function loadNotebookFile(notebookId: string): Promise<NotebookFile | null> {
-  const candidates = [
-    path.join(process.cwd(), "content", "notebooks", `${notebookId}.ipynb`),
-    path.join(process.cwd(), "content", `notebooks-${notebookId}.ipynb`)
-  ];
-
-  for (const filePath of candidates) {
+  try {
+    const filePath = await resolveNotebookSourcePath(notebookId);
+    const raw = await fs.readFile(filePath, "utf8");
+    return JSON.parse(raw) as NotebookFile;
+  } catch {
+    const fallbackPath = path.join(process.cwd(), "content", `notebooks-${notebookId}.ipynb`);
     try {
-      const raw = await fs.readFile(filePath, "utf8");
+      const raw = await fs.readFile(fallbackPath, "utf8");
       return JSON.parse(raw) as NotebookFile;
     } catch {
-      continue;
+      return null;
     }
   }
-
-  return null;
 }
 
 function estimateBytes(value: unknown): number {

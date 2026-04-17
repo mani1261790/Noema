@@ -4712,7 +4712,12 @@
       function buildNotebookContentUrl(notebookId) {
         const encoded = encodeURIComponent(String(notebookId || "").trim());
         if (!encoded) return "#";
-        return `/api/notebooks/${encoded}/content`;
+        const isLocalHost =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname === "[::1]";
+        const apiRoot = isLocalHost ? window.location.origin : API_BASE;
+        return `${apiRoot}/api/notebooks/${encoded}/content`;
       }
 
       function renderHeader() {
@@ -5794,10 +5799,7 @@
         el.notebookContent.innerHTML = "教材を読み込み中...";
 
         try {
-          let response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" }).catch(() => null);
-          if (!response || !response.ok) {
-            response = await fetch(target.htmlPath, { cache: "no-cache" });
-          }
+          const response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" }).catch(() => null);
           if (!response.ok) throw new Error("教材HTMLの読み込みに失敗しました");
           const htmlText = await response.text();
           el.notebookContent.innerHTML = decorateNotebookArticle(target, htmlText);
@@ -6677,12 +6679,7 @@
         if (apiResponse && apiResponse.ok) {
           return normalizeCatalog(await apiResponse.json());
         }
-
-        const response = await fetch("/catalog.json", { cache: "no-cache" });
-        if (!response.ok) {
-          throw new Error("catalog の読み込みに失敗しました");
-        }
-        return normalizeCatalog(await response.json());
+        throw new Error("catalog の読み込みに失敗しました");
       }
 
       function normalizeCatalog(rawCatalog) {

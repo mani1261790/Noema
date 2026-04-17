@@ -7,7 +7,6 @@ export const NOTEBOOK_PUBLIC_DIR = path.join(process.cwd(), "public", "notebooks
 export const NOTEBOOK_HIGHLIGHT_PUBLIC_DIR = path.join(process.cwd(), "public", "highlight");
 export const NOTEBOOK_KATEX_PUBLIC_DIR = path.join(process.cwd(), "public", "katex");
 export const NOTEBOOK_CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
-export const NOTEBOOK_CATALOG_PUBLIC_PATH = path.join(process.cwd(), "public", "catalog.json");
 
 const CORE_NOTEBOOK_SECTION_BY_ID: Record<string, string> = {
   "python-basic-operations": "python",
