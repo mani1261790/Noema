@@ -210,6 +210,13 @@ function normalizeCodeText(value: string): string {
   return out;
 }
 
+function stripUnsupportedShellLines(value: string): string {
+  return value
+    .split("\n")
+    .filter((line) => !/^\s*!pip\d*\s+install\b/i.test(line))
+    .join("\n");
+}
+
 function sourceToText(source: NotebookCell["source"]): string {
   if (Array.isArray(source)) {
     return source.map((line) => String(line)).join("");
@@ -225,7 +232,7 @@ function normalizeCellSource(cell: NotebookCell): string {
   if (cell.cell_type === "markdown") {
     return normalizeMarkdownText(text);
   }
-  return normalizeCodeText(text);
+  return stripUnsupportedShellLines(normalizeCodeText(text));
 }
 
 export function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?: unknown; source?: unknown }> }>(input: T): T {

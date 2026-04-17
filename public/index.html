@@ -780,10 +780,15 @@
     }
     .reader-prose p { line-height: 1.85; }
     .reader-prose .katex {
-      display: inline-block;
-      max-width: 100%;
+      display: inline;
       white-space: nowrap;
-      vertical-align: -0.08em;
+      vertical-align: baseline;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .reader-prose .katex * {
+      user-select: text;
+      -webkit-user-select: text;
     }
     .reader-prose .katex-display {
       display: block;
@@ -3080,6 +3085,8 @@
       const preloadedNotebookPackages = new Set();
       const blockHighlightTimers = new WeakMap();
 
+      el.notebookContent.addEventListener("copy", handleNotebookCopy);
+
       function hasKatexCssApplied() {
         const probe = document.createElement("span");
         probe.className = "katex-mathml";
@@ -3142,6 +3149,61 @@
           replaced += 1;
         });
         return replaced > 0;
+      }
+
+      function stabilizeInlineMath(container) {
+        const addWordJoinerBefore = (node) => {
+          const prev = node.previousSibling;
+          if (!prev || prev.nodeType !== Node.TEXT_NODE) return;
+          const text = prev.textContent || "";
+          if (!text || /[\s\u00A0\u2060]$/.test(text)) return;
+          prev.textContent = `${text}\u2060`;
+        };
+
+        const addWordJoinerAfter = (node) => {
+          const next = node.nextSibling;
+          if (!next || next.nodeType !== Node.TEXT_NODE) return;
+          const text = next.textContent || "";
+          if (!text || /^[\s\u00A0\u2060]/.test(text)) return;
+          next.textContent = `\u2060${text}`;
+        };
+
+        container.querySelectorAll(".katex").forEach((node) => {
+          if (node.parentElement && node.parentElement.classList.contains("katex-display")) return;
+          addWordJoinerBefore(node);
+          addWordJoinerAfter(node);
+        });
+      }
+
+      function serializeMathForClipboard(fragmentRoot) {
+        fragmentRoot.querySelectorAll(".katex-display").forEach((node) => {
+          const annotation = node.querySelector(".katex-mathml annotation[encoding='application/x-tex']");
+          const tex = annotation && annotation.textContent ? annotation.textContent.trim() : "";
+          node.replaceWith(document.createTextNode(tex ? `$$${tex}$$` : node.textContent || ""));
+        });
+
+        fragmentRoot.querySelectorAll(".katex").forEach((node) => {
+          const annotation = node.querySelector(".katex-mathml annotation[encoding='application/x-tex']");
+          const tex = annotation && annotation.textContent ? annotation.textContent.trim() : "";
+          node.replaceWith(document.createTextNode(tex || node.textContent || ""));
+        });
+
+        return (fragmentRoot.textContent || "").replace(/\u2060/g, "");
+      }
+
+      function handleNotebookCopy(event) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+        const range = selection.getRangeAt(0);
+        if (!el.notebookContent.contains(range.commonAncestorContainer)) return;
+        const fragment = range.cloneContents();
+        const wrapper = document.createElement("div");
+        wrapper.appendChild(fragment);
+        if (!wrapper.querySelector(".katex")) return;
+        const text = serializeMathForClipboard(wrapper);
+        if (!text) return;
+        event.preventDefault();
+        event.clipboardData.setData("text/plain", text);
       }
 
       function hasTexLikeExpression(container) {
@@ -5761,6 +5823,7 @@
               await renderMathFallback(el.notebookContent);
             }
           }
+          stabilizeInlineMath(el.notebookContent);
           state.sectionIds = extractSectionIds(el.notebookContent);
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
