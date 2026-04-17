@@ -54,6 +54,58 @@ function normalizeInlineMathCodeSpans(value: string): string {
   });
 }
 
+function normalizeBareInlineLatex(value: string): string {
+  const bareLatexSequenceRe =
+    /^\\[A-Za-z]+(?:\{[^{}\n]*\})*(?:\([^()\n]*\))?(?:\s*(?:[=+\-*/|<>]|\\[A-Za-z]+(?:\{[^{}\n]*\})*|[A-Za-z0-9]+(?:\([^()\n]*\))?|['_^{}(),]))*/;
+
+  let out = "";
+  let index = 0;
+  let inInlineMath = false;
+  let inBlockMath = false;
+  let inCodeSpan = false;
+
+  while (index < value.length) {
+    if (!inCodeSpan && value.startsWith("$$", index)) {
+      inBlockMath = !inBlockMath;
+      out += "$$";
+      index += 2;
+      continue;
+    }
+
+    const ch = value[index];
+
+    if (!inInlineMath && !inBlockMath && ch === "`") {
+      inCodeSpan = !inCodeSpan;
+      out += ch;
+      index += 1;
+      continue;
+    }
+
+    if (!inCodeSpan && !inBlockMath && ch === "$") {
+      inInlineMath = !inInlineMath;
+      out += ch;
+      index += 1;
+      continue;
+    }
+
+    if (!inInlineMath && !inBlockMath && !inCodeSpan && ch === "\\") {
+      const slice = value.slice(index);
+      const match = slice.match(bareLatexSequenceRe);
+      const commandName = slice.slice(1).match(/^[A-Za-z]+/)?.[0] || "";
+      if (match && match[0] && commandName !== "begin" && commandName !== "end") {
+        out += `$${match[0].trim()}$`;
+        index += match[0].length;
+        continue;
+      }
+    }
+
+    out += ch;
+    index += 1;
+  }
+
+  return out;
+}
+
 function normalizeCodeText(value: string): string {
   const hasRealNewline = value.includes("\n");
   if (hasRealNewline) return value;
@@ -315,7 +367,9 @@ export function notebookToHtml(input: NotebookFile): string {
 
     if (cell.cell_type === "markdown") {
       const normalizedMarkdown = normalizeMathDelimiters(text);
-      const visibleMarkdown = stripYouTubeDirective(normalizeInlineMathCodeSpans(normalizedMarkdown));
+      const visibleMarkdown = stripYouTubeDirective(
+        normalizeBareInlineLatex(normalizeInlineMathCodeSpans(normalizedMarkdown))
+      );
       if (visibleMarkdown) {
         pieces.push(...renderMarkdownWithInlineYouTubeEmbeds(visibleMarkdown));
       }
