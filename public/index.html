@@ -4698,25 +4698,15 @@
         el.sectionSelect.disabled = false;
       }
 
-      function buildNotebookDownloadUrl(notebookId) {
+      function buildNotebookDownloadUrl(notebookId, apiRoot = "") {
         const encoded = encodeURIComponent(String(notebookId || "").trim());
         if (!encoded) return "#";
-        const isLocalHost =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1" ||
-          window.location.hostname === "[::1]";
-        const apiRoot = isLocalHost ? window.location.origin : API_BASE;
         return `${apiRoot}/api/notebooks/${encoded}/download`;
       }
 
-      function buildNotebookContentUrl(notebookId) {
+      function buildNotebookContentUrl(notebookId, apiRoot = "") {
         const encoded = encodeURIComponent(String(notebookId || "").trim());
         if (!encoded) return "#";
-        const isLocalHost =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1" ||
-          window.location.hostname === "[::1]";
-        const apiRoot = isLocalHost ? window.location.origin : API_BASE;
         return `${apiRoot}/api/notebooks/${encoded}/content`;
       }
 
@@ -5415,6 +5405,14 @@
         window.open(url, "_blank", "noopener,noreferrer");
       }
 
+      async function fetchNotebookDownload(notebookId) {
+        let response = await fetch(buildNotebookDownloadUrl(notebookId), { cache: "no-cache" }).catch(() => null);
+        if (!response || !response.ok) {
+          response = await fetch(buildNotebookDownloadUrl(notebookId, API_BASE), { cache: "no-cache" }).catch(() => null);
+        }
+        return response;
+      }
+
       function triggerIpynbDownload(notebookId, ipynbRaw) {
         const blob = new Blob([ipynbRaw], { type: "application/x-ipynb+json;charset=utf-8" });
         const objectUrl = URL.createObjectURL(blob);
@@ -5430,7 +5428,7 @@
       async function downloadPlaygroundDraftNotebook() {
         if (!state.activeNotebook) return;
         const notebookId = state.activeNotebook.id;
-        const response = await fetch(buildNotebookDownloadUrl(notebookId), { cache: "no-cache" });
+        const response = await fetchNotebookDownload(notebookId);
         if (!response.ok) {
           throw new Error("ノートブックの取得に失敗しました。");
         }
@@ -5503,7 +5501,7 @@
         el.colabBtn.setAttribute("aria-disabled", "true");
 
         try {
-          const ipynbResponse = await fetch(buildNotebookDownloadUrl(notebookId), { cache: "no-cache" });
+          const ipynbResponse = await fetchNotebookDownload(notebookId);
           if (!ipynbResponse.ok) {
             throw new Error("ノートブックの取得に失敗しました。");
           }
@@ -5799,7 +5797,10 @@
         el.notebookContent.innerHTML = "教材を読み込み中...";
 
         try {
-          const response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" }).catch(() => null);
+          let response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" }).catch(() => null);
+          if (!response || !response.ok) {
+            response = await fetch(buildNotebookContentUrl(target.id, API_BASE), { cache: "no-cache" }).catch(() => null);
+          }
           if (!response.ok) throw new Error("教材HTMLの読み込みに失敗しました");
           const htmlText = await response.text();
           el.notebookContent.innerHTML = decorateNotebookArticle(target, htmlText);
