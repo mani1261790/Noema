@@ -586,24 +586,6 @@
       text-align: center;
     }
 
-    .sidebar-home-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .sidebar-home-link svg {
-      width: 14px;
-      height: 14px;
-      display: block;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
     .footer-link:not(.is-hidden) {
       display: block;
       text-align: center;
@@ -2795,13 +2777,7 @@
         </label>
         <div id="sidebar-list"></div>
         <div class="sidebar-footer">
-          <button class="button-ghost sidebar-home-link" id="home-link" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10.5 12 4l8 6.5"></path>
-              <path d="M6.5 9.5V20h11V9.5"></path>
-            </svg>
-            <span>ホーム / 進捗</span>
-          </button>
+          <button class="button-ghost" id="home-link" type="button">ホーム / 進捗</button>
           <a class="button" id="login-link" href="/login">ログイン</a>
           <button class="button-ghost is-hidden" id="playground-link" type="button">プレイグラウンド</button>
           <a class="button-ghost is-hidden" id="admin-link" href="/admin.html">管理画面</a>
@@ -2927,13 +2903,7 @@
         </button>
       </div>
       <div id="sidebar-mobile-list" class="overlay-scroll"></div>
-      <button class="button-ghost footer-link sidebar-home-link" id="home-link-mobile" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 10.5 12 4l8 6.5"></path>
-          <path d="M6.5 9.5V20h11V9.5"></path>
-        </svg>
-        <span>ホーム / 進捗</span>
-      </button>
+      <button class="button-ghost footer-link" id="home-link-mobile" type="button">ホーム / 進捗</button>
       <a class="button" id="login-link-mobile" href="/login">ログイン</a>
       <button class="button-ghost footer-link is-hidden" id="playground-link-mobile" type="button">プレイグラウンド</button>
       <a class="button-ghost footer-link is-hidden" id="admin-link-mobile" href="/admin.html">管理画面</a>
