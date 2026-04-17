@@ -4091,6 +4091,17 @@
         return notebooks.some((notebook) => isExternalTranslatedNotebook(notebook)) ? "external" : "noema";
       }
 
+      function filterChaptersBySourceGroup(chapters, group) {
+        return (Array.isArray(chapters) ? chapters : [])
+          .map((chapter) => ({
+            ...chapter,
+            notebooks: (Array.isArray(chapter && chapter.notebooks) ? chapter.notebooks : []).filter((notebook) =>
+              group === "external" ? isExternalTranslatedNotebook(notebook) : !isExternalTranslatedNotebook(notebook)
+            )
+          }))
+          .filter((chapter) => chapter.notebooks.length > 0);
+      }
+
       function chapterProviderLabel(chapter) {
         const notebooks = Array.isArray(chapter && chapter.notebooks) ? chapter.notebooks : [];
         const providers = Array.from(
@@ -4153,32 +4164,19 @@
       }
 
       function externalNotebookSections() {
-        const chapters = notebookList().filter((chapter) => chapterSourceGroup(chapter) === "external");
-        const byProvider = new Map();
-
-        chapters.forEach((chapter) => {
-          const provider = chapterProviderLabel(chapter);
-          const existing = byProvider.get(provider) || {
-            id: `provider:${provider.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-            title: provider,
-            description: `${provider} が公開している外部オープンライセンス教材です。`,
-            chapters: []
-          };
-          existing.chapters.push(chapter);
-          byProvider.set(provider, existing);
-        });
-
-        return Array.from(byProvider.values()).map((section) => ({
-          ...section,
-          chapters: section.chapters.sort((a, b) => a.order - b.order)
-        }));
+        return notebookSections()
+          .map((section) => ({
+            ...section,
+            chapters: filterChaptersBySourceGroup(section.chapters, "external")
+          }))
+          .filter((section) => section.chapters.length > 0);
       }
 
       function sidebarLibraries() {
         const noemaSections = notebookSections()
           .map((section) => ({
             ...section,
-            chapters: section.chapters.filter((chapter) => chapterSourceGroup(chapter) === "noema")
+            chapters: filterChaptersBySourceGroup(section.chapters, "noema")
           }))
           .filter((section) => section.chapters.length > 0);
 
