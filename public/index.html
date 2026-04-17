@@ -779,6 +779,23 @@
       overflow-x: hidden;
     }
     .reader-prose p { line-height: 1.85; }
+    .reader-prose .katex {
+      display: inline-block;
+      max-width: 100%;
+      white-space: nowrap;
+      vertical-align: -0.08em;
+    }
+    .reader-prose .katex-display {
+      display: block;
+      overflow-x: auto;
+      overflow-y: hidden;
+      max-width: 100%;
+      margin: 1em 0;
+    }
+    .reader-prose .katex-display > .katex {
+      display: inline-block;
+      min-width: max-content;
+    }
     .reader-prose article,
     .reader-prose section,
     .reader-prose div,
