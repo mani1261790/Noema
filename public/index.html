@@ -4698,10 +4698,18 @@
         el.sectionSelect.disabled = false;
       }
 
-      function buildNotebookDownloadUrl(notebookId, apiRoot = "") {
+      function buildNotebookDownloadUrl(notebookId, apiRoot) {
         const encoded = encodeURIComponent(String(notebookId || "").trim());
         if (!encoded) return "#";
-        return `${apiRoot}/api/notebooks/${encoded}/download`;
+        const resolvedApiRoot =
+          typeof apiRoot === "string"
+            ? apiRoot
+            : window.location.hostname === "localhost" ||
+                window.location.hostname === "127.0.0.1" ||
+                window.location.hostname === "[::1]"
+              ? ""
+              : API_BASE;
+        return `${resolvedApiRoot}/api/notebooks/${encoded}/download`;
       }
 
       function buildNotebookContentUrl(notebookId, apiRoot = "") {
