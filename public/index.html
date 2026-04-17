@@ -4601,7 +4601,8 @@
       function extractArticle(htmlText) {
         const doc = new DOMParser().parseFromString(htmlText, "text/html");
         const article = doc.querySelector("article") || doc.querySelector("main") || doc.body;
-        return article ? article.innerHTML : htmlText;
+        const rawHtml = article ? article.innerHTML : htmlText;
+        return rawHtml.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
       }
 
       function decorateNotebookArticle(notebook, htmlText) {
