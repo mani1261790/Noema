@@ -11,17 +11,29 @@ export type NotebookSummary = {
   htmlPath: string;
   colabUrl: string;
   videoUrl?: string;
+  source?: NotebookSourceSummary;
 };
 
 export type ChapterSummary = {
   id: string;
   title: string;
   order: number;
+  audience?: "beginner" | "advanced";
   notebooks: NotebookSummary[];
 };
 
 type Catalog = {
+  contentSourceDefaults?: NotebookSourceSummary;
   chapters: ChapterSummary[];
+};
+
+export type NotebookSourceSummary = {
+  kind: "noema-original" | "open-license-translation";
+  provider: string;
+  license: string;
+  originalTitle?: string;
+  originalUrl?: string;
+  translationLanguage?: string;
 };
 
 const catalogPath = path.join(process.cwd(), "content", "catalog.json");
@@ -45,13 +57,29 @@ export async function getCatalog(): Promise<Catalog> {
   const raw = await fs.readFile(catalogPath, "utf8");
   const catalog = JSON.parse(raw) as Catalog;
   const chapterOrderMap = await readChapterOrderMap();
+  const defaultSource: NotebookSourceSummary = {
+    kind: "noema-original",
+    provider: "Noema",
+    license: "internal",
+    ...(catalog.contentSourceDefaults || {})
+  };
 
   return {
+    contentSourceDefaults: defaultSource,
     chapters: (catalog.chapters ?? [])
       .map((chapter, index) => ({
         ...chapter,
         order: chapterOrderMap.get(chapter.title) ?? chapter.order ?? index + 1,
-        notebooks: (chapter.notebooks ?? []).slice().sort((a, b) => a.order - b.order)
+        notebooks: (chapter.notebooks ?? [])
+          .map((notebook) => ({
+            ...notebook,
+            source: {
+              ...defaultSource,
+              ...(notebook.source || {})
+            }
+          }))
+          .slice()
+          .sort((a, b) => a.order - b.order)
       }))
       .sort((a, b) => a.order - b.order)
   };

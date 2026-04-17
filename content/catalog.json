@@ -1,8 +1,14 @@
 {
+  "contentSourceDefaults": {
+    "kind": "noema-original",
+    "provider": "Noema",
+    "license": "internal"
+  },
   "chapters": [
     {
       "id": "python",
       "title": "Python",
+      "audience": "beginner",
       "order": 1,
       "notebooks": [
         {
@@ -59,6 +65,7 @@
     {
       "id": "machine-learning",
       "title": "機械学習",
+      "audience": "beginner",
       "order": 2,
       "notebooks": [
         {
@@ -150,6 +157,7 @@
     {
       "id": "deep-learning",
       "title": "ディープラーニング",
+      "audience": "advanced",
       "order": 3,
       "notebooks": [
         {
@@ -254,6 +262,7 @@
     {
       "id": "reinforcement-learning",
       "title": "強化学習",
+      "audience": "advanced",
       "order": 4,
       "notebooks": [
         {
@@ -382,6 +391,7 @@
     {
       "id": "llm",
       "title": "LLM",
+      "audience": "advanced",
       "order": 5,
       "notebooks": [
         {
@@ -474,6 +484,7 @@
     {
       "id": "deep-generative-models",
       "title": "深層生成モデル",
+      "audience": "advanced",
       "order": 6,
       "notebooks": [
         {
@@ -577,6 +588,7 @@
     {
       "id": "world-models",
       "title": "世界モデル",
+      "audience": "advanced",
       "order": 7,
       "notebooks": [
         {

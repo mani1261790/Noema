@@ -8,6 +8,7 @@ import {
   deleteAdminNotebook,
   downloadNotebookIpynb,
   getAdminNotebookDetail,
+  getLearningProgress,
   getAuthUser,
   getQuestionAnswer,
   isAdmin,
@@ -24,6 +25,7 @@ import {
   parseAdminPatchInput,
   parseAskQuestionInput,
   parseChatCompleteInput,
+  parseLearningProgressPutInput,
   parseNotebookColabSessionInput,
   parsePythonRuntimeInput,
   parsePythonRuntimePreloadInput,
@@ -33,6 +35,7 @@ import {
   previewAdminNotebook,
   patchAdminAnswer,
   preloadPythonRuntime,
+  putLearningProgress,
   runPythonRuntime,
   upsertNotebookFromEvent
 } from "./runtime";
@@ -67,6 +70,18 @@ function publicNotebookIdFromEvent(event: APIGatewayProxyEventV2): string {
 
   const segments = (event.rawPath || "").split("/").filter(Boolean);
   if (segments.length >= 3 && segments[0] === "api" && segments[1] === "notebooks") {
+    return decodeURIComponent(segments[2]);
+  }
+
+  return "";
+}
+
+function learningProgressNotebookIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.notebookId?.trim();
+  if (fromParams) return fromParams;
+
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  if (segments.length >= 3 && segments[0] === "api" && segments[1] === "learning-progress") {
     return decodeURIComponent(segments[2]);
   }
 
@@ -183,6 +198,36 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     try {
       const result = await listQuestionHistory(user, notebookId, sessionId);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
+  }
+
+  if (route === "GET /api/learning-progress") {
+    try {
+      const result = await getLearningProgress(user);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
+  }
+
+  if (route === "PUT /api/learning-progress/{notebookId}" || /^PUT \/api\/learning-progress\/[^/]+$/.test(route)) {
+    const notebookId = learningProgressNotebookIdFromEvent(event);
+    if (!notebookId) {
+      return json(400, { error: "notebookId is required" });
+    }
+
+    const payload = parseLearningProgressPutInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request", details: "visits/lastVisitedAt/completed/completedAt are invalid" });
+    }
+
+    try {
+      const result = await putLearningProgress(user, notebookId, payload);
       return json(200, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

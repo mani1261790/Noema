@@ -253,6 +253,14 @@ export class NoemaStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN
     });
 
+    const userProgressTable = new dynamodb.Table(this, "UserProgressTable", {
+      tableName: `${prefix}-user-progress`,
+      partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: enablePointInTimeRecovery ? { pointInTimeRecoveryEnabled: true } : undefined,
+      removalPolicy: RemovalPolicy.RETAIN
+    });
+
     const accessLogsTable = enableAccessLogs
       ? new dynamodb.Table(this, "AccessLogsTable", {
           tableName: `${prefix}-access-logs`,
@@ -311,6 +319,7 @@ export class NoemaStack extends Stack {
         CACHE_TABLE: cacheTable.tableName,
         RATE_LIMIT_TABLE: rateLimitTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
+        USER_PROGRESS_TABLE: userProgressTable.tableName,
         ACCESS_LOGS_TABLE: accessLogsTable?.tableName ?? "",
         QA_QUEUE_URL: qaQueue.queueUrl,
         NOTEBOOK_BUCKET: notebookBucket.bucketName,
@@ -392,6 +401,7 @@ export class NoemaStack extends Stack {
         CACHE_TABLE: cacheTable.tableName,
         RATE_LIMIT_TABLE: rateLimitTable.tableName,
         NOTEBOOKS_TABLE: notebooksTable.tableName,
+        USER_PROGRESS_TABLE: userProgressTable.tableName,
         ACCESS_LOGS_TABLE: accessLogsTable?.tableName ?? "",
         NOTEBOOK_BUCKET: notebookBucket.bucketName,
         QA_MODEL_PROVIDER: qaModelProvider,
@@ -428,6 +438,7 @@ export class NoemaStack extends Stack {
     cacheTable.grantReadWriteData(apiFunction);
     rateLimitTable.grantReadWriteData(apiFunction);
     notebooksTable.grantReadWriteData(apiFunction);
+    userProgressTable.grantReadWriteData(apiFunction);
     accessLogsTable?.grantReadWriteData(apiFunction);
     qaQueue.grantSendMessages(apiFunction);
     notebookBucket.grantReadWrite(apiFunction);
@@ -438,6 +449,7 @@ export class NoemaStack extends Stack {
     answersTable.grantReadWriteData(workerFunction);
     cacheTable.grantReadWriteData(workerFunction);
     notebooksTable.grantReadWriteData(workerFunction);
+    userProgressTable.grantReadWriteData(workerFunction);
     accessLogsTable?.grantReadWriteData(workerFunction);
     notebookBucket.grantReadWrite(workerFunction);
     qaQueue.grantConsumeMessages(workerFunction);
@@ -522,6 +534,20 @@ export class NoemaStack extends Stack {
     api.addRoutes({
       path: "/api/questions/history",
       methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
+      path: "/api/learning-progress",
+      methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration,
+      authorizer: jwtAuthorizer
+    });
+
+    api.addRoutes({
+      path: "/api/learning-progress/{notebookId}",
+      methods: [apigwv2.HttpMethod.PUT],
       integration: apiIntegration,
       authorizer: jwtAuthorizer
     });

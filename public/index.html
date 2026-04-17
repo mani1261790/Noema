@@ -350,6 +350,34 @@
       margin-top: 8px;
     }
 
+    .chapter-section + .chapter-section {
+      margin-top: 22px;
+    }
+
+    .chapter-section-label {
+      display: block;
+      margin: 0 0 8px;
+      padding: 0 2px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: color-mix(in oklab, var(--muted) 92%, white);
+    }
+
+    .chapter-section-description {
+      margin: 0 0 10px;
+      padding: 0 2px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .chapter-section-stack {
+      display: grid;
+      gap: 8px;
+    }
+
     .chapter-toggle {
       width: 100%;
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 76%, transparent);
@@ -457,6 +485,42 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 56%, transparent);
+    }
+
+    .nb-item-main {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .nb-item-title {
+      display: block;
+      min-width: 0;
+      color: inherit;
+    }
+
+    .nb-item-badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: color-mix(in oklab, var(--accent) 72%, white);
+      border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--glass-edge-soft));
+      background: color-mix(in oklab, var(--accent) 12%, transparent);
+      white-space: nowrap;
+    }
+
+    .nb-item-sub {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.45;
+      color: color-mix(in oklab, var(--muted) 92%, white);
     }
 
     .nb-item:hover {
@@ -667,6 +731,38 @@
     .reader-prose h1 { margin-top: .2em; font-size: 2rem; }
     .reader-prose h2 { font-size: 1.5rem; }
     .reader-prose p { line-height: 1.85; }
+    .reader-prose .notebook-attribution {
+      margin: 0 0 18px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid color-mix(in oklab, var(--accent) 26%, var(--glass-edge-soft));
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--accent) 12%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 82%, transparent);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 48%, transparent);
+    }
+    .reader-prose .notebook-attribution-title {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: color-mix(in oklab, var(--accent) 70%, white);
+    }
+    .reader-prose .notebook-attribution p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .reader-prose .notebook-attribution p + p {
+      margin-top: 8px;
+    }
+    .reader-prose .notebook-attribution a {
+      color: color-mix(in oklab, var(--accent) 76%, white);
+      text-decoration: underline;
+      text-underline-offset: 0.16em;
+    }
     .reader-prose pre {
       background: var(--code-bg);
       color: var(--code-fg);
@@ -1776,7 +1872,38 @@
       padding: 0;
     }
 
-    .msg-meta { color: var(--muted); font-size: 11px; margin-top: 6px; }
+    .msg-meta {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .msg-meta-label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .msg-meta-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .msg-meta-item {
+      display: inline-flex;
+      align-items: center;
+      min-width: 0;
+      max-width: 100%;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
+      background: color-mix(in oklab, var(--panel-soft) 80%, transparent);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
     .history-session-list {
       display: grid;
@@ -2370,6 +2497,17 @@
       .overlay-panel {
         width: 100%;
       }
+
+      .msg-meta-list {
+        display: grid;
+        gap: 4px;
+      }
+
+      .msg-meta-item {
+        display: block;
+        width: 100%;
+        border-radius: 10px;
+      }
     }
   </style>
 </head>
@@ -2582,6 +2720,8 @@
         chatHistorySessions: [],
         messages: [],
         busy: false,
+        learningProgressStore: { schemaVersion: 2, notebooks: {} },
+        learningProgressLoaded: false,
         loggedIn: false,
         isAdmin: false,
         authCheckSeq: 0,
@@ -3037,7 +3177,7 @@
         return normalized;
       }
 
-      function readLearningProgressStore() {
+      function readLocalLearningProgressStore() {
         const key = getLearningProgressStorageKey();
         const serialized = localStorage.getItem(key) || "";
         let parsed = {};
@@ -3054,7 +3194,7 @@
         return normalized;
       }
 
-      function writeLearningProgressStore(nextStore) {
+      function writeLocalLearningProgressStore(nextStore) {
         const key = getLearningProgressStorageKey();
         try {
           const normalized = normalizeLearningProgressStore(nextStore);
@@ -3062,7 +3202,194 @@
         } catch {}
       }
 
-      function markNotebookVisited(notebookId) {
+      function cloneLearningProgressStore(store) {
+        return normalizeLearningProgressStore(store);
+      }
+
+      function readLearningProgressStore() {
+        return cloneLearningProgressStore(state.learningProgressStore);
+      }
+
+      function storesDiffer(leftStore, rightStore) {
+        try {
+          return JSON.stringify(normalizeLearningProgressStore(leftStore)) !== JSON.stringify(normalizeLearningProgressStore(rightStore));
+        } catch {
+          return true;
+        }
+      }
+
+      function mergeLearningProgressStores(baseStore, incomingStore) {
+        const base = normalizeLearningProgressStore(baseStore);
+        const incoming = normalizeLearningProgressStore(incomingStore);
+        const merged = createEmptyLearningProgressStore();
+        const notebookIds = new Set([
+          ...Object.keys(base.notebooks || {}),
+          ...Object.keys(incoming.notebooks || {})
+        ]);
+
+        notebookIds.forEach((notebookId) => {
+          const baseRecord = base.notebooks[notebookId] || null;
+          const incomingRecord = incoming.notebooks[notebookId] || null;
+          if (!baseRecord && incomingRecord) {
+            merged.notebooks[notebookId] = incomingRecord;
+            return;
+          }
+          if (baseRecord && !incomingRecord) {
+            merged.notebooks[notebookId] = baseRecord;
+            return;
+          }
+          if (!baseRecord || !incomingRecord) return;
+
+          const baseVisitedAt = Date.parse(baseRecord.lastVisitedAt || "");
+          const incomingVisitedAt = Date.parse(incomingRecord.lastVisitedAt || "");
+          const baseCompletedAt = Date.parse(baseRecord.completedAt || "");
+          const incomingCompletedAt = Date.parse(incomingRecord.completedAt || "");
+          const lastVisitedAt =
+            (!Number.isNaN(baseVisitedAt) && !Number.isNaN(incomingVisitedAt) && incomingVisitedAt > baseVisitedAt) ||
+            (Number.isNaN(baseVisitedAt) && !Number.isNaN(incomingVisitedAt))
+              ? incomingRecord.lastVisitedAt
+              : baseRecord.lastVisitedAt;
+          const completed = Boolean(baseRecord.completed || incomingRecord.completed);
+          const completedAt = completed
+            ? (!Number.isNaN(baseCompletedAt) && !Number.isNaN(incomingCompletedAt) && incomingCompletedAt > baseCompletedAt) ||
+              (Number.isNaN(baseCompletedAt) && !Number.isNaN(incomingCompletedAt))
+                ? incomingRecord.completedAt
+                : baseRecord.completedAt
+            : "";
+
+          merged.notebooks[notebookId] = {
+            visits: Math.max(Number(baseRecord.visits || 0), Number(incomingRecord.visits || 0)),
+            lastVisitedAt,
+            completed,
+            completedAt
+          };
+        });
+
+        return merged;
+      }
+
+      function setLearningProgressStore(nextStore) {
+        const normalized = normalizeLearningProgressStore(nextStore);
+        state.learningProgressStore = normalized;
+        state.learningProgressLoaded = true;
+        writeLocalLearningProgressStore(normalized);
+      }
+
+      async function fetchLearningProgressStore() {
+        const token = getToken();
+        if (!token) {
+          throw new Error("セッションが切れています。再ログインしてください。");
+        }
+
+        const response = await fetch(`${API_BASE}/api/learning-progress`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        let payload = {};
+        try {
+          payload = await response.json();
+        } catch {}
+
+        if (!response.ok) {
+          const message = payload && payload.error ? payload.error : "進捗の取得に失敗しました";
+          throw new Error(String(message));
+        }
+
+        return normalizeLearningProgressStore(payload);
+      }
+
+      async function saveLearningProgressRecord(notebookId, record) {
+        const trimmedNotebookId = String(notebookId || "").trim();
+        if (!trimmedNotebookId) return;
+
+        const normalizedRecord = normalizeLearningProgressStore({
+          notebooks: {
+            [trimmedNotebookId]: record
+          }
+        }).notebooks[trimmedNotebookId];
+
+        const currentStore = readLearningProgressStore();
+        currentStore.notebooks[trimmedNotebookId] = normalizedRecord;
+        setLearningProgressStore(currentStore);
+        if (state.activeNotebook && state.activeNotebook.id === trimmedNotebookId) {
+          renderNotebookCompletionControl(trimmedNotebookId);
+        } else if (!state.activeNotebook) {
+          renderHomeDashboard();
+        }
+
+        if (!state.loggedIn) return;
+
+        const token = getToken();
+        if (!token) return;
+
+        try {
+          const response = await fetch(`${API_BASE}/api/learning-progress/${encodeURIComponent(trimmedNotebookId)}`, {
+            method: "PUT",
+            headers: {
+              "content-type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(normalizedRecord)
+          });
+
+          let payload = {};
+          try {
+            payload = await response.json();
+          } catch {}
+
+          if (!response.ok) {
+            const message = payload && payload.error ? payload.error : "進捗の保存に失敗しました";
+            throw new Error(String(message));
+          }
+
+          setLearningProgressStore(payload);
+          if (state.activeNotebook && state.activeNotebook.id === trimmedNotebookId) {
+            renderNotebookCompletionControl(trimmedNotebookId);
+          } else if (!state.activeNotebook) {
+            renderHomeDashboard();
+          }
+        } catch (error) {
+          console.warn("Learning progress sync failed", error);
+        }
+      }
+
+      async function syncLearningProgressFromServer() {
+        if (!state.loggedIn) {
+          setLearningProgressStore(readLocalLearningProgressStore());
+          return;
+        }
+
+        try {
+          const remoteStore = await fetchLearningProgressStore();
+          const localStore = readLocalLearningProgressStore();
+          const mergedStore = mergeLearningProgressStores(remoteStore, localStore);
+          setLearningProgressStore(mergedStore);
+
+          if (storesDiffer(remoteStore, mergedStore)) {
+            const notebookIds = Object.keys(mergedStore.notebooks || {});
+            for (const notebookId of notebookIds) {
+              const mergedRecord = mergedStore.notebooks[notebookId];
+              const remoteRecord = remoteStore.notebooks[notebookId];
+              if (!remoteRecord || storesDiffer({ notebooks: { [notebookId]: remoteRecord } }, { notebooks: { [notebookId]: mergedRecord } })) {
+                await saveLearningProgressRecord(notebookId, mergedRecord);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn("Learning progress fetch failed", error);
+          setLearningProgressStore(readLocalLearningProgressStore());
+        }
+
+        if (state.activeNotebook) {
+          renderNotebookCompletionControl(state.activeNotebook.id);
+        } else {
+          renderHomeDashboard();
+        }
+      }
+
+      async function markNotebookVisited(notebookId) {
         if (!notebookId) return;
         const store = readLearningProgressStore();
         const existing = store.notebooks[notebookId] || {
@@ -3071,13 +3398,13 @@
           completed: false,
           completedAt: ""
         };
-        store.notebooks[notebookId] = {
+        const nextRecord = {
           visits: Math.max(1, Number(existing.visits || 0) + 1),
           lastVisitedAt: new Date().toISOString(),
           completed: Boolean(existing.completed),
           completedAt: existing.completed ? String(existing.completedAt || new Date().toISOString()) : ""
         };
-        writeLearningProgressStore(store);
+        await saveLearningProgressRecord(notebookId, nextRecord);
       }
 
       function isNotebookCompleted(notebookId) {
@@ -3087,7 +3414,7 @@
         return Boolean(record && record.completed);
       }
 
-      function setNotebookCompleted(notebookId, completed) {
+      async function setNotebookCompleted(notebookId, completed) {
         if (!notebookId) return;
         const store = readLearningProgressStore();
         const nowIso = new Date().toISOString();
@@ -3097,13 +3424,13 @@
           completed: false,
           completedAt: ""
         };
-        store.notebooks[notebookId] = {
+        const nextRecord = {
           visits: Math.max(0, Number(existing.visits || 0)),
           lastVisitedAt: String(existing.lastVisitedAt || nowIso),
           completed: Boolean(completed),
           completedAt: completed ? nowIso : ""
         };
-        writeLearningProgressStore(store);
+        await saveLearningProgressRecord(notebookId, nextRecord);
       }
 
       function formatRelativeVisitTime(isoString) {
@@ -3587,6 +3914,7 @@
         state.userScopeKey = token ? resolveUserScopeKey(token) : "";
 
         if (state.loggedIn) {
+          state.learningProgressLoaded = false;
           state.llmSettings = readLlmSettings();
           syncLlmSettingsUi();
           [el.loginLink, el.loginLinkMobile].forEach((link) => {
@@ -3603,6 +3931,7 @@
           });
           syncChatFabState();
           void updateAdminVisibility(token);
+          void syncLearningProgressFromServer();
           if (state.activeNotebook) {
             void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
           }
@@ -3615,6 +3944,7 @@
         state.isAdmin = false;
         state.chatOpen = false;
         state.playgroundEnabled = false;
+        setLearningProgressStore(readLocalLearningProgressStore());
         state.llmSettings = normalizeLlmSettings({});
         syncLlmSettingsUi();
         applyEditorSourcesForCurrentMode();
@@ -3654,6 +3984,76 @@
           }));
       }
 
+      function notebookSections() {
+        const chapters = notebookList();
+        const beginnerChapters = chapters.filter((chapter) => String(chapter.audience || "") === "beginner");
+        const advancedChapters = chapters.filter((chapter) => String(chapter.audience || "advanced") !== "beginner");
+
+        return [
+          {
+            id: "beginner",
+            title: "初学者向け",
+            description: "Python と機械学習の基礎から始める教材です。",
+            chapters: beginnerChapters
+          },
+          {
+            id: "advanced",
+            title: "上級者向け",
+            description: "ディープラーニング以降の発展トピックです。",
+            chapters: advancedChapters
+          }
+        ].filter((section) => section.chapters.length > 0);
+      }
+
+      function notebookSourceKindLabel(source) {
+        const kind = String(source && source.kind ? source.kind : "noema-original");
+        if (kind === "open-license-translation") return "翻訳教材";
+        return "";
+      }
+
+      function isExternalTranslatedNotebook(notebook) {
+        return Boolean(notebook && notebook.source && notebook.source.kind === "open-license-translation");
+      }
+
+      function renderNotebookSidebarMeta(notebook) {
+        if (!isExternalTranslatedNotebook(notebook)) return "";
+
+        const badge = notebookSourceKindLabel(notebook.source);
+        const provider = String((notebook.source && notebook.source.provider) || "").trim();
+        const license = String((notebook.source && notebook.source.license) || "").trim();
+        const parts = [provider, license].filter(Boolean);
+
+        return `
+          <span class="nb-item-main">
+            <span class="nb-item-title">${escapeHtml(notebook.title)}</span>
+            ${badge ? `<span class="nb-item-badge">${escapeHtml(badge)}</span>` : ""}
+          </span>
+          ${parts.length ? `<span class="nb-item-sub">${escapeHtml(parts.join(" / "))}</span>` : ""}
+        `;
+      }
+
+      function renderNotebookAttributionBanner(notebook) {
+        if (!isExternalTranslatedNotebook(notebook)) return "";
+
+        const source = notebook.source || {};
+        const provider = String(source.provider || "").trim();
+        const license = String(source.license || "").trim();
+        const originalTitle = String(source.originalTitle || notebook.title || "").trim();
+        const originalUrl = String(source.originalUrl || "").trim();
+        const translationLanguage = String(source.translationLanguage || "日本語").trim();
+        const titleHtml = originalUrl
+          ? `<a href="${escapeHtmlAttribute(originalUrl)}" target="_blank" rel="noreferrer">${escapeHtml(originalTitle)}</a>`
+          : escapeHtml(originalTitle);
+
+        return `
+          <aside class="notebook-attribution" aria-label="教材出典">
+            <span class="notebook-attribution-title">Open License Translation</span>
+            <p>${escapeHtml(provider || "外部教材")} が公開している ${titleHtml} をもとに、Noema が ${escapeHtml(translationLanguage)}訳・構成調整を行っています。</p>
+            <p>原典ライセンス: ${escapeHtml(license || "CC BY 4.0")}。翻訳・表現調整などの変更を加えています。</p>
+          </aside>
+        `;
+      }
+
       function matchNotebook(notebook, query) {
         if (!query) return true;
         const hay = `${notebook.title} ${notebook.id} ${(notebook.tags || []).join(" ")}`.toLowerCase();
@@ -3662,37 +4062,56 @@
 
       function buildSidebarHtml(forMobile) {
         const query = state.query.trim().toLowerCase();
-        const chapters = notebookList()
-          .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
-          .filter((chapter) => chapter.notebooks.length > 0);
+        const sections = notebookSections()
+          .map((section) => ({
+            ...section,
+            chapters: section.chapters
+              .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
+              .filter((chapter) => chapter.notebooks.length > 0)
+          }))
+          .filter((section) => section.chapters.length > 0);
 
-        if (chapters.length === 0) {
+        if (sections.length === 0) {
           return '<p class="muted-empty">一致する教材がありません。</p>';
         }
 
-        return chapters
-          .map((chapter) => {
-            const expanded = Boolean(state.openChapters[chapter.id]);
-            const items = expanded
-              ? `<div class="chapter-items">${chapter.notebooks
-                  .map((nb) => {
-                    const active = state.activeNotebook && state.activeNotebook.id === nb.id ? "active" : "";
-                    return `<button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${nb.title}</button>`;
-                  })
-                  .join("")}</div>`
-              : "";
+        return sections
+          .map((section) => {
+            const chaptersHtml = section.chapters
+              .map((chapter) => {
+                const expanded = Boolean(state.openChapters[chapter.id]);
+                const items = expanded
+                  ? `<div class="chapter-items">${chapter.notebooks
+                      .map((nb) => {
+                        const active = state.activeNotebook && state.activeNotebook.id === nb.id ? "active" : "";
+                        return `<button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${renderNotebookSidebarMeta(nb) || `<span class="nb-item-title">${escapeHtml(nb.title)}</span>`}</button>`;
+                      })
+                      .join("")}</div>`
+                  : "";
+
+                return `
+                  <section class="chapter glass-soft">
+                    <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button" aria-expanded="${expanded ? "true" : "false"}">
+                      <span class="chapter-title">${chapter.title}</span>
+                      <span class="chapter-arrow ${expanded ? "expanded" : ""}" aria-hidden="true">
+                        <svg viewBox="0 0 12 12" focusable="false">
+                          <path d="M4 2.25 L7.75 6 L4 9.75"></path>
+                        </svg>
+                      </span>
+                    </button>
+                    ${items}
+                  </section>
+                `;
+              })
+              .join("");
 
             return `
-              <section class="chapter glass-soft">
-                <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button" aria-expanded="${expanded ? "true" : "false"}">
-                  <span class="chapter-title">${chapter.title}</span>
-                  <span class="chapter-arrow ${expanded ? "expanded" : ""}" aria-hidden="true">
-                    <svg viewBox="0 0 12 12" focusable="false">
-                      <path d="M4 2.25 L7.75 6 L4 9.75"></path>
-                    </svg>
-                  </span>
-                </button>
-                ${items}
+              <section class="chapter-section" data-audience-section="${section.id}">
+                <p class="chapter-section-label">${escapeHtml(section.title)}</p>
+                <p class="chapter-section-description">${escapeHtml(section.description)}</p>
+                <div class="chapter-section-stack">
+                  ${chaptersHtml}
+                </div>
               </section>
             `;
           })
@@ -3730,6 +4149,12 @@
         const doc = new DOMParser().parseFromString(htmlText, "text/html");
         const article = doc.querySelector("article") || doc.querySelector("main") || doc.body;
         return article ? article.innerHTML : htmlText;
+      }
+
+      function decorateNotebookArticle(notebook, htmlText) {
+        const articleHtml = extractArticle(htmlText);
+        const attributionHtml = renderNotebookAttributionBanner(notebook);
+        return attributionHtml ? `${attributionHtml}${articleHtml}` : articleHtml;
       }
 
       function extractSectionIds(container) {
@@ -4748,7 +5173,7 @@
           const response = await fetch(target.htmlPath, { cache: "no-cache" });
           if (!response.ok) throw new Error("教材HTMLの読み込みに失敗しました");
           const htmlText = await response.text();
-          el.notebookContent.innerHTML = extractArticle(htmlText);
+          el.notebookContent.innerHTML = decorateNotebookArticle(target, htmlText);
           el.notebookContent.classList.add("reader-prose");
           await ensureKatexStyles();
           const katexBroken = isKatexRenderingBroken(el.notebookContent);
@@ -4770,7 +5195,7 @@
           void preloadNotebookPackages(el.notebookContent, target.id);
           enhanceCodeBlocks();
           await applySyntaxHighlight(el.notebookContent);
-          markNotebookVisited(target.id);
+          void markNotebookVisited(target.id);
           renderNotebookCompletionControl(target.id);
 
           const url = new URL(window.location.href);
@@ -4947,7 +5372,7 @@
         if (checkbox) {
           checkbox.addEventListener("change", function () {
             const checked = Boolean(checkbox.checked);
-            setNotebookCompleted(notebookId, checked);
+            void setNotebookCompleted(notebookId, checked);
           });
         }
         el.notebookContent.appendChild(wrapper);
@@ -4998,8 +5423,7 @@
 
         el.chatLog.innerHTML = state.messages
           .map((message) => {
-            const refsText = message.meta && message.meta.refs ? String(message.meta.refs) : "";
-            const refs = refsText ? `<div class=\"msg-meta\">参照: ${escapeHtml(refsText)}</div>` : "";
+            const refs = renderMessageMeta(message.meta);
             const avatar = message.role === "assistant" ? "AI" : message.role === "user" ? "You" : "";
             const body =
               message.role === "assistant"
@@ -5046,7 +5470,7 @@
         let text = String(source || "");
 
         text = text.replace(/`([^`]+)`/g, (_, code) => {
-          const token = `__INLINE_CODE_${placeholders.length}__`;
+          const token = `@@INLINECODE${placeholders.length}@@`;
           placeholders.push(`<code>${escapeHtml(code)}</code>`);
           return token;
         });
@@ -5061,10 +5485,40 @@
         text = text.replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>");
 
         placeholders.forEach((html, index) => {
-          text = text.replace(`__INLINE_CODE_${index}__`, html);
+          text = text.split(`@@INLINECODE${index}@@`).join(html);
         });
 
         return text;
+      }
+
+      function splitMessageRefs(refsValue) {
+        const raw = String(refsValue || "").trim();
+        if (!raw) return [];
+
+        return raw
+          .split(/\s+\|\s+/)
+          .flatMap((part) => part.split(/\s*,\s*/))
+          .map((part) => part.trim())
+          .filter(Boolean);
+      }
+
+      function renderMessageMeta(meta) {
+        if (!meta || typeof meta !== "object") return "";
+
+        const refItems = Array.isArray(meta.refsList)
+          ? meta.refsList.map((item) => String(item || "").trim()).filter(Boolean)
+          : splitMessageRefs(meta.refs);
+
+        if (!refItems.length) return "";
+
+        return `
+          <div class="msg-meta">
+            <span class="msg-meta-label">参照:</span>
+            <div class="msg-meta-list">
+              ${refItems.map((item) => `<span class="msg-meta-item">${escapeHtml(item)}</span>`).join("")}
+            </div>
+          </div>
+        `;
       }
 
       function renderMarkdownText(text) {
@@ -5334,10 +5788,10 @@
         try {
           const answer = await completeAssistantChat(questionText, notebook.id, sectionId, target);
           state.chatSessionId = String(answer.sessionId || state.chatSessionId || "");
-          const refs = (answer.sourceReferences || []).map((source) => `${source.notebookId}${source.location}`).join(", ");
-          const meta = { refs };
+          const refsList = (answer.sourceReferences || []).map((source) => `${source.notebookId}${source.location}`);
+          const meta = { refsList };
           if (target.provider === "bedrock" && Number.isFinite(Number(answer.bedrockRemainingToday))) {
-            meta.refs = refs ? `${refs} | Bedrock残り ${Number(answer.bedrockRemainingToday)}回/日` : `Bedrock残り ${Number(answer.bedrockRemainingToday)}回/日`;
+            meta.refsList = refsList.concat(`Bedrock残り ${Number(answer.bedrockRemainingToday)}回/日`);
           }
           pushMessage("assistant", answer.answerText || "回答が空でした", meta);
         } catch (error) {
@@ -5443,10 +5897,10 @@
               state.messages.push({ role: "user", text: String(item.questionText), meta: {} });
             }
             if (item.answerText) {
-              const refs = Array.isArray(item.sourceReferences)
-                ? item.sourceReferences.map((source) => `${source.notebookId || ""}${source.location || ""}`).join(", ")
-                : "";
-              state.messages.push({ role: "assistant", text: String(item.answerText), meta: refs ? { refs } : {} });
+              const refsList = Array.isArray(item.sourceReferences)
+                ? item.sourceReferences.map((source) => `${source.notebookId || ""}${source.location || ""}`).filter(Boolean)
+                : [];
+              state.messages.push({ role: "assistant", text: String(item.answerText), meta: refsList.length ? { refsList } : {} });
             }
           });
           renderMessages();
@@ -5588,14 +6042,45 @@
       async function loadCatalog() {
         const apiResponse = await fetch(`${API_BASE}/api/catalog`, { cache: "no-cache" }).catch(() => null);
         if (apiResponse && apiResponse.ok) {
-          return apiResponse.json();
+          return normalizeCatalog(await apiResponse.json());
         }
 
         const response = await fetch("/catalog.json", { cache: "no-cache" });
         if (!response.ok) {
           throw new Error("catalog の読み込みに失敗しました");
         }
-        return response.json();
+        return normalizeCatalog(await response.json());
+      }
+
+      function normalizeCatalog(rawCatalog) {
+        const catalog = rawCatalog && typeof rawCatalog === "object" ? rawCatalog : {};
+        const contentSourceDefaults = {
+          kind: "noema-original",
+          provider: "Noema",
+          license: "internal",
+          ...(catalog.contentSourceDefaults && typeof catalog.contentSourceDefaults === "object" ? catalog.contentSourceDefaults : {})
+        };
+        const chapters = Array.isArray(catalog.chapters) ? catalog.chapters : [];
+
+        return {
+          ...catalog,
+          contentSourceDefaults,
+          chapters: chapters.map((chapter) => {
+            const notebooks = Array.isArray(chapter?.notebooks) ? chapter.notebooks : [];
+            const audience = String(chapter?.audience || "").trim().toLowerCase() === "beginner" ? "beginner" : "advanced";
+            return {
+              ...chapter,
+              audience,
+              notebooks: notebooks.map((notebook) => ({
+                ...notebook,
+                source: {
+                  ...contentSourceDefaults,
+                  ...(notebook?.source && typeof notebook.source === "object" ? notebook.source : {})
+                }
+              }))
+            };
+          })
+        };
       }
 
       function findInitialNotebookId() {

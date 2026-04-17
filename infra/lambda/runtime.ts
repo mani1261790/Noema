@@ -190,6 +190,18 @@ type AskQuestionResult = {
   cached: boolean;
 };
 
+type LearningProgressNotebookRecord = {
+  visits: number;
+  lastVisitedAt: string;
+  completed: boolean;
+  completedAt: string;
+};
+
+type LearningProgressStore = {
+  schemaVersion: 2;
+  notebooks: Record<string, LearningProgressNotebookRecord>;
+};
+
 type PythonRuntimeExecuteInput = {
   notebookId: string;
   sectionId: string;
@@ -277,6 +289,7 @@ const ANSWERS_TABLE = requiredEnv("ANSWERS_TABLE");
 const CACHE_TABLE = requiredEnv("CACHE_TABLE");
 const RATE_LIMIT_TABLE = requiredEnv("RATE_LIMIT_TABLE");
 const NOTEBOOKS_TABLE = requiredEnv("NOTEBOOKS_TABLE");
+const USER_PROGRESS_TABLE = requiredEnv("USER_PROGRESS_TABLE");
 const ACCESS_LOGS_TABLE = process.env.ACCESS_LOGS_TABLE || "";
 const QA_QUEUE_URL = process.env.QA_QUEUE_URL || "";
 const NOTEBOOK_BUCKET = process.env.NOTEBOOK_BUCKET || "";
@@ -507,6 +520,105 @@ function validateAskQuestionInput(payload: unknown): AskQuestionInput | null {
   if (questionText.length > 2000) return null;
 
   return { notebookId, sectionId, questionText };
+}
+
+function createEmptyLearningProgressStore(): LearningProgressStore {
+  return {
+    schemaVersion: 2,
+    notebooks: {}
+  };
+}
+
+function normalizeLearningProgressRecord(raw: unknown): LearningProgressNotebookRecord {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const fallbackIso = nowIso();
+  const visitsRaw = Number(value.visits);
+  const completed = Boolean(value.completed);
+  return {
+    visits: Number.isFinite(visitsRaw) && visitsRaw >= 0 ? Math.floor(visitsRaw) : 0,
+    lastVisitedAt: toIsoOrFallback(value.lastVisitedAt, fallbackIso),
+    completed,
+    completedAt: completed ? toIsoOrFallback(value.completedAt || value.lastVisitedAt, fallbackIso) : ""
+  };
+}
+
+function normalizeLearningProgressStore(raw: unknown): LearningProgressStore {
+  const parsed = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const notebooksRaw =
+    parsed.notebooks && typeof parsed.notebooks === "object"
+      ? (parsed.notebooks as Record<string, unknown>)
+      : {};
+  const notebooks: Record<string, LearningProgressNotebookRecord> = {};
+
+  Object.entries(notebooksRaw).forEach(([notebookId, value]) => {
+    const trimmedId = String(notebookId || "").trim();
+    if (!trimmedId) return;
+    notebooks[trimmedId] = normalizeLearningProgressRecord(value);
+  });
+
+  return {
+    schemaVersion: 2,
+    notebooks
+  };
+}
+
+function toIsoOrFallback(raw: unknown, fallbackIso: string): string {
+  const value = asString(raw).trim();
+  if (!value) return fallbackIso;
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return fallbackIso;
+  return new Date(parsed).toISOString();
+}
+
+async function getLearningProgressStoreForUser(userId: string): Promise<LearningProgressStore> {
+  const response = await ddb.send(
+    new GetCommand({
+      TableName: USER_PROGRESS_TABLE,
+      Key: { userId }
+    })
+  );
+
+  return normalizeLearningProgressStore(response.Item);
+}
+
+export async function getLearningProgress(user: AuthUser) {
+  return getLearningProgressStoreForUser(user.userId);
+}
+
+export async function putLearningProgress(
+  user: AuthUser,
+  notebookId: string,
+  record: LearningProgressNotebookRecord
+): Promise<LearningProgressStore> {
+  const trimmedNotebookId = String(notebookId || "").trim();
+  if (!trimmedNotebookId) {
+    throw new Error("notebookId is required");
+  }
+
+  const nextRecord = normalizeLearningProgressRecord(record);
+  const existingStore = await getLearningProgressStoreForUser(user.userId);
+  const nextStore = normalizeLearningProgressStore({
+    ...existingStore,
+    notebooks: {
+      ...existingStore.notebooks,
+      [trimmedNotebookId]: nextRecord
+    }
+  });
+  const timestamp = nowIso();
+
+  await ddb.send(
+    new PutCommand({
+      TableName: USER_PROGRESS_TABLE,
+      Item: {
+        userId: user.userId,
+        schemaVersion: 2,
+        notebooks: nextStore.notebooks,
+        updatedAt: timestamp
+      }
+    })
+  );
+
+  return nextStore;
 }
 
 async function putAccessLog(userId: string, notebookId: string, action: string) {
@@ -1916,6 +2028,28 @@ export async function listQuestionHistory(user: AuthUser, notebookId: string, se
         };
       })
       .sort((a, b) => String(b.lastMessageAt || "").localeCompare(String(a.lastMessageAt || "")))
+  };
+}
+
+export function parseLearningProgressPutInput(event: APIGatewayProxyEventV2): LearningProgressNotebookRecord | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const visits = Number(payload.visits);
+  const lastVisitedAt = asString(payload.lastVisitedAt).trim();
+  const completed = Boolean(payload.completed);
+  const completedAt = asString(payload.completedAt).trim();
+
+  if (!Number.isFinite(visits) || visits < 0) return null;
+  if (!lastVisitedAt || Number.isNaN(Date.parse(lastVisitedAt))) return null;
+  if (completed && (!completedAt || Number.isNaN(Date.parse(completedAt)))) return null;
+  if (!completed && completedAt) return null;
+
+  return {
+    visits: Math.floor(visits),
+    lastVisitedAt: new Date(Date.parse(lastVisitedAt)).toISOString(),
+    completed,
+    completedAt: completed ? new Date(Date.parse(completedAt)).toISOString() : ""
   };
 }
 
