@@ -62,11 +62,105 @@ function normalizeInlineMathCodeSpans(value: string): string {
   return value.replace(/([ \t]?)(`([^`\n]+)`)([ \t]?)/g, (match, leadingSpace: string, _fullCode: string, codeText: string, trailingSpace: string) => {
     const normalized = String(codeText || "").trim();
     if (!normalized) return match;
-    if (!/\\[A-Za-z]+/.test(normalized)) return match;
+    if (!/\\[A-Za-z]+/.test(normalized) && !isLikelyInlineMathExpression(normalized)) return match;
     const left = leadingSpace ? "\u00A0" : "";
     const right = trailingSpace ? "\u00A0" : "";
     return `${left}$${normalized}$${right}`;
   });
+}
+
+function isLikelyIdentifierStyleToken(value: string): boolean {
+  if (!/^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$/.test(value)) return false;
+  const [base, ...segments] = value.split("_");
+  if (base.length <= 2 && segments.every((segment) => segment.length <= 3)) return false;
+  return true;
+}
+
+function isLikelyInlineMathExpression(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 64) return false;
+  if (/[\r\n`]/.test(trimmed)) return false;
+  if (!/[_^]/.test(trimmed)) return false;
+  if (/https?:|www\.|\.com\b|\/\//.test(trimmed)) return false;
+  if (/['"]/.test(trimmed)) return false;
+  if (isLikelyIdentifierStyleToken(trimmed)) return false;
+  if (!/[\\^{}()]/.test(trimmed)) {
+    return /^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$/.test(trimmed) && /^[A-Za-z]_[A-Za-z0-9]+$/.test(trimmed);
+  }
+  return /^[A-Za-z\\][A-Za-z0-9\\_^{}()[\]+\-*/=|,:.]*$/.test(trimmed);
+}
+
+function normalizeBareInlineMathLikeExpressions(value: string): string {
+  let out = "";
+  let index = 0;
+  let inInlineMath = false;
+  let inBlockMath = false;
+  let inCodeSpan = false;
+  let inEquationEnv = false;
+
+  while (index < value.length) {
+    if (!inCodeSpan && !inInlineMath && value.startsWith("\\begin{equation", index)) {
+      inEquationEnv = true;
+    }
+    if (!inCodeSpan && !inInlineMath && value.startsWith("\\end{equation", index)) {
+      inEquationEnv = false;
+    }
+
+    if (!inCodeSpan && value.startsWith("$$", index)) {
+      inBlockMath = !inBlockMath;
+      out += "$$";
+      index += 2;
+      continue;
+    }
+
+    const ch = value[index];
+
+    if (!inInlineMath && !inBlockMath && ch === "`") {
+      inCodeSpan = !inCodeSpan;
+      out += ch;
+      index += 1;
+      continue;
+    }
+
+    if (!inCodeSpan && !inBlockMath && ch === "$") {
+      inInlineMath = !inInlineMath;
+      out += ch;
+      index += 1;
+      continue;
+    }
+
+    if (!inInlineMath && !inBlockMath && !inCodeSpan && !inEquationEnv && /[A-Za-z\\]/.test(ch)) {
+      let end = index;
+      while (end < value.length && /[A-Za-z0-9\\_^{}()[\]+\-*/=|,:.]/.test(value[end])) {
+        end += 1;
+      }
+
+      const candidate = value.slice(index, end);
+      if (isLikelyInlineMathExpression(candidate)) {
+        const previousChar = out.slice(-1);
+        const nextChar = value[end] || "";
+        const useLeftNbsp = previousChar === " " || previousChar === "\t";
+        const useRightNbsp = nextChar === " " || nextChar === "\t";
+        if (useLeftNbsp) {
+          out = out.slice(0, -1) + "\u00A0";
+        }
+        out += `$${candidate}$`;
+        if (useRightNbsp) {
+          out += "\u00A0";
+          index = end + 1;
+          continue;
+        }
+        index = end;
+        continue;
+      }
+    }
+
+    out += ch;
+    index += 1;
+  }
+
+  return out;
 }
 
 function normalizeBareInlineLatex(value: string): string {
@@ -410,7 +504,7 @@ export function notebookToHtml(input: NotebookFile): string {
     if (cell.cell_type === "markdown") {
       const normalizedMarkdown = normalizeMathDelimiters(text);
       const visibleMarkdown = stripYouTubeDirective(
-        normalizeBareInlineLatex(normalizeInlineMathCodeSpans(normalizedMarkdown))
+        normalizeBareInlineMathLikeExpressions(normalizeBareInlineLatex(normalizeInlineMathCodeSpans(normalizedMarkdown)))
       );
       if (visibleMarkdown) {
         pieces.push(...renderMarkdownWithInlineYouTubeEmbeds(visibleMarkdown));
