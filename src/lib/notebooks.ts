@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import sanitizeHtml from "sanitize-html";
+import { compareNotebookOrder } from "@/lib/catalog-order";
 import { loadNotebookHtml } from "@/lib/storage";
 
 export type NotebookSummary = {
@@ -79,7 +80,7 @@ export async function getCatalog(): Promise<Catalog> {
             }
           }))
           .slice()
-          .sort((a, b) => a.order - b.order)
+          .sort(compareNotebookOrder)
       }))
       .sort((a, b) => a.order - b.order)
   };

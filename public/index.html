@@ -4037,8 +4037,88 @@
           .map((chapter) => ({
             ...chapter,
             audience: inferChapterAudience(chapter),
-            notebooks: chapter.notebooks.slice().sort((a, b) => a.order - b.order)
+            notebooks: chapter.notebooks.slice().sort(compareNotebookOrder)
           }));
+      }
+
+      function parseExternalNotebookSourceLocation(notebook) {
+        const originalUrl = String(notebook && notebook.source && notebook.source.originalUrl ? notebook.source.originalUrl : "");
+        const nestedMatch = originalUrl.match(/\/tutorials\/([^/]+)\/student\/([^/.]+)\.ipynb$/i);
+        if (nestedMatch) {
+          return {
+            folder: nestedMatch[1],
+            fileStem: nestedMatch[2]
+          };
+        }
+
+        const rootMatch = originalUrl.match(/\/tutorials\/student\/([^/.]+)\.ipynb$/i);
+        if (rootMatch) {
+          return {
+            folder: "student",
+            fileStem: rootMatch[1]
+          };
+        }
+
+        return null;
+      }
+
+      function externalNotebookFolderSortKey(folder) {
+        const normalized = String(folder || "").trim();
+        if (normalized === "student") return [0, 0, 0, normalized];
+
+        const weekDayMatch = normalized.match(/^W(\d+)D(\d+)_/i);
+        if (weekDayMatch) {
+          return [1, Number(weekDayMatch[1]), Number(weekDayMatch[2]), normalized];
+        }
+
+        if (/^Module_WrapUps$/i.test(normalized)) return [2, 0, 0, normalized];
+        if (/^Bonus_/i.test(normalized)) return [3, 0, 0, normalized];
+        return [4, 0, 0, normalized];
+      }
+
+      function externalNotebookFileSortRank(fileStem) {
+        const normalized = String(fileStem || "").trim();
+        const lower = normalized.toLowerCase();
+
+        if (lower === "intro" || /_intro$/i.test(normalized)) return 0;
+        if (lower === "intro_vid") return 1;
+
+        const tutorialMatch = normalized.match(/tutorial(\d+)/i);
+        if (tutorialMatch) return 10 + Number(tutorialMatch[1]);
+
+        if (/bonuslecture/i.test(normalized)) return 80;
+        if (lower === "outro" || /_outro$/i.test(normalized)) return 90;
+        if (lower === "outro_vid") return 91;
+        if (/daysummary/i.test(normalized)) return 99;
+        return 50;
+      }
+
+      function compareNotebookOrder(a, b) {
+        const aExternal = Boolean(a && a.source && a.source.kind === "open-license-translation");
+        const bExternal = Boolean(b && b.source && b.source.kind === "open-license-translation");
+
+        if (aExternal && bExternal) {
+          const sourceA = parseExternalNotebookSourceLocation(a);
+          const sourceB = parseExternalNotebookSourceLocation(b);
+          if (sourceA && sourceB) {
+            const folderA = externalNotebookFolderSortKey(sourceA.folder);
+            const folderB = externalNotebookFolderSortKey(sourceB.folder);
+
+            for (let index = 0; index < folderA.length; index += 1) {
+              if (folderA[index] < folderB[index]) return -1;
+              if (folderA[index] > folderB[index]) return 1;
+            }
+
+            const fileRankA = externalNotebookFileSortRank(sourceA.fileStem);
+            const fileRankB = externalNotebookFileSortRank(sourceB.fileStem);
+            if (fileRankA !== fileRankB) return fileRankA - fileRankB;
+
+            const fileNameOrder = sourceA.fileStem.localeCompare(sourceB.fileStem);
+            if (fileNameOrder !== 0) return fileNameOrder;
+          }
+        }
+
+        return Number(a && a.order ? a.order : 0) - Number(b && b.order ? b.order : 0);
       }
 
       function inferChapterAudience(chapter) {
@@ -4196,7 +4276,7 @@
           libraries.push({
             id: "external-library",
             title: "外部オープンライセンス教材",
-            description: "Noema ブランド教材とは完全に分けて掲載する翻訳・再構成教材です。",
+            description: "オープンライセンスの原典をもとに、日本語で学びやすく再構成した教材です。",
             sections: externalSections
           });
         }
