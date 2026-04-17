@@ -413,7 +413,7 @@
       color: var(--text);
       display: flex;
       gap: 10px;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       padding: 10px 10px 10px 12px;
       font-weight: 650;
@@ -450,13 +450,17 @@
     }
 
     .chapter-arrow {
-      flex: 0 0 20px;
+      margin-left: auto;
+      flex: 0 0 24px;
+      min-width: 24px;
+      min-height: 24px;
+      overflow: visible;
       box-sizing: border-box;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       border-radius: 8px;
       border: 1px solid color-mix(in oklab, var(--accent) 22%, var(--border));
       background:
@@ -471,11 +475,11 @@
     }
 
     .chapter-arrow svg {
-      width: 11px;
-      height: 11px;
+      width: 12px;
+      height: 12px;
       display: block;
       stroke: currentColor;
-      stroke-width: 2;
+      stroke-width: 1.8;
       fill: none;
       stroke-linecap: round;
       stroke-linejoin: round;
@@ -580,6 +584,24 @@
       display: block;
       width: 100%;
       text-align: center;
+    }
+
+    .sidebar-home-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .sidebar-home-link svg {
+      width: 14px;
+      height: 14px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .footer-link:not(.is-hidden) {
@@ -1200,6 +1222,148 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 12px;
+    }
+
+    .home-progress-groups {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .home-progress-group {
+      border-radius: 16px;
+      padding: 12px;
+      border: 1px solid var(--glass-edge-soft);
+      background:
+        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 86%, transparent);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: grid;
+      gap: 10px;
+    }
+
+    .home-progress-group-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 12px;
+    }
+
+    .home-progress-group-header strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.35;
+      letter-spacing: .01em;
+    }
+
+    .home-progress-group-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .home-progress-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 74px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
+      background: color-mix(in oklab, var(--accent) 12%, transparent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .03em;
+      color: color-mix(in oklab, var(--accent) 74%, white);
+    }
+
+    .home-progress-bar {
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
+    }
+
+    .home-progress-bar > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background:
+        linear-gradient(90deg, color-mix(in oklab, var(--accent) 68%, white), color-mix(in oklab, var(--accent-strong) 74%, black));
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 66%, transparent);
+    }
+
+    .home-progress-group-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .home-progress-stat {
+      border-radius: 12px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      padding: 8px 10px;
+      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
+      display: grid;
+      gap: 4px;
+    }
+
+    .home-progress-stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+
+    .home-progress-stat-value {
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.15;
+      color: color-mix(in oklab, var(--text) 90%, white);
+    }
+
+    .home-progress-chapters {
+      display: grid;
+      gap: 8px;
+    }
+
+    .home-progress-chapter {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      align-items: center;
+    }
+
+    .home-progress-chapter strong {
+      font-size: 12px;
+      line-height: 1.45;
+      min-width: 0;
+    }
+
+    .home-progress-chapter span {
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .home-progress-chapter-bar {
+      grid-column: 1 / -1;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 78%, transparent);
+      background: color-mix(in oklab, var(--panel-strong) 68%, transparent);
+    }
+
+    .home-progress-chapter-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background:
+        linear-gradient(90deg, color-mix(in oklab, var(--accent) 58%, white), color-mix(in oklab, var(--accent-strong) 62%, black));
     }
 
     .home-insight-label {
@@ -2406,7 +2570,8 @@
         border-radius: 0;
       }
       .home-dashboard-grid,
-      .home-insight-grid {
+      .home-insight-grid,
+      .home-progress-group-stats {
         grid-template-columns: 1fr;
       }
       .home-hero-top { flex-direction: column; }
@@ -2627,6 +2792,13 @@
         </label>
         <div id="sidebar-list"></div>
         <div class="sidebar-footer">
+          <button class="button-ghost sidebar-home-link" id="home-link" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10.5 12 4l8 6.5"></path>
+              <path d="M6.5 9.5V20h11V9.5"></path>
+            </svg>
+            <span>ホーム / 進捗</span>
+          </button>
           <a class="button" id="login-link" href="/login">ログイン</a>
           <button class="button-ghost is-hidden" id="playground-link" type="button">プレイグラウンド</button>
           <a class="button-ghost is-hidden" id="admin-link" href="/admin.html">管理画面</a>
@@ -2752,6 +2924,13 @@
         </button>
       </div>
       <div id="sidebar-mobile-list" class="overlay-scroll"></div>
+      <button class="button-ghost footer-link sidebar-home-link" id="home-link-mobile" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 10.5 12 4l8 6.5"></path>
+          <path d="M6.5 9.5V20h11V9.5"></path>
+        </svg>
+        <span>ホーム / 進捗</span>
+      </button>
       <a class="button" id="login-link-mobile" href="/login">ログイン</a>
       <button class="button-ghost footer-link is-hidden" id="playground-link-mobile" type="button">プレイグラウンド</button>
       <a class="button-ghost footer-link is-hidden" id="admin-link-mobile" href="/admin.html">管理画面</a>
@@ -2863,6 +3042,8 @@
         selectionText: document.getElementById("selection-text"),
         clearSelection: document.getElementById("clear-selection"),
         brandHome: document.getElementById("brand-home"),
+        homeLink: document.getElementById("home-link"),
+        homeLinkMobile: document.getElementById("home-link-mobile"),
         loginLink: document.getElementById("login-link"),
         loginLinkMobile: document.getElementById("login-link-mobile"),
         playgroundLink: document.getElementById("playground-link"),
@@ -4511,6 +4692,41 @@
         return nextNotebook?.id || "";
       }
 
+      function buildProgressGroupSummary(title, description, chapters, completedNotebookSet) {
+        const safeChapters = Array.isArray(chapters) ? chapters : [];
+        const notebooks = safeChapters.flatMap((chapter) => (Array.isArray(chapter.notebooks) ? chapter.notebooks : []));
+        const total = notebooks.length;
+        const completed = notebooks.reduce((count, notebook) => count + (completedNotebookSet.has(notebook.id) ? 1 : 0), 0);
+        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const chapterSummaries = safeChapters
+          .map((chapter) => {
+            const chapterNotebooks = Array.isArray(chapter.notebooks) ? chapter.notebooks : [];
+            const chapterTotal = chapterNotebooks.length;
+            const chapterCompleted = chapterNotebooks.reduce(
+              (count, notebook) => count + (completedNotebookSet.has(notebook.id) ? 1 : 0),
+              0
+            );
+            const chapterPercent = chapterTotal > 0 ? Math.round((chapterCompleted / chapterTotal) * 100) : 0;
+            return {
+              title: chapter.title,
+              total: chapterTotal,
+              completed: chapterCompleted,
+              percent: chapterPercent
+            };
+          })
+          .filter((chapter) => chapter.total > 0);
+
+        return {
+          title,
+          description,
+          total,
+          completed,
+          percent,
+          chapterCount: chapterSummaries.length,
+          chapterSummaries
+        };
+      }
+
       function renderHomeDashboard() {
         const chapters = notebookList();
         const notebooks = chapters.flatMap((chapter) => chapter.notebooks);
@@ -4542,19 +4758,71 @@
         const completionPercentRaw = notebookCount > 0 ? (completedCount / notebookCount) * 100 : 0;
         const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
 
-        const sectionProgressHtml = chapters
-          .map((chapter) => {
-            const total = chapter.notebooks.length;
-            const done = chapter.notebooks.reduce((count, nb) => count + (completedNotebookSet.has(nb.id) ? 1 : 0), 0);
-            const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+        const beginnerSection = notebookSections().find((section) => section.id === "beginner");
+        const advancedSection = notebookSections().find((section) => section.id === "advanced");
+        const beginnerProgress = buildProgressGroupSummary(
+          "初学者向け",
+          "Python と機械学習の基礎教材の進み具合です。",
+          filterChaptersBySourceGroup(beginnerSection && beginnerSection.chapters, "noema"),
+          completedNotebookSet
+        );
+        const advancedProgress = buildProgressGroupSummary(
+          "上級者向け",
+          "Noema オリジナルの発展教材の進み具合です。",
+          filterChaptersBySourceGroup(advancedSection && advancedSection.chapters, "noema"),
+          completedNotebookSet
+        );
+        const externalProgress = buildProgressGroupSummary(
+          "外部教材",
+          "翻訳・再構成したオープンライセンス教材の進み具合です。",
+          externalNotebookSections().flatMap((section) => section.chapters),
+          completedNotebookSet
+        );
+        const progressGroups = [beginnerProgress, advancedProgress, externalProgress].filter((group) => group.total > 0);
+        const progressGroupsHtml = progressGroups
+          .map((group) => {
+            const chapterBars = group.chapterSummaries
+              .map(
+                (chapter) => `
+                  <article class="home-progress-chapter">
+                    <strong>${escapeHtml(chapter.title)}</strong>
+                    <span>${chapter.completed}/${chapter.total}</span>
+                    <div class="home-progress-chapter-bar">
+                      <span style="width:${chapter.percent}%"></span>
+                    </div>
+                  </article>
+                `
+              )
+              .join("");
+
             return `
-              <article class="home-section-progress-item">
-                <div class="home-section-progress-head">
-                  <strong>${escapeHtml(chapter.title)}</strong>
-                  <span>${done}/${total}</span>
+              <article class="home-progress-group glass-soft">
+                <div class="home-progress-group-header">
+                  <div>
+                    <strong>${escapeHtml(group.title)}</strong>
+                    <p>${escapeHtml(group.description)}</p>
+                  </div>
+                  <span class="home-progress-pill">${group.percent}%</span>
                 </div>
-                <div class="home-section-progress-track">
-                  <span class="home-section-progress-fill" style="width:${percent}%"></span>
+                <div class="home-progress-bar">
+                  <span style="width:${group.percent}%"></span>
+                </div>
+                <div class="home-progress-group-stats">
+                  <article class="home-progress-stat">
+                    <span class="home-progress-stat-label">Completed</span>
+                    <span class="home-progress-stat-value">${group.completed}/${group.total}</span>
+                  </article>
+                  <article class="home-progress-stat">
+                    <span class="home-progress-stat-label">Chapters</span>
+                    <span class="home-progress-stat-value">${group.chapterCount}</span>
+                  </article>
+                  <article class="home-progress-stat">
+                    <span class="home-progress-stat-label">Remaining</span>
+                    <span class="home-progress-stat-value">${Math.max(0, group.total - group.completed)}</span>
+                  </article>
+                </div>
+                <div class="home-progress-chapters">
+                  ${chapterBars}
                 </div>
               </article>
             `;
@@ -4614,13 +4882,28 @@
                 </article>
                 <article class="home-section-progress-card glass-soft">
                   <div class="home-section-progress-title">
-                    <strong>セクション別進捗</strong>
+                    <strong>学習マップ</strong>
                     <span>${chapterCount} sections</span>
                   </div>
                   <div class="home-section-progress-list">
-                    ${sectionProgressHtml}
+                    ${progressGroups.map((group) => {
+                      return `
+                        <article class="home-section-progress-item">
+                          <div class="home-section-progress-head">
+                            <strong>${escapeHtml(group.title)}</strong>
+                            <span>${group.completed}/${group.total}</span>
+                          </div>
+                          <div class="home-section-progress-track">
+                            <span class="home-section-progress-fill" style="width:${group.percent}%"></span>
+                          </div>
+                        </article>
+                      `;
+                    }).join("")}
                   </div>
                 </article>
+              </section>
+              <section class="home-progress-groups">
+                ${progressGroupsHtml}
               </section>
               <div class="home-metrics">
                 <article class="home-metric">
@@ -6433,6 +6716,15 @@
 
       el.brandHome.addEventListener("click", function (event) {
         event.preventDefault();
+        showHomeDashboard();
+      });
+
+      el.homeLink.addEventListener("click", function () {
+        showHomeDashboard();
+      });
+
+      el.homeLinkMobile.addEventListener("click", function () {
+        setSidebarOverlayOpen(false);
         showHomeDashboard();
       });
 
