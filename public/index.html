@@ -4726,6 +4726,17 @@
         return `${apiRoot}/api/notebooks/${encoded}/download`;
       }
 
+      function buildNotebookContentUrl(notebookId) {
+        const encoded = encodeURIComponent(String(notebookId || "").trim());
+        if (!encoded) return "#";
+        const isLocalHost =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname === "[::1]";
+        const apiRoot = isLocalHost ? window.location.origin : API_BASE;
+        return `${apiRoot}/api/notebooks/${encoded}/content`;
+      }
+
       function renderHeader() {
         const nb = state.activeNotebook;
         if (!nb) {
@@ -5805,7 +5816,7 @@
         el.notebookContent.innerHTML = "教材を読み込み中...";
 
         try {
-          const response = await fetch(target.htmlPath, { cache: "no-cache" });
+          const response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" });
           if (!response.ok) throw new Error("教材HTMLの読み込みに失敗しました");
           const htmlText = await response.text();
           el.notebookContent.innerHTML = decorateNotebookArticle(target, htmlText);
