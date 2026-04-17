@@ -43,7 +43,6 @@ function shouldRenderBracketedMathInline(expr: string): boolean {
   const trimmed = expr.trim();
   if (!trimmed) return false;
   if (/[\r\n]/.test(trimmed)) return false;
-  if (trimmed.length > 32) return false;
   if (/\\\\|\\begin\{|\\end\{/.test(trimmed)) return false;
   return true;
 }
