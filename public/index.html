@@ -761,7 +761,48 @@
     .reader-prose h3 { line-height: 1.25; margin-top: 1.4em; margin-bottom: .6em; }
     .reader-prose h1 { margin-top: .2em; font-size: 2rem; }
     .reader-prose h2 { font-size: 1.5rem; }
+    .reader-prose {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
     .reader-prose p { line-height: 1.85; }
+    .reader-prose article,
+    .reader-prose section,
+    .reader-prose div,
+    .reader-prose p,
+    .reader-prose figure {
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .reader-prose img {
+      display: block;
+      max-width: 100% !important;
+      width: auto !important;
+      height: auto !important;
+    }
+    .reader-prose iframe,
+    .reader-prose video,
+    .reader-prose canvas,
+    .reader-prose svg,
+    .reader-prose embed,
+    .reader-prose object {
+      display: block;
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box;
+    }
+    .reader-prose table {
+      width: 100% !important;
+      max-width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+    .reader-prose th,
+    .reader-prose td {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
     .reader-prose .notebook-attribution {
       margin: 0 0 18px;
       padding: 14px 16px;
