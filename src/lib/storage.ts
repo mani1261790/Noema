@@ -81,7 +81,12 @@ export async function loadNotebookHtml(htmlPath: string): Promise<string> {
 
   const notebookId = notebookIdFromHtmlPath(htmlPath);
   if (notebookId) {
-    return renderNotebookHtmlFragmentFromSource(notebookId);
+    try {
+      return await renderNotebookHtmlFragmentFromSource(notebookId);
+    } catch {
+      const generatedPath = path.join(process.cwd(), "public", "notebooks", `${notebookId}.html`);
+      return fs.readFile(generatedPath, "utf8");
+    }
   }
 
   const localPath = path.join(process.cwd(), "public", htmlPath.replace(/^\//, ""));
@@ -101,8 +106,13 @@ export async function loadNotebookIpynb(notebookId: string): Promise<string> {
     );
     raw = await streamToString(response.Body);
   } else {
-    const localPath = await resolveNotebookSourcePath(notebookId);
-    raw = await fs.readFile(localPath, "utf8");
+    try {
+      const localPath = await resolveNotebookSourcePath(notebookId);
+      raw = await fs.readFile(localPath, "utf8");
+    } catch {
+      const generatedPath = path.join(process.cwd(), "public", "notebooks", `${notebookId}.ipynb`);
+      raw = await fs.readFile(generatedPath, "utf8");
+    }
   }
 
   try {

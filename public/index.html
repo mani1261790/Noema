@@ -4710,6 +4710,13 @@
         return `${apiRoot}/api/notebooks/${encoded}/content`;
       }
 
+      function buildNotebookHtmlUrl(notebook) {
+        const htmlPath = typeof notebook?.htmlPath === "string" ? notebook.htmlPath.trim() : "";
+        if (!htmlPath) return "#";
+        if (/^https?:\/\//i.test(htmlPath)) return htmlPath;
+        return htmlPath.startsWith("/") ? htmlPath : `/${htmlPath}`;
+      }
+
       function renderHeader() {
         const nb = state.activeNotebook;
         if (!nb) {
@@ -5797,7 +5804,10 @@
         el.notebookContent.innerHTML = "教材を読み込み中...";
 
         try {
-          let response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" }).catch(() => null);
+          let response = await fetch(buildNotebookHtmlUrl(target), { cache: "no-cache" }).catch(() => null);
+          if (!response || !response.ok) {
+            response = await fetch(buildNotebookContentUrl(target.id), { cache: "no-cache" }).catch(() => null);
+          }
           if (!response || !response.ok) {
             response = await fetch(buildNotebookContentUrl(target.id, API_BASE), { cache: "no-cache" }).catch(() => null);
           }
