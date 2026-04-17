@@ -412,6 +412,7 @@
         color-mix(in oklab, var(--panel-soft) 72%, transparent);
       color: var(--text);
       display: flex;
+      gap: 10px;
       justify-content: space-between;
       align-items: center;
       padding: 10px 10px 10px 12px;
@@ -442,11 +443,15 @@
     }
 
     .chapter-title {
+      flex: 1 1 auto;
+      min-width: 0;
       font-weight: 700;
       letter-spacing: .01em;
     }
 
     .chapter-arrow {
+      flex: 0 0 20px;
+      box-sizing: border-box;
       display: inline-flex;
       align-items: center;
       justify-content: center;

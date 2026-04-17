@@ -169,7 +169,7 @@ export function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?:
 
 const markdownRenderer = (() => {
   const md = new MarkdownIt({
-    html: false,
+    html: true,
     linkify: true,
     typographer: false,
     breaks: true
