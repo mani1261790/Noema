@@ -338,6 +338,14 @@
       padding-right: 4px;
       overscroll-behavior: contain;
       scrollbar-gutter: stable both-edges;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    #sidebar-list::-webkit-scrollbar,
+    #sidebar-mobile-list::-webkit-scrollbar,
+    .overlay-scroll::-webkit-scrollbar {
+      display: none;
     }
 
     .chapter {
