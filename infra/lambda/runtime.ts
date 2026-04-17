@@ -2094,17 +2094,22 @@ export async function listAdminQuestions() {
 }
 
 export async function listCatalog() {
-  const response = await ddb.send(
-    new ScanCommand({
-      TableName: NOTEBOOKS_TABLE,
-      Limit: 1000
-    })
-  );
+  const items: unknown[] = [];
+  let exclusiveStartKey: Record<string, unknown> | undefined;
 
-  const rows = ((response.Items as unknown[] | undefined) ?? [])
-    .map((item) => normalizeNotebookRecord(item))
-    .filter((item): item is NotebookRecord => Boolean(item))
-    .slice();
+  do {
+    const response = await ddb.send(
+      new ScanCommand({
+        TableName: NOTEBOOKS_TABLE,
+        Limit: 1000,
+        ExclusiveStartKey: exclusiveStartKey
+      })
+    );
+    items.push(...((response.Items as unknown[] | undefined) ?? []));
+    exclusiveStartKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (exclusiveStartKey);
+
+  const rows = items.map((item) => normalizeNotebookRecord(item)).filter((item): item is NotebookRecord => Boolean(item)).slice();
   const chapters = new Map<
     string,
     {
@@ -2310,14 +2315,22 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
 }
 
 export async function listAdminNotebooks() {
-  const response = await ddb.send(
-    new ScanCommand({
-      TableName: NOTEBOOKS_TABLE,
-      Limit: 1000
-    })
-  );
+  const items: unknown[] = [];
+  let exclusiveStartKey: Record<string, unknown> | undefined;
 
-  const notebooks = ((response.Items as unknown[] | undefined) ?? [])
+  do {
+    const response = await ddb.send(
+      new ScanCommand({
+        TableName: NOTEBOOKS_TABLE,
+        Limit: 1000,
+        ExclusiveStartKey: exclusiveStartKey
+      })
+    );
+    items.push(...((response.Items as unknown[] | undefined) ?? []));
+    exclusiveStartKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (exclusiveStartKey);
+
+  const notebooks = items
     .map((item) => normalizeNotebookRecord(item))
     .filter((item): item is NotebookRecord => Boolean(item))
     .sort((a, b) => {
