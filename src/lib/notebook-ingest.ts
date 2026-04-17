@@ -45,6 +45,15 @@ function normalizeMathDelimiters(value: string): string {
     .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`);
 }
 
+function normalizeInlineMathCodeSpans(value: string): string {
+  return value.replace(/`([^`\n]+)`/g, (match, codeText: string) => {
+    const normalized = String(codeText || "").trim();
+    if (!normalized) return match;
+    if (!/\\[A-Za-z]+/.test(normalized)) return match;
+    return `$${normalized}$`;
+  });
+}
+
 function normalizeCodeText(value: string): string {
   const hasRealNewline = value.includes("\n");
   if (hasRealNewline) return value;
@@ -306,7 +315,7 @@ export function notebookToHtml(input: NotebookFile): string {
 
     if (cell.cell_type === "markdown") {
       const normalizedMarkdown = normalizeMathDelimiters(text);
-      const visibleMarkdown = stripYouTubeDirective(normalizedMarkdown);
+      const visibleMarkdown = stripYouTubeDirective(normalizeInlineMathCodeSpans(normalizedMarkdown));
       if (visibleMarkdown) {
         pieces.push(...renderMarkdownWithInlineYouTubeEmbeds(visibleMarkdown));
       }
