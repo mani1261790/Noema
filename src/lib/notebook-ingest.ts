@@ -42,15 +42,18 @@ function normalizeMarkdownText(value: string): string {
 function normalizeMathDelimiters(value: string): string {
   return value
     .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`)
-    .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`);
+    .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`)
+    .replace(/\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`);
 }
 
 function normalizeInlineMathCodeSpans(value: string): string {
-  return value.replace(/`([^`\n]+)`/g, (match, codeText: string) => {
+  return value.replace(/([ \t]?)(`([^`\n]+)`)([ \t]?)/g, (match, leadingSpace: string, _fullCode: string, codeText: string, trailingSpace: string) => {
     const normalized = String(codeText || "").trim();
     if (!normalized) return match;
     if (!/\\[A-Za-z]+/.test(normalized)) return match;
-    return `$${normalized}$`;
+    const left = leadingSpace ? "\u00A0" : "";
+    const right = trailingSpace ? "\u00A0" : "";
+    return `${left}$${normalized}$${right}`;
   });
 }
 
@@ -63,8 +66,16 @@ function normalizeBareInlineLatex(value: string): string {
   let inInlineMath = false;
   let inBlockMath = false;
   let inCodeSpan = false;
+  let inEquationEnv = false;
 
   while (index < value.length) {
+    if (!inCodeSpan && !inInlineMath && value.startsWith("\\begin{equation", index)) {
+      inEquationEnv = true;
+    }
+    if (!inCodeSpan && !inInlineMath && value.startsWith("\\end{equation", index)) {
+      inEquationEnv = false;
+    }
+
     if (!inCodeSpan && value.startsWith("$$", index)) {
       inBlockMath = !inBlockMath;
       out += "$$";
@@ -88,12 +99,24 @@ function normalizeBareInlineLatex(value: string): string {
       continue;
     }
 
-    if (!inInlineMath && !inBlockMath && !inCodeSpan && ch === "\\") {
+    if (!inInlineMath && !inBlockMath && !inCodeSpan && !inEquationEnv && ch === "\\") {
       const slice = value.slice(index);
       const match = slice.match(bareLatexSequenceRe);
       const commandName = slice.slice(1).match(/^[A-Za-z]+/)?.[0] || "";
       if (match && match[0] && commandName !== "begin" && commandName !== "end") {
+        const previousChar = out.slice(-1);
+        const nextChar = value[index + match[0].length] || "";
+        const useLeftNbsp = previousChar === " " || previousChar === "\t";
+        const useRightNbsp = nextChar === " " || nextChar === "\t";
+        if (useLeftNbsp) {
+          out = out.slice(0, -1) + "\u00A0";
+        }
         out += `$${match[0].trim()}$`;
+        if (useRightNbsp) {
+          out += "\u00A0";
+          index += match[0].length + 1;
+          continue;
+        }
         index += match[0].length;
         continue;
       }
