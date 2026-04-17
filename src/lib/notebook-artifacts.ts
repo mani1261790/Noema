@@ -9,6 +9,63 @@ export const NOTEBOOK_KATEX_PUBLIC_DIR = path.join(process.cwd(), "public", "kat
 export const NOTEBOOK_CATALOG_SOURCE_PATH = path.join(process.cwd(), "content", "catalog.json");
 export const NOTEBOOK_CATALOG_PUBLIC_PATH = path.join(process.cwd(), "public", "catalog.json");
 
+const CORE_NOTEBOOK_SECTION_BY_ID: Record<string, string> = {
+  "python-basic-operations": "python",
+  "numpy-basics": "python",
+  "pandas-basics": "python",
+  "matplotlib-seaborn": "python",
+  "simple-regression": "machine-learning",
+  "multiple-regression": "machine-learning",
+  "sklearn-xgboost": "machine-learning",
+  "feature-engineering": "machine-learning",
+  "supervised-unsupervised-learning": "machine-learning",
+  "time-series-data": "machine-learning",
+  "sql-for-ml": "machine-learning",
+  "neural-network-basics": "deep-learning",
+  "loss-and-gradient-descent": "deep-learning",
+  "optimization-regularization": "deep-learning",
+  "convolution-basics": "deep-learning",
+  "image-recognition-yolo": "deep-learning",
+  "recurrent-neural-networks": "deep-learning",
+  "transformer-basics": "deep-learning",
+  "nlp-deep-learning": "deep-learning",
+  "rl-foundation": "reinforcement-learning",
+  "bellman-equations": "reinforcement-learning",
+  "td-learning": "reinforcement-learning",
+  "q-learning": "reinforcement-learning",
+  "sarsa": "reinforcement-learning",
+  "n-step-td": "reinforcement-learning",
+  "td-lambda": "reinforcement-learning",
+  "eligibility-trace-td-lambda": "reinforcement-learning",
+  "deep-rl": "reinforcement-learning",
+  "reinforcement-learning-overview": "reinforcement-learning",
+  "prompt-engineering": "llm",
+  "llm-pretraining": "llm",
+  "scaling-laws": "llm",
+  "fine-tuning": "llm",
+  "hallucination-rlhf": "llm",
+  "tool-use-rag": "llm",
+  "llm-efficiency": "llm",
+  "generative-model-overview": "deep-generative-models",
+  "latent-variable-mixture-models": "deep-generative-models",
+  "vae": "deep-generative-models",
+  "gan": "deep-generative-models",
+  "autoregressive-flow-models": "deep-generative-models",
+  "energy-based-models": "deep-generative-models",
+  "score-diffusion-models": "deep-generative-models",
+  "continuous-diffusion-flow-matching": "deep-generative-models",
+  "world-models-and-generative-models": "world-models",
+  "control-model-and-mbrl": "world-models",
+  "state-space-models": "world-models",
+  "state-representation-learning": "world-models",
+  "state-prediction-models": "world-models",
+  "vae-diffusion-world-models": "world-models",
+  "simulation-and-cg": "world-models",
+  "ssm-and-transformer": "world-models",
+  "observation-prediction-models": "world-models",
+  "multimodal-world-models": "world-models"
+};
+
 export function notebookIdFromHtmlPath(htmlPath: string): string | null {
   const match = /^\/?notebooks\/([^/]+)\.html$/.exec(String(htmlPath).trim());
   if (!match) return null;
@@ -28,7 +85,8 @@ export function getPreferredNotebookSourceRelativePath(notebookId: string): stri
   if (notebookId.startsWith("nma-dl-")) {
     return path.join("nma", "deep-learning", fileName);
   }
-  return path.join("core", fileName);
+  const coreSection = CORE_NOTEBOOK_SECTION_BY_ID[notebookId];
+  return coreSection ? path.join("core", coreSection, fileName) : path.join("core", fileName);
 }
 
 async function walkNotebookSourceFiles(dir: string): Promise<string[]> {
