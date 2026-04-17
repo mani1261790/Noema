@@ -92,6 +92,13 @@ function wrapNotebookHtml(title: string, bodyHtml: string): string {
       color: var(--text);
       margin: .7rem 0;
     }
+    .prose-noema .katex {
+      display: inline;
+      white-space: normal;
+      vertical-align: baseline;
+      max-width: 100%;
+    }
+    .prose-noema .katex .base { white-space: nowrap; }
     .prose-noema ul, .prose-noema ol {
       margin: .7rem 0;
       padding-left: 1.4rem;

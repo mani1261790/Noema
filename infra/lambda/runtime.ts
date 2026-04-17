@@ -2916,8 +2916,8 @@ function normalizeInlineMathCodeSpans(value: string): string {
     const normalized = String(codeText || "").trim();
     if (!normalized) return match;
     if (!/\\[A-Za-z]+/.test(normalized) && !isLikelyInlineMathExpression(normalized)) return match;
-    const left = leadingSpace ? "\u00A0" : "";
-    const right = trailingSpace ? "\u00A0" : "";
+    const left = leadingSpace || "";
+    const right = trailingSpace || "";
     return `${left}$${normalized}$${right}`;
   });
 }
@@ -2969,16 +2969,10 @@ function normalizeBareInlineMathLikeExpressions(value: string): string {
 
       const candidate = value.slice(index, end);
       if (isLikelyInlineMathExpression(candidate)) {
-        const previousChar = out.slice(-1);
         const nextChar = value[end] || "";
-        const useLeftNbsp = previousChar === " " || previousChar === "\t";
-        const useRightNbsp = nextChar === " " || nextChar === "\t";
-        if (useLeftNbsp) {
-          out = out.slice(0, -1) + "\u00A0";
-        }
         out += `$${candidate}$`;
-        if (useRightNbsp) {
-          out += "\u00A0";
+        if (nextChar === " " || nextChar === "\t") {
+          out += nextChar;
           index = end + 1;
           continue;
         }

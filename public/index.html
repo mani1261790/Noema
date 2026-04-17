@@ -781,11 +781,13 @@
     .reader-prose p { line-height: 1.85; }
     .reader-prose .katex {
       display: inline;
-      white-space: nowrap;
+      white-space: normal;
       vertical-align: baseline;
       user-select: text;
       -webkit-user-select: text;
+      max-width: 100%;
     }
+    .reader-prose .katex .base { white-space: nowrap; }
     .reader-prose .katex * {
       user-select: text;
       -webkit-user-select: text;
@@ -3152,27 +3154,7 @@
       }
 
       function stabilizeInlineMath(container) {
-        const addWordJoinerBefore = (node) => {
-          const prev = node.previousSibling;
-          if (!prev || prev.nodeType !== Node.TEXT_NODE) return;
-          const text = prev.textContent || "";
-          if (!text || /[\s\u00A0\u2060]$/.test(text)) return;
-          prev.textContent = `${text}\u2060`;
-        };
-
-        const addWordJoinerAfter = (node) => {
-          const next = node.nextSibling;
-          if (!next || next.nodeType !== Node.TEXT_NODE) return;
-          const text = next.textContent || "";
-          if (!text || /^[\s\u00A0\u2060]/.test(text)) return;
-          next.textContent = `\u2060${text}`;
-        };
-
-        container.querySelectorAll(".katex").forEach((node) => {
-          if (node.parentElement && node.parentElement.classList.contains("katex-display")) return;
-          addWordJoinerBefore(node);
-          addWordJoinerAfter(node);
-        });
+        return container;
       }
 
       function serializeMathForClipboard(fragmentRoot) {
