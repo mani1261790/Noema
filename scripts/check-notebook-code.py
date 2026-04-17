@@ -202,7 +202,7 @@ def check_notebook(path: Path) -> list[str]:
 
 def main() -> int:
     root = Path("content/notebooks")
-    notebooks = sorted(root.glob("*.ipynb"))
+    notebooks = sorted(root.rglob("*.ipynb"))
     findings: list[str] = []
 
     for notebook in notebooks:

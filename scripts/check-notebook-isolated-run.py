@@ -112,7 +112,7 @@ def run_code(runner, current_code: str, context_code: str) -> tuple[bool, str]:
 
 def main() -> int:
   runner = load_runner()
-  notebooks = sorted(NOTEBOOK_DIR.glob("*.ipynb"))
+  notebooks = sorted(NOTEBOOK_DIR.rglob("*.ipynb"))
   failures: list[str] = []
 
   for notebook in notebooks:

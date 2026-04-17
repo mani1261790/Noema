@@ -7,7 +7,7 @@ import {
   NOTEBOOK_HIGHLIGHT_PUBLIC_DIR,
   NOTEBOOK_KATEX_PUBLIC_DIR,
   NOTEBOOK_PUBLIC_DIR,
-  NOTEBOOK_SOURCE_DIR
+  listNotebookSourceFiles
 } from "../src/lib/notebook-artifacts";
 
 async function clearNotebookOutputArtifacts() {
@@ -194,18 +194,16 @@ async function main() {
   await copyHighlightAssets();
   await copyKatexAssets();
 
-  const files = await fs.readdir(NOTEBOOK_SOURCE_DIR);
-  const notebookFiles = files.filter((file) => file.endsWith(".ipynb"));
+  const notebookFiles = await listNotebookSourceFiles();
 
-  for (const file of notebookFiles) {
-    const sourcePath = path.join(NOTEBOOK_SOURCE_DIR, file);
+  for (const sourcePath of notebookFiles) {
     const raw = await fs.readFile(sourcePath, "utf8");
     const notebook = JSON.parse(raw) as NotebookFile;
     const canonicalNotebook = canonicalizeNotebookFile(notebook);
     const htmlFragment = notebookToHtml(canonicalNotebook);
-    const title = path.parse(file).name;
+    const title = path.parse(sourcePath).name;
     const html = wrapNotebookHtml(title, htmlFragment);
-    const outputName = `${path.parse(file).name}.html`;
+    const outputName = `${path.parse(sourcePath).name}.html`;
     const outputPath = path.join(NOTEBOOK_PUBLIC_DIR, outputName);
     await fs.writeFile(outputPath, html, "utf8");
     console.log(`Built: ${outputPath}`);

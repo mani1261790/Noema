@@ -3,8 +3,10 @@ import path from "path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
   NOTEBOOK_SOURCE_DIR,
+  getPreferredNotebookSourceRelativePath,
   notebookIdFromHtmlPath,
-  renderNotebookHtmlFragmentFromSource
+  renderNotebookHtmlFragmentFromSource,
+  resolveNotebookSourcePath
 } from "@/lib/notebook-artifacts";
 import { canonicalizeNotebookFile } from "@/lib/notebook-ingest";
 
@@ -60,7 +62,9 @@ export async function saveNotebookArtifacts(params: { notebookId: string; ipynbR
   }
 
   await fs.mkdir(NOTEBOOK_SOURCE_DIR, { recursive: true });
-  await fs.writeFile(path.join(NOTEBOOK_SOURCE_DIR, `${params.notebookId}.ipynb`), params.ipynbRaw, "utf8");
+  const localSourcePath = path.join(NOTEBOOK_SOURCE_DIR, getPreferredNotebookSourceRelativePath(params.notebookId));
+  await fs.mkdir(path.dirname(localSourcePath), { recursive: true });
+  await fs.writeFile(localSourcePath, params.ipynbRaw, "utf8");
 
   return {
     htmlPath: `/notebooks/${params.notebookId}.html`,
@@ -97,7 +101,7 @@ export async function loadNotebookIpynb(notebookId: string): Promise<string> {
     );
     raw = await streamToString(response.Body);
   } else {
-    const localPath = path.join(NOTEBOOK_SOURCE_DIR, `${notebookId}.ipynb`);
+    const localPath = await resolveNotebookSourcePath(notebookId);
     raw = await fs.readFile(localPath, "utf8");
   }
 

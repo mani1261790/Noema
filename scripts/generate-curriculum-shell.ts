@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { getPreferredNotebookSourceRelativePath } from "../src/lib/notebook-artifacts";
 
 type NotebookSpec = {
   id: string;
@@ -376,7 +377,7 @@ function buildCatalog(): Catalog {
         order: notebookIndex + 1,
         tags: notebook.tags,
         htmlPath: `/notebooks/${notebook.id}.html`,
-        colabUrl: `${COLAB_BASE}/${notebook.id}.ipynb`
+        colabUrl: `${COLAB_BASE}/${getPreferredNotebookSourceRelativePath(notebook.id).replace(/\\/g, "/")}`
       }))
     }))
   };
@@ -386,19 +387,38 @@ async function writeNotebookFiles() {
   const notebooksDir = path.join(process.cwd(), "content", "notebooks");
   await fs.mkdir(notebooksDir, { recursive: true });
 
-  const existing = await fs.readdir(notebooksDir);
-  await Promise.all(
-    existing
-      .filter((name) => name.endsWith(".ipynb"))
-      .map((name) => fs.unlink(path.join(notebooksDir, name)))
-  );
+  const clearExistingNotebookFiles = async (dir: string): Promise<void> => {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    await Promise.all(
+      entries.map(async (entry) => {
+        const entryPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await clearExistingNotebookFiles(entryPath);
+          const remaining = await fs.readdir(entryPath);
+          if (remaining.length === 0) {
+            await fs.rmdir(entryPath);
+          }
+          return;
+        }
+        if (entry.isFile() && entry.name.endsWith(".ipynb")) {
+          await fs.unlink(entryPath);
+        }
+      })
+    );
+  };
+
+  await clearExistingNotebookFiles(notebooksDir);
 
   const writes: Promise<void>[] = [];
   for (const chapter of chapters) {
     for (const notebook of chapter.notebooks) {
       const notebookFile = makeNotebookScaffold(chapter.title, notebook.title);
-      const outputPath = path.join(notebooksDir, `${notebook.id}.ipynb`);
-      writes.push(fs.writeFile(outputPath, `${JSON.stringify(notebookFile, null, 2)}\n`, "utf8"));
+      const outputPath = path.join(notebooksDir, getPreferredNotebookSourceRelativePath(notebook.id));
+      writes.push(
+        fs.mkdir(path.dirname(outputPath), { recursive: true }).then(() =>
+          fs.writeFile(outputPath, `${JSON.stringify(notebookFile, null, 2)}\n`, "utf8")
+        )
+      );
     }
   }
 

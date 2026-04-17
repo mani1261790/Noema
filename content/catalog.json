@@ -21,7 +21,7 @@
             "syntax"
           ],
           "htmlPath": "/notebooks/python-basic-operations.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/python-basic-operations.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/python-basic-operations.ipynb"
         },
         {
           "id": "numpy-basics",
@@ -33,7 +33,7 @@
             "array"
           ],
           "htmlPath": "/notebooks/numpy-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/numpy-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/numpy-basics.ipynb"
         },
         {
           "id": "pandas-basics",
@@ -45,7 +45,7 @@
             "dataframe"
           ],
           "htmlPath": "/notebooks/pandas-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/pandas-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/pandas-basics.ipynb"
         },
         {
           "id": "matplotlib-seaborn",
@@ -58,7 +58,7 @@
             "visualization"
           ],
           "htmlPath": "/notebooks/matplotlib-seaborn.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/matplotlib-seaborn.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/matplotlib-seaborn.ipynb"
         }
       ]
     },
@@ -78,7 +78,7 @@
             "linear"
           ],
           "htmlPath": "/notebooks/simple-regression.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/simple-regression.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/simple-regression.ipynb"
         },
         {
           "id": "multiple-regression",
@@ -90,7 +90,7 @@
             "multivariate"
           ],
           "htmlPath": "/notebooks/multiple-regression.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multiple-regression.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/multiple-regression.ipynb"
         },
         {
           "id": "sklearn-xgboost",
@@ -102,7 +102,7 @@
             "xgboost"
           ],
           "htmlPath": "/notebooks/sklearn-xgboost.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sklearn-xgboost.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/sklearn-xgboost.ipynb"
         },
         {
           "id": "feature-engineering",
@@ -114,7 +114,7 @@
             "preprocessing"
           ],
           "htmlPath": "/notebooks/feature-engineering.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/feature-engineering.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/feature-engineering.ipynb"
         },
         {
           "id": "supervised-unsupervised-learning",
@@ -126,7 +126,7 @@
             "unsupervised"
           ],
           "htmlPath": "/notebooks/supervised-unsupervised-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/supervised-unsupervised-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/supervised-unsupervised-learning.ipynb"
         },
         {
           "id": "time-series-data",
@@ -138,7 +138,7 @@
             "forecasting"
           ],
           "htmlPath": "/notebooks/time-series-data.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/time-series-data.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/time-series-data.ipynb"
         },
         {
           "id": "sql-for-ml",
@@ -150,7 +150,7 @@
             "data-engineering"
           ],
           "htmlPath": "/notebooks/sql-for-ml.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sql-for-ml.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/sql-for-ml.ipynb"
         }
       ]
     },
@@ -170,7 +170,7 @@
             "mlp"
           ],
           "htmlPath": "/notebooks/neural-network-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/neural-network-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/neural-network-basics.ipynb"
         },
         {
           "id": "loss-and-gradient-descent",
@@ -182,7 +182,7 @@
             "gradient-descent"
           ],
           "htmlPath": "/notebooks/loss-and-gradient-descent.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/loss-and-gradient-descent.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/loss-and-gradient-descent.ipynb"
         },
         {
           "id": "optimization-regularization",
@@ -194,7 +194,7 @@
             "regularization"
           ],
           "htmlPath": "/notebooks/optimization-regularization.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/optimization-regularization.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/optimization-regularization.ipynb"
         },
         {
           "id": "convolution-basics",
@@ -206,7 +206,7 @@
             "convolution"
           ],
           "htmlPath": "/notebooks/convolution-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/convolution-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/convolution-basics.ipynb"
         },
         {
           "id": "image-recognition-yolo",
@@ -218,7 +218,7 @@
             "yolo"
           ],
           "htmlPath": "/notebooks/image-recognition-yolo.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/image-recognition-yolo.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/image-recognition-yolo.ipynb"
         },
         {
           "id": "recurrent-neural-networks",
@@ -231,7 +231,7 @@
             "gru"
           ],
           "htmlPath": "/notebooks/recurrent-neural-networks.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/recurrent-neural-networks.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/recurrent-neural-networks.ipynb"
         },
         {
           "id": "transformer-basics",
@@ -243,7 +243,7 @@
             "attention"
           ],
           "htmlPath": "/notebooks/transformer-basics.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/transformer-basics.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/transformer-basics.ipynb"
         },
         {
           "id": "nlp-deep-learning",
@@ -255,7 +255,7 @@
             "language"
           ],
           "htmlPath": "/notebooks/nlp-deep-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nlp-deep-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/nlp-deep-learning.ipynb"
         }
       ]
     },
@@ -276,7 +276,7 @@
             "value-function"
           ],
           "htmlPath": "/notebooks/rl-foundation.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/rl-foundation.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/rl-foundation.ipynb"
         },
         {
           "id": "bellman-equations",
@@ -288,7 +288,7 @@
             "dynamic-programming"
           ],
           "htmlPath": "/notebooks/bellman-equations.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/bellman-equations.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/bellman-equations.ipynb"
         },
         {
           "id": "td-learning",
@@ -300,7 +300,7 @@
             "prediction"
           ],
           "htmlPath": "/notebooks/td-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/td-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/td-learning.ipynb"
         },
         {
           "id": "q-learning",
@@ -312,7 +312,7 @@
             "off-policy"
           ],
           "htmlPath": "/notebooks/q-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/q-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/q-learning.ipynb"
         },
         {
           "id": "sarsa",
@@ -324,7 +324,7 @@
             "on-policy"
           ],
           "htmlPath": "/notebooks/sarsa.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/sarsa.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/sarsa.ipynb"
         },
         {
           "id": "n-step-td",
@@ -336,7 +336,7 @@
             "temporal-difference"
           ],
           "htmlPath": "/notebooks/n-step-td.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/n-step-td.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/n-step-td.ipynb"
         },
         {
           "id": "td-lambda",
@@ -348,7 +348,7 @@
             "trace"
           ],
           "htmlPath": "/notebooks/td-lambda.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/td-lambda.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/td-lambda.ipynb"
         },
         {
           "id": "eligibility-trace-td-lambda",
@@ -360,7 +360,7 @@
             "td-lambda"
           ],
           "htmlPath": "/notebooks/eligibility-trace-td-lambda.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/eligibility-trace-td-lambda.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/eligibility-trace-td-lambda.ipynb"
         },
         {
           "id": "deep-rl",
@@ -372,7 +372,7 @@
             "function-approximation"
           ],
           "htmlPath": "/notebooks/deep-rl.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/deep-rl.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/deep-rl.ipynb"
         },
         {
           "id": "reinforcement-learning-overview",
@@ -384,7 +384,7 @@
             "review"
           ],
           "htmlPath": "/notebooks/reinforcement-learning-overview.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/reinforcement-learning-overview.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/reinforcement-learning-overview.ipynb"
         }
       ]
     },
@@ -404,7 +404,7 @@
             "inference"
           ],
           "htmlPath": "/notebooks/prompt-engineering.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/prompt-engineering.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/prompt-engineering.ipynb"
         },
         {
           "id": "llm-pretraining",
@@ -416,7 +416,7 @@
             "transformer"
           ],
           "htmlPath": "/notebooks/llm-pretraining.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-pretraining.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/llm-pretraining.ipynb"
         },
         {
           "id": "scaling-laws",
@@ -428,7 +428,7 @@
             "compute"
           ],
           "htmlPath": "/notebooks/scaling-laws.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/scaling-laws.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/scaling-laws.ipynb"
         },
         {
           "id": "fine-tuning",
@@ -440,7 +440,7 @@
             "adaptation"
           ],
           "htmlPath": "/notebooks/fine-tuning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/fine-tuning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/fine-tuning.ipynb"
         },
         {
           "id": "hallucination-rlhf",
@@ -452,7 +452,7 @@
             "rlhf"
           ],
           "htmlPath": "/notebooks/hallucination-rlhf.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/hallucination-rlhf.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/hallucination-rlhf.ipynb"
         },
         {
           "id": "tool-use-rag",
@@ -464,7 +464,7 @@
             "rag"
           ],
           "htmlPath": "/notebooks/tool-use-rag.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/tool-use-rag.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/tool-use-rag.ipynb"
         },
         {
           "id": "llm-efficiency",
@@ -477,7 +477,7 @@
             "inference"
           ],
           "htmlPath": "/notebooks/llm-efficiency.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/llm-efficiency.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/llm-efficiency.ipynb"
         }
       ]
     },
@@ -497,7 +497,7 @@
             "probabilistic"
           ],
           "htmlPath": "/notebooks/generative-model-overview.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/generative-model-overview.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/generative-model-overview.ipynb"
         },
         {
           "id": "latent-variable-mixture-models",
@@ -509,7 +509,7 @@
             "mixture-model"
           ],
           "htmlPath": "/notebooks/latent-variable-mixture-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/latent-variable-mixture-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/latent-variable-mixture-models.ipynb"
         },
         {
           "id": "vae",
@@ -521,7 +521,7 @@
             "variational-inference"
           ],
           "htmlPath": "/notebooks/vae.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/vae.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/vae.ipynb"
         },
         {
           "id": "gan",
@@ -533,7 +533,7 @@
             "adversarial"
           ],
           "htmlPath": "/notebooks/gan.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/gan.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/gan.ipynb"
         },
         {
           "id": "autoregressive-flow-models",
@@ -545,7 +545,7 @@
             "normalizing-flow"
           ],
           "htmlPath": "/notebooks/autoregressive-flow-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/autoregressive-flow-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/autoregressive-flow-models.ipynb"
         },
         {
           "id": "energy-based-models",
@@ -557,7 +557,7 @@
             "ebm"
           ],
           "htmlPath": "/notebooks/energy-based-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/energy-based-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/energy-based-models.ipynb"
         },
         {
           "id": "score-diffusion-models",
@@ -569,7 +569,7 @@
             "diffusion"
           ],
           "htmlPath": "/notebooks/score-diffusion-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/score-diffusion-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/score-diffusion-models.ipynb"
         },
         {
           "id": "continuous-diffusion-flow-matching",
@@ -581,7 +581,7 @@
             "flow-matching"
           ],
           "htmlPath": "/notebooks/continuous-diffusion-flow-matching.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/continuous-diffusion-flow-matching.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/continuous-diffusion-flow-matching.ipynb"
         }
       ]
     },
@@ -601,7 +601,7 @@
             "dynamics"
           ],
           "htmlPath": "/notebooks/world-models-and-generative-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/world-models-and-generative-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models-and-generative-models.ipynb"
         },
         {
           "id": "control-model-and-mbrl",
@@ -613,7 +613,7 @@
             "model-based-rl"
           ],
           "htmlPath": "/notebooks/control-model-and-mbrl.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/control-model-and-mbrl.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/control-model-and-mbrl.ipynb"
         },
         {
           "id": "state-space-models",
@@ -625,7 +625,7 @@
             "ssm"
           ],
           "htmlPath": "/notebooks/state-space-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-space-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/state-space-models.ipynb"
         },
         {
           "id": "state-representation-learning",
@@ -637,7 +637,7 @@
             "latent-state"
           ],
           "htmlPath": "/notebooks/state-representation-learning.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-representation-learning.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/state-representation-learning.ipynb"
         },
         {
           "id": "state-prediction-models",
@@ -649,7 +649,7 @@
             "dynamics"
           ],
           "htmlPath": "/notebooks/state-prediction-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/state-prediction-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/state-prediction-models.ipynb"
         },
         {
           "id": "vae-diffusion-world-models",
@@ -661,7 +661,7 @@
             "diffusion"
           ],
           "htmlPath": "/notebooks/vae-diffusion-world-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/vae-diffusion-world-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/vae-diffusion-world-models.ipynb"
         },
         {
           "id": "simulation-and-cg",
@@ -673,7 +673,7 @@
             "computer-graphics"
           ],
           "htmlPath": "/notebooks/simulation-and-cg.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/simulation-and-cg.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/simulation-and-cg.ipynb"
         },
         {
           "id": "ssm-and-transformer",
@@ -685,7 +685,7 @@
             "transformer"
           ],
           "htmlPath": "/notebooks/ssm-and-transformer.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/ssm-and-transformer.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/ssm-and-transformer.ipynb"
         },
         {
           "id": "observation-prediction-models",
@@ -698,7 +698,7 @@
             "diffusion"
           ],
           "htmlPath": "/notebooks/observation-prediction-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/observation-prediction-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/observation-prediction-models.ipynb"
         },
         {
           "id": "multimodal-world-models",
@@ -710,7 +710,7 @@
             "vision-language-action"
           ],
           "htmlPath": "/notebooks/multimodal-world-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multimodal-world-models.ipynb"
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/multimodal-world-models.ipynb"
         }
       ]
     },
@@ -730,7 +730,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-autoencoders-bonus-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -750,7 +750,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-autoencoders-bonus-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -770,7 +770,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-autoencoders-bonus-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -790,7 +790,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-autoencoders-bonus-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -810,7 +810,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-autoencoders-bonus-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -830,7 +830,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-optimalcontrol-bonus-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -850,7 +850,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-optimalcontrol-bonus-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -870,7 +870,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-optimalcontrol-bonus-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -890,7 +890,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-optimalcontrol-bonus-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -910,7 +910,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-bonus-optimalcontrol-bonus-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -930,7 +930,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-module-wrapups-dynamicalsystems.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/DynamicalSystems.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-module-wrapups-dynamicalsystems.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -950,7 +950,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-module-wrapups-machinelearning.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/MachineLearning.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-module-wrapups-machinelearning.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -970,7 +970,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-module-wrapups-stochasticprocesses.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/StochasticProcesses.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-module-wrapups-stochasticprocesses.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -990,7 +990,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1010,7 +1010,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1030,7 +1030,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1050,7 +1050,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1070,7 +1070,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1090,7 +1090,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1110,7 +1110,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-w1d1-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1130,7 +1130,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-intro-vid.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/intro_vid.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-intro-vid.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1150,7 +1150,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-outro-vid.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/outro_vid.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d1-modeltypes-outro-vid.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1170,7 +1170,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1190,7 +1190,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1210,7 +1210,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1230,7 +1230,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1250,7 +1250,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1270,7 +1270,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1290,7 +1290,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1310,7 +1310,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial5.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial5.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-tutorial5.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1330,7 +1330,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial6.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial6.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d2-modelfitting-w1d2-tutorial6.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1350,7 +1350,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1370,7 +1370,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1390,7 +1390,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1410,7 +1410,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1430,7 +1430,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1450,7 +1450,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1470,7 +1470,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1490,7 +1490,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1510,7 +1510,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1530,7 +1530,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1550,7 +1550,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1570,7 +1570,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1590,7 +1590,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1610,7 +1610,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1630,7 +1630,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1650,7 +1650,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1670,7 +1670,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1690,7 +1690,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1710,7 +1710,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w1d5-deeplearning-w1d5-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1730,7 +1730,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d1-modelingpractice-w2d1-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1750,7 +1750,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d1-modelingpractice-w2d1-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1770,7 +1770,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d1-modelingpractice-w2d1-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1790,7 +1790,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d1-modelingpractice-w2d1-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1810,7 +1810,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1830,7 +1830,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1850,7 +1850,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1870,7 +1870,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1890,7 +1890,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1910,7 +1910,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1930,7 +1930,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d3-linearsystems-w2d3-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1950,7 +1950,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1970,7 +1970,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -1990,7 +1990,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2010,7 +2010,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2030,7 +2030,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2050,7 +2050,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2070,7 +2070,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2090,7 +2090,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d5-dynamicalsystems-w2d5-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2110,7 +2110,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d5-dynamicalsystems-w2d5-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2130,7 +2130,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d5-dynamicalsystems-w2d5-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2150,7 +2150,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2170,7 +2170,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2190,7 +2190,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2210,7 +2210,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d2-bayesiandecisions-w3d2-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2230,7 +2230,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d2-bayesiandecisions-w3d2-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2250,7 +2250,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d2-bayesiandecisions-w3d2-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2270,7 +2270,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2290,7 +2290,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2310,7 +2310,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2330,7 +2330,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2350,7 +2350,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2370,7 +2370,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2390,7 +2390,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2410,7 +2410,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2430,7 +2430,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2450,7 +2450,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2470,7 +2470,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial5.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial5.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial5.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2490,7 +2490,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2510,7 +2510,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2530,7 +2530,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2550,7 +2550,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2570,7 +2570,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2590,7 +2590,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2610,7 +2610,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2630,7 +2630,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-daysummary.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_DaySummary.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-daysummary.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2650,7 +2650,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2670,7 +2670,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-outro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Outro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-outro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2690,7 +2690,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2710,7 +2710,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2730,7 +2730,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2750,7 +2750,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial4.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial4.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-w3d5-networkcausality-w3d5-tutorial4.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2770,7 +2770,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-compneuro-tutorials-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/student/intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/compneuro/nma-compneuro-tutorials-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2798,7 +2798,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-bonus-deploymodels-bonus-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Bonus_DeployModels/student/Bonus_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-bonus-deploymodels-bonus-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2818,7 +2818,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-module-wrapups-finetuning.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/FineTuning.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-module-wrapups-finetuning.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2838,7 +2838,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-module-wrapups-naturallanguageprocessing.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/NaturalLanguageProcessing.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-module-wrapups-naturallanguageprocessing.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2858,7 +2858,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-module-wrapups-reinforcementlearning.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/ReinforcementLearning.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-module-wrapups-reinforcementlearning.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2878,7 +2878,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d1-basicsandpytorch-w1d1-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D1_BasicsAndPytorch/student/W1D1_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d1-basicsandpytorch-w1d1-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2898,7 +2898,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-bonuslecture.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_BonusLecture.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d2-lineardeeplearning-w1d2-bonuslecture.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2918,7 +2918,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2938,7 +2938,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2958,7 +2958,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2978,7 +2978,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D3_MultiLayerPerceptrons/student/W1D3_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -2998,7 +2998,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D3_MultiLayerPerceptrons/student/W1D3_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3018,7 +3018,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w1d4-optimization-w1d4-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D4_Optimization/student/W1D4_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w1d4-optimization-w1d4-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3038,7 +3038,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d1-regularization-w2d1-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D1_Regularization/student/W2D1_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d1-regularization-w2d1-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3058,7 +3058,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d1-regularization-w2d1-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D1_Regularization/student/W2D1_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d1-regularization-w2d1-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3078,7 +3078,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d2-convnetsanddlthinking-w2d2-bonuslecture.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_BonusLecture.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d2-convnetsanddlthinking-w2d2-bonuslecture.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3098,7 +3098,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3118,7 +3118,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3138,7 +3138,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d3-modernconvnets-w2d3-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D3_ModernConvnets/student/W2D3_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d3-modernconvnets-w2d3-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3158,7 +3158,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d3-modernconvnets-w2d3-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D3_ModernConvnets/student/W2D3_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d3-modernconvnets-w2d3-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3178,7 +3178,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-bonuslecture.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_BonusLecture.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d4-generativemodels-w2d4-bonuslecture.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3198,7 +3198,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d4-generativemodels-w2d4-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3218,7 +3218,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d4-generativemodels-w2d4-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3238,7 +3238,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d4-generativemodels-w2d4-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3258,7 +3258,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d5-attentionandtransformers-w2d5-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D5_AttentionAndTransformers/student/W2D5_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d5-attentionandtransformers-w2d5-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3278,7 +3278,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w2d5-attentionandtransformers-w2d5-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D5_AttentionAndTransformers/student/W2D5_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w2d5-attentionandtransformers-w2d5-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3298,7 +3298,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3318,7 +3318,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3338,7 +3338,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3358,7 +3358,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d2-dlcasestudy2-w3d2-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D2_DLCaseStudy2/student/W3D2_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d2-dlcasestudy2-w3d2-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3378,7 +3378,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-bonuslecture.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D3_UnsupervisedAndSelfSupervisedLearning/student/W3D3_BonusLecture.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-bonuslecture.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3398,7 +3398,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D3_UnsupervisedAndSelfSupervisedLearning/student/W3D3_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3418,7 +3418,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d4-basicreinforcementlearning-w3d4-bonuslecture.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D4_BasicReinforcementLearning/student/W3D4_BonusLecture.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d4-basicreinforcementlearning-w3d4-bonuslecture.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3438,7 +3438,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d4-basicreinforcementlearning-w3d4-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D4_BasicReinforcementLearning/student/W3D4_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d4-basicreinforcementlearning-w3d4-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3458,7 +3458,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-bonuslecture.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_BonusLecture.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-bonuslecture.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3478,7 +3478,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial1.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial1.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial1.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3498,7 +3498,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial2.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial2.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial2.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3518,7 +3518,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial3.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial3.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial3.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",
@@ -3538,7 +3538,7 @@
             "translation"
           ],
           "htmlPath": "/notebooks/nma-dl-tutorials-intro.html",
-          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/student/intro.ipynb",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/nma/deep-learning/nma-dl-tutorials-intro.ipynb",
           "source": {
             "kind": "open-license-translation",
             "provider": "Neuromatch Academy",

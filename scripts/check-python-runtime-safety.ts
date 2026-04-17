@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveNotebookSourcePath } from '../src/lib/notebook-artifacts';
 import {
   extractImportedPythonModules,
   selectPythonRunnerFunctionName,
@@ -115,7 +116,14 @@ function checkNotebookFirstCell(notebookPath: string) {
   assert.equal(payload.error ?? null, null, `Notebook first cell failed: ${notebookPath}: ${payload.error || 'unknown'}`);
 }
 
-checkRouting();
-checkGuardedTorchCellOnStandardRunner();
-checkNotebookFirstCell(path.join(process.cwd(), 'content/notebooks/neural-network-basics.ipynb'));
-console.log('Python runtime safety checks passed.');
+async function main() {
+  checkRouting();
+  checkGuardedTorchCellOnStandardRunner();
+  checkNotebookFirstCell(await resolveNotebookSourcePath('neural-network-basics'));
+  console.log('Python runtime safety checks passed.');
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
