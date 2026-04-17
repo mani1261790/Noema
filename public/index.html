@@ -352,6 +352,32 @@
 
     .chapter-section + .chapter-section {
       margin-top: 22px;
+      padding-top: 14px;
+      border-top: 1px solid color-mix(in oklab, var(--glass-edge-soft) 86%, transparent);
+    }
+
+    .sidebar-library + .sidebar-library {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
+    }
+
+    .sidebar-library-title {
+      display: block;
+      margin: 0 0 6px;
+      padding: 0 2px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      color: color-mix(in oklab, var(--text) 94%, white);
+    }
+
+    .sidebar-library-description {
+      margin: 0 0 12px;
+      padding: 0 2px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted);
     }
 
     .chapter-section-label {
@@ -2508,6 +2534,36 @@
         width: 100%;
         border-radius: 10px;
       }
+
+      .chapter-section + .chapter-section {
+        margin-top: 24px;
+        padding-top: 16px;
+      }
+
+      .sidebar-library + .sidebar-library {
+        margin-top: 30px;
+        padding-top: 18px;
+      }
+
+      .sidebar-library-title {
+        font-size: 14px;
+        margin-bottom: 5px;
+      }
+
+      .sidebar-library-description {
+        font-size: 12px;
+        margin-bottom: 12px;
+      }
+
+      .chapter-section-label {
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+
+      .chapter-section-description {
+        font-size: 12px;
+        margin-bottom: 12px;
+      }
     }
   </style>
 </head>
@@ -3980,8 +4036,26 @@
           .sort((a, b) => a.order - b.order)
           .map((chapter) => ({
             ...chapter,
+            audience: inferChapterAudience(chapter),
             notebooks: chapter.notebooks.slice().sort((a, b) => a.order - b.order)
           }));
+      }
+
+      function inferChapterAudience(chapter) {
+        const rawAudience = String(chapter && chapter.audience ? chapter.audience : "").trim().toLowerCase();
+        if (rawAudience === "beginner" || rawAudience === "advanced") return rawAudience;
+
+        const normalizedId = String(chapter && chapter.id ? chapter.id : "").trim().toLowerCase();
+        const normalizedTitle = String(chapter && chapter.title ? chapter.title : "").trim().toLowerCase();
+        if (
+          normalizedId === "python" ||
+          normalizedId === "machine-learning" ||
+          normalizedTitle === "python" ||
+          normalizedTitle === "機械学習"
+        ) {
+          return "beginner";
+        }
+        return "advanced";
       }
 
       function notebookSections() {
@@ -4009,6 +4083,24 @@
         const kind = String(source && source.kind ? source.kind : "noema-original");
         if (kind === "open-license-translation") return "翻訳教材";
         return "";
+      }
+
+      function chapterSourceGroup(chapter) {
+        const notebooks = Array.isArray(chapter && chapter.notebooks) ? chapter.notebooks : [];
+        if (!notebooks.length) return "noema";
+        return notebooks.some((notebook) => isExternalTranslatedNotebook(notebook)) ? "external" : "noema";
+      }
+
+      function chapterProviderLabel(chapter) {
+        const notebooks = Array.isArray(chapter && chapter.notebooks) ? chapter.notebooks : [];
+        const providers = Array.from(
+          new Set(
+            notebooks
+              .map((notebook) => String(notebook && notebook.source && notebook.source.provider ? notebook.source.provider : "").trim())
+              .filter(Boolean)
+          )
+        );
+        return providers[0] || "External";
       }
 
       function isExternalTranslatedNotebook(notebook) {
@@ -4060,58 +4152,129 @@
         return hay.includes(query);
       }
 
-      function buildSidebarHtml(forMobile) {
-        const query = state.query.trim().toLowerCase();
-        const sections = notebookSections()
+      function externalNotebookSections() {
+        const chapters = notebookList().filter((chapter) => chapterSourceGroup(chapter) === "external");
+        const byProvider = new Map();
+
+        chapters.forEach((chapter) => {
+          const provider = chapterProviderLabel(chapter);
+          const existing = byProvider.get(provider) || {
+            id: `provider:${provider.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            title: provider,
+            description: `${provider} が公開している外部オープンライセンス教材です。`,
+            chapters: []
+          };
+          existing.chapters.push(chapter);
+          byProvider.set(provider, existing);
+        });
+
+        return Array.from(byProvider.values()).map((section) => ({
+          ...section,
+          chapters: section.chapters.sort((a, b) => a.order - b.order)
+        }));
+      }
+
+      function sidebarLibraries() {
+        const noemaSections = notebookSections()
           .map((section) => ({
             ...section,
-            chapters: section.chapters
-              .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
-              .filter((chapter) => chapter.notebooks.length > 0)
+            chapters: section.chapters.filter((chapter) => chapterSourceGroup(chapter) === "noema")
           }))
           .filter((section) => section.chapters.length > 0);
 
-        if (sections.length === 0) {
+        const libraries = [];
+
+        if (noemaSections.length) {
+          libraries.push({
+            id: "noema-library",
+            title: "Noema教材",
+            description: "Noema オリジナルの教材です。",
+            sections: noemaSections
+          });
+        }
+
+        const externalSections = externalNotebookSections();
+        if (externalSections.length) {
+          libraries.push({
+            id: "external-library",
+            title: "外部オープンライセンス教材",
+            description: "Noema ブランド教材とは完全に分けて掲載する翻訳・再構成教材です。",
+            sections: externalSections
+          });
+        }
+
+        return libraries;
+      }
+
+      function buildSidebarHtml(forMobile) {
+        const query = state.query.trim().toLowerCase();
+        const libraries = sidebarLibraries()
+          .map((library) => ({
+            ...library,
+            sections: library.sections
+              .map((section) => ({
+                ...section,
+                chapters: section.chapters
+                  .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
+                  .filter((chapter) => chapter.notebooks.length > 0)
+              }))
+              .filter((section) => section.chapters.length > 0)
+          }))
+          .filter((library) => library.sections.length > 0);
+
+        if (libraries.length === 0) {
           return '<p class="muted-empty">一致する教材がありません。</p>';
         }
 
-        return sections
-          .map((section) => {
-            const chaptersHtml = section.chapters
-              .map((chapter) => {
-                const expanded = Boolean(state.openChapters[chapter.id]);
-                const items = expanded
-                  ? `<div class="chapter-items">${chapter.notebooks
-                      .map((nb) => {
-                        const active = state.activeNotebook && state.activeNotebook.id === nb.id ? "active" : "";
-                        return `<button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${renderNotebookSidebarMeta(nb) || `<span class="nb-item-title">${escapeHtml(nb.title)}</span>`}</button>`;
-                      })
-                      .join("")}</div>`
-                  : "";
+        return libraries
+          .map((library) => {
+            const sectionsHtml = library.sections
+              .map((section) => {
+                const chaptersHtml = section.chapters
+                  .map((chapter) => {
+                    const expanded = Boolean(state.openChapters[chapter.id]);
+                    const items = expanded
+                      ? `<div class="chapter-items">${chapter.notebooks
+                          .map((nb) => {
+                            const active = state.activeNotebook && state.activeNotebook.id === nb.id ? "active" : "";
+                            return `<button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${renderNotebookSidebarMeta(nb) || `<span class="nb-item-title">${escapeHtml(nb.title)}</span>`}</button>`;
+                          })
+                          .join("")}</div>`
+                      : "";
+
+                    return `
+                      <section class="chapter glass-soft">
+                        <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button" aria-expanded="${expanded ? "true" : "false"}">
+                          <span class="chapter-title">${chapter.title}</span>
+                          <span class="chapter-arrow ${expanded ? "expanded" : ""}" aria-hidden="true">
+                            <svg viewBox="0 0 12 12" focusable="false">
+                              <path d="M4 2.25 L7.75 6 L4 9.75"></path>
+                            </svg>
+                          </span>
+                        </button>
+                        ${items}
+                      </section>
+                    `;
+                  })
+                  .join("");
 
                 return `
-                  <section class="chapter glass-soft">
-                    <button class="chapter-toggle" data-chapter-id="${chapter.id}" data-mobile="${forMobile ? "1" : "0"}" type="button" aria-expanded="${expanded ? "true" : "false"}">
-                      <span class="chapter-title">${chapter.title}</span>
-                      <span class="chapter-arrow ${expanded ? "expanded" : ""}" aria-hidden="true">
-                        <svg viewBox="0 0 12 12" focusable="false">
-                          <path d="M4 2.25 L7.75 6 L4 9.75"></path>
-                        </svg>
-                      </span>
-                    </button>
-                    ${items}
+                  <section class="chapter-section" data-audience-section="${section.id}">
+                    <p class="chapter-section-label">${escapeHtml(section.title)}</p>
+                    <p class="chapter-section-description">${escapeHtml(section.description)}</p>
+                    <div class="chapter-section-stack">
+                      ${chaptersHtml}
+                    </div>
                   </section>
                 `;
               })
               .join("");
 
             return `
-              <section class="chapter-section" data-audience-section="${section.id}">
-                <p class="chapter-section-label">${escapeHtml(section.title)}</p>
-                <p class="chapter-section-description">${escapeHtml(section.description)}</p>
-                <div class="chapter-section-stack">
-                  ${chaptersHtml}
-                </div>
+              <section class="sidebar-library" data-library-id="${library.id}">
+                <p class="sidebar-library-title">${escapeHtml(library.title)}</p>
+                <p class="sidebar-library-description">${escapeHtml(library.description)}</p>
+                ${sectionsHtml}
               </section>
             `;
           })
@@ -6067,10 +6230,9 @@
           contentSourceDefaults,
           chapters: chapters.map((chapter) => {
             const notebooks = Array.isArray(chapter?.notebooks) ? chapter.notebooks : [];
-            const audience = String(chapter?.audience || "").trim().toLowerCase() === "beginner" ? "beginner" : "advanced";
             return {
               ...chapter,
-              audience,
+              audience: inferChapterAudience(chapter),
               notebooks: notebooks.map((notebook) => ({
                 ...notebook,
                 source: {

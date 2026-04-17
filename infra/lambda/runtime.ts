@@ -91,11 +91,20 @@ type NotebookRecord = {
   title: string;
   chapter: string;
   chapterOrder?: number;
+  audience?: "beginner" | "advanced";
   sortOrder: number;
   tags: string[];
   htmlPath: string;
   colabUrl: string;
   videoUrl?: string;
+  source?: {
+    kind: "noema-original" | "open-license-translation";
+    provider: string;
+    license: string;
+    originalTitle?: string;
+    originalUrl?: string;
+    translationLanguage?: string;
+  };
   chunks?: NotebookChunk[];
   createdAt?: string;
   updatedAt?: string;
@@ -2102,6 +2111,7 @@ export async function listCatalog() {
       id: string;
       title: string;
       order: number;
+      audience: "beginner" | "advanced";
       notebooks: Array<{
         id: string;
         title: string;
@@ -2110,6 +2120,7 @@ export async function listCatalog() {
         htmlPath: string;
         colabUrl: string;
         videoUrl?: string;
+        source?: NotebookRecord["source"];
       }>;
     }
   >();
@@ -2130,6 +2141,7 @@ export async function listCatalog() {
       id: chapterId,
       title: row.chapter,
       order: Number.isFinite(row.chapterOrder) ? Number(row.chapterOrder) : chapters.size + 1,
+      audience: row.audience || inferChapterAudience(chapterId, row.chapter),
       notebooks: []
     };
 
@@ -2140,7 +2152,8 @@ export async function listCatalog() {
       tags: Array.isArray(row.tags) ? row.tags : [],
       htmlPath: row.htmlPath,
       colabUrl: row.colabUrl,
-      videoUrl: row.videoUrl || undefined
+      videoUrl: row.videoUrl || undefined,
+      source: row.source
     });
     chapters.set(chapterId, chapter);
   }
@@ -2159,6 +2172,20 @@ export async function listCatalog() {
         notebooks: chapter.notebooks.sort((a, b) => a.order - b.order)
       }))
   };
+}
+
+function inferChapterAudience(chapterId: string, chapterTitle: string): "beginner" | "advanced" {
+  const normalizedId = String(chapterId || "").trim().toLowerCase();
+  const normalizedTitle = String(chapterTitle || "").trim().toLowerCase();
+  if (
+    normalizedId === "python" ||
+    normalizedId === "machine-learning" ||
+    normalizedTitle === "python" ||
+    normalizedTitle === "機械学習"
+  ) {
+    return "beginner";
+  }
+  return "advanced";
 }
 
 function normalizeNotebookTags(raw: unknown): string[] | undefined {
@@ -2221,6 +2248,8 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
   const chapter = asString(record.chapter).trim() || "未分類";
   const chapterOrderValue = asFiniteNumber(record.chapterOrder, Number.NaN);
   const chapterOrder = Number.isFinite(chapterOrderValue) ? Math.max(1, Math.floor(chapterOrderValue)) : undefined;
+  const rawAudience = asString(record.audience).trim().toLowerCase();
+  const audience = rawAudience === "beginner" || rawAudience === "advanced" ? rawAudience : undefined;
   const sortOrder = Math.max(1, Math.floor(asFiniteNumber(record.sortOrder ?? record.order, 1)));
   const tags = normalizeNotebookTags(record.tags) ?? [];
   const htmlPath = asString(record.htmlPath).trim() || `/notebooks/${notebookId}.html`;
@@ -2246,16 +2275,34 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
     .filter((item): item is NotebookChunk => Boolean(item))
     .sort((a, b) => a.position - b.position);
 
+  const sourceRecord = record.source && typeof record.source === "object" ? (record.source as Record<string, unknown>) : null;
+  const sourceKind = asString(sourceRecord?.kind).trim();
+  const normalizedSourceKind =
+    sourceKind === "noema-original" || sourceKind === "open-license-translation" ? sourceKind : null;
+  const source: NotebookRecord["source"] =
+    sourceRecord && normalizedSourceKind
+      ? {
+          kind: normalizedSourceKind,
+          provider: asString(sourceRecord.provider).trim() || "Noema",
+          license: asString(sourceRecord.license).trim() || "internal",
+          originalTitle: asString(sourceRecord.originalTitle).trim() || undefined,
+          originalUrl: asString(sourceRecord.originalUrl).trim() || undefined,
+          translationLanguage: asString(sourceRecord.translationLanguage).trim() || undefined
+        }
+      : undefined;
+
   return {
     notebookId,
     title,
     chapter,
     chapterOrder,
+    audience,
     sortOrder,
     tags,
     htmlPath,
     colabUrl,
     videoUrl,
+    source,
     chunks,
     createdAt,
     updatedAt
@@ -2499,11 +2546,13 @@ export async function putAdminNotebook(notebookId: string, input: AdminNotebookP
     title,
     chapter,
     chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
+    audience: existing.audience,
     sortOrder,
     tags,
     htmlPath,
     colabUrl,
     videoUrl: videoUrl || undefined,
+    source: existing.source,
     createdAt: existing.createdAt || nowIso(),
     updatedAt: nowIso()
   };
@@ -2541,11 +2590,13 @@ export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promis
     title,
     chapter,
     chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
+    audience: existing.audience,
     sortOrder,
     tags,
     htmlPath: existing.htmlPath,
     colabUrl,
     videoUrl: videoUrl || undefined,
+    source: existing.source,
     createdAt: existing.createdAt || nowIso(),
     updatedAt: nowIso()
   };
@@ -3109,11 +3160,13 @@ async function upsertNotebook(item: NotebookRecord) {
     chapter: item.chapter,
     chapterOrder:
       Number.isFinite(item.chapterOrder) ? Number(item.chapterOrder) : Number.isFinite(existing?.chapterOrder) ? Number(existing?.chapterOrder) : undefined,
+    audience: item.audience || existing?.audience,
     sortOrder: item.sortOrder,
     tags: item.tags,
     htmlPath: item.htmlPath,
     colabUrl: normalizedColabUrl,
     videoUrl: item.videoUrl,
+    source: item.source || existing?.source,
     createdAt: existing?.createdAt || nowIso(),
     updatedAt: nowIso()
   };

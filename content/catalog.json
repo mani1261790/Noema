@@ -713,6 +713,2842 @@
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/multimodal-world-models.ipynb"
         }
       ]
+    },
+    {
+      "id": "neuromatch-compneuro",
+      "title": "Neuromatch Academy / Computational Neuroscience",
+      "audience": "advanced",
+      "order": 100,
+      "notebooks": [
+        {
+          "id": "nma-compneuro-bonus-autoencoders-bonus-intro",
+          "title": "はじめに",
+          "order": 1,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-autoencoders-bonus-outro",
+          "title": "アウトロ",
+          "order": 2,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-autoencoders-bonus-tutorial1",
+          "title": "チュートリアル 1: オートエンコーダー入門",
+          "order": 3,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Intro to Autoencoders",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-autoencoders-bonus-tutorial2",
+          "title": "チュートリアル 2: オートエンコーダーの拡張",
+          "order": 4,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Autoencoder extensions",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-autoencoders-bonus-tutorial3",
+          "title": "チュートリアル 3: オートエンコーダーの応用",
+          "order": 5,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-autoencoders-bonus-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Autoencoders applications",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_Autoencoders/student/Bonus_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-optimalcontrol-bonus-daysummary",
+          "title": "日のまとめ",
+          "order": 6,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-optimalcontrol-bonus-intro",
+          "title": "はじめに",
+          "order": 7,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-optimalcontrol-bonus-outro",
+          "title": "アウトロ",
+          "order": 8,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-optimalcontrol-bonus-tutorial1",
+          "title": "チュートリアル 1: 離散状態の最適制御",
+          "order": 9,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Optimal Control for Discrete States",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-bonus-optimalcontrol-bonus-tutorial2",
+          "title": "チュートリアル 2: 連続状態の最適制御",
+          "order": 10,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-bonus-optimalcontrol-bonus-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Optimal Control for Continuous State",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Bonus_OptimalControl/student/Bonus_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-module-wrapups-dynamicalsystems",
+          "title": "動的システムまとめ",
+          "order": 11,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-module-wrapups-dynamicalsystems.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/DynamicalSystems.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Dynamical Systems Wrap-Up",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/DynamicalSystems.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-module-wrapups-machinelearning",
+          "title": "機械学習まとめ",
+          "order": 12,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-module-wrapups-machinelearning.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/MachineLearning.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Machine Learning Wrap-Up",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/MachineLearning.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-module-wrapups-stochasticprocesses",
+          "title": "確率過程まとめ",
+          "order": 13,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-module-wrapups-stochasticprocesses.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/StochasticProcesses.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Stochastic Processes Wrap-Up",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/Module_WrapUps/student/StochasticProcesses.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-daysummary",
+          "title": "デイサマリー",
+          "order": 14,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-intro",
+          "title": "はじめに",
+          "order": 15,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-outro",
+          "title": "アウトロ",
+          "order": 16,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-tutorial1",
+          "title": "チュートリアル 1: 「何を」モデル化するか",
+          "order": 17,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: \"What\" models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-tutorial2",
+          "title": "チュートリアル 2: 「どのように」モデル",
+          "order": 18,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: \"How\" models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-tutorial3",
+          "title": "チュートリアル 3: 「なぜ」モデル",
+          "order": 19,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: \"Why\" models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-w1d1-tutorial4",
+          "title": "チュートリアル 4: モデルに関するディスカッション",
+          "order": 20,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-w1d1-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 4: Model Discussions",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/W1D1_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-intro-vid",
+          "title": "イントロビデオ",
+          "order": 21,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-intro-vid.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/intro_vid.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro Video",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/intro_vid.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d1-modeltypes-outro-vid",
+          "title": "イントロビデオ",
+          "order": 22,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d1-modeltypes-outro-vid.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/outro_vid.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro Video",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D1_ModelTypes/student/outro_vid.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-daysummary",
+          "title": "日のまとめ",
+          "order": 23,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-intro",
+          "title": "はじめに",
+          "order": 24,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-outro",
+          "title": "アウトロ",
+          "order": 25,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-tutorial1",
+          "title": "チュートリアル 1: MSEを用いた線形回帰",
+          "order": 26,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Linear regression with MSE",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-tutorial2",
+          "title": "チュートリアル 2: MLEによる線形回帰",
+          "order": 27,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Linear regression with MLE",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-tutorial3",
+          "title": "チュートリアル 3: 信頼区間とブートストラップ",
+          "order": 28,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Confidence intervals and bootstrapping",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-tutorial4",
+          "title": "チュートリアル 4: 重回帰分析と多項式回帰",
+          "order": 29,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 4: Multiple linear regression and polynomial regression",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-tutorial5",
+          "title": "チュートリアル 5: モデル選択：バイアス・バリアンストレードオフ",
+          "order": 30,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial5.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial5.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 5: Model Selection: Bias-variance trade-off",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial5.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d2-modelfitting-w1d2-tutorial6",
+          "title": "チュートリアル 6: モデル選択：クロスバリデーション",
+          "order": 31,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d2-modelfitting-w1d2-tutorial6.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial6.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 6: Model Selection: Cross-validation",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D2_ModelFitting/student/W1D2_Tutorial6.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d3-generalizedlinearmodels-w1d3-daysummary",
+          "title": "日のまとめ",
+          "order": 32,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d3-generalizedlinearmodels-w1d3-intro",
+          "title": "はじめに",
+          "order": 33,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d3-generalizedlinearmodels-w1d3-outro",
+          "title": "アウトロ",
+          "order": 34,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial1",
+          "title": "チュートリアル 1: エンコーディングのためのGLM",
+          "order": 35,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: GLMs for Encoding",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial2",
+          "title": "チュートリアル 2: 分類器と正則化",
+          "order": 36,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d3-generalizedlinearmodels-w1d3-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Classifiers and regularizers",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D3_GeneralizedLinearModels/student/W1D3_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-daysummary",
+          "title": "日のまとめ",
+          "order": 37,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-intro",
+          "title": "はじめに",
+          "order": 38,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-outro",
+          "title": "アウトロ",
+          "order": 39,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial1",
+          "title": "チュートリアル 1: データの幾何学的視点",
+          "order": 40,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Geometric view of data",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial2",
+          "title": "チュートリアル 2: 主成分分析",
+          "order": 41,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Principal Component Analysis",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial3",
+          "title": "チュートリアル 3: 次元削減と再構成",
+          "order": 42,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Dimensionality Reduction & Reconstruction",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial4",
+          "title": "チュートリアル 4: 非線形次元削減",
+          "order": 43,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d4-dimensionalityreduction-w1d4-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 4:  Nonlinear Dimensionality Reduction",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D4_DimensionalityReduction/student/W1D4_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-daysummary",
+          "title": "日のまとめ",
+          "order": 44,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-intro",
+          "title": "はじめに",
+          "order": 45,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-outro",
+          "title": "アウトロ",
+          "order": 46,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-tutorial1",
+          "title": "チュートリアル 1: ニューラル応答のデコード",
+          "order": 47,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Decoding Neural Responses",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-tutorial2",
+          "title": "チュートリアル 2: 畳み込みニューラルネットワーク",
+          "order": 48,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Convolutional Neural Networks",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-tutorial3",
+          "title": "チュートリアル 3: 規範的符号化モデルの構築と評価",
+          "order": 49,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Building and Evaluating Normative Encoding Models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w1d5-deeplearning-w1d5-tutorial4",
+          "title": "ボーナスチュートリアル: デコーディングとエンコーディングをさらに深掘りする",
+          "order": 50,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w1d5-deeplearning-w1d5-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Diving Deeper into Decoding & Encoding",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W1D5_DeepLearning/student/W1D5_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d1-modelingpractice-w2d1-daysummary",
+          "title": "デイサマリー",
+          "order": 51,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d1-modelingpractice-w2d1-intro",
+          "title": "はじめに",
+          "order": 52,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d1-modelingpractice-w2d1-outro",
+          "title": "アウトロ",
+          "order": 53,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d1-modelingpractice-w2d1-tutorial1",
+          "title": "チュートリアル 1: 問題の枠組み設定",
+          "order": 54,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d1-modelingpractice-w2d1-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Framing the Question",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D1_ModelingPractice/student/W2D1_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-daysummary",
+          "title": "日のまとめ",
+          "order": 55,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-intro",
+          "title": "はじめに",
+          "order": 56,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-outro",
+          "title": "アウトロ",
+          "order": 57,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-tutorial1",
+          "title": "チュートリアル 1: 線形力学系",
+          "order": 58,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Linear dynamical systems",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-tutorial2",
+          "title": "チュートリアル 2: マルコフ過程",
+          "order": 59,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Markov Processes",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-tutorial3",
+          "title": "チュートリアル 3: 決定論と確率論の組み合わせ",
+          "order": 60,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Combining determinism and stochasticity",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d3-linearsystems-w2d3-tutorial4",
+          "title": "チュートリアル 4: 自己回帰モデル",
+          "order": 61,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d3-linearsystems-w2d3-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 4: Autoregressive models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D3_LinearSystems/student/W2D3_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-daysummary",
+          "title": "日のまとめ",
+          "order": 62,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-intro",
+          "title": "はじめに",
+          "order": 63,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-outro",
+          "title": "アウトロ",
+          "order": 64,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial1",
+          "title": "チュートリアル 1: 漏れ積分発火（LIF）ニューロンモデル",
+          "order": 65,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: The Leaky Integrate-and-Fire (LIF) Neuron Model",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial2",
+          "title": "チュートリアル 2: 入力相関の効果",
+          "order": 66,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Effects of Input Correlation",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial3",
+          "title": "チュートリアル 3: シナプス伝達 - 静的および動的シナプスのモデル",
+          "order": 67,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Synaptic transmission - Models of static and dynamic synapses",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial4",
+          "title": "ボーナスチュートリアル：スパイクタイミング依存可塑性（STDP）",
+          "order": 68,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d4-biologicalneuronmodels-w2d4-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Spike-timing dependent plasticity (STDP)",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D4_BiologicalNeuronModels/student/W2D4_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d5-dynamicalsystems-w2d5-daysummary",
+          "title": "日のまとめ",
+          "order": 69,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d5-dynamicalsystems-w2d5-intro",
+          "title": "はじめに",
+          "order": 70,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d5-dynamicalsystems-w2d5-outro",
+          "title": "アウトロ",
+          "order": 71,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial1",
+          "title": "チュートリアル 1: ニューラルレートモデル",
+          "order": 72,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Neural Rate Models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial2",
+          "title": "チュートリアル 2: Wilson-Cowanモデル",
+          "order": 73,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Wilson-Cowan Model",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial3",
+          "title": "ボーナスチュートリアル: Wilson-Cowanモデルの拡張",
+          "order": 74,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w2d5-dynamicalsystems-w2d5-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Extending the Wilson-Cowan Model",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W2D5_DynamicalSystems/student/W2D5_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d2-bayesiandecisions-w3d2-daysummary",
+          "title": "日のまとめ",
+          "order": 75,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d2-bayesiandecisions-w3d2-intro",
+          "title": "はじめに",
+          "order": 76,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d2-bayesiandecisions-w3d2-outro",
+          "title": "アウトロ",
+          "order": 77,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial1",
+          "title": "チュートリアル 1: 二値の隠れ状態を用いたベイズ推定",
+          "order": 78,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Bayes with a binary hidden state",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial2",
+          "title": "チュートリアル 2: 連続隠れ状態を持つベイズ推論と意思決定",
+          "order": 79,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Bayesian inference and decisions with continuous hidden state",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial3",
+          "title": "ボーナスチュートリアル: データへのフィッティング",
+          "order": 80,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d2-bayesiandecisions-w3d2-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Fitting to data",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D2_BayesianDecisions/student/W3D2_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-daysummary",
+          "title": "デイサマリー",
+          "order": 81,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-intro",
+          "title": "はじめに",
+          "order": 82,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-outro",
+          "title": "アウトロ",
+          "order": 83,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial1",
+          "title": "チュートリアル 1: 逐次確率比検定（Sequential Probability Ratio Test）",
+          "order": 84,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Sequential Probability Ratio Test",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial2",
+          "title": "チュートリアル 2: 隠れマルコフモデル",
+          "order": 85,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Hidden Markov Model",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial3",
+          "title": "チュートリアル 3: カルマンフィルター",
+          "order": 86,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: The Kalman Filter",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial4",
+          "title": "ボーナスチュートリアル4: カルマンフィルター パート2",
+          "order": 87,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial 4: The Kalman Filter, part 2",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial5",
+          "title": "ボーナスチュートリアル5: スパイキングニューロンのための期待値最大化法",
+          "order": 88,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d3-hiddendynamics-w3d3-tutorial5.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial5.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial 5: Expectation Maximization for spiking neurons",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D3_HiddenDynamics/student/W3D3_Tutorial5.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-daysummary",
+          "title": "日のまとめ",
+          "order": 89,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-intro",
+          "title": "はじめに",
+          "order": 90,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-outro",
+          "title": "アウトロ",
+          "order": 91,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial1",
+          "title": "チュートリアル 1: 予測を学習する",
+          "order": 92,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Learning to Predict",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial2",
+          "title": "チュートリアル 2: 行動を学ぶ：マルチアームドバンディット",
+          "order": 93,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Learning to Act: Multi-Armed Bandits",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial3",
+          "title": "チュートリアル 3: 行動を学ぶ：Qラーニング",
+          "order": 94,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Learning to Act: Q-Learning",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial4",
+          "title": "チュートリアル 4: モデルベース強化学習",
+          "order": 95,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d4-reinforcementlearning-w3d4-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 4: Model-Based Reinforcement Learning",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D4_ReinforcementLearning/student/W3D4_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-daysummary",
+          "title": "日のまとめ",
+          "order": 96,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-daysummary.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_DaySummary.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Day Summary",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_DaySummary.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-intro",
+          "title": "はじめに",
+          "order": 97,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Intro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-outro",
+          "title": "アウトロ",
+          "order": 98,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-outro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Outro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Outro",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Outro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-tutorial1",
+          "title": "チュートリアル 1: 介入",
+          "order": 99,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Interventions",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-tutorial2",
+          "title": "チュートリアル 2: 相関",
+          "order": 100,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Correlations",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-tutorial3",
+          "title": "チュートリアル 3: 同時フィッティング／回帰",
+          "order": 101,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Simultaneous fitting/regression",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-w3d5-networkcausality-w3d5-tutorial4",
+          "title": "チュートリアル 4: 器具変数（Instrumental Variables）",
+          "order": 102,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-w3d5-networkcausality-w3d5-tutorial4.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial4.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 4: Instrumental Variables",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/W3D5_NetworkCausality/student/W3D5_Tutorial4.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-compneuro-tutorials-intro",
+          "title": "はじめに",
+          "order": 103,
+          "tags": [
+            "neuromatch",
+            "compneuro",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-compneuro-tutorials-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content/blob/main/tutorials/student/intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Introduction",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content/blob/main/tutorials/student/intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        }
+      ]
+    },
+    {
+      "id": "neuromatch-dl",
+      "title": "Neuromatch Academy / Deep Learning",
+      "audience": "advanced",
+      "order": 101,
+      "notebooks": [
+        {
+          "id": "nma-dl-bonus-deploymodels-bonus-tutorial1",
+          "title": "ボーナスチュートリアル: ニューラルネットワークをウェブ上にデプロイする",
+          "order": 1,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-bonus-deploymodels-bonus-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Bonus_DeployModels/student/Bonus_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Deploying Neural Networks on the Web",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Bonus_DeployModels/student/Bonus_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-module-wrapups-finetuning",
+          "title": "ディープラーニング：基礎とファインチューニングのまとめ",
+          "order": 2,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-module-wrapups-finetuning.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/FineTuning.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Deep Learning: The Basics and Fine Tuning Wrap-up",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/FineTuning.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-module-wrapups-naturallanguageprocessing",
+          "title": "ディープラーニング：畳み込みネットワークと自然言語処理",
+          "order": 3,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-module-wrapups-naturallanguageprocessing.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/NaturalLanguageProcessing.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Deep Learning: Convnets and NLP",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/NaturalLanguageProcessing.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-module-wrapups-reinforcementlearning",
+          "title": "ディープラーニング: 強化学習まとめ",
+          "order": 4,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-module-wrapups-reinforcementlearning.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/ReinforcementLearning.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Deep Learning: Reinforcement Learning Wrap-up",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/Module_WrapUps/student/ReinforcementLearning.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d1-basicsandpytorch-w1d1-tutorial1",
+          "title": "チュートリアル 1: PyTorch",
+          "order": 5,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d1-basicsandpytorch-w1d1-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D1_BasicsAndPytorch/student/W1D1_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: PyTorch",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D1_BasicsAndPytorch/student/W1D1_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d2-lineardeeplearning-w1d2-bonuslecture",
+          "title": "ボーナス講義: ヨシュア・ベンジオ",
+          "order": 6,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-bonuslecture.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_BonusLecture.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Lecture: Yoshua Bengio",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_BonusLecture.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d2-lineardeeplearning-w1d2-tutorial1",
+          "title": "チュートリアル 1: 勾配降下法とAutoGrad",
+          "order": 7,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Gradient Descent and AutoGrad",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d2-lineardeeplearning-w1d2-tutorial2",
+          "title": "チュートリアル 2: ハイパーパラメータの学習",
+          "order": 8,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Learning Hyperparameters",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d2-lineardeeplearning-w1d2-tutorial3",
+          "title": "チュートリアル 3: 深層線形ニューラルネットワーク",
+          "order": 9,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d2-lineardeeplearning-w1d2-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Deep linear neural networks",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D2_LinearDeepLearning/student/W1D2_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial1",
+          "title": "チュートリアル 1: 生物学的ニューラルネットワーク vs. 人工ニューラルネットワーク",
+          "order": 10,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D3_MultiLayerPerceptrons/student/W1D3_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Biological vs. Artificial Neural Networks",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D3_MultiLayerPerceptrons/student/W1D3_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial2",
+          "title": "チュートリアル 2: 深いMLP",
+          "order": 11,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d3-multilayerperceptrons-w1d3-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D3_MultiLayerPerceptrons/student/W1D3_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Deep MLPs",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D3_MultiLayerPerceptrons/student/W1D3_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w1d4-optimization-w1d4-tutorial1",
+          "title": "チュートリアル 1: 最適化手法",
+          "order": 12,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w1d4-optimization-w1d4-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D4_Optimization/student/W1D4_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Optimization techniques",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W1D4_Optimization/student/W1D4_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d1-regularization-w2d1-tutorial1",
+          "title": "チュートリアル 1: 正則化手法 パート1",
+          "order": 13,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d1-regularization-w2d1-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D1_Regularization/student/W2D1_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Regularization techniques part 1",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D1_Regularization/student/W2D1_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d1-regularization-w2d1-tutorial2",
+          "title": "チュートリアル 2: 正則化手法 パート2",
+          "order": 14,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d1-regularization-w2d1-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D1_Regularization/student/W2D1_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Regularization techniques part 2",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D1_Regularization/student/W2D1_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d2-convnetsanddlthinking-w2d2-bonuslecture",
+          "title": "ボーナス講義: チョ・キョンヒョン",
+          "order": 15,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d2-convnetsanddlthinking-w2d2-bonuslecture.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_BonusLecture.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Lecture: Kyunghyun Cho",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_BonusLecture.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial1",
+          "title": "チュートリアル 1: CNNの紹介",
+          "order": 16,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Introduction to CNNs",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial2",
+          "title": "チュートリアル 2: ディープラーニング思考 1: コスト関数",
+          "order": 17,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d2-convnetsanddlthinking-w2d2-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Deep Learning Thinking 1: Cost Functions",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D2_ConvnetsAndDlThinking/student/W2D2_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d3-modernconvnets-w2d3-tutorial1",
+          "title": "チュートリアル 1: モダンな畳み込みネットワークの使い方を学ぼう",
+          "order": 18,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d3-modernconvnets-w2d3-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D3_ModernConvnets/student/W2D3_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Learn how to use modern convnets",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D3_ModernConvnets/student/W2D3_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d3-modernconvnets-w2d3-tutorial2",
+          "title": "ボーナスチュートリアル：最新の畳み込みネットワークを用いた顔認識",
+          "order": 19,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d3-modernconvnets-w2d3-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D3_ModernConvnets/student/W2D3_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Facial recognition using modern convnets",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D3_ModernConvnets/student/W2D3_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d4-generativemodels-w2d4-bonuslecture",
+          "title": "ボーナス講義: ジェフリー・ヒントン",
+          "order": 20,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-bonuslecture.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_BonusLecture.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Lecture: Geoffrey Hinton",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_BonusLecture.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d4-generativemodels-w2d4-tutorial1",
+          "title": "チュートリアル 1: 変分オートエンコーダ（VAE）",
+          "order": 21,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Variational Autoencoders (VAEs)",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d4-generativemodels-w2d4-tutorial2",
+          "title": "チュートリアル 2: 拡散モデル",
+          "order": 22,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Diffusion models",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d4-generativemodels-w2d4-tutorial3",
+          "title": "チュートリアル 3: 画像、条件付き拡散とその先へ",
+          "order": 23,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d4-generativemodels-w2d4-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 3: Image, Conditional Diffusion and Beyond",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D4_GenerativeModels/student/W2D4_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d5-attentionandtransformers-w2d5-tutorial1",
+          "title": "チュートリアル 1: トランスフォーマーの使い方を学ぼう",
+          "order": 24,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d5-attentionandtransformers-w2d5-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D5_AttentionAndTransformers/student/W2D5_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Learn how to work with Transformers",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D5_AttentionAndTransformers/student/W2D5_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w2d5-attentionandtransformers-w2d5-tutorial2",
+          "title": "ボーナスチュートリアル: トランスフォーマーの事前学習、ファインチューニング、ロバストネスの理解",
+          "order": 25,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w2d5-attentionandtransformers-w2d5-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D5_AttentionAndTransformers/student/W2D5_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Understanding Pre-training, Fine-tuning and Robustness of Transformers",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W2D5_AttentionAndTransformers/student/W2D5_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial1",
+          "title": "チュートリアル 1: 時系列処理の紹介",
+          "order": 26,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Introduction to processing time series",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial2",
+          "title": "チュートリアル 2: 自然言語処理と大規模言語モデル（LLM）",
+          "order": 27,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Natural Language Processing and LLMs",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial3",
+          "title": "ボーナスチュートリアル：多言語埋め込み",
+          "order": 28,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d1-timeseriesandnaturallanguageprocessing-w3d1-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Multilingual Embeddings",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D1_TimeSeriesAndNaturalLanguageProcessing/student/W3D1_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d2-dlcasestudy2-w3d2-tutorial1",
+          "title": "チュートリアル 1: ディープラーニングケーススタディ 2: アーキテクチャとマルチモーダルDL",
+          "order": 29,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d2-dlcasestudy2-w3d2-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D2_DLCaseStudy2/student/W3D2_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Deep Learning Case Study 2: Architectures and Multimodal DL",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D2_DLCaseStudy2/student/W3D2_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-bonuslecture",
+          "title": "ボーナス講義: メラニー・ミッチェル",
+          "order": 30,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-bonuslecture.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D3_UnsupervisedAndSelfSupervisedLearning/student/W3D3_BonusLecture.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Lecture: Melanie Mitchell",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D3_UnsupervisedAndSelfSupervisedLearning/student/W3D3_BonusLecture.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-tutorial1",
+          "title": "チュートリアル 1: 教師なし/自己教師あり学習法",
+          "order": 31,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d3-unsupervisedandselfsupervisedlearning-w3d3-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D3_UnsupervisedAndSelfSupervisedLearning/student/W3D3_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Un/Self-supervised learning methods",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D3_UnsupervisedAndSelfSupervisedLearning/student/W3D3_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d4-basicreinforcementlearning-w3d4-bonuslecture",
+          "title": "ボーナス講義: チェルシー・フィン",
+          "order": 32,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d4-basicreinforcementlearning-w3d4-bonuslecture.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D4_BasicReinforcementLearning/student/W3D4_BonusLecture.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Lecture: Chealsea Finn",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D4_BasicReinforcementLearning/student/W3D4_BonusLecture.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d4-basicreinforcementlearning-w3d4-tutorial1",
+          "title": "チュートリアル 1: 基本的な強化学習",
+          "order": 33,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d4-basicreinforcementlearning-w3d4-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D4_BasicReinforcementLearning/student/W3D4_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Basic Reinforcement Learning",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D4_BasicReinforcementLearning/student/W3D4_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-bonuslecture",
+          "title": "ボーナス講義: アミタ・カプール",
+          "order": 34,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-bonuslecture.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_BonusLecture.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Lecture: Amita Kapoor",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_BonusLecture.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial1",
+          "title": "チュートリアル 1: ゲームのための強化学習",
+          "order": 35,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial1.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial1.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 1: Reinforcement Learning For Games",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial1.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial2",
+          "title": "チュートリアル 2: ディープラーニング思考 3",
+          "order": 36,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial2.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial2.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Tutorial 2: Deep Learning Thinking 3",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial2.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial3",
+          "title": "ボーナスチュートリアル：モンテカルロ木探索による計画",
+          "order": 37,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-w3d5-reinforcementlearningforgamesanddlthinking3-w3d5-tutorial3.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial3.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Bonus Tutorial: Planning with Monte Carlo Tree Search",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/W3D5_ReinforcementLearningForGamesAndDlThinking3/student/W3D5_Tutorial3.ipynb",
+            "translationLanguage": "日本語"
+          }
+        },
+        {
+          "id": "nma-dl-tutorials-intro",
+          "title": "はじめに",
+          "order": 38,
+          "tags": [
+            "neuromatch",
+            "dl",
+            "translation"
+          ],
+          "htmlPath": "/notebooks/nma-dl-tutorials-intro.html",
+          "colabUrl": "https://colab.research.google.com/github/NeuromatchAcademy/course-content-dl/blob/main/tutorials/student/intro.ipynb",
+          "source": {
+            "kind": "open-license-translation",
+            "provider": "Neuromatch Academy",
+            "license": "CC BY 4.0 / BSD-3-Clause (code)",
+            "originalTitle": "Introduction",
+            "originalUrl": "https://github.com/NeuromatchAcademy/course-content-dl/blob/main/tutorials/student/intro.ipynb",
+            "translationLanguage": "日本語"
+          }
+        }
+      ]
     }
   ]
 }

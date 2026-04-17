@@ -6,9 +6,18 @@ import { marshall } from "@aws-sdk/util-dynamodb";
 import { extractChunks, type NotebookFile } from "@/lib/notebook-ingest";
 
 type Catalog = {
+  contentSourceDefaults?: {
+    kind: "noema-original" | "open-license-translation";
+    provider: string;
+    license: string;
+    originalTitle?: string;
+    originalUrl?: string;
+    translationLanguage?: string;
+  };
   chapters: Array<{
     id: string;
     title: string;
+    audience?: "beginner" | "advanced";
     order: number;
     notebooks: Array<{
       id: string;
@@ -18,6 +27,14 @@ type Catalog = {
       htmlPath: string;
       colabUrl: string;
       videoUrl?: string;
+      source?: {
+        kind: "noema-original" | "open-license-translation";
+        provider: string;
+        license: string;
+        originalTitle?: string;
+        originalUrl?: string;
+        translationLanguage?: string;
+      };
     }>;
   }>;
 };
@@ -84,6 +101,12 @@ async function main() {
 
   const rawCatalog = await fs.readFile(path.join(process.cwd(), "content", "catalog.json"), "utf8");
   const catalog = JSON.parse(rawCatalog) as Catalog;
+  const defaultSource = {
+    kind: "noema-original" as const,
+    provider: "Noema",
+    license: "internal",
+    ...(catalog.contentSourceDefaults || {})
+  };
   const catalogNotebookIds = new Set(
     catalog.chapters.flatMap((chapter) => chapter.notebooks.map((notebook) => notebook.id))
   );
@@ -140,11 +163,16 @@ async function main() {
         title: notebook.title,
         chapter: chapter.title,
         chapterOrder: chapter.order,
+        audience: chapter.audience === "beginner" ? "beginner" : "advanced",
         sortOrder: notebook.order,
         tags: notebook.tags,
         htmlPath: notebook.htmlPath,
         colabUrl: notebook.colabUrl,
         videoUrl: notebook.videoUrl,
+        source: {
+          ...defaultSource,
+          ...(notebook.source || {})
+        },
         createdAt: (existing.Item as { createdAt?: string } | undefined)?.createdAt ?? now,
         updatedAt: now
       };
