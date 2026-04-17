@@ -39,9 +39,21 @@ function normalizeMarkdownText(value: string): string {
   return value.replace(/(?<!\\)\\r\\n/g, "\n").replace(/(?<!\\)\\n/g, "\n");
 }
 
+function shouldRenderBracketedMathInline(expr: string): boolean {
+  const trimmed = expr.trim();
+  if (!trimmed) return false;
+  if (/[\r\n]/.test(trimmed)) return false;
+  if (trimmed.length > 32) return false;
+  if (/\\\\|\\begin\{|\\end\{/.test(trimmed)) return false;
+  return true;
+}
+
 function normalizeMathDelimiters(value: string): string {
   return value
-    .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`)
+    .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => {
+      const trimmed = expr.trim();
+      return shouldRenderBracketedMathInline(trimmed) ? `$${trimmed}$` : `$$\n${trimmed}\n$$`;
+    })
     .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`)
     .replace(/\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`);
 }

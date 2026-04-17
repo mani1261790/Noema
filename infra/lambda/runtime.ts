@@ -2872,9 +2872,21 @@ function canonicalizeNotebookFile<T extends { cells?: Array<{ cell_type?: unknow
   };
 }
 
+function shouldRenderBracketedMathInline(expr: string): boolean {
+  const trimmed = expr.trim();
+  if (!trimmed) return false;
+  if (/[\r\n]/.test(trimmed)) return false;
+  if (trimmed.length > 32) return false;
+  if (/\\\\|\\begin\{|\\end\{/.test(trimmed)) return false;
+  return true;
+}
+
 function normalizeMathDelimiters(value: string): string {
   return value
-    .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => `$$\n${expr.trim()}\n$$`)
+    .replace(/\\\[((?:[\s\S]*?))\\\]/g, (_, expr: string) => {
+      const trimmed = expr.trim();
+      return shouldRenderBracketedMathInline(trimmed) ? `$${trimmed}$` : `$$\n${trimmed}\n$$`;
+    })
     .replace(/\\\(((?:[\s\S]*?))\\\)/g, (_, expr: string) => `$${expr.trim()}$`);
 }
 
