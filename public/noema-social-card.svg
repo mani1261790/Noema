@@ -1,25 +1,29 @@
 <svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="86" y1="34" x2="1044" y2="630" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="104" y1="24" x2="1051" y2="639" gradientUnits="userSpaceOnUse">
       <stop stop-color="#071225"/>
-      <stop offset="0.55" stop-color="#0F2238"/>
-      <stop offset="1" stop-color="#1A3B57"/>
+      <stop offset="0.5" stop-color="#0F2238"/>
+      <stop offset="1" stop-color="#16324B"/>
     </linearGradient>
-    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(140 108) rotate(33.8473) scale(380 258.045)">
-      <stop stop-color="#9CD5E4" stop-opacity="0.34"/>
-      <stop offset="1" stop-color="#9CD5E4" stop-opacity="0"/>
+    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(156 110) rotate(31.218) scale(390 262)">
+      <stop stop-color="#9FD7E4" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#9FD7E4" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1035 118) rotate(151.928) scale(338 230.523)">
-      <stop stop-color="#F6A56D" stop-opacity="0.24"/>
-      <stop offset="1" stop-color="#F6A56D" stop-opacity="0"/>
+    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1014 120) rotate(152.8) scale(332 226)">
+      <stop stop-color="#F4A56B" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#F4A56B" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="glowC" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(912 522) rotate(-161.729) scale(334 227.795)">
-      <stop stop-color="#67C3F3" stop-opacity="0.2"/>
-      <stop offset="1" stop-color="#67C3F3" stop-opacity="0"/>
+    <radialGradient id="glowC" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(936 520) rotate(-162.4) scale(340 232)">
+      <stop stop-color="#69C4F3" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#69C4F3" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="chip" x1="173" y1="411" x2="492" y2="530" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#76B6C6" stop-opacity="0.24"/>
-      <stop offset="1" stop-color="#4D8798" stop-opacity="0.14"/>
+    <linearGradient id="glass" x1="280" y1="172" x2="888" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7BBBCB" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#4A8192" stop-opacity="0.08"/>
     </linearGradient>
   </defs>
 
@@ -28,36 +32,37 @@
   <rect width="1200" height="630" fill="url(#glowB)"/>
   <rect width="1200" height="630" fill="url(#glowC)"/>
 
-  <rect x="78" y="58" width="236" height="44" rx="22" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)"/>
-  <text x="106" y="87" fill="#EAF5FF" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2.4">AI LEARNING SITE</text>
+  <g opacity="0.92">
+    <rect x="214" y="118" width="772" height="394" rx="42" fill="url(#glass)" stroke="rgba(170,214,255,0.22)"/>
+    <rect x="248" y="152" width="704" height="326" rx="30" fill="rgba(8,20,35,0.26)" stroke="rgba(176,218,255,0.12)"/>
+  </g>
 
   <g opacity="0.96">
-    <text x="80" y="228" fill="#F4FAFF" font-family="Helvetica, Arial, sans-serif" font-size="88" font-weight="800">Noema</text>
-    <text x="80" y="308" fill="#DCEBFA" font-family="Helvetica, Arial, sans-serif" font-size="40" font-weight="700">AI and machine learning learning site</text>
-    <text x="80" y="372" fill="#B9CCE4" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="500">Notebook-based lessons for ML, deep learning, LLMs, and reinforcement learning.</text>
+    <circle cx="600" cy="315" r="116" fill="rgba(255,255,255,0.05)" stroke="rgba(162,212,231,0.26)"/>
+    <circle cx="600" cy="315" r="82" fill="rgba(255,255,255,0.02)" stroke="rgba(162,212,231,0.18)" stroke-dasharray="8 10"/>
+    <circle cx="600" cy="315" r="44" fill="#74B7C8" fill-opacity="0.16" stroke="#A8D8E6" stroke-opacity="0.36"/>
+
+    <circle cx="676" cy="243" r="14" fill="#F4A56B"/>
+    <circle cx="728" cy="319" r="11" fill="#E4F3FF"/>
+    <circle cx="664" cy="395" r="10" fill="#6AC4F2"/>
+    <circle cx="528" cy="401" r="10" fill="#7EBFCC"/>
+    <circle cx="480" cy="315" r="12" fill="#DDEFFD"/>
+    <circle cx="528" cy="229" r="11" fill="#7EC1CF"/>
+
+    <path d="M600 199C646 199 688 218 718 249" stroke="rgba(228,243,255,0.42)" stroke-width="2"/>
+    <path d="M718 381C688 412 646 431 600 431" stroke="rgba(228,243,255,0.42)" stroke-width="2"/>
+    <path d="M482 381C452 350 434 307 434 263" stroke="rgba(228,243,255,0.42)" stroke-width="2"/>
+    <path d="M482 249C512 218 554 199 600 199" stroke="rgba(228,243,255,0.42)" stroke-width="2"/>
   </g>
 
-  <g>
-    <rect x="80" y="430" width="178" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
-    <text x="118" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">Machine Learning</text>
-
-    <rect x="274" y="430" width="152" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
-    <text x="326" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">Deep Learning</text>
-
-    <rect x="442" y="430" width="86" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
-    <text x="476" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">LLMs</text>
-
-    <rect x="544" y="430" width="242" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
-    <text x="586" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">Reinforcement Learning</text>
+  <g opacity="0.88">
+    <rect x="324" y="470" width="146" height="18" rx="9" fill="url(#chip)" stroke="rgba(123,187,203,0.26)"/>
+    <rect x="490" y="470" width="102" height="18" rx="9" fill="url(#chip)" stroke="rgba(123,187,203,0.26)"/>
+    <rect x="612" y="470" width="188" height="18" rx="9" fill="url(#chip)" stroke="rgba(123,187,203,0.26)"/>
   </g>
 
-  <g opacity="0.95">
-    <circle cx="972" cy="250" r="114" fill="rgba(255,255,255,0.04)" stroke="rgba(153,205,223,0.22)"/>
-    <circle cx="972" cy="250" r="80" fill="rgba(255,255,255,0.02)" stroke="rgba(153,205,223,0.18)" stroke-dasharray="8 10"/>
-    <circle cx="972" cy="250" r="47" fill="#76B6C6" fill-opacity="0.14" stroke="#A8D8E6" stroke-opacity="0.35"/>
-    <circle cx="1068" cy="184" r="12" fill="#F6A56D" fill-opacity="0.88"/>
-    <circle cx="890" cy="188" r="10" fill="#67C3F3" fill-opacity="0.88"/>
-    <circle cx="1048" cy="322" r="9" fill="#D8ECF8" fill-opacity="0.82"/>
-    <circle cx="908" cy="328" r="8" fill="#7AB8C7" fill-opacity="0.76"/>
+  <g opacity="0.6">
+    <circle cx="913" cy="190" r="56" fill="rgba(255,255,255,0.03)" stroke="rgba(170,214,255,0.12)"/>
+    <circle cx="282" cy="424" r="34" fill="rgba(255,255,255,0.02)" stroke="rgba(170,214,255,0.1)"/>
   </g>
 </svg>
