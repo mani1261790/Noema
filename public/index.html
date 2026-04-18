@@ -5204,10 +5204,17 @@
         frame.setAttribute("aria-label", `HTML output ${index + 1}`);
         frame.srcdoc =
           "<!doctype html><html><head><meta charset='utf-8'><style>" +
-          "html,body{margin:0;padding:0;background:transparent;color:#dbe4f5;font:12px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}" +
-          "table{border-collapse:collapse;font-size:12px;}" +
-          "th,td{border:1px solid rgba(138,159,194,.36);padding:4px 6px;text-align:left;}" +
-          "th{background:rgba(122,151,201,.16);font-weight:600;}" +
+          ":root{color-scheme:dark;}" +
+          "html,body{margin:0;padding:0;background:transparent !important;color:#dbe4f5;font:12px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}" +
+          "body{display:block;}" +
+          "table{border-collapse:collapse;font-size:12px;background:rgba(9,17,29,.78) !important;color:#dbe4f5 !important;}" +
+          "th,td{border:1px solid rgba(138,159,194,.36);padding:4px 6px;text-align:left;background:transparent;color:inherit;}" +
+          "th{background:rgba(122,151,201,.16) !important;font-weight:600;}" +
+          ".dataframe,.dataframe *{color:#dbe4f5 !important;}" +
+          ".dataframe{background:rgba(9,17,29,.78) !important;}" +
+          ".dataframe thead th{background:rgba(122,151,201,.18) !important;}" +
+          ".dataframe tbody tr:nth-child(even) td,.dataframe tbody tr:nth-child(even) th{background:rgba(255,255,255,.03) !important;}" +
+          ".dataframe tbody tr:nth-child(odd) td,.dataframe tbody tr:nth-child(odd) th{background:rgba(255,255,255,.01) !important;}" +
           "code,pre{font-family:'JetBrains Mono','SF Mono','Menlo','Consolas',monospace;}" +
           "pre{white-space:pre-wrap;overflow-wrap:anywhere;}" +
           "</style></head><body>" +
