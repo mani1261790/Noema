@@ -1,0 +1,63 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="86" y1="34" x2="1044" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071225"/>
+      <stop offset="0.55" stop-color="#0F2238"/>
+      <stop offset="1" stop-color="#1A3B57"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(140 108) rotate(33.8473) scale(380 258.045)">
+      <stop stop-color="#9CD5E4" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#9CD5E4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1035 118) rotate(151.928) scale(338 230.523)">
+      <stop stop-color="#F6A56D" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#F6A56D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowC" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(912 522) rotate(-161.729) scale(334 227.795)">
+      <stop stop-color="#67C3F3" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#67C3F3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="chip" x1="173" y1="411" x2="492" y2="530" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#76B6C6" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#4D8798" stop-opacity="0.14"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glowA)"/>
+  <rect width="1200" height="630" fill="url(#glowB)"/>
+  <rect width="1200" height="630" fill="url(#glowC)"/>
+
+  <rect x="78" y="58" width="236" height="44" rx="22" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)"/>
+  <text x="106" y="87" fill="#EAF5FF" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2.4">AI LEARNING SITE</text>
+
+  <g opacity="0.96">
+    <text x="80" y="228" fill="#F4FAFF" font-family="Helvetica, Arial, sans-serif" font-size="88" font-weight="800">Noema</text>
+    <text x="80" y="308" fill="#DCEBFA" font-family="Helvetica, Arial, sans-serif" font-size="40" font-weight="700">AI and machine learning learning site</text>
+    <text x="80" y="372" fill="#B9CCE4" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="500">Notebook-based lessons for ML, deep learning, LLMs, and reinforcement learning.</text>
+  </g>
+
+  <g>
+    <rect x="80" y="430" width="178" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
+    <text x="118" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">Machine Learning</text>
+
+    <rect x="274" y="430" width="152" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
+    <text x="326" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">Deep Learning</text>
+
+    <rect x="442" y="430" width="86" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
+    <text x="476" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">LLMs</text>
+
+    <rect x="544" y="430" width="242" height="50" rx="25" fill="url(#chip)" stroke="rgba(118,182,198,0.38)"/>
+    <text x="586" y="462" fill="#E5F6FD" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700">Reinforcement Learning</text>
+  </g>
+
+  <g opacity="0.95">
+    <circle cx="972" cy="250" r="114" fill="rgba(255,255,255,0.04)" stroke="rgba(153,205,223,0.22)"/>
+    <circle cx="972" cy="250" r="80" fill="rgba(255,255,255,0.02)" stroke="rgba(153,205,223,0.18)" stroke-dasharray="8 10"/>
+    <circle cx="972" cy="250" r="47" fill="#76B6C6" fill-opacity="0.14" stroke="#A8D8E6" stroke-opacity="0.35"/>
+    <circle cx="1068" cy="184" r="12" fill="#F6A56D" fill-opacity="0.88"/>
+    <circle cx="890" cy="188" r="10" fill="#67C3F3" fill-opacity="0.88"/>
+    <circle cx="1048" cy="322" r="9" fill="#D8ECF8" fill-opacity="0.82"/>
+    <circle cx="908" cy="328" r="8" fill="#7AB8C7" fill-opacity="0.76"/>
+  </g>
+</svg>
