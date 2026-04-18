@@ -1,23 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="94" y1="36" x2="1092" y2="634" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="186" y1="32" x2="1020" y2="632" gradientUnits="userSpaceOnUse">
       <stop stop-color="#071225"/>
-      <stop offset="0.55" stop-color="#0F2238"/>
-      <stop offset="1" stop-color="#1A3B57"/>
+      <stop offset="0.6" stop-color="#0E2238"/>
+      <stop offset="1" stop-color="#16324B"/>
     </linearGradient>
-    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(176 116) rotate(34.2) scale(394 268)">
-      <stop stop-color="#93E3FF" stop-opacity="0.26"/>
-      <stop offset="1" stop-color="#93E3FF" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1020 122) rotate(148.6) scale(340 232)">
-      <stop stop-color="#FFB36A" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#FFB36A" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="cardShadow" x1="420" y1="110" x2="804" y2="486" gradientUnits="userSpaceOnUse">
-      <stop stop-color="white" stop-opacity="0.08"/>
-      <stop offset="1" stop-color="white" stop-opacity="0.02"/>
-    </linearGradient>
-
     <linearGradient id="iconBg" x1="80" y1="52" x2="432" y2="456" gradientUnits="userSpaceOnUse">
       <stop stop-color="#0A1830"/>
       <stop offset="0.55" stop-color="#0E365A"/>
@@ -42,14 +30,8 @@
   </defs>
 
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#glowA)"/>
-  <rect width="1200" height="630" fill="url(#glowB)"/>
 
-  <g opacity="0.88">
-    <rect x="372" y="87" width="456" height="456" rx="118" fill="url(#cardShadow)" stroke="rgba(170,214,255,0.16)"/>
-  </g>
-
-  <g transform="translate(406 121) scale(0.7578125)">
+  <g transform="translate(390 105) scale(0.8203125)">
     <rect width="512" height="512" rx="120" fill="url(#iconBg)"/>
     <rect width="512" height="512" rx="120" fill="url(#iconGlowA)"/>
     <rect width="512" height="512" rx="120" fill="url(#iconGlowB)"/>
