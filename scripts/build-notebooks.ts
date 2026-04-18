@@ -18,14 +18,53 @@ async function clearNotebookOutputArtifacts() {
   );
 }
 
-function wrapNotebookHtml(title: string, bodyHtml: string): string {
+const DEFAULT_SITE_URL = "https://noema-learn.uk";
+
+function normalizeSiteUrl(input?: string): string {
+  const raw = String(input || "").trim();
+  if (!raw) return DEFAULT_SITE_URL;
+  try {
+    const url = new URL(raw);
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return DEFAULT_SITE_URL;
+  }
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function wrapNotebookHtml(title: string, bodyHtml: string, pathname: string): string {
   const safeTitle = title.replace(/[<>]/g, "");
+  const description = `${safeTitle}を学べるNoemaのノートブック教材ページ。`;
+  const siteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? process.env.NEXTAUTH_URL);
+  const canonicalUrl = new URL(pathname, `${siteUrl}/`).toString();
+  const socialImageUrl = new URL("/icon-512.png", `${siteUrl}/`).toString();
   return `<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
+  <meta name="description" content="${escapeAttribute(description)}" />
+  <link rel="canonical" href="${escapeAttribute(canonicalUrl)}" />
+  <meta property="og:site_name" content="Noema" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="${escapeAttribute(canonicalUrl)}" />
+  <meta property="og:title" content="${escapeAttribute(safeTitle)}" />
+  <meta property="og:description" content="${escapeAttribute(description)}" />
+  <meta property="og:image" content="${escapeAttribute(socialImageUrl)}" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:type" content="image/png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${escapeAttribute(safeTitle)}" />
+  <meta name="twitter:description" content="${escapeAttribute(description)}" />
+  <meta name="twitter:image" content="${escapeAttribute(socialImageUrl)}" />
   <link rel="stylesheet" href="/highlight/atom-one-dark.min.css" />
   <link rel="stylesheet" href="/katex/katex.min.css" />
   <style>
@@ -202,7 +241,7 @@ async function main() {
     const canonicalNotebook = canonicalizeNotebookFile(notebook);
     const baseName = path.parse(sourcePath).name;
     const htmlFragment = notebookToHtml(canonicalNotebook);
-    const html = wrapNotebookHtml(baseName, htmlFragment);
+    const html = wrapNotebookHtml(baseName, htmlFragment, `/notebooks/${baseName}.html`);
     const htmlOutputPath = path.join(NOTEBOOK_PUBLIC_DIR, `${baseName}.html`);
     const ipynbOutputPath = path.join(NOTEBOOK_PUBLIC_DIR, `${baseName}.ipynb`);
 
