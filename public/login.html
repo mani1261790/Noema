@@ -299,6 +299,7 @@
       const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
       const TOKEN_KEY = "noema_id_token";
+      const RETURN_TO_KEY = "noema_return_to";
       const statusTitles = {
         info: "Information",
         success: "Success",
@@ -324,6 +325,36 @@
         if (mode) params.set("mode", mode);
         const suffix = params.toString();
         return `/verify.html${suffix ? `?${suffix}` : ""}`;
+      }
+
+      function normalizeReturnTo(rawValue) {
+        const value = String(rawValue || "").trim();
+        if (!value) return "";
+
+        try {
+          const target = new URL(value, window.location.origin);
+          if (target.origin !== window.location.origin) return "";
+          if (!target.pathname.startsWith("/") || target.pathname.startsWith("//")) return "";
+          return `${target.pathname}${target.search}${target.hash}`;
+        } catch {
+          return "";
+        }
+      }
+
+      function getReturnTo() {
+        const fromQuery = normalizeReturnTo(params.get("returnTo"));
+        if (fromQuery) return fromQuery;
+        const fromStorage = normalizeReturnTo(sessionStorage.getItem(RETURN_TO_KEY));
+        if (fromStorage) return fromStorage;
+        return "/";
+      }
+
+      function persistReturnTo() {
+        const returnTo = getReturnTo();
+        if (returnTo && returnTo !== "/login") {
+          sessionStorage.setItem(RETURN_TO_KEY, returnTo);
+        }
+        return returnTo;
       }
 
       function setStatus(kind, message, title, action) {
@@ -399,6 +430,8 @@
           return;
         }
 
+        const returnTo = persistReturnTo();
+
         setStatus("info", "ログイン処理中です。少しお待ちください。", "サインイン中");
 
         try {
@@ -417,9 +450,10 @@
           }
 
           localStorage.setItem(TOKEN_KEY, idToken);
-          setStatus("success", "ログインに成功しました。トップページへ移動します。", "完了");
+          sessionStorage.removeItem(RETURN_TO_KEY);
+          setStatus("success", "ログインに成功しました。元のページへ移動します。", "完了");
           setTimeout(() => {
-            window.location.href = "/";
+            window.location.href = returnTo || "/";
           }, 450);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -508,6 +542,11 @@
           window.history.back();
         }
       });
+
+      const returnTo = persistReturnTo();
+      if (returnTo && returnTo !== "/") {
+        document.getElementById("back-btn").setAttribute("href", returnTo);
+      }
 
       const existing = localStorage.getItem(TOKEN_KEY);
       if (existing) {

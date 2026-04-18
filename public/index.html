@@ -3317,6 +3317,17 @@
         return token;
       }
 
+      function buildLoginUrl() {
+        const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        const params = new URLSearchParams();
+        params.set("returnTo", current);
+        return `/login?${params.toString()}`;
+      }
+
+      function redirectToLogin() {
+        window.location.href = buildLoginUrl();
+      }
+
       function resolveUserScopeKey(token) {
         const payload = parseJwt(token);
         if (!payload || typeof payload !== "object") return "";
@@ -4260,7 +4271,7 @@
 
       async function setPlaygroundEnabled(nextEnabled) {
         if (nextEnabled && !state.loggedIn) {
-          window.location.href = "/login";
+          redirectToLogin();
           return;
         }
         state.playgroundEnabled = Boolean(nextEnabled);
@@ -4356,7 +4367,7 @@
         [el.loginLink, el.loginLinkMobile].forEach((link) => {
           if (!link) return;
           link.textContent = "ログイン";
-          link.href = "/login";
+          link.href = buildLoginUrl();
           link.onclick = null;
         });
         renderPlaygroundSidebarControls();
@@ -6523,7 +6534,7 @@
 
       async function loadQuestionHistory() {
         if (!state.loggedIn) {
-          window.location.href = "/login";
+          redirectToLogin();
           return;
         }
 
@@ -6684,7 +6695,7 @@
 
       async function handleAssistantTriggerClick() {
         if (!state.loggedIn) {
-          window.location.href = "/login";
+          redirectToLogin();
           return;
         }
         if (!state.activeNotebook && !state.chatOpen) {
@@ -6704,7 +6715,7 @@
 
       function setChatOpen(open) {
         if (open && !state.loggedIn) {
-          window.location.href = "/login";
+          redirectToLogin();
           return;
         }
 
@@ -6877,7 +6888,7 @@
       el.playgroundLink.addEventListener("click", function () {
         void (async () => {
           if (!state.loggedIn) {
-            window.location.href = "/login";
+            redirectToLogin();
             return;
           }
           const nextEnabled = !state.playgroundEnabled;
@@ -6895,7 +6906,7 @@
         void (async () => {
           setSidebarOverlayOpen(false);
           if (!state.loggedIn) {
-            window.location.href = "/login";
+            redirectToLogin();
             return;
           }
           const nextEnabled = !state.playgroundEnabled;

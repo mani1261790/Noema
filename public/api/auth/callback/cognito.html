@@ -56,6 +56,7 @@
       const COGNITO_DOMAIN = "https://noema-437089831576-auth.auth.ap-northeast-3.amazoncognito.com";
       const COGNITO_CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
       const REDIRECT_URI = `${window.location.origin}/api/auth/callback/cognito`;
+      const RETURN_TO_KEY = "noema_return_to";
 
       const messageEl = document.getElementById("message");
       const detailEl = document.getElementById("detail");
@@ -63,6 +64,20 @@
       function fail(message, detail) {
         messageEl.textContent = message;
         if (detail) detailEl.textContent = detail;
+      }
+
+      function normalizeReturnTo(rawValue) {
+        const value = String(rawValue || "").trim();
+        if (!value) return "";
+
+        try {
+          const target = new URL(value, window.location.origin);
+          if (target.origin !== window.location.origin) return "";
+          if (!target.pathname.startsWith("/") || target.pathname.startsWith("//")) return "";
+          return `${target.pathname}${target.search}${target.hash}`;
+        } catch {
+          return "";
+        }
       }
 
       async function run() {
@@ -120,12 +135,14 @@
           localStorage.setItem("noema_access_token", tokenPayload.access_token);
         }
 
+        const returnTo = normalizeReturnTo(sessionStorage.getItem(RETURN_TO_KEY)) || "/";
         sessionStorage.removeItem("noema_pkce_state");
         sessionStorage.removeItem("noema_pkce_verifier");
+        sessionStorage.removeItem(RETURN_TO_KEY);
 
-        messageEl.textContent = "ログインに成功しました。トップへ戻ります。";
+        messageEl.textContent = "ログインに成功しました。元のページへ戻ります。";
         setTimeout(() => {
-          window.location.href = "/";
+          window.location.href = returnTo;
         }, 700);
       }
 

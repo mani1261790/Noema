@@ -937,10 +937,21 @@
         return token;
       }
 
+      function buildLoginUrl() {
+        const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        const params = new URLSearchParams();
+        params.set("returnTo", current);
+        return `/login?${params.toString()}`;
+      }
+
+      function redirectToLogin() {
+        window.location.href = buildLoginUrl();
+      }
+
       function requireLogin() {
         const token = getToken();
         if (token) return token;
-        window.location.href = "/login";
+        redirectToLogin();
         throw new Error("ログインが必要です。");
       }
 
@@ -977,7 +988,7 @@
         if (!response.ok) {
           if (response.status === 401) {
             localStorage.removeItem(TOKEN_KEY);
-            window.location.href = "/login";
+            redirectToLogin();
           }
           if (response.status === 403) {
             const tokenPayload = parseJwt(token) || {};
@@ -1593,7 +1604,7 @@
         });
         el.logoutBtn.addEventListener("click", function () {
           localStorage.removeItem(TOKEN_KEY);
-          window.location.href = "/login";
+          redirectToLogin();
         });
         el.reloadNotebookBtn.addEventListener("click", function () {
           void setActiveNotebook(state.activeNotebookId);
