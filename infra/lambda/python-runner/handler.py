@@ -77,6 +77,7 @@ def _append_value_output(value):
     if value is None:
         return
 
+    emitted_html = False
     try:
         to_html = getattr(value, "to_html", None)
         if callable(to_html):
@@ -88,8 +89,12 @@ def _append_value_output(value):
                         "html": _truncate(html, MAX_HTML_CHARS),
                     }
                 )
+                emitted_html = True
     except Exception:
         pass
+
+    if emitted_html:
+        return
 
     try:
         value_repr = repr(value)
