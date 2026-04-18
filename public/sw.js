@@ -1,4 +1,4 @@
-const VERSION = "noema-pwa-v1";
+const VERSION = "noema-pwa-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
