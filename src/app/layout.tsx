@@ -48,6 +48,9 @@ export const metadata: Metadata = {
       "max-video-preview": -1
     }
   },
+  verification: {
+    google: "tRTWHvPDaxls1Zos9tIWxOYurEY-oHXiu9xhVpUCpU8"
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
