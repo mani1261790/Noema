@@ -1,4 +1,4 @@
-const VERSION = "noema-pwa-v2";
+const VERSION = "noema-pwa-v3";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -27,6 +27,14 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys.filter((key) => key !== VERSION).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (!event.data || event.data.type !== "skipWaiting") {
+    return;
+  }
+
+  self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {

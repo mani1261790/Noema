@@ -2029,13 +2029,18 @@
       border-color: color-mix(in oklab, var(--accent) 34%, var(--glass-edge-soft));
     }
     .msg.assistant {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
       background:
         linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 42%, transparent), transparent 64%),
         color-mix(in oklab, var(--panel-strong) 90%, transparent);
       margin-right: 0;
     }
     .msg.system {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
       border: 1px solid var(--glass-edge-soft);
       background:
         linear-gradient(148deg, color-mix(in oklab, rgba(255,195,120,.18) 62%, transparent), transparent 66%),
@@ -2057,6 +2062,7 @@
       width: 100%;
       max-width: 100%;
       min-width: 0;
+      flex: 0 0 auto;
     }
 
     .msg.assistant > * + *,
@@ -2085,6 +2091,12 @@
     .msg-text-block ul,
     .msg-text-block ol {
       padding-left: 1.2em;
+    }
+
+    .msg.assistant :is(p, ul, ol, li, blockquote, pre, .msg-meta-item),
+    .msg.system :is(p, ul, ol, li, blockquote, pre, .msg-meta-item) {
+      writing-mode: horizontal-tb;
+      text-orientation: mixed;
     }
 
     .msg-text-block code {
@@ -2795,6 +2807,9 @@
 
       .msg.assistant,
       .msg.system {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
         flex: 1 1 auto;
         width: 100%;
         max-width: 100%;
