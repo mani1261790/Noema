@@ -2016,8 +2016,8 @@
       max-width: min(calc(100% - 32px), 520px);
       min-width: 0;
       overflow-x: hidden;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: break-word;
+      word-break: normal;
     }
 
     .msg.user {
@@ -2052,6 +2052,9 @@
       margin: 0;
       white-space: pre-wrap;
       line-height: 1.7;
+      min-width: 0;
+      overflow-wrap: break-word;
+      word-break: normal;
     }
 
     .msg-text-block :is(p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6) {
@@ -2099,6 +2102,7 @@
       overflow: hidden;
       border: 1px solid color-mix(in oklab, var(--code-border) 92%, transparent);
       background: var(--code-bg);
+      min-width: 0;
     }
 
     .msg-code-label {
@@ -2117,8 +2121,9 @@
       margin: 0;
       padding: 10px 12px;
       background: var(--code-bg);
-      overflow-x: hidden;
+      overflow-x: auto;
       overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
     }
 
     .msg-code-block code {
@@ -2126,9 +2131,10 @@
       font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
       font-size: 12px;
       line-height: 1.58;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      min-width: max-content;
+      white-space: pre;
+      overflow-wrap: normal;
+      word-break: normal;
     }
 
     .msg-code-block .hljs {
@@ -2168,8 +2174,8 @@
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
       background: color-mix(in oklab, var(--panel-soft) 80%, transparent);
       white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: break-word;
+      word-break: normal;
     }
 
     .history-session-list {
@@ -2768,6 +2774,18 @@
 
       .overlay-panel {
         width: 100%;
+      }
+
+      .msg-wrap.assistant,
+      .msg-wrap.system {
+        align-items: stretch;
+      }
+
+      .msg.assistant,
+      .msg.system {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: 100%;
       }
 
       .msg-meta-list {
