@@ -226,6 +226,34 @@
       text-decoration: underline;
     }
 
+    .legal-links {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(145, 183, 227, .16);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .legal-links a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .legal-links a:hover {
+      color: color-mix(in oklab, var(--accent) 78%, white);
+      text-decoration: underline;
+    }
+
+    .legal-separator {
+      opacity: .58;
+    }
+
     @media (max-width: 560px) {
       body {
         display: block;
@@ -290,6 +318,12 @@
       <div class="status-head" id="status-head"></div>
       <div class="status-body" id="status-body"></div>
       <div class="status-action" id="status-action"></div>
+    </div>
+
+    <div class="legal-links" aria-label="法務関連リンク">
+      <a href="/terms">利用規約</a>
+      <span class="legal-separator" aria-hidden="true">•</span>
+      <a href="/privacy">プライバシーポリシー</a>
     </div>
   </main>
 
