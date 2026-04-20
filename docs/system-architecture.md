@@ -1,85 +1,106 @@
-# Noema System Architecture (MVP)
+# Noema System Architecture (Current)
+
+最終更新: 2026-04-20  
+このドキュメントは、現行リポジトリ実装（`src/`, `public/`, `scripts/`, `infra/`）に合わせた構成を示します。
 
 ## 1. 全体構成
 
 ```text
-[Browser]
-  ├─ CloudFront ── S3 (Static site + HTML教材)
-  └─ API Gateway ── Lambda (AuthZ / Q&A / Admin)
-                      ├─ DynamoDB (Q&A, cache, metadata)
-                      ├─ OpenSearch or pgvector (retrieval index)
-                      └─ OpenAI API / Amazon Bedrock (LLM inference)
+[Learner Browser]
+  ├─ Next.js app (src/app)
+  │    ├─ /               : ランディング
+  │    ├─ /learn          : 教材一覧
+  │    ├─ /learn/{id}     : 教材詳細（SEO向け）
+  │    └─ /api/*          : catalog / notebook content / download
+  │
+  └─ Static app (public/index.html)
+       └─ ノートブック閲覧 + 学習UI + 認証導線
 
-[Cognito]
-  └─ JWT発行（OAuth2, Email/Password）
+[Content]
+  ├─ content/notebooks/**/*.ipynb
+  └─ content/catalog.json
 
-[CI/CD]
-  ├─ Notebook build (Jupyter Book / nbconvert)
-  └─ Deploy static + backend
+[Build scripts]
+  ├─ scripts/build-notebooks.ts
+  └─ scripts/sync-notebooks-aws.ts
+
+[AWS (infra)]
+  ├─ CloudFront + S3 (site / notebooks)
+  ├─ API Gateway + Lambda (Q&A / Admin / runtime)
+  ├─ DynamoDB / SQS
+  └─ Cognito
 ```
 
-## 2. コンポーネント責務
+## 2. アプリケーション層
 
-- Frontend (Next.js)
-- ログイン状態の維持
-- サイドバー（章/節のアコーディオン表示）
-- 教材HTML表示、動画プレイヤー（PiP対応）
-- 質問投稿・回答表示UI
+### 2.1 Next.js (`src/app`)
 
-- Static Builder
-- `ipynb` から HTML を生成
-- ノートごとのメタデータ（title, tags, order, section）を出力
-- Colabリンクをノート単位で埋め込み
+- `/`:
+  `notebookId` クエリがあれば `/index.html?notebookId=...` へリダイレクト。通常時は学習サービスのトップページを表示。
+- `/learn`:
+  `content/catalog.json` から章・教材一覧を表示。
+- `/learn/[notebookId]`:
+  ノート本文を描画し、JSON-LD / Open Graph / canonical を付与。
+- `/login`, `/signup`, `/admin`:
+  static HTML 側（`/login.html`, `/admin.html`）へリダイレクト。
+- `src/app/api/*`:
+  catalog と notebook コンテンツ配信 API を提供（詳細は `docs/openapi.yaml`）。
 
-- API Backend (Lambda)
-- `/api/questions`: 質問受付、重複質問キャッシュ確認、非同期ジョブ投入
-- `/api/questions/{id}/answer`: 回答状態・本文・出典を返却
-- `/api/admin/*`: 管理者専用（教材登録、ログ閲覧）
+### 2.2 Static app (`public/index.html`)
 
-- RAG Pipeline
-- クエリ正規化
-- インデックスから関連チャンク抽出
-- コンテキスト圧縮後に LLM 推論依頼（OpenAI または Bedrock）
-- 根拠リンク付きで回答を保存
+- メインの学習 UI（サイドバー、教材表示、認証状態による導線）を提供。
+- `public/notebooks/*.html` や `/api/notebooks/{id}/content` を利用して教材を表示。
+- PWA 関連のマニフェスト・Service Worker は `public/manifest.webmanifest`, `public/sw.js`。
 
-## 3. 主要シーケンス
+## 3. コンテンツパイプライン
 
-## 3.1 教材閲覧
+### 3.1 ソース管理
 
-1. ユーザーがログイン
-2. フロントが教材メタ一覧を取得
-3. サイドバーでノート選択
-4. CDN経由で静的HTMLを表示
+- 教材の source of truth は `content/notebooks/**/*.ipynb`。
+- 教材メタデータは `content/catalog.json`。
 
-## 3.2 質問応答
+### 3.2 ビルド
 
-1. ユーザーが質問投稿
-2. APIが質問ハッシュを作成しキャッシュ照会
-3. ヒット時は既存回答を返却
-4. ミス時はジョブ登録（SQS想定）
-5. ワーカーLambdaがRAG + LLM実行
-6. 回答と出典を保存
-7. フロントがポーリングして回答表示
+- `npm run build:notebooks`:
+  `.ipynb` を HTML へ変換し、`public/notebooks/*.html` を生成。
+- ビルド時に highlight.js / KaTeX アセットを `public/highlight`, `public/katex` に配置。
 
-## 4. セキュリティ設計
+### 3.3 配信
 
-- APIは Cognito JWT 検証必須
-- 管理APIは `role=admin` のみ許可
-- LLM APIキー/権限は最小権限化
-- すべて HTTPS
-- 入力バリデーション（長さ、禁止タグ、レート制限）
-- XSS/CSRF対策（CSP, SameSite, CSRF token）
+- Next.js 側では `src/lib/storage.ts` が `htmlPath` に応じてローカル or S3 を読み分ける。
+- S3 構成時は `S3_BUCKET_NAME`, `S3_REGION` などの環境変数で切り替え可能。
 
-## 5. コスト最適化
+## 4. インフラ層（AWS CDK）
 
-- 静的ページは CloudFront キャッシュを最大活用
-- LLM はモデルルータで small -> mid -> large fallback
-- 質問ハッシュキャッシュで同一質問再計算を抑制
-- Retrieval チャンクサイズと top-k を制限してトークン節約
-- ログ・メトリクスは保存期間を段階設定
+`infra/lib/noema-stack.ts` が以下を定義:
 
-## 6. 拡張方針
+- Cognito User Pool / Client
+- CloudFront + S3（site bucket, notebook bucket）
+- API Gateway + Lambda（API / worker / python runner）
+- DynamoDB（questions, answers, cache, notebooks, user-progress など）
+- SQS（Q&A ジョブ）
 
-- ノート追加はメタデータ登録だけで反映
-- LLMモデル追加は router 設定ファイルで切り替え
-- 将来の自動補正エージェントは「PR生成のみ」を初期導入
+注意:
+- Next.js の `src/app/api/*` と、AWS Lambda 側 API（`infra/lambda/api.ts`）は別実装。
+- 前者は SEO/配信補助用途、後者は認証付き Q&A/運用機能用途。
+
+## 5. 主要フロー
+
+### 5.1 教材表示（SEOページ）
+
+1. ユーザーが `/learn/{notebookId}` にアクセス
+2. `getCatalog()` と `getNotebookById()` でメタを取得
+3. `getNotebookHtml()` で本文を取得してサニタイズ
+4. ページ描画 + 構造化データ出力
+
+### 5.2 ノートブックダウンロード
+
+1. ユーザーが `/api/notebooks/{notebookId}/download` を呼ぶ
+2. `loadNotebookIpynb()` が source をローカル/S3 から取得
+3. canonicalize 済み JSON を添付ファイルとして返却
+
+## 6. ドキュメント対応
+
+- API 契約: `docs/openapi.yaml`
+- データモデル: `docs/data-model.md`, `docs/data-model-v2.md`
+- 運用手順: `docs/operations/*`

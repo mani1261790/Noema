@@ -1,48 +1,46 @@
 # Noema
 
-Noema is a learning platform for beginners studying machine learning, LLMs, reinforcement learning, and world models.
+Noema is a notebook-first learning platform for Python, machine learning, deep learning, LLMs, reinforcement learning, and world models.
 
-It combines three things in one place:
+This repository currently contains:
 
-- notebook-based course materials
-- in-context question answering tied to each lesson
-- browser-based Python execution for lightweight experimentation
+- notebook source content (`content/notebooks`)
+- a Next.js site for landing/list/detail pages (`src/app`)
+- a static learning app shell (`public/index.html`)
+- build/deploy scripts and AWS CDK infrastructure (`scripts`, `infra`)
 
 ## What Noema Does
 
 - Serves lesson content from Jupyter notebooks
+- Generates SEO-friendly lesson detail pages
 - Lets learners open the same material in Colab
-- Answers questions with notebook-aware context
-- Runs Python snippets without requiring local setup
+- Provides notebook download/content APIs for the app shell
 - Keeps infrastructure mostly serverless to reduce operating cost
 
 ## Learning Flow
 
 ```mermaid
 flowchart LR
-  A["Learner opens a lesson"] --> B["Notebook source is rendered as lesson content"]
-  B --> C["Learner reads, runs code, or opens Colab"]
-  C --> D["Learner asks a question"]
-  D --> E["Noema retrieves notebook-linked context"]
-  E --> F["LLM generates an answer"]
-  F --> G["Answer is shown with lesson context"]
+  A["Edit ipynb in content/notebooks"] --> B["Run build:notebooks"]
+  B --> C["Generate public/notebooks/*.html"]
+  C --> D["Render via /learn or /index.html"]
+  D --> E["Learner opens Colab / downloads ipynb"]
 ```
 
 ## System Overview
 
 ```mermaid
 flowchart TD
-  A["content/notebooks/*.ipynb"] --> B["Static lesson pages"]
-  A --> C["Notebook metadata"]
-  B --> D["Learner UI"]
-  C --> D
-  D --> E["API Gateway + Lambda"]
-  E --> F["DynamoDB"]
-  E --> G["Python runner"]
-  E --> H["LLM provider"]
-  H --> I["Amazon Bedrock or OpenAI"]
-  B --> J["S3 + CloudFront"]
-  D --> K["Cognito login"]
+  A["content/notebooks/*.ipynb"] --> B["scripts/build-notebooks.ts"]
+  B --> C["public/notebooks/*.html"]
+  A --> D["content/catalog.json"]
+  D --> E["Next.js routes (/learn, /learn/{id})"]
+  C --> E
+  E --> F["Learner browser"]
+  F --> G["/api/catalog"]
+  F --> H["/api/notebooks/{id}/content"]
+  F --> I["/api/notebooks/{id}/download"]
+  J["infra (CDK)"] --> K["CloudFront + S3 + API + Lambda + DynamoDB + SQS + Cognito"]
 ```
 
 ## Repository Structure
@@ -52,7 +50,7 @@ flowchart TD
 - `public`: generated public assets
 - `src`: app shell and shared logic
 - `infra`: AWS CDK infrastructure
-- `docs`: architecture and operations notes
+- `docs`: architecture/operations/spec docs (`docs/README.md`)
 
 ## For Learners
 
@@ -84,12 +82,22 @@ Useful commands:
 - `npm run build`
 - `npm run build:notebooks`
 - `npm run typecheck`
-- `python3 scripts/check-notebook-code.py`
+- `npm run check:notebook-code`
+- `npm run check:notebook-isolated-run`
+- `npm run check:python-runtime-safety`
 
-If you need AWS infrastructure details, see `infra/README.md`.  
-If you need deeper system notes, see:
+## Documentation
+
+Start from:
+
+- `docs/README.md`
+
+Frequently used docs:
 
 - `docs/system-architecture.md`
+- `docs/openapi.yaml`
 - `docs/operations/aws-setup.md`
 - `docs/operations/dev-loop.md`
 - `docs/operations/runbook.md`
+
+For AWS infrastructure details, see `infra/README.md`.
