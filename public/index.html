@@ -5132,7 +5132,7 @@
 
       function collectNotebookImportedModules(container) {
         const modules = new Set();
-        container.querySelectorAll("pre > code").forEach((code) => {
+        container.querySelectorAll("pre[data-noema-code-cell='1'] > code").forEach((code) => {
           extractImportedModulesFromSource(code.textContent || "").forEach((moduleName) => {
             modules.add(moduleName);
           });
@@ -5407,7 +5407,7 @@
       }
 
       async function applySyntaxHighlight(container) {
-        const blocks = container.querySelectorAll("pre > code");
+        const blocks = container.querySelectorAll("pre[data-noema-code-cell='1'] > code");
         if (!blocks.length) return;
         try {
           const hljs = await ensureHighlightLibrary();
@@ -5701,7 +5701,7 @@
       }
 
       function enhanceCodeBlocks() {
-        const blocks = Array.from(el.notebookContent.querySelectorAll("pre > code"));
+        const blocks = Array.from(el.notebookContent.querySelectorAll("pre[data-noema-code-cell='1'] > code"));
         const notebookId = state.activeNotebook ? state.activeNotebook.id : "";
         const defaultSources = blocks.map((code) => normalizeRunnableSource(code.textContent || ""));
         const savedDraft = notebookId ? readNotebookPlaygroundDraft(notebookId, defaultSources) : [];
