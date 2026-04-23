@@ -180,7 +180,9 @@ try:
             original_show = plt.show
 
             def _capture_show(*_args, **_kwargs):
-                shown_fignums.update(plt.get_fignums())
+                shown_fignums.update(
+                    fig_num for fig_num in plt.get_fignums() if fig_num not in preexisting_fignums
+                )
                 return None
 
             plt.show = _capture_show
