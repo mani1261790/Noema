@@ -661,7 +661,7 @@ export function notebookToHtml(input: NotebookFile): string {
       continue;
     }
 
-    pieces.push(`<pre><code class="language-python">${escapeHtml(text)}</code></pre>`);
+    pieces.push(`<pre data-noema-code-cell="1"><code class="language-python">${escapeHtml(text)}</code></pre>`);
   }
 
   pieces.push("</article>");
