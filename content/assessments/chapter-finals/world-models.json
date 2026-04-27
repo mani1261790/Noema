@@ -18,11 +18,11 @@
     {
       "id": "q2",
       "type": "coding",
-      "prompt": "行列 `A`、`B`、状態ベクトル `z_t`、行動ベクトル `a_t` が与えられているとして、線形遷移 `z_next = A @ z_t + B @ a_t` を計算する短い Python / NumPy コードを書いてください。",
+      "prompt": "行列 `A`、`B`、状態ベクトル $z_t$、行動ベクトル $a_t$ が与えられているとして、線形遷移 $z_next = A @ z_t + B @ a_t$ を計算する短い Python / NumPy コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "matrix_mult", "description": "`A @ z_t` と `B @ a_t` の形で行列積を使っている", "points": 5, "keywords": ["A @ z_t", "B @ a_t", "@"] },
-        { "id": "sum", "description": "二つの寄与を足して `z_next` を作っている", "points": 3, "keywords": ["z_next", "+"] },
+        { "id": "matrix_mult", "description": "$A @ z_t$ と $B @ a_t$ の形で行列積を使っている", "points": 5, "keywords": ["A @ z_t", "B @ a_t", "@"] },
+        { "id": "sum", "description": "二つの寄与を足して $z_next$ を作っている", "points": 3, "keywords": ["z_next", "+"] },
         { "id": "consistency", "description": "状態遷移の最小コードとして筋が通っている", "points": 2, "keywords": ["state transition", "linear"] }
       ]
     },
@@ -40,10 +40,10 @@
     {
       "id": "q4",
       "type": "coding",
-      "prompt": "観測復元関数として、行列 `C` とバイアス `d`、状態 `z` が与えられているとします。線形デコーダ `obs_hat = C @ z + d` を計算する短い Python / NumPy コードを書いてください。",
+      "prompt": "観測復元関数として、行列 `C` とバイアス `d`、状態 `z` が与えられているとします。線形デコーダ $obs_hat = C @ z + d$ を計算する短い Python / NumPy コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "decode", "description": "`C @ z + d` の形で観測復元を計算している", "points": 6, "keywords": ["C @ z", "+ d", "obs_hat"] },
+        { "id": "decode", "description": "$C @ z + d$ の形で観測復元を計算している", "points": 6, "keywords": ["C @ z", "+ d", "obs_hat"] },
         { "id": "consistency", "description": "状態から観測への線形デコードとして筋が通っている", "points": 4, "keywords": ["decode", "observation"] }
       ]
     },
@@ -61,12 +61,12 @@
     {
       "id": "q6",
       "type": "coding",
-      "prompt": "行動列 `plan` を先頭から順に適用し、各ステップで `z = A @ z + B @ a` と更新する簡単なループコードを書いてください。初期状態は `z0` とします。",
+      "prompt": "行動列 `plan` を先頭から順に適用し、各ステップで $z = A @ z + B @ a$ と更新する簡単なループコードを書いてください。初期状態は `z0` とします。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "init", "description": "初期状態 `z = z0` などの初期化がある", "points": 2, "keywords": ["z0", "z ="] },
+        { "id": "init", "description": "初期状態 $z = z0$ などの初期化がある", "points": 2, "keywords": ["z0", "z ="] },
         { "id": "loop", "description": "行動列 `plan` を順に回すループがある", "points": 3, "keywords": ["for", "plan"] },
-        { "id": "update", "description": "各ステップで `z = A @ z + B @ a` の更新をしている", "points": 4, "keywords": ["A @ z", "B @ a", "z ="] },
+        { "id": "update", "description": "各ステップで $z = A @ z + B @ a$ の更新をしている", "points": 4, "keywords": ["A @ z", "B @ a", "z ="] },
         { "id": "consistency", "description": "ロールアウトの最小コードとして筋が通っている", "points": 1, "keywords": ["rollout"] }
       ]
     },
@@ -84,11 +84,11 @@
     {
       "id": "q8",
       "type": "coding",
-      "prompt": "予測値列 `preds` と実測値列 `targets` が同じ長さの NumPy 配列として与えられているとします。各時点誤差の絶対値 `errors` と、その平均 `mean_error` を計算する短いコードを書いてください。",
+      "prompt": "予測値列 `preds` と実測値列 `targets` が同じ長さの NumPy 配列として与えられているとします。各時点誤差の絶対値 `errors` と、その平均 $mean_error$ を計算する短いコードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "errors", "description": "各時点誤差の絶対値を計算している", "points": 5, "keywords": ["abs", "preds - targets", "errors"] },
-        { "id": "mean", "description": "平均誤差 `mean_error` を計算している", "points": 3, "keywords": ["mean", "mean_error"] },
+        { "id": "mean", "description": "平均誤差 $mean_error$ を計算している", "points": 3, "keywords": ["mean", "mean_error"] },
         { "id": "consistency", "description": "誤差監視の最小コードとして筋が通っている", "points": 2, "keywords": ["monitoring", "error"] }
       ]
     },

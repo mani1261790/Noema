@@ -6385,7 +6385,7 @@
               ? (question.choices || []).map((choice) => `
                 <label class="assessment-choice">
                   <input type="radio" name="final-${escapeHtmlAttribute(question.id)}" value="${escapeHtmlAttribute(choice.id)}" ${draftValue === String(choice.id || "") ? "checked" : ""} />
-                  <span>${escapeHtml(String(choice.text || ""))}</span>
+                  <span>${renderInlineRichText(String(choice.text || ""))}</span>
                 </label>
               `).join("")
               : `
@@ -6401,7 +6401,7 @@
               `;
             return `
               <article class="assessment-question" data-question-id="${escapeHtmlAttribute(question.id)}" data-question-type="${escapeHtmlAttribute(type)}">
-                <div class="assessment-question-prompt"><strong>${index + 1}.</strong> ${escapeHtml(String(question.prompt || ""))}</div>
+                <div class="assessment-question-prompt"><strong>${index + 1}.</strong> ${renderInlineRichText(String(question.prompt || ""))}</div>
                 <div>${choicesHtml}</div>
               </article>
             `;
@@ -6501,7 +6501,10 @@
               const grader = result.gradingProvider
                 ? `採点: ${result.gradingProvider}${result.modelId ? ` / ${result.modelId}` : ""}`
                 : "採点官エージェント";
-              box.textContent = `${result.passed ? "合格です。" : "不合格です。90%以上で合格です。"}\nスコア: ${result.score}/${result.maxScore} (${Math.round(Number(result.ratio || 0) * 100)}%)\n${grader}\n\n${lines.join("\n")}`;
+              box.innerHTML = renderRichTextWithLineBreaks(
+                `${result.passed ? "合格です。" : "不合格です。90%以上で合格です。"}\nスコア: ${result.score}/${result.maxScore} (${Math.round(Number(result.ratio || 0) * 100)}%)\n${grader}\n\n${lines.join("\n")}`
+              );
+              await renderMathFallback(box);
               wrapper.querySelector(".assessment-status").textContent = isChapterFinalPassed(chapterId) ? "合格済み" : "未合格";
             } catch (error) {
               const box = wrapper.querySelector(".assessment-result");
@@ -6742,12 +6745,12 @@
             const choicesHtml = (question.choices || []).map((choice) => `
               <label class="assessment-choice">
                 <input type="radio" name="assessment-${escapeHtmlAttribute(question.id)}" value="${escapeHtmlAttribute(choice.id)}" />
-                <span>${escapeHtml(String(choice.text || ""))}</span>
+                <span>${renderInlineRichText(String(choice.text || ""))}</span>
               </label>
             `).join("");
             return `
               <article class="assessment-question" data-question-id="${escapeHtmlAttribute(question.id)}">
-                <strong>${index + 1}. ${escapeHtml(String(question.prompt || ""))}</strong>
+                <div class="assessment-question-prompt"><strong>${index + 1}.</strong> ${renderInlineRichText(String(question.prompt || ""))}</div>
                 <div>${choicesHtml}</div>
               </article>
             `;
@@ -6766,6 +6769,7 @@
             </div>
             <div class="assessment-result is-hidden"></div>
           `;
+          await renderMathFallback(wrapper.querySelector(".assessment-question-list") || wrapper);
           const submit = wrapper.querySelector("[data-assessment-submit]");
           submit.addEventListener("click", async function () {
             const answers = {};
@@ -6794,7 +6798,10 @@
               });
               const box = wrapper.querySelector(".assessment-result");
               box.classList.remove("is-hidden");
-              box.textContent = `${result.passed ? "合格です。" : "不合格です。全問正解で合格です。"}\nスコア: ${result.score}/${result.total}\n\n${lines.join("\n")}`;
+              box.innerHTML = renderRichTextWithLineBreaks(
+                `${result.passed ? "合格です。" : "不合格です。全問正解で合格です。"}\nスコア: ${result.score}/${result.total}\n\n${lines.join("\n")}`
+              );
+              await renderMathFallback(box);
               wrapper.querySelector(".assessment-status").textContent = isNotebookCheckPassed(notebookId) ? "合格済み" : "未合格";
               renderHomeDashboardIfVisible();
             } catch (error) {
@@ -6895,6 +6902,14 @@
         return escapeHtml(value).replace(/\n/g, "<br>");
       }
 
+      function renderInlineRichText(source) {
+        return renderInlineMarkdown(source);
+      }
+
+      function renderRichTextWithLineBreaks(source) {
+        return renderInlineRichText(source).replace(/\n/g, "<br>");
+      }
+
       function normalizeCodeLanguage(raw) {
         const value = String(raw || "").trim().toLowerCase();
         if (!value) return "plaintext";
@@ -6933,8 +6948,14 @@
         let text = String(source || "");
 
         text = text.replace(/`([^`]+)`/g, (_, code) => {
-          const token = `@@INLINECODE${placeholders.length}@@`;
+          const token = `@@INLINE${placeholders.length}@@`;
           placeholders.push(`<code>${escapeHtml(code)}</code>`);
+          return token;
+        });
+
+        text = text.replace(/(\$\$[\s\S]+?\$\$|\$[^$\n]+\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\])/g, (math) => {
+          const token = `@@INLINE${placeholders.length}@@`;
+          placeholders.push(math);
           return token;
         });
 
@@ -6948,7 +6969,7 @@
         text = text.replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>");
 
         placeholders.forEach((html, index) => {
-          text = text.split(`@@INLINECODE${index}@@`).join(html);
+          text = text.split(`@@INLINE${index}@@`).join(html);
         });
 
         return text;

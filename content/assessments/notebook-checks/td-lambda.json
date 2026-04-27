@@ -9,12 +9,12 @@
       "prompt": "TD(λ) の基本について、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "TD(λ) は、1-step TD と Monte Carlo を連続的につなぐ見方として読める。" },
-        { "id": "b", "text": "`\\lambda` を動かすと、短い target と長い target の混合比が変わる。" },
-        { "id": "c", "text": "`\\lambda=0` は 1-step 側、`\\lambda \\to 1` は長い return 側へ寄る見方ができる。" },
-        { "id": "d", "text": "`\\lambda` は単なる飾りの定数であり、target の長さや混合比には一切関係しない。" }
+        { "id": "b", "text": "$\\lambda$ を動かすと、短い target と長い target の混合比が変わる。" },
+        { "id": "c", "text": "$\\lambda=0$ は 1-step 側、$\\lambda \\to 1$ は長い return 側へ寄る見方ができる。" },
+        { "id": "d", "text": "$\\lambda$ は単なる飾りの定数であり、target の長さや混合比には一切関係しない。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "`\\lambda` は、どの長さの target をどれだけ混ぜるかを決める重みとしてこのノートで説明されています。",
+      "explanation": "$\\lambda$ は、どの長さの target をどれだけ混ぜるかを決める重みとしてこのノートで説明されています。",
       "learningObjective": "TD(lambda) の基本"
     },
     {
@@ -22,7 +22,7 @@
       "prompt": "forward view の λ-return について、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "λ-return は、いろいろな n-step return の重み付き平均として読める。" },
-        { "id": "b", "text": "このノートでは、`\\lambda=0` から `\\lambda \\to 1` で target がどう変わるかを見る。" },
+        { "id": "b", "text": "このノートでは、$\\lambda=0$ から $\\lambda \\to 1$ で target がどう変わるかを見る。" },
         { "id": "c", "text": "forward view では、未来側の複数の長さの return を明示的に混ぜる。" },
         { "id": "d", "text": "λ-return は、どの n-step return も使わず、1-step target だけを固定で使う別名である。" }
       ],
@@ -35,7 +35,7 @@
       "prompt": "backward view について、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "backward view は、現在の TD 誤差を過去へ配って forward view に近い効果をオンラインで得る見方である。" },
-        { "id": "b", "text": "このノートでは、trace を使って `V(s) += alpha * delta_t * e_t(s)` の形を見る。" },
+        { "id": "b", "text": "このノートでは、trace を使って $V(s) += alpha * delta_t * e_t(s)$ の形を見る。" },
         { "id": "c", "text": "毎回未来を全部見直す代わりに、trace で近い効果を実装する。" },
         { "id": "d", "text": "backward view では eligibility trace は不要で、forward view と同じく毎回すべての未来報酬を最後まで足し直すことだけを行う。" }
       ],
@@ -47,7 +47,7 @@
       "id": "q4",
       "prompt": "このノートと周辺ノートの関係について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "このノートは `\\lambda` の意味を掴むための位置づけである。" },
+        { "id": "a", "text": "このノートは $\\lambda$ の意味を掴むための位置づけである。" },
         { "id": "b", "text": "trace の設計差そのものは、次の eligibility trace notebook でさらに細かく見る。" },
         { "id": "c", "text": "n-step return を一つの軸に置き直して読む橋渡しになる。" },
         { "id": "d", "text": "TD(λ) と eligibility trace は完全に無関係なので、周辺ノートとつなげて読む必要はない。" }
@@ -60,13 +60,13 @@
       "id": "q5",
       "prompt": "このノートの読み方について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`\\lambda` は魔法の安定化パラメータというより、どの長さの target をどれだけ混ぜるかの重みとして読む。" },
+        { "id": "a", "text": "$\\lambda$ は魔法の安定化パラメータというより、どの長さの target をどれだけ混ぜるかの重みとして読む。" },
         { "id": "b", "text": "1-step と Monte Carlo を一つの軸に置き直すつもりで読むと整理しやすい。" },
         { "id": "c", "text": "trace が何を覚えているかも見るべきポイントに入る。" },
-        { "id": "d", "text": "このノートでは `\\lambda` の意味は問題にせず、アルゴリズム名だけ覚えれば十分だとしている。" }
+        { "id": "d", "text": "このノートでは $\\lambda$ の意味は問題にせず、アルゴリズム名だけ覚えれば十分だとしている。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "このノートの主題は、まさに `\\lambda` が何を混ぜているかを理解することです。",
+      "explanation": "このノートの主題は、まさに $\\lambda$ が何を混ぜているかを理解することです。",
       "learningObjective": "読み方"
     }
   ]

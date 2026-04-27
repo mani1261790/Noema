@@ -18,7 +18,7 @@
     {
       "id": "q2",
       "type": "coding",
-      "prompt": "時刻 `t` の正解トークン id が `target_id`、その位置の語彙ロジット配列が `logits` とします。数値安定化のために最大値を引いて softmax を作り、正解トークンの負の対数尤度を計算する短い Python コードを書いてください。`math.exp` と `math.log` を使う程度で十分です。",
+      "prompt": "時刻 `t` の正解トークン id が $target_id$、その位置の語彙ロジット配列が $logits$ とします。数値安定化のために最大値を引いて softmax を作り、正解トークンの負の対数尤度を計算する短い Python コードを書いてください。`math.exp` と `math.log` を使う程度で十分です。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "stabilize", "description": "最大値を引いて数値安定化している", "points": 3, "keywords": ["max", "stabilize", "logits"] },
@@ -42,11 +42,11 @@
     {
       "id": "q4",
       "type": "coding",
-      "prompt": "文字列 `text` を受け取り、空白区切りで概算 token 数を数え、上限 `max_tokens` を超えていたら先頭からその上限まで残して返す簡単な Python 関数を書いてください。厳密トークナイザでなくて構いません。",
+      "prompt": "文字列 `text` を受け取り、空白区切りで概算 token 数を数え、上限 $max_tokens$ を超えていたら先頭からその上限まで残して返す簡単な Python 関数を書いてください。厳密トークナイザでなくて構いません。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "split", "description": "空白区切りなどで粗くトークン列へ分けている", "points": 3, "keywords": ["split", "tokens"] },
-        { "id": "limit", "description": "上限 `max_tokens` を超えた場合の切り詰めがある", "points": 3, "keywords": ["max_tokens", "slice", "truncate"] },
+        { "id": "limit", "description": "上限 $max_tokens$ を超えた場合の切り詰めがある", "points": 3, "keywords": ["max_tokens", "slice", "truncate"] },
         { "id": "return", "description": "必要なら結合して文字列を返している", "points": 2, "keywords": ["join", "return"] },
         { "id": "purpose", "description": "入力予算管理の最小例として筋が通っている", "points": 2, "keywords": ["予算", "概算"] }
       ]
@@ -54,11 +54,11 @@
     {
       "id": "q5",
       "type": "short_text",
-      "prompt": "SFT で回答部分だけへ主に損失を掛ける設計がなぜ重要かを説明してください。`ignore_index=-100` の役割と、学習による適応と rails による運用時制御の違いも書いてください。",
+      "prompt": "SFT で回答部分だけへ主に損失を掛ける設計がなぜ重要かを説明してください。$ignore_index=-100$ の役割と、学習による適応と rails による運用時制御の違いも書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "answer_only", "description": "回答部分へ学習信号を集中させる理由を説明している", "points": 3, "keywords": ["回答部分", "学習信号", "集中"] },
-        { "id": "ignore", "description": "`ignore_index=-100` で学習しない位置を切り分けると説明している", "points": 3, "keywords": ["ignore_index", "-100", "切り分け"] },
+        { "id": "ignore", "description": "$ignore_index=-100$ で学習しない位置を切り分けると説明している", "points": 3, "keywords": ["ignore_index", "-100", "切り分け"] },
         { "id": "adaptation", "description": "SFT が重み更新による適応だと説明している", "points": 2, "keywords": ["重み更新", "適応", "SFT"] },
         { "id": "rails", "description": "rails は推論時の安全制御であり代用品ではないと述べている", "points": 2, "keywords": ["rails", "推論時", "安全制御"] }
       ]
@@ -66,11 +66,11 @@
     {
       "id": "q6",
       "type": "coding",
-      "prompt": "トークン列 `tokens` と、回答開始位置 `answer_start` が与えられているとします。`answer_start` より前は `-100`、それ以降は元トークン id をラベルに入れる `labels` 配列を作る短い Python コードを書いてください。",
+      "prompt": "トークン列 `tokens` と、回答開始位置 $answer_start$ が与えられているとします。$answer_start$ より前は $-100$、それ以降は元トークン id をラベルに入れる `labels` 配列を作る短い Python コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "loop", "description": "位置を見ながらラベル列を作っている", "points": 2, "keywords": ["for", "enumerate", "labels"] },
-        { "id": "mask_before", "description": "回答開始前を `-100` にしている", "points": 4, "keywords": ["-100", "answer_start", "before"] },
+        { "id": "mask_before", "description": "回答開始前を $-100$ にしている", "points": 4, "keywords": ["-100", "answer_start", "before"] },
         { "id": "keep_after", "description": "回答開始以降は元のトークン id を入れている", "points": 3, "keywords": ["tokens[i]", "after", "id"] },
         { "id": "consistency", "description": "SFT ラベル作成の最小例として筋が通っている", "points": 1, "keywords": ["labels", "SFT"] }
       ]

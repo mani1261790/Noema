@@ -10,21 +10,21 @@
       "choices": [
         { "id": "a", "text": "表形式 Q 学習は、状態数が少ないうちは明快だが、大きな観測では持ちきれなくなりやすい。" },
         { "id": "b", "text": "深層強化学習は、Q テーブルをニューラルネットワークへ置き換える発想から始まる。" },
-        { "id": "c", "text": "変わるのは `Q(s,a)` の持ち方であり、ベルマン更新の骨格は残る。" },
+        { "id": "c", "text": "変わるのは $Q(s,a)$ の持ち方であり、ベルマン更新の骨格は残る。" },
         { "id": "d", "text": "深層化すると、ベルマン更新そのものが不要になり、reward の和だけを直接 memorization するので target は使わない。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "このノートでは、表がネットへ置き換わっても target の骨格は `r + \\gamma \\max q_next` のままだと説明しています。",
+      "explanation": "このノートでは、表がネットへ置き換わっても target の骨格は $r + \\gamma \\max q_next$ のままだと説明しています。",
       "learningObjective": "deep RL の出発点"
     },
     {
       "id": "q2",
       "prompt": "このノートの target について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "このノートでは、`target = r + \\gamma \\max q_next` をネットワーク近似に乗せる最小骨格を見る。" },
+        { "id": "a", "text": "このノートでは、$target = r + \\gamma \\max q_next$ をネットワーク近似に乗せる最小骨格を見る。" },
         { "id": "b", "text": "終端遷移では bootstrap を切る条件が重要になる。" },
         { "id": "c", "text": "one-hot 状態を入力して、各行動の Q 値を出す最小 MLP を使っている。" },
-        { "id": "d", "text": "終端かどうかに関係なく、常に `\\gamma \\max q_next` を足し続けるのが唯一正しい target である。" }
+        { "id": "d", "text": "終端かどうかに関係なく、常に $\\gamma \\max q_next$ を足し続けるのが唯一正しい target である。" }
       ],
       "correctChoiceId": "d",
       "explanation": "このノートでは、終端遷移で bootstrap を切る条件を明示的に見ています。",

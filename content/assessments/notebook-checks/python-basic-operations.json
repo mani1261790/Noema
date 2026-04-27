@@ -23,7 +23,7 @@
       "choices": [
         { "id": "a", "text": "`scores[0]` はリストの先頭要素、`scores[-1]` は末尾要素を取り出す。" },
         { "id": "b", "text": "`scores[1:4]` のようなスライスでは、開始位置は含み、終了位置は含まない。" },
-        { "id": "c", "text": "辞書は `profile[\"club\"]` のようにキーを指定して値を取り出せる。" },
+        { "id": "c", "text": "辞書は $profile[\"club\"]$ のようにキーを指定して値を取り出せる。" },
         { "id": "d", "text": "`set(scores)` は、元のリストに同じ点数が何回出たかをそのまま保持する。" }
       ],
       "correctChoiceId": "d",
@@ -37,10 +37,10 @@
         { "id": "a", "text": "`if`、`elif`、`else` は、条件に応じて処理を分けるために使う。" },
         { "id": "b", "text": "ノートのラベル付けでは、90点以上をA、75点以上をB、それ以外をCとしている。" },
         { "id": "c", "text": "`for score in scores:` は、scores の要素を1つずつ取り出して処理する。" },
-        { "id": "d", "text": "`elif score >= 75` は、90点以上のスコアにも必ず実行される。" }
+        { "id": "d", "text": "$elif score >= 75$ は、90点以上のスコアにも必ず実行される。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "`if score >= 90` が真なら、その下の `elif` は実行されません。条件は上から順に判定されます。",
+      "explanation": "$if score >= 90$ が真なら、その下の `elif` は実行されません。条件は上から順に判定されます。",
       "learningObjective": "条件分岐"
     },
     {
@@ -49,11 +49,11 @@
       "choices": [
         { "id": "a", "text": "`[x * x for x in range(1, 6)]` は、1から5までの二乗を並べたリストを作る。" },
         { "id": "b", "text": "内包表記は、短い変換処理をリストとしてまとめるときに使える。" },
-        { "id": "c", "text": "`summarize_scores(values)` は、件数・平均・最高・最低を辞書として返している。" },
+        { "id": "c", "text": "$summarize_scores(values)$ は、件数・平均・最高・最低を辞書として返している。" },
         { "id": "d", "text": "関数の `return` は画面表示専用なので、返した値を変数に保存することはできない。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "`return` された値は `summary = summarize_scores(scores)` のように変数へ保存できます。",
+      "explanation": "`return` された値は $summary = summarize_scores(scores)$ のように変数へ保存できます。",
       "learningObjective": "内包表記と関数"
     },
     {
@@ -61,7 +61,7 @@
       "prompt": "例外処理と標準ライブラリについて、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "`try` / `except ValueError` は、数値変換に失敗する入力が混じる場合に処理を止めずに進めるために使える。" },
-        { "id": "b", "text": "`int(\"oops\")` のような変換失敗は `ValueError` として扱える。" },
+        { "id": "b", "text": "$int(\"oops\")$ のような変換失敗は `ValueError` として扱える。" },
         { "id": "c", "text": "`Counter(labels)` は、A・B・Cのようなラベルの出現回数を数えるのに使える。" },
         { "id": "d", "text": "`math.sqrt` は、リスト内の文字列を自動的に整数へ変換するための関数である。" }
       ],

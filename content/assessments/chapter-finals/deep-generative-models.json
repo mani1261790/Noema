@@ -18,7 +18,7 @@
     {
       "id": "q2",
       "type": "coding",
-      "prompt": "混合比 `pi`、ベルヌーイ成分の 1 の確率 `p0`, `p1`、観測 `x` が 0 か 1 として与えられているとします。2 成分混合ベルヌーイで、成分 0 の責任率 `gamma0` を計算する短い Python コードを書いてください。",
+      "prompt": "混合比 $pi$、ベルヌーイ成分の 1 の確率 $p_0$, $p_1$、観測 $x$ が 0 か 1 として与えられているとします。2 成分混合ベルヌーイで、成分 0 の責任率 $\\gamma_0$ を計算する短い Python コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "likelihoods", "description": "各成分での観測尤度を計算している", "points": 3, "keywords": ["p0", "p1", "x", "1 - p"] },
@@ -41,11 +41,11 @@
     {
       "id": "q4",
       "type": "coding",
-      "prompt": "`mu`, `logvar`, `eps` が与えられているとして、VAE の再パラメータ化 `z = mu + sigma * eps` を計算する短い Python コードを書いてください。`sigma = exp(0.5 * logvar)` を使ってください。",
+      "prompt": "$mu$, $logvar$, `eps` が与えられているとして、VAE の再パラメータ化 $z = mu + sigma * eps$ を計算する短い Python コードを書いてください。$sigma = exp(0.5 * logvar)$ を使ってください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "sigma", "description": "`sigma = exp(0.5 * logvar)` を計算している", "points": 4, "keywords": ["exp", "0.5", "logvar", "sigma"] },
-        { "id": "z", "description": "`z = mu + sigma * eps` を計算している", "points": 4, "keywords": ["mu", "sigma", "eps", "z ="] },
+        { "id": "sigma", "description": "$sigma = exp(0.5 * logvar)$ を計算している", "points": 4, "keywords": ["exp", "0.5", "logvar", "sigma"] },
+        { "id": "z", "description": "$z = mu + sigma * eps$ を計算している", "points": 4, "keywords": ["mu", "sigma", "eps", "z ="] },
         { "id": "purpose", "description": "再パラメータ化の最小コードとして筋が通っている", "points": 2, "keywords": ["reparameterization", "VAE"] }
       ]
     },
@@ -64,10 +64,10 @@
     {
       "id": "q6",
       "type": "coding",
-      "prompt": "2 次元の affine coupling で、`y1 = z1`, `y2 = z2 * exp(s) + t` とします。`z1`, `z2`, `s`, `t` が与えられているとして、`y1`, `y2`, `logdet` を計算する短い Python コードを書いてください。",
+      "prompt": "2 次元の affine coupling で、$y1 = z1$, $y2 = z2 * exp(s) + t$ とします。`z1`, `z2`, `s`, `t` が与えられているとして、`y1`, `y2`, `logdet` を計算する短い Python コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "forward", "description": "`y1 = z1`, `y2 = z2 * exp(s) + t` を計算している", "points": 5, "keywords": ["y1 = z1", "exp(s)", "y2"] },
+        { "id": "forward", "description": "$y1 = z1$, $y2 = z2 * exp(s) + t$ を計算している", "points": 5, "keywords": ["y1 = z1", "exp(s)", "y2"] },
         { "id": "logdet", "description": "log-det を `s` として扱っている", "points": 3, "keywords": ["logdet", "s"] },
         { "id": "consistency", "description": "affine coupling の前向き計算として筋が通っている", "points": 2, "keywords": ["coupling", "flow"] }
       ]
@@ -87,12 +87,12 @@
     {
       "id": "q8",
       "type": "coding",
-      "prompt": "エネルギー関数 `E(x)` の勾配値 `dE_dx`、現在位置 `x`、`step_size`、`noise_std`、標準正規ノイズ `eps` が与えられているとして、SGLD の 1 ステップ更新 `x_next` を計算する短い Python コードを書いてください。",
+      "prompt": "エネルギー関数 `E(x)` の勾配値 $dE_dx$、現在位置 `x`、$step_size$、$noise_std$、標準正規ノイズ `eps` が与えられているとして、SGLD の 1 ステップ更新 $x_next$ を計算する短い Python コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "drift", "description": "`- step_size * dE_dx` のドリフト項を使っている", "points": 4, "keywords": ["step_size", "dE_dx", "-"] },
-        { "id": "noise", "description": "`noise_std * eps` のノイズ項を足している", "points": 4, "keywords": ["noise_std", "eps", "+"] },
-        { "id": "result", "description": "`x_next` を現在位置から更新している", "points": 2, "keywords": ["x_next", "x +"] }
+        { "id": "drift", "description": "$- step_size * dE_dx$ のドリフト項を使っている", "points": 4, "keywords": ["step_size", "dE_dx", "-"] },
+        { "id": "noise", "description": "$noise_std * eps$ のノイズ項を足している", "points": 4, "keywords": ["noise_std", "eps", "+"] },
+        { "id": "result", "description": "$x_next$ を現在位置から更新している", "points": 2, "keywords": ["x_next", "x +"] }
       ]
     },
     {
@@ -110,11 +110,11 @@
     {
       "id": "q10",
       "type": "coding",
-      "prompt": "`x0`, `x1`, `t` が与えられているとして、線形 path `x_t = (1 - t) * x0 + t * x1` と、その教師速度 `u_t = x1 - x0` を計算する短い Python コードを書いてください。",
+      "prompt": "`x0`, `x1`, `t` が与えられているとして、線形 path $x_t = (1 - t) * x0 + t * x1$ と、その教師速度 $u_t = x1 - x0$ を計算する短い Python コードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "path", "description": "線形 path `x_t = (1 - t) * x0 + t * x1` を書いている", "points": 5, "keywords": ["1 - t", "x0", "t * x1", "x_t"] },
-        { "id": "velocity", "description": "教師速度 `u_t = x1 - x0` を計算している", "points": 4, "keywords": ["u_t", "x1 - x0"] },
+        { "id": "path", "description": "線形 path $x_t = (1 - t) * x0 + t * x1$ を書いている", "points": 5, "keywords": ["1 - t", "x0", "t * x1", "x_t"] },
+        { "id": "velocity", "description": "教師速度 $u_t = x1 - x0$ を計算している", "points": 4, "keywords": ["u_t", "x1 - x0"] },
         { "id": "consistency", "description": "Flow Matching の最小例として筋が通っている", "points": 1, "keywords": ["path", "velocity"] }
       ]
     }

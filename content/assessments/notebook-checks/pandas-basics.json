@@ -9,9 +9,9 @@
       "prompt": "DataFrameと列参照について、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "`DataFrame` は、行と列を持つ表としてデータを扱うための構造である。" },
-        { "id": "b", "text": "`df[\"math\"]` のように1列だけ選ぶと、基本的には `Series` として取り出される。" },
-        { "id": "c", "text": "`df[[\"student\", \"math\"]]` のように複数列を選ぶと、表の形を保った `DataFrame` になる。" },
-        { "id": "d", "text": "`df[\"math\"]` と `df[[\"math\"]]` は、常に同じ型のオブジェクトを返す。" }
+        { "id": "b", "text": "$df[\"math\"]$ のように1列だけ選ぶと、基本的には `Series` として取り出される。" },
+        { "id": "c", "text": "$df[[\"student\", \"math\"]]$ のように複数列を選ぶと、表の形を保った `DataFrame` になる。" },
+        { "id": "d", "text": "$df[\"math\"]$ と $df[[\"math\"]]$ は、常に同じ型のオブジェクトを返す。" }
       ],
       "correctChoiceId": "d",
       "explanation": "1列を単独で選ぶとSeries、二重カッコで選ぶと1列でもDataFrameとして残せます。",
@@ -21,7 +21,7 @@
       "id": "q2",
       "prompt": "行の抽出と参照方法について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`df[df[\"math\"] >= 80]` は、mathが80以上の行だけを取り出す条件抽出である。" },
+        { "id": "a", "text": "$df[df[\"math\"] >= 80]$ は、mathが80以上の行だけを取り出す条件抽出である。" },
         { "id": "b", "text": "`loc` はラベル名で場所を指定し、`iloc` は位置番号で場所を指定する。" },
         { "id": "c", "text": "`df.shape` や `df.head()` は、表の大きさや中身を確認するために使える。" },
         { "id": "d", "text": "条件抽出では、条件に合わない行も結果に必ず残る。" }
@@ -34,9 +34,9 @@
       "id": "q3",
       "prompt": "`groupby` と `agg` について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`groupby(\"club\")` は、club列の同じ値を持つ行をまとめて見る操作である。" },
-        { "id": "b", "text": "`students=(\"student\", \"count\")` は、student列をcountし、出力列名をstudentsにする指定として読める。" },
-        { "id": "c", "text": "`math_mean=(\"math\", \"mean\")` は、クラブごとの数学の平均を求める指定として読める。" },
+        { "id": "a", "text": "$groupby(\"club\")$ は、club列の同じ値を持つ行をまとめて見る操作である。" },
+        { "id": "b", "text": "$students=(\"student\", \"count\")$ は、student列をcountし、出力列名をstudentsにする指定として読める。" },
+        { "id": "c", "text": "$math_mean=(\"math\", \"mean\")$ は、クラブごとの数学の平均を求める指定として読める。" },
         { "id": "d", "text": "`groupby` を使うと、元の表の各行が必ず完全にそのままの数だけ出力される。" }
       ],
       "correctChoiceId": "d",
@@ -48,8 +48,8 @@
       "prompt": "欠損値と表の結合について、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "`np.nan` は、値が欠けている場所を表す印として使われている。" },
-        { "id": "b", "text": "`df_missing.isna().sum()` は、列ごとの欠損数を確認するのに使える。" },
-        { "id": "c", "text": "`fillna(filled[\"english\"].mean())` は、欠損した英語点を平均値で埋める処理として読める。" },
+        { "id": "b", "text": "$df_missing.isna().sum()$ は、列ごとの欠損数を確認するのに使える。" },
+        { "id": "c", "text": "$fillna(filled[\"english\"].mean())$ は、欠損した英語点を平均値で埋める処理として読める。" },
         { "id": "d", "text": "欠損値がある場合は、確認せずに常に0で埋めるのがこのノートの方針である。" }
       ],
       "correctChoiceId": "d",
@@ -60,13 +60,13 @@
       "id": "q5",
       "prompt": "`merge`、`melt`、日付処理について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`pd.merge(df, profile, on=\"student\", how=\"left\")` は、studentをキーにプロフィール表の列を付け足す操作として読める。" },
-        { "id": "b", "text": "`how=\"left\"` は、左側の成績表の行を基準に残すという意味で読める。" },
+        { "id": "a", "text": "$pd.merge(df, profile, on=\"student\", how=\"left\")$ は、studentをキーにプロフィール表の列を付け足す操作として読める。" },
+        { "id": "b", "text": "$how=\"left\"$ は、左側の成績表の行を基準に残すという意味で読める。" },
         { "id": "c", "text": "`melt` は、mathやenglishのような横に並んだ列を、subjectとscoreの縦長形式へ変える操作として読める。" },
-        { "id": "d", "text": "`pd.to_datetime` を使うと、日付文字列は必ず月別集計ができない文字列のまま固定される。" }
+        { "id": "d", "text": "$pd.to_datetime$ を使うと、日付文字列は必ず月別集計ができない文字列のまま固定される。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "`pd.to_datetime` は日付として扱うための変換です。その後に `.dt.to_period(\"M\")` のような月単位の処理につなげられます。",
+      "explanation": "$pd.to_datetime$ は日付として扱うための変換です。その後に $.dt.to_period(\"M\")$ のような月単位の処理につなげられます。",
       "learningObjective": "mergeと表の変形"
     }
   ]

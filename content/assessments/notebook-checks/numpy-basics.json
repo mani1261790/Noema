@@ -10,7 +10,7 @@
       "choices": [
         { "id": "a", "text": "`shape` は配列の並び方を表し、1次元なら長さ、2次元なら行数と列数を読む手がかりになる。" },
         { "id": "b", "text": "`dtype` は配列の中身が整数、浮動小数点数など、どの型で保存されているかを表す。" },
-        { "id": "c", "text": "`np.array([1, 2, 3], dtype=np.float64)` のように、作成時に型を指定できる。" },
+        { "id": "c", "text": "$np.array([1, 2, 3], dtype=np.float64)$ のように、作成時に型を指定できる。" },
         { "id": "d", "text": "`shape` は配列の各要素の値を大きい順に並べ替えた結果を表す。" }
       ],
       "correctChoiceId": "d",
@@ -23,7 +23,7 @@
       "choices": [
         { "id": "a", "text": "同じ長さの `x` と `y` に対する `x + y` は、対応する要素同士の足し算になる。" },
         { "id": "b", "text": "`x * y` は、このノートの例では対応する要素同士の掛け算として読める。" },
-        { "id": "c", "text": "`x >= 2.5` のような比較は、各要素ごとの真偽値を持つ配列を返す。" },
+        { "id": "c", "text": "$x >= 2.5$ のような比較は、各要素ごとの真偽値を持つ配列を返す。" },
         { "id": "d", "text": "`x / y` は、常に配列全体の平均値を1つだけ返す。" }
       ],
       "correctChoiceId": "d",
@@ -49,8 +49,8 @@
       "choices": [
         { "id": "a", "text": "2次元配列では `arr[1]` のように行を取り出せる。" },
         { "id": "b", "text": "`arr[0:2, 1:4]` は、行と列の範囲をそれぞれ指定して部分配列を取り出す。" },
-        { "id": "c", "text": "`arr % 2 == 0` のようなマスクを使うと、条件に合う要素だけを取り出せる。" },
-        { "id": "d", "text": "`scores.mean(axis=0)` と `scores.sum(axis=1)` は、axis の値が違っても必ず同じ shape の結果になる。" }
+        { "id": "c", "text": "$arr % 2 == 0$ のようなマスクを使うと、条件に合う要素だけを取り出せる。" },
+        { "id": "d", "text": "$scores.mean(axis=0)$ と $scores.sum(axis=1)$ は、axis の値が違っても必ず同じ shape の結果になる。" }
       ],
       "correctChoiceId": "d",
       "explanation": "`axis` はどの向きにまとめるかを決めるため、結果のshapeは操作とaxisによって変わります。",
@@ -60,13 +60,13 @@
       "id": "q5",
       "prompt": "NumPyを使った小さな前処理について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`features.mean(axis=0)` は、各列の平均を求める操作として読める。" },
-        { "id": "b", "text": "`features.std(axis=0)` は、各列の標準偏差を求める操作として読める。" },
-        { "id": "c", "text": "`(features - mu) / sigma` は、列ごとに平均を引いて標準偏差で割る標準化の形として読める。" },
-        { "id": "d", "text": "標準化では、`mu` と `sigma` の shape を確認する必要はなく、どんな形でもNumPyが常に意図通りに処理する。" }
+        { "id": "a", "text": "$features.mean(axis=0)$ は、各列の平均を求める操作として読める。" },
+        { "id": "b", "text": "$features.std(axis=0)$ は、各列の標準偏差を求める操作として読める。" },
+        { "id": "c", "text": "$(features - mu) / sigma$ は、列ごとに平均を引いて標準偏差で割る標準化の形として読める。" },
+        { "id": "d", "text": "標準化では、$mu$ と $sigma$ の shape を確認する必要はなく、どんな形でもNumPyが常に意図通りに処理する。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "ブロードキャストに頼る処理ほど、`mu` や `sigma` のshape確認が重要です。意図しない形だと計算の意味が変わります。",
+      "explanation": "ブロードキャストに頼る処理ほど、$mu$ や $sigma$ のshape確認が重要です。意図しない形だと計算の意味が変わります。",
       "learningObjective": "標準化"
     }
   ]

@@ -9,9 +9,9 @@
       "prompt": "SARSA の基本について、間違っているものを1つ選んでください。",
       "choices": [
         { "id": "a", "text": "SARSA は、次に実際に選ぶ行動まで含めて更新する on-policy 手法である。" },
-        { "id": "b", "text": "target は `r + \\gamma Q(s',a')` の形で書ける。" },
+        { "id": "b", "text": "target は $r + \\gamma Q(s',a')$ の形で書ける。" },
         { "id": "c", "text": "探索を含む自分自身の方策を評価しながら改善していく見方ができる。" },
-        { "id": "d", "text": "SARSA では、実際に選んだ `a'` を使わず、常に `\\max_{a'} Q(s',a')` だけで target を作るので off-policy になる。" }
+        { "id": "d", "text": "SARSA では、実際に選んだ `a'` を使わず、常に $\\max_{a'} Q(s',a')$ だけで target を作るので off-policy になる。" }
       ],
       "correctChoiceId": "d",
       "explanation": "それは Q 学習側の見方です。SARSA は実際に選んだ `a'` を使います。",
@@ -27,7 +27,7 @@
         { "id": "d", "text": "SARSA と Q 学習は、更新目標が完全に同一なので、on-policy / off-policy の違いは生まれない。" }
       ],
       "correctChoiceId": "d",
-      "explanation": "SARSA は `Q(s',a')`、Q 学習は `max_{a'} Q(s',a')` を使うため、方策の立場が変わります。",
+      "explanation": "SARSA は $Q(s',a')$、Q 学習は $max_{a'} Q(s',a')$ を使うため、方策の立場が変わります。",
       "learningObjective": "SARSAとQ学習の差"
     },
     {

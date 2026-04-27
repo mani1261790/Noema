@@ -34,7 +34,7 @@
       "id": "q3",
       "prompt": "`fig` と `ax` について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`fig, ax = plt.subplots()` は、図全体と描画する座標領域を受け取る書き方である。" },
+        { "id": "a", "text": "$fig, ax = plt.subplots()$ は、図全体と描画する座標領域を受け取る書き方である。" },
         { "id": "b", "text": "`fig` は図全体、`ax` は実際に線や点を描く場所として読むと理解しやすい。" },
         { "id": "c", "text": "`ax.plot(...)` のように書くと、どの軸へ描くかを明示しやすい。" },
         { "id": "d", "text": "`ax` は常に文字列であり、グラフを描くメソッドを持たない。" }
@@ -49,7 +49,7 @@
       "choices": [
         { "id": "a", "text": "`color`、`linestyle`、`marker`、`label` は、グラフを読みやすくするための調整として使える。" },
         { "id": "b", "text": "`plt.legend()` は、labelで付けた系列名を凡例として表示するのに使える。" },
-        { "id": "c", "text": "`alpha` は、点の重なりを見やすくするために透明度を調整する場面で使える。" },
+        { "id": "c", "text": "$alpha$ は、点の重なりを見やすくするために透明度を調整する場面で使える。" },
         { "id": "d", "text": "`bins` の数を変えても、ヒストグラムの見え方や分布の粗さはまったく変わらない。" }
       ],
       "correctChoiceId": "d",
@@ -60,9 +60,9 @@
       "id": "q5",
       "prompt": "Seabornの使い方について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`sns.boxplot(data=df, x=\"class\", y=\"score\", ax=ax)` は、クラスごとのスコア分布を見るために使える。" },
-        { "id": "b", "text": "`sns.lineplot(..., hue=\"model\")` は、modelごとに系列を分けて変化を見るのに使える。" },
-        { "id": "c", "text": "`sns.heatmap(corr, annot=True, ...)` は、相関行列を色と数値で確認するのに使える。" },
+        { "id": "a", "text": "$sns.boxplot(data=df, x=\"class\", y=\"score\", ax=ax)$ は、クラスごとのスコア分布を見るために使える。" },
+        { "id": "b", "text": "$sns.lineplot(..., hue=\"model\")$ は、modelごとに系列を分けて変化を見るのに使える。" },
+        { "id": "c", "text": "$sns.heatmap(corr, annot=True, ...)$ は、相関行列を色と数値で確認するのに使える。" },
         { "id": "d", "text": "`hue` を指定すると、元データの列はすべて削除され、以後そのDataFrameは使えなくなる。" }
       ],
       "correctChoiceId": "d",

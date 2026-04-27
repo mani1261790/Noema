@@ -79,7 +79,7 @@
     {
       "id": "q7",
       "type": "coding",
-      "prompt": "時系列DataFrame `df` に `sales` 列があるとして、`lag_1`、`lag_3`、`roll_mean_3` を未来情報を混ぜない形で作る短いPandasコードを書いてください。",
+      "prompt": "時系列DataFrame `df` に `sales` 列があるとして、$lag_1$、$lag_3$、$roll_mean_3$ を未来情報を混ぜない形で作る短いPandasコードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "lag1", "description": "lag_1をshiftで作っている", "points": 3, "keywords": ["lag_1", "shift(1)"] },
@@ -115,7 +115,7 @@
     {
       "id": "q10",
       "type": "coding",
-      "prompt": "`users` テーブルと `events` テーブルがあり、`user_id` で結合できるとします。各ユーザーのイベント件数と総クリック数を `GROUP BY` で集計する短いSQLを書いてください。`LEFT JOIN` を使う形で十分です。",
+      "prompt": "`users` テーブルと `events` テーブルがあり、$user_id$ で結合できるとします。各ユーザーのイベント件数と総クリック数を `GROUP BY` で集計する短いSQLを書いてください。`LEFT JOIN` を使う形で十分です。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "join", "description": "usersとeventsをuser_idで結合している", "points": 3, "keywords": ["LEFT JOIN", "user_id", "ON"] },

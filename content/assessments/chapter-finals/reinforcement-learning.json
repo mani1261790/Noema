@@ -7,23 +7,23 @@
     {
       "id": "q1",
       "type": "short_text",
-      "prompt": "強化学習で即時報酬だけではなく割引収益 `return` を見る理由を説明してください。`gamma` が何を調整しているかも書いてください。",
+      "prompt": "強化学習で即時報酬だけではなく割引収益 `return` を見る理由を説明してください。$gamma$ が何を調整しているかも書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "future", "description": "将来の合計的な得を見たいという理由を説明している", "points": 4, "keywords": ["将来", "合計", "即時報酬", "return"] },
-        { "id": "gamma", "description": "`gamma` が将来をどれだけ重く見るかの係数だと説明している", "points": 4, "keywords": ["gamma", "将来", "割引", "重く"] },
+        { "id": "gamma", "description": "$gamma$ が将来をどれだけ重く見るかの係数だと説明している", "points": 4, "keywords": ["gamma", "将来", "割引", "重く"] },
         { "id": "decision", "description": "少し遠回りでも後で得なら価値があるという見方に触れている", "points": 2, "keywords": ["遠回り", "後で得", "価値"] }
       ]
     },
     {
       "id": "q2",
       "type": "coding",
-      "prompt": "報酬列 `rewards` と割引率 `gamma` が与えられているとして、末尾からたどって割引収益 `g` を計算する短いPythonコードを書いてください。",
+      "prompt": "報酬列 `rewards` と割引率 $gamma$ が与えられているとして、末尾からたどって割引収益 `g` を計算する短いPythonコードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "init", "description": "初期値 `g = 0.0` のような形を置いている", "points": 2, "keywords": ["g = 0", "0.0"] },
+        { "id": "init", "description": "初期値 $g = 0.0$ のような形を置いている", "points": 2, "keywords": ["g = 0", "0.0"] },
         { "id": "reverse", "description": "報酬列を後ろからたどっている", "points": 3, "keywords": ["reversed", "後ろ", "for"] },
-        { "id": "update", "description": "`g = r + gamma * g` の形で更新している", "points": 4, "keywords": ["g = r + gamma * g", "gamma * g"] },
+        { "id": "update", "description": "$g = r + gamma * g$ の形で更新している", "points": 4, "keywords": ["g = r + gamma * g", "gamma * g"] },
         { "id": "consistency", "description": "割引収益の計算として筋が通っている", "points": 1, "keywords": ["return", "割引"] }
       ]
     },
@@ -42,18 +42,18 @@
     {
       "id": "q4",
       "type": "coding",
-      "prompt": "辞書 `V = {'s0': 0.3, 's1': 0.8}`、報酬 `r = 1.0`、割引率 `gamma`、学習率 `alpha`、現在状態 `s`、次状態 `s_next` があるとして、TD(0) の `td_target`、`td_error`、更新後の `V[s]` を計算する短いコードを書いてください。",
+      "prompt": "辞書 $V = {'s0': 0.3, 's1': 0.8}$、報酬 $r = 1.0$、割引率 $gamma$、学習率 $alpha$、現在状態 `s`、次状態 $s_next$ があるとして、TD(0) の $td_target$、$td_error$、更新後の `V[s]` を計算する短いコードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "target", "description": "`td_target = r + gamma * V[s_next]` を計算している", "points": 4, "keywords": ["td_target", "r + gamma * V"] },
-        { "id": "error", "description": "`td_error = td_target - V[s]` を計算している", "points": 3, "keywords": ["td_error", "- V[s]"] },
-        { "id": "update", "description": "`V[s] = V[s] + alpha * td_error` の形で更新している", "points": 3, "keywords": ["alpha", "V[s] = V[s] +"] }
+        { "id": "target", "description": "$td_target = r + gamma * V[s_next]$ を計算している", "points": 4, "keywords": ["td_target", "r + gamma * V"] },
+        { "id": "error", "description": "$td_error = td_target - V[s]$ を計算している", "points": 3, "keywords": ["td_error", "- V[s]"] },
+        { "id": "update", "description": "$V[s] = V[s] + alpha * td_error$ の形で更新している", "points": 3, "keywords": ["alpha", "V[s] = V[s] +"] }
       ]
     },
     {
       "id": "q5",
       "type": "short_text",
-      "prompt": "Q 学習と SARSA の違いを説明してください。`r + \\gamma \\max_{a'} Q(s',a')` と `r + \\gamma Q(s',a')` の差が、方策の性格にどう効くかを書いてください。",
+      "prompt": "Q 学習と SARSA の違いを説明してください。$r + \\gamma \\max_{a'} Q(s',a')$ と $r + \\gamma Q(s',a')$ の差が、方策の性格にどう効くかを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "q_learning", "description": "Q 学習が `max` を使う off-policy 更新だと説明している", "points": 3, "keywords": ["Q学習", "max", "off-policy"] },
@@ -65,36 +65,36 @@
     {
       "id": "q6",
       "type": "coding",
-      "prompt": "辞書 `Q`、報酬 `r`、割引率 `gamma`、学習率 `alpha`、現在状態 `s`、行動 `a`、次状態 `s_next` があるとして、Q 学習の1ステップ更新を行う短いPythonコードを書いてください。",
+      "prompt": "辞書 `Q`、報酬 `r`、割引率 $gamma$、学習率 $alpha$、現在状態 `s`、行動 `a`、次状態 $s_next$ があるとして、Q 学習の1ステップ更新を行う短いPythonコードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "max_next", "description": "次状態での `max_a' Q(s_next, a')` を取っている", "points": 4, "keywords": ["max", "Q[(s_next", "a')"] },
-        { "id": "target", "description": "`td_target = r + gamma * ...` を作っている", "points": 3, "keywords": ["td_target", "r + gamma"] },
-        { "id": "update", "description": "`Q[(s,a)] += alpha * (td_target - Q[(s,a)])` の形で更新している", "points": 3, "keywords": ["Q[(s,a)]", "alpha", "td_target - Q"] }
+        { "id": "max_next", "description": "次状態での $max_a' Q(s_next, a')$ を取っている", "points": 4, "keywords": ["max", "Q[(s_next", "a')"] },
+        { "id": "target", "description": "$td_target = r + gamma * ...$ を作っている", "points": 3, "keywords": ["td_target", "r + gamma"] },
+        { "id": "update", "description": "$Q[(s,a)] += alpha * (td_target - Q[(s,a)])$ の形で更新している", "points": 3, "keywords": ["Q[(s,a)]", "alpha", "td_target - Q"] }
       ]
     },
     {
       "id": "q7",
       "type": "short_text",
-      "prompt": "n-step TD と TD(λ) の関係を説明してください。`n` を大きくすること、`\\lambda` で複数の長さの target を混ぜること、bootstrap と実報酬の比率の観点を含めてください。",
+      "prompt": "n-step TD と TD(λ) の関係を説明してください。`n` を大きくすること、$\\lambda$ で複数の長さの target を混ぜること、bootstrap と実報酬の比率の観点を含めてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "n_step", "description": "n-step TD が 1-step と Monte Carlo の中間を作ると説明している", "points": 3, "keywords": ["n-step", "1-step", "Monte Carlo", "中間"] },
         { "id": "bootstrap", "description": "短い `n` は bootstrap 依存、長い `n` は実報酬依存と説明している", "points": 3, "keywords": ["bootstrap", "実報酬", "短い", "長い"] },
-        { "id": "lambda", "description": "TD(λ) が複数の n-step return を `\\lambda` で混ぜると説明している", "points": 3, "keywords": ["TD(λ)", "lambda", "混ぜる", "n-step"] },
+        { "id": "lambda", "description": "TD(λ) が複数の n-step return を $\\lambda$ で混ぜると説明している", "points": 3, "keywords": ["TD(λ)", "lambda", "混ぜる", "n-step"] },
         { "id": "tradeoff", "description": "何歩先まで見るかの折り合いという見方に触れている", "points": 1, "keywords": ["折り合い", "バランス"] }
       ]
     },
     {
       "id": "q8",
       "type": "coding",
-      "prompt": "状態列 `states`、報酬列 `rewards`、価値辞書 `V`、trace 辞書 `E`、学習率 `alpha`、割引率 `gamma`、`lam` があるとして、後ろ向き view の1ステップだけ `E[s] = gamma * lam * E[s]` の減衰、現在状態の加算、`delta` を使った `V` 更新を行う短いコードを書いてください。",
+      "prompt": "状態列 `states`、報酬列 `rewards`、価値辞書 `V`、trace 辞書 `E`、学習率 $alpha$、割引率 $gamma$、`lam` があるとして、後ろ向き view の1ステップだけ $E[s] = gamma * lam * E[s]$ の減衰、現在状態の加算、$delta$ を使った `V` 更新を行う短いコードを書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "decay", "description": "trace を `gamma * lam` で減衰させている", "points": 3, "keywords": ["gamma * lam", "E"] },
+        { "id": "decay", "description": "trace を $gamma * lam$ で減衰させている", "points": 3, "keywords": ["gamma * lam", "E"] },
         { "id": "mark", "description": "現在状態の trace を加算または 1 にしている", "points": 2, "keywords": ["E[s]", "+= 1", "= 1"] },
-        { "id": "delta", "description": "TD 誤差 `delta` を計算している", "points": 2, "keywords": ["delta", "r + gamma", "- V"] },
-        { "id": "update", "description": "各状態の価値を `alpha * delta * E[state]` で更新している", "points": 3, "keywords": ["alpha", "delta", "E[state]", "V[state]"] }
+        { "id": "delta", "description": "TD 誤差 $delta$ を計算している", "points": 2, "keywords": ["delta", "r + gamma", "- V"] },
+        { "id": "update", "description": "各状態の価値を $alpha * delta * E[state]$ で更新している", "points": 3, "keywords": ["alpha", "delta", "E[state]", "V[state]"] }
       ]
     },
     {
@@ -112,11 +112,11 @@
     {
       "id": "q10",
       "type": "short_text",
-      "prompt": "表形式 Q 学習をネットワーク近似へ置き換えると、何が変わり、何が残るかを説明してください。`Q(s,a)` の持ち方、target の骨格、終端遷移、一般化の観点を含めてください。",
+      "prompt": "表形式 Q 学習をネットワーク近似へ置き換えると、何が変わり、何が残るかを説明してください。$Q(s,a)$ の持ち方、target の骨格、終端遷移、一般化の観点を含めてください。",
       "maxPoints": 10,
       "rubricPoints": [
-        { "id": "representation", "description": "表をネットワークへ置き換えることで `Q(s,a)` の持ち方が変わると説明している", "points": 3, "keywords": ["表", "ネットワーク", "Q(s,a)", "持ち方"] },
-        { "id": "target", "description": "target の骨格は `r + \\gamma \\max q_next` のままだと説明している", "points": 3, "keywords": ["r + gamma", "max", "target"] },
+        { "id": "representation", "description": "表をネットワークへ置き換えることで $Q(s,a)$ の持ち方が変わると説明している", "points": 3, "keywords": ["表", "ネットワーク", "Q(s,a)", "持ち方"] },
+        { "id": "target", "description": "target の骨格は $r + \\gamma \\max q_next$ のままだと説明している", "points": 3, "keywords": ["r + gamma", "max", "target"] },
         { "id": "terminal", "description": "終端遷移では bootstrap を切る必要に触れている", "points": 2, "keywords": ["終端", "bootstrap", "切る"] },
         { "id": "generalization", "description": "更新が近い状態へ波及する一般化と不安定さに触れている", "points": 2, "keywords": ["一般化", "波及", "不安定"] }
       ]

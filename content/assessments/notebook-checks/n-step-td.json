@@ -8,8 +8,8 @@
       "id": "q1",
       "prompt": "n-step TD の考え方について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`n=1` なら通常の TD に近い。" },
-        { "id": "b", "text": "`n=T-t` のように長く取ると、モンテカルロ更新に近づく。" },
+        { "id": "a", "text": "$n=1$ なら通常の TD に近い。" },
+        { "id": "b", "text": "$n=T-t$ のように長く取ると、モンテカルロ更新に近づく。" },
         { "id": "c", "text": "1-step と Monte Carlo の間に中間を作る方法として読める。" },
         { "id": "d", "text": "n-step TD では、`n` を変えても target の作り方は一切変わらない。" }
       ],
@@ -34,7 +34,7 @@
       "id": "q3",
       "prompt": "bootstrap 項について、間違っているものを1つ選んでください。",
       "choices": [
-        { "id": "a", "text": "`V_boot` のような bootstrap 項は、n-step return の末尾に入ることがある。" },
+        { "id": "a", "text": "$V_boot$ のような bootstrap 項は、n-step return の末尾に入ることがある。" },
         { "id": "b", "text": "このノートでは `g1` と `g3` を比べて、target の違いを見ている。" },
         { "id": "c", "text": "target の主役は、何歩分の実報酬を使い、どこから bootstrap するかという設計にある。" },
         { "id": "d", "text": "n-step return では bootstrap 項は絶対に存在せず、常に終端までの実報酬だけで target を作る。" }

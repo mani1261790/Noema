@@ -19,12 +19,12 @@
     {
       "id": "q2",
       "type": "coding",
-      "prompt": "ロジット `z` と正解ラベル `target` が与えられているとします。`y = sigmoid(z)`、BCE 損失、そして `grad_z = y - target` を計算する短いPythonコードを書いてください。`math.exp` と `math.log` を使う程度で十分です。",
+      "prompt": "ロジット `z` と正解ラベル `target` が与えられているとします。$y = sigmoid(z)$、BCE 損失、そして $grad_z = y - target$ を計算する短いPythonコードを書いてください。`math.exp` と `math.log` を使う程度で十分です。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "sigmoid", "description": "sigmoid で確率 `y` を計算している", "points": 3, "keywords": ["sigmoid", "exp", "y"] },
         { "id": "bce", "description": "BCE 損失を計算している", "points": 3, "keywords": ["log", "loss", "target"] },
-        { "id": "grad", "description": "`grad_z = y - target` を計算している", "points": 3, "keywords": ["grad_z", "y - target"] },
+        { "id": "grad", "description": "$grad_z = y - target$ を計算している", "points": 3, "keywords": ["grad_z", "y - target"] },
         { "id": "consistency", "description": "最小例として筋の通ったコードになっている", "points": 1, "keywords": ["BCE", "勾配"] }
       ]
     },
@@ -67,7 +67,7 @@
     {
       "id": "q6",
       "type": "short_text",
-      "prompt": "Transformer の自己注意で、`Q`、`K`、`V` と attention weight がそれぞれ何を表しているかを説明してください。因果マスクを入れる理由にも触れてください。",
+      "prompt": "Transformer の自己注意で、$Q$、$K$、$V$ と attention weight がそれぞれ何を表しているかを説明してください。因果マスクを入れる理由にも触れてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "qkv", "description": "Q、K、V を入力から作る参照用の表現として説明している", "points": 3, "keywords": ["Q", "K", "V", "入力", "表現"] },
@@ -103,7 +103,7 @@
     {
       "id": "q9",
       "type": "short_text",
-      "prompt": "物体検出で、`xyxy` と `xywh` の表現を往復できること、IoU を見ること、NMS を使うことがなぜ必要かを説明してください。",
+      "prompt": "物体検出で、$xyxy$ と $xywh$ の表現を往復できること、IoU を見ること、NMS を使うことがなぜ必要かを説明してください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "box_formats", "description": "ボックス表現を統一・変換できる必要性を説明している", "points": 3, "keywords": ["xyxy", "xywh", "変換", "表現"] },
@@ -115,7 +115,7 @@
     {
       "id": "q10",
       "type": "coding",
-      "prompt": "`box_a` と `box_b` が `[x1, y1, x2, y2]` 形式で与えられているとして、IoU を計算する短いPython関数を書いてください。交差領域、和集合、0除算回避まで含めてください。",
+      "prompt": "$box_a$ と $box_b$ が `[x1, y1, x2, y2]` 形式で与えられているとして、IoU を計算する短いPython関数を書いてください。交差領域、和集合、0除算回避まで含めてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "intersection", "description": "交差領域の左上・右下と幅高さを計算している", "points": 4, "keywords": ["max", "min", "inter", "width", "height"] },
