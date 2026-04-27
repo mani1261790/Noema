@@ -110,14 +110,6 @@ const NOEMA_CHAPTER_IDS = new Set([
   "world-models"
 ]);
 
-function slugLabel(value: string): string {
-  return value
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .slice(0, 4)
-    .join(" ");
-}
-
 function findNotebook(catalog: { chapters: ChapterSummary[] }, notebookId: string) {
   for (const chapter of catalog.chapters) {
     const notebook = chapter.notebooks.find((item) => item.id === notebookId);
@@ -203,86 +195,6 @@ function validateNotebookCheck(raw: unknown, notebook: NotebookSummary): Noteboo
   };
 }
 
-function fallbackNotebookCheck(notebook: NotebookSummary): NotebookCheckAssessment {
-  const title = notebook.title;
-  const topic = slugLabel(notebook.id) || title;
-  const tags = notebook.tags && notebook.tags.length ? notebook.tags.join(", ") : topic;
-  const distractor = "本文と関係のない用語だけを暗記すること";
-  return {
-    schemaVersion: 1,
-    notebookId: notebook.id,
-    title: `${title} 確認問題`,
-    passScore: 5,
-    questions: [
-      {
-        id: "q1",
-        prompt: `「${title}」で最も重視すべき学習姿勢はどれですか。`,
-        choices: [
-          { id: "a", text: "本文の目的、前提、コード例の関係を確認しながら読む" },
-          { id: "b", text: distractor },
-          { id: "c", text: "出力結果だけを見て本文の説明は飛ばす" },
-          { id: "d", text: "実行順序や変数の意味を無視する" }
-        ],
-        correctChoiceId: "a",
-        explanation: "Noemaの確認問題では、本文・コード・出力のつながりを理解しているかを合格条件にします。",
-        learningObjective: "学習姿勢"
-      },
-      {
-        id: "q2",
-        prompt: `このノートの主題として最も近いものはどれですか。`,
-        choices: [
-          { id: "a", text: `${tags} に関する概念や実装の基礎を確認すること` },
-          { id: "b", text: "Webデザインの配色だけを比較すること" },
-          { id: "c", text: "ログイン機能の仕様だけを覚えること" },
-          { id: "d", text: "教材一覧の並び順だけを暗記すること" }
-        ],
-        correctChoiceId: "a",
-        explanation: "ノートのタグとタイトルに対応する概念・実装を理解することが中心です。",
-        learningObjective: "主題理解"
-      },
-      {
-        id: "q3",
-        prompt: "コードセルを読むときの確認として最も適切なものはどれですか。",
-        choices: [
-          { id: "a", text: "入力、処理、出力が何を表しているかを対応づける" },
-          { id: "b", text: "変数名をすべて別名に変えてから読む" },
-          { id: "c", text: "エラーが出ても本文と照合しない" },
-          { id: "d", text: "ライブラリ名だけを丸暗記する" }
-        ],
-        correctChoiceId: "a",
-        explanation: "Noemaのノートはコードを実行して終わりではなく、入力から出力までの意味を追う教材です。",
-        learningObjective: "コード読解"
-      },
-      {
-        id: "q4",
-        prompt: "理解確認として最も良い行動はどれですか。",
-        choices: [
-          { id: "a", text: "重要な式・関数・出力を自分の言葉で説明してみる" },
-          { id: "b", text: "正解だけを見て次へ進む" },
-          { id: "c", text: "本文中の注意書きを読み飛ばす" },
-          { id: "d", text: "ノートのタイトルだけで内容を判断する" }
-        ],
-        correctChoiceId: "a",
-        explanation: "自分の言葉で説明できるかは、概念理解と実装理解の両方を確認できます。",
-        learningObjective: "自己説明"
-      },
-      {
-        id: "q5",
-        prompt: "この確認問題で合格にする条件として正しいものはどれですか。",
-        choices: [
-          { id: "a", text: "5問すべてに正解する" },
-          { id: "b", text: "1問だけ正解する" },
-          { id: "c", text: "回答せずにページ末尾までスクロールする" },
-          { id: "d", text: "一度不合格になると再挑戦できない" }
-        ],
-        correctChoiceId: "a",
-        explanation: "各ノートの確認問題は5問全問正解で合格です。不合格でも何度でも再挑戦できます。",
-        learningObjective: "合格条件"
-      }
-    ]
-  };
-}
-
 export async function getNotebookCheckAssessment(notebookId: string): Promise<NotebookCheckAssessment | null> {
   const catalog = await getCatalog();
   const found = findNotebook(catalog, notebookId);
@@ -291,9 +203,9 @@ export async function getNotebookCheckAssessment(notebookId: string): Promise<No
   const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
   try {
     const raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-    return validateNotebookCheck(raw, found.notebook) || fallbackNotebookCheck(found.notebook);
+    return validateNotebookCheck(raw, found.notebook);
   } catch {
-    return fallbackNotebookCheck(found.notebook);
+    return null;
   }
 }
 
@@ -324,40 +236,6 @@ export function gradeNotebookCheck(
     total: assessment.questions.length,
     passed: score >= assessment.passScore,
     results
-  };
-}
-
-function fallbackChapterFinal(chapter: ChapterSummary): ChapterFinalAssessment {
-  const notebookTitles = chapter.notebooks.map((notebook) => notebook.title).slice(0, 6).join("、");
-  return {
-    schemaVersion: 1,
-    chapterId: chapter.id,
-    title: `${chapter.title} 最終問題`,
-    passRatio: 0.9,
-    questions: [
-      {
-        id: "q1",
-        type: "short_text" as const,
-        prompt: `${chapter.title} セクションで扱った内容を、主要トピックを3つ以上含めて説明してください。対象ノート例: ${notebookTitles}`,
-        maxPoints: 10,
-        rubricPoints: [
-          { id: "scope", description: "セクション内の複数ノートに触れている", points: 4, keywords: chapter.notebooks.map((notebook) => notebook.title) },
-          { id: "concept", description: "概念や実装の目的を説明している", points: 3, keywords: ["目的", "概念", "実装", "モデル", "データ", "学習"] },
-          { id: "connection", description: "トピック間の関係を説明している", points: 3, keywords: ["関係", "比較", "つながり", "違い", "流れ"] }
-        ]
-      },
-      ...chapter.notebooks.slice(0, 9).map((notebook, index) => ({
-        id: `q${index + 2}`,
-        type: "concept" as const,
-        prompt: `「${notebook.title}」の内容が、${chapter.title} 全体の理解にどう役立つか説明してください。`,
-        maxPoints: 10,
-        rubricPoints: [
-          { id: "notebook", description: "対象ノートの主題に触れている", points: 4, keywords: [notebook.title, ...(notebook.tags || [])] },
-          { id: "reason", description: "なぜ重要かを説明している", points: 3, keywords: ["重要", "理由", "役割", "必要"] },
-          { id: "example", description: "コード、データ、式、具体例のいずれかに触れている", points: 3, keywords: ["コード", "データ", "式", "例", "出力", "実装"] }
-        ]
-      }))
-    ].slice(0, 10)
   };
 }
 
@@ -399,9 +277,9 @@ export async function getChapterFinalAssessment(chapterId: string): Promise<Chap
   const filePath = path.join(CHAPTER_FINAL_DIR, `${chapterId}.json`);
   try {
     const raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-    return validateChapterFinal(raw, chapter) || fallbackChapterFinal(chapter);
+    return validateChapterFinal(raw, chapter);
   } catch {
-    return fallbackChapterFinal(chapter);
+    return null;
   }
 }
 

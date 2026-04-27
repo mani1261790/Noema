@@ -5,6 +5,7 @@ Noema is a notebook-first learning platform for Python, machine learning, deep l
 This repository currently contains:
 
 - notebook source content (`content/notebooks`)
+- assessment source content (`content/assessments`)
 - a Next.js site for landing/list/detail pages (`src/app`)
 - a static learning app shell (`public/index.html`)
 - build/deploy scripts and AWS CDK infrastructure (`scripts`, `infra`)
@@ -12,9 +13,11 @@ This repository currently contains:
 ## What Noema Does
 
 - Serves lesson content from Jupyter notebooks
+- Serves notebook checks and chapter-final assessments from JSON content
 - Generates SEO-friendly lesson detail pages
 - Lets learners open the same material in Colab
 - Provides notebook download/content APIs for the app shell
+- Persists learner progress and chapter-final answer drafts in browser storage
 - Keeps infrastructure mostly serverless to reduce operating cost
 
 ## Learning Flow
@@ -46,6 +49,7 @@ flowchart TD
 ## Repository Structure
 
 - `content/notebooks`: lesson source notebooks
+- `content/assessments`: notebook checks and chapter-final definitions
 - `content/catalog.json`: lesson catalog and ordering
 - `public`: generated public assets
 - `src`: app shell and shared logic

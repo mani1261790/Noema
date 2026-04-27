@@ -2362,31 +2362,161 @@ const ASSESSMENT_CHAPTER_IDS = new Set([
   "world-models"
 ]);
 
-function makeNotebookCheckAssessment(notebook: { id: string; title: string; tags?: string[] }) {
-  const tags = Array.isArray(notebook.tags) && notebook.tags.length ? notebook.tags.join(", ") : notebook.id;
+const ASSESSMENT_ROOT = path.join(process.cwd(), "content", "assessments");
+const NOTEBOOK_CHECK_DIR = path.join(ASSESSMENT_ROOT, "notebook-checks");
+const CHAPTER_FINAL_DIR = path.join(ASSESSMENT_ROOT, "chapter-finals");
+
+type NotebookAssessmentChoice = {
+  id: string;
+  text: string;
+};
+
+type NotebookAssessmentQuestion = {
+  id: string;
+  prompt: string;
+  choices: NotebookAssessmentChoice[];
+  correctChoiceId: string;
+  explanation: string;
+  learningObjective?: string;
+};
+
+type NotebookAssessment = {
+  schemaVersion: 1;
+  notebookId: string;
+  title: string;
+  passScore: 5;
+  questions: NotebookAssessmentQuestion[];
+};
+
+type ChapterFinalAssessmentRubricPoint = {
+  id: string;
+  description: string;
+  points: number;
+  keywords?: string[];
+};
+
+type ChapterFinalAssessmentQuestion = {
+  id: string;
+  type: "multiple_choice" | "short_text" | "coding" | "concept";
+  prompt: string;
+  choices?: NotebookAssessmentChoice[];
+  correctChoiceId?: string;
+  rubricPoints?: ChapterFinalAssessmentRubricPoint[];
+  maxPoints: number;
+  explanation?: string;
+};
+
+type ChapterFinalAssessment = {
+  schemaVersion: 1;
+  chapterId: string;
+  title: string;
+  passRatio: 0.9;
+  questions: ChapterFinalAssessmentQuestion[];
+};
+
+function isNonNull<T>(value: T | null): value is T {
+  return value !== null;
+}
+
+function validateNotebookCheckAssessment(raw: unknown, notebook: { id: string; title: string }): NotebookAssessment | null {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const questions = Array.isArray(value.questions) ? value.questions : [];
+  if (questions.length !== 5) return null;
+
+  const normalizedQuestions = questions.map<NotebookAssessmentQuestion | null>((question, index) => {
+    const item = question && typeof question === "object" ? (question as Record<string, unknown>) : {};
+    const choices = Array.isArray(item.choices) ? item.choices : [];
+    const normalizedChoices = choices
+      .map((choice) => {
+        const candidate = choice && typeof choice === "object" ? (choice as Record<string, unknown>) : {};
+        return {
+          id: asString(candidate.id).trim(),
+          text: asString(candidate.text).trim()
+        };
+      })
+      .filter((choice) => choice.id && choice.text);
+    const correctChoiceId = asString(item.correctChoiceId).trim();
+    if (!asString(item.prompt).trim() || normalizedChoices.length < 2 || !normalizedChoices.some((choice) => choice.id === correctChoiceId)) {
+      return null;
+    }
+    return {
+      id: asString(item.id).trim() || `q${index + 1}`,
+      prompt: asString(item.prompt),
+      choices: normalizedChoices,
+      correctChoiceId,
+      explanation: asString(item.explanation),
+      learningObjective: asString(item.learningObjective).trim() || undefined
+    };
+  });
+
+  if (normalizedQuestions.some((question) => !question)) return null;
   return {
     schemaVersion: 1,
     notebookId: notebook.id,
-    title: `${notebook.title} 確認問題`,
+    title: asString(value.title).trim() || `${notebook.title} 確認問題`,
     passScore: 5,
-    questions: [
-      ["q1", `「${notebook.title}」で最も重視すべき学習姿勢はどれですか。`, "本文の目的、前提、コード例の関係を確認しながら読む", "本文・コード・出力のつながりを理解しているかを確認します。"],
-      ["q2", "このノートの主題として最も近いものはどれですか。", `${tags} に関する概念や実装の基礎を確認すること`, "ノートのタグとタイトルに対応する概念・実装を理解することが中心です。"],
-      ["q3", "コードセルを読むときの確認として最も適切なものはどれですか。", "入力、処理、出力が何を表しているかを対応づける", "入力から出力までの意味を追うことが重要です。"],
-      ["q4", "理解確認として最も良い行動はどれですか。", "重要な式・関数・出力を自分の言葉で説明してみる", "自分の言葉で説明できるかは、概念理解と実装理解の両方を確認できます。"],
-      ["q5", "この確認問題で合格にする条件として正しいものはどれですか。", "5問すべてに正解する", "各ノートの確認問題は5問全問正解で合格です。"]
-    ].map(([id, prompt, correctText, explanation]) => ({
-      id,
+    questions: normalizedQuestions.filter(isNonNull)
+  };
+}
+
+function validateChapterFinalAssessment(raw: unknown, chapter: { id: string; title: string }): ChapterFinalAssessment | null {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const questions = Array.isArray(value.questions) ? value.questions : [];
+  if (questions.length < 1) return null;
+
+  const normalizedQuestions = questions.slice(0, 12).map<ChapterFinalAssessmentQuestion | null>((question, index) => {
+    const item = question && typeof question === "object" ? (question as Record<string, unknown>) : {};
+    const type = asString(item.type).trim() || "short_text";
+    if (!["multiple_choice", "short_text", "coding", "concept"].includes(type)) return null;
+    const maxPoints = Math.max(1, Number(item.maxPoints || 10));
+    const rubricPoints = Array.isArray(item.rubricPoints)
+      ? item.rubricPoints
+          .map<ChapterFinalAssessmentRubricPoint | null>((point) => {
+            const rubric = point && typeof point === "object" ? (point as Record<string, unknown>) : {};
+            const id = asString(rubric.id).trim();
+            const description = asString(rubric.description).trim();
+            if (!id || !description) return null;
+            return {
+              id,
+              description,
+              points: Math.max(0, Math.round(Number(rubric.points || 0))),
+              keywords: Array.isArray(rubric.keywords) ? rubric.keywords.map((keyword) => asString(keyword)).filter(Boolean) : undefined
+            };
+          })
+          .filter(isNonNull)
+      : undefined;
+    const choices = Array.isArray(item.choices)
+      ? item.choices
+          .map((choice) => {
+            const candidate = choice && typeof choice === "object" ? (choice as Record<string, unknown>) : {};
+            return {
+              id: asString(candidate.id).trim(),
+              text: asString(candidate.text).trim()
+            };
+          })
+          .filter((choice) => choice.id && choice.text)
+      : undefined;
+    const prompt = asString(item.prompt);
+    if (!prompt.trim()) return null;
+    return {
+      id: asString(item.id).trim() || `q${index + 1}`,
+      type: type as ChapterFinalAssessmentQuestion["type"],
       prompt,
-      choices: [
-        { id: "a", text: correctText },
-        { id: "b", text: "本文と関係のない用語だけを暗記する" },
-        { id: "c", text: "出力結果だけを見て本文の説明は飛ばす" },
-        { id: "d", text: "実行順序や変数の意味を無視する" }
-      ],
-      correctChoiceId: "a",
-      explanation
-    }))
+      choices,
+      correctChoiceId: asString(item.correctChoiceId).trim() || undefined,
+      rubricPoints,
+      maxPoints,
+      explanation: asString(item.explanation).trim() || undefined
+    };
+  });
+
+  if (normalizedQuestions.some((question) => !question)) return null;
+  return {
+    schemaVersion: 1,
+    chapterId: chapter.id,
+    title: asString(value.title).trim() || `${chapter.title} 最終問題`,
+    passRatio: 0.9,
+    questions: normalizedQuestions.filter(isNonNull)
   };
 }
 
@@ -2402,7 +2532,15 @@ async function findAssessmentNotebook(notebookId: string) {
 export async function getNotebookAssessment(notebookId: string) {
   const found = await findAssessmentNotebook(notebookId);
   if (!found) return null;
-  const assessment = makeNotebookCheckAssessment(found.notebook);
+  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
+  } catch {
+    return null;
+  }
+  const assessment = validateNotebookCheckAssessment(raw, found.notebook);
+  if (!assessment) return null;
   return {
     ...assessment,
     questions: assessment.questions.map(({ correctChoiceId: _correctChoiceId, ...question }) => question)
@@ -2412,7 +2550,15 @@ export async function getNotebookAssessment(notebookId: string) {
 export async function submitNotebookAssessmentAttempt(notebookId: string, answers: Record<string, unknown>) {
   const found = await findAssessmentNotebook(notebookId);
   if (!found) return null;
-  const assessment = makeNotebookCheckAssessment(found.notebook);
+  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
+  } catch {
+    return null;
+  }
+  const assessment = validateNotebookCheckAssessment(raw, found.notebook);
+  if (!assessment) return null;
   const results = assessment.questions.map((question) => {
     const selectedChoiceId = asString(answers[question.id]).trim();
     return {
@@ -2431,23 +2577,14 @@ export async function getChapterFinalAssessment(chapterId: string) {
   const catalog = await listCatalog();
   const chapter = catalog.chapters.find((item) => item.id === chapterId);
   if (!chapter || !ASSESSMENT_CHAPTER_IDS.has(chapter.id)) return null;
-  return {
-    schemaVersion: 1,
-    chapterId,
-    title: `${chapter.title} 最終問題`,
-    passRatio: 0.9,
-    questions: chapter.notebooks.slice(0, 10).map((notebook, index) => ({
-      id: `q${index + 1}`,
-      type: "concept",
-      prompt: `「${notebook.title}」の内容が、${chapter.title} 全体の理解にどう役立つか説明してください。`,
-      maxPoints: 10,
-      rubricPoints: [
-        { id: "notebook", description: "対象ノートの主題に触れている", points: 4, keywords: [notebook.title, ...(notebook.tags || [])] },
-        { id: "reason", description: "なぜ重要かを説明している", points: 3, keywords: ["重要", "理由", "役割", "必要"] },
-        { id: "example", description: "コード、データ、式、具体例のいずれかに触れている", points: 3, keywords: ["コード", "データ", "式", "例", "出力", "実装"] }
-      ]
-    }))
-  };
+  const filePath = path.join(CHAPTER_FINAL_DIR, `${chapterId}.json`);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
+  } catch {
+    return null;
+  }
+  return validateChapterFinalAssessment(raw, chapter);
 }
 
 function gradeChapterFinalAssessmentLocally(assessment: Awaited<ReturnType<typeof getChapterFinalAssessment>>, chapterId: string, answers: Record<string, unknown>) {
@@ -2456,8 +2593,10 @@ function gradeChapterFinalAssessmentLocally(assessment: Awaited<ReturnType<typeo
     const answer = asString(answers[question.id]).toLowerCase();
     let score = 0;
     const feedback: string[] = [];
-    for (const point of question.rubricPoints) {
-      const matched = point.keywords.some((keyword) => answer.includes(String(keyword).toLowerCase()));
+    const rubricPoints = Array.isArray(question.rubricPoints) ? question.rubricPoints : [];
+    for (const point of rubricPoints) {
+      const keywords = Array.isArray(point.keywords) ? point.keywords : [];
+      const matched = keywords.some((keyword) => answer.includes(String(keyword).toLowerCase()));
       if (matched && answer.trim().length >= 20) {
         score += point.points;
         feedback.push(`OK: ${point.description}`);

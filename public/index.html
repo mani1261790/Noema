@@ -1007,6 +1007,11 @@
       line-height: 1.65;
     }
 
+    .assessment-question-prompt {
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
     .assessment-choice {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
@@ -6396,7 +6401,7 @@
               `;
             return `
               <article class="assessment-question" data-question-id="${escapeHtmlAttribute(question.id)}" data-question-type="${escapeHtmlAttribute(type)}">
-                <strong>${index + 1}. ${escapeHtml(String(question.prompt || ""))}</strong>
+                <div class="assessment-question-prompt"><strong>${index + 1}.</strong> ${escapeHtml(String(question.prompt || ""))}</div>
                 <div>${choicesHtml}</div>
               </article>
             `;
@@ -6415,6 +6420,7 @@
             </div>
             <div class="assessment-result is-hidden"></div>
           `;
+          await renderMathFallback(wrapper.querySelector(".assessment-question-list") || wrapper);
           const submit = wrapper.querySelector("[data-final-submit]");
           const persistFinalDraft = function () {
             const answers = {};

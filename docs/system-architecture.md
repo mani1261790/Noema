@@ -1,6 +1,6 @@
 # Noema System Architecture (Current)
 
-最終更新: 2026-04-20  
+最終更新: 2026-04-27  
 このドキュメントは、現行リポジトリ実装（`src/`, `public/`, `scripts/`, `infra/`）に合わせた構成を示します。
 
 ## 1. 全体構成
@@ -11,13 +11,15 @@
   │    ├─ /               : ランディング
   │    ├─ /learn          : 教材一覧
   │    ├─ /learn/{id}     : 教材詳細（SEO向け）
-  │    └─ /api/*          : catalog / notebook content / download
+  │    └─ /api/*          : catalog / notebook content / download / assessments
   │
   └─ Static app (public/index.html)
        └─ ノートブック閲覧 + 学習UI + 認証導線
 
 [Content]
   ├─ content/notebooks/**/*.ipynb
+  ├─ content/assessments/notebook-checks/*.json
+  ├─ content/assessments/chapter-finals/*.json
   └─ content/catalog.json
 
 [Build scripts]
@@ -44,12 +46,14 @@
 - `/login`, `/signup`, `/admin`:
   static HTML 側（`/login.html`, `/admin.html`）へリダイレクト。
 - `src/app/api/*`:
-  catalog と notebook コンテンツ配信 API を提供（詳細は `docs/openapi.yaml`）。
+  catalog / notebook content / assessment 配信 API を提供（詳細は `docs/openapi.yaml`）。
 
 ### 2.2 Static app (`public/index.html`)
 
 - メインの学習 UI（サイドバー、教材表示、認証状態による導線）を提供。
 - `public/notebooks/*.html` や `/api/notebooks/{id}/content` を利用して教材を表示。
+- notebook 確認問題と chapter final を `/api/assessments/*` 経由で取得・提出する。
+- chapter final の記述回答下書きは `localStorage` に章単位で保存し、ページ移動後も復元する。
 - PWA 関連のマニフェスト・Service Worker は `public/manifest.webmanifest`, `public/sw.js`。
 
 ## 3. コンテンツパイプライン
@@ -58,6 +62,7 @@
 
 - 教材の source of truth は `content/notebooks/**/*.ipynb`。
 - 教材メタデータは `content/catalog.json`。
+- assessment の source of truth は `content/assessments/**/*.json`。
 
 ### 3.2 ビルド
 
@@ -98,6 +103,13 @@
 1. ユーザーが `/api/notebooks/{notebookId}/download` を呼ぶ
 2. `loadNotebookIpynb()` が source をローカル/S3 から取得
 3. canonicalize 済み JSON を添付ファイルとして返却
+
+### 5.3 Assessment
+
+1. 学習 UI が `/api/assessments/notebooks/{id}` または `/api/assessments/chapters/{id}/final` を取得
+2. notebook check は即時採点、chapter final は rubric ベース採点を実行
+3. chapter final の記述回答下書きはブラウザ `localStorage` に保存
+4. 合否・試行結果は learning progress と統合して UI へ反映
 
 ## 6. ドキュメント対応
 

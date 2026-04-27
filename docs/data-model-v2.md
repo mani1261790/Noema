@@ -16,7 +16,7 @@ S3
 notebook html
 
 localStorage
-progress, drafts, api keys
+progress, playground drafts, chapter-final answer drafts, api keys
 
 ## Current ER diagram
 
@@ -29,6 +29,8 @@ erDiagram
 
   USER ||--o| LOCAL_PROGRESS : browser
   NOTEBOOK ||--o{ LOCAL_PROGRESS_ITEM : browser
+  USER ||--o{ LOCAL_FINAL_DRAFT : browser
+  CHAPTER ||--o{ LOCAL_FINAL_DRAFT : browser
 ```
 
 ## Target
