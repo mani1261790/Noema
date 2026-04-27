@@ -359,7 +359,7 @@ export class NoemaStack extends Stack {
           afterBundling(inputDir: string, outputDir: string) {
             return [
               `mkdir -p "${outputDir}/content"`,
-              `cp -R "${inputDir}/content/assessments" "${outputDir}/content/assessments"`
+              `cp -R "${inputDir}/../content/assessments" "${outputDir}/content/assessments"`
             ];
           }
         }
