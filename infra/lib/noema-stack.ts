@@ -347,6 +347,22 @@ export class NoemaStack extends Stack {
         CONTENT_GITHUB_REPO: contentGithubRepo,
         CONTENT_GITHUB_REF: contentGithubRef,
         SOURCE_COMMIT_SHA: process.env.GITHUB_SHA || ""
+      },
+      bundling: {
+        commandHooks: {
+          beforeBundling() {
+            return [];
+          },
+          beforeInstall() {
+            return [];
+          },
+          afterBundling(inputDir: string, outputDir: string) {
+            return [
+              `mkdir -p "${outputDir}/content"`,
+              `cp -R "${inputDir}/content/assessments" "${outputDir}/content/assessments"`
+            ];
+          }
+        }
       }
     });
 
