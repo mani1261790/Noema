@@ -204,11 +204,24 @@ type LearningProgressNotebookRecord = {
   lastVisitedAt: string;
   completed: boolean;
   completedAt: string;
+  checkPassed?: boolean;
+  checkPassedAt?: string;
+  checkBestScore?: number;
+  checkAttempts?: number;
+};
+
+type LearningProgressChapterRecord = {
+  finalPassed: boolean;
+  finalPassedAt: string;
+  finalBestScore: number;
+  finalMaxScore: number;
+  finalAttempts: number;
 };
 
 type LearningProgressStore = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   notebooks: Record<string, LearningProgressNotebookRecord>;
+  chapters: Record<string, LearningProgressChapterRecord>;
 };
 
 type PythonRuntimeExecuteInput = {
@@ -307,6 +320,11 @@ const PYTHON_RUNNER_FUNCTION_NAME = process.env.PYTHON_RUNNER_FUNCTION_NAME || "
 const PYTHON_RUNNER_HEAVY_FUNCTION_NAME = process.env.PYTHON_RUNNER_HEAVY_FUNCTION_NAME || "";
 const MAX_RUNTIME_CODE_CHARS = 120_000;
 const MAX_RUNTIME_CONTEXT_CODE_CHARS = 120_000;
+const ASSISTANT_INPUT_MAX_CHARS = 4000;
+const ASSISTANT_RESPONSE_MAX_CHARS = 8000;
+const ASSISTANT_REQUEST_BODY_MAX_CHARS = 12000;
+const CHAPTER_FINAL_ANSWER_MAX_CHARS = 2000;
+const CHAPTER_FINAL_REQUEST_BODY_MAX_CHARS = 25000;
 const COLAB_GITHUB_REPO = (process.env.COLAB_GITHUB_REPO || "mani1261790/Noema").trim();
 const COLAB_GITHUB_REF = (process.env.COLAB_GITHUB_REF || "main").trim();
 const CONTENT_WRITE_MODE_RAW = (process.env.CONTENT_WRITE_MODE || "github_ssot").trim().toLowerCase();
@@ -431,13 +449,26 @@ function scoreChunk(questionTokens: string[], content: string): number {
 }
 
 function parseJson<T>(event: APIGatewayProxyEventV2): T | null {
-  if (!event.body) return null;
+  const raw = getEventBodyText(event);
+  if (!raw) return null;
   try {
-    const raw = event.isBase64Encoded ? Buffer.from(event.body, "base64").toString("utf8") : event.body;
     return JSON.parse(raw) as T;
   } catch {
     return null;
   }
+}
+
+function getEventBodyText(event: APIGatewayProxyEventV2): string {
+  if (!event.body) return "";
+  try {
+    return event.isBase64Encoded ? Buffer.from(event.body, "base64").toString("utf8") : event.body;
+  } catch {
+    return "";
+  }
+}
+
+export function eventBodyTooLarge(event: APIGatewayProxyEventV2, maxChars: number): boolean {
+  return getEventBodyText(event).length > maxChars;
 }
 
 function asString(value: unknown): string {
@@ -526,15 +557,47 @@ function validateAskQuestionInput(payload: unknown): AskQuestionInput | null {
   const questionText = asString(input.questionText).trim();
 
   if (!notebookId || !sectionId || !questionText) return null;
-  if (questionText.length > 2000) return null;
+  if (questionText.length > ASSISTANT_INPUT_MAX_CHARS) return null;
 
   return { notebookId, sectionId, questionText };
 }
 
+function validateChapterFinalAnswerMap(answers: Record<string, unknown>): string | null {
+  if (!answers || typeof answers !== "object") {
+    return "Invalid answers payload.";
+  }
+  for (const [questionId, value] of Object.entries(answers)) {
+    if (typeof value !== "string") {
+      return `Answer for ${questionId} must be a string.`;
+    }
+    if (value.length > CHAPTER_FINAL_ANSWER_MAX_CHARS) {
+      return `Answer for ${questionId} exceeds ${CHAPTER_FINAL_ANSWER_MAX_CHARS} characters.`;
+    }
+  }
+  return null;
+}
+
+function sanitizeChapterFinalAnswerMap(answers: Record<string, unknown>): Record<string, string> {
+  const sanitized: Record<string, string> = {};
+  if (!answers || typeof answers !== "object") return sanitized;
+  for (const [questionId, value] of Object.entries(answers)) {
+    sanitized[String(questionId)] = asString(value).trim().slice(0, CHAPTER_FINAL_ANSWER_MAX_CHARS);
+  }
+  return sanitized;
+}
+
+function normalizeAssistantAnswerText(value: string): string {
+  const text = asString(value).trim();
+  if (text.length <= ASSISTANT_RESPONSE_MAX_CHARS) return text;
+  const suffix = "\n\n[回答は長すぎたため末尾を省略しました]";
+  return `${text.slice(0, Math.max(0, ASSISTANT_RESPONSE_MAX_CHARS - suffix.length)).trimEnd()}${suffix}`;
+}
+
 function createEmptyLearningProgressStore(): LearningProgressStore {
   return {
-    schemaVersion: 2,
-    notebooks: {}
+    schemaVersion: 3,
+    notebooks: {},
+    chapters: {}
   };
 }
 
@@ -542,12 +605,35 @@ function normalizeLearningProgressRecord(raw: unknown): LearningProgressNotebook
   const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const fallbackIso = nowIso();
   const visitsRaw = Number(value.visits);
-  const completed = Boolean(value.completed);
+  const checkPassed = Boolean(value.checkPassed || value.completed);
+  const completed = Boolean(value.completed || checkPassed);
+  const checkBestScoreRaw = Number(value.checkBestScore);
+  const checkAttemptsRaw = Number(value.checkAttempts);
   return {
     visits: Number.isFinite(visitsRaw) && visitsRaw >= 0 ? Math.floor(visitsRaw) : 0,
     lastVisitedAt: toIsoOrFallback(value.lastVisitedAt, fallbackIso),
     completed,
-    completedAt: completed ? toIsoOrFallback(value.completedAt || value.lastVisitedAt, fallbackIso) : ""
+    completedAt: completed ? toIsoOrFallback(value.completedAt || value.lastVisitedAt, fallbackIso) : "",
+    checkPassed,
+    checkPassedAt: checkPassed ? toIsoOrFallback(value.checkPassedAt || value.completedAt || value.lastVisitedAt, fallbackIso) : "",
+    checkBestScore: Number.isFinite(checkBestScoreRaw) && checkBestScoreRaw >= 0 ? Math.floor(checkBestScoreRaw) : 0,
+    checkAttempts: Number.isFinite(checkAttemptsRaw) && checkAttemptsRaw >= 0 ? Math.floor(checkAttemptsRaw) : 0
+  };
+}
+
+function normalizeLearningProgressChapterRecord(raw: unknown): LearningProgressChapterRecord {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const fallbackIso = nowIso();
+  const finalBestScoreRaw = Number(value.finalBestScore);
+  const finalMaxScoreRaw = Number(value.finalMaxScore);
+  const finalAttemptsRaw = Number(value.finalAttempts);
+  const finalPassed = Boolean(value.finalPassed);
+  return {
+    finalPassed,
+    finalPassedAt: finalPassed ? toIsoOrFallback(value.finalPassedAt, fallbackIso) : "",
+    finalBestScore: Number.isFinite(finalBestScoreRaw) && finalBestScoreRaw >= 0 ? Math.floor(finalBestScoreRaw) : 0,
+    finalMaxScore: Number.isFinite(finalMaxScoreRaw) && finalMaxScoreRaw >= 0 ? Math.floor(finalMaxScoreRaw) : 0,
+    finalAttempts: Number.isFinite(finalAttemptsRaw) && finalAttemptsRaw >= 0 ? Math.floor(finalAttemptsRaw) : 0
   };
 }
 
@@ -557,7 +643,12 @@ function normalizeLearningProgressStore(raw: unknown): LearningProgressStore {
     parsed.notebooks && typeof parsed.notebooks === "object"
       ? (parsed.notebooks as Record<string, unknown>)
       : {};
+  const chaptersRaw =
+    parsed.chapters && typeof parsed.chapters === "object"
+      ? (parsed.chapters as Record<string, unknown>)
+      : {};
   const notebooks: Record<string, LearningProgressNotebookRecord> = {};
+  const chapters: Record<string, LearningProgressChapterRecord> = {};
 
   Object.entries(notebooksRaw).forEach(([notebookId, value]) => {
     const trimmedId = String(notebookId || "").trim();
@@ -565,9 +656,16 @@ function normalizeLearningProgressStore(raw: unknown): LearningProgressStore {
     notebooks[trimmedId] = normalizeLearningProgressRecord(value);
   });
 
+  Object.entries(chaptersRaw).forEach(([chapterId, value]) => {
+    const trimmedId = String(chapterId || "").trim();
+    if (!trimmedId) return;
+    chapters[trimmedId] = normalizeLearningProgressChapterRecord(value);
+  });
+
   return {
-    schemaVersion: 2,
-    notebooks
+    schemaVersion: 3,
+    notebooks,
+    chapters
   };
 }
 
@@ -620,8 +718,46 @@ export async function putLearningProgress(
       TableName: USER_PROGRESS_TABLE,
       Item: {
         userId: user.userId,
-        schemaVersion: 2,
+        schemaVersion: 3,
         notebooks: nextStore.notebooks,
+        chapters: nextStore.chapters,
+        updatedAt: timestamp
+      }
+    })
+  );
+
+  return nextStore;
+}
+
+export async function putChapterLearningProgress(
+  user: AuthUser,
+  chapterId: string,
+  record: LearningProgressChapterRecord
+): Promise<LearningProgressStore> {
+  const trimmedChapterId = String(chapterId || "").trim();
+  if (!trimmedChapterId) {
+    throw new Error("chapterId is required");
+  }
+
+  const nextRecord = normalizeLearningProgressChapterRecord(record);
+  const existingStore = await getLearningProgressStoreForUser(user.userId);
+  const nextStore = normalizeLearningProgressStore({
+    ...existingStore,
+    chapters: {
+      ...existingStore.chapters,
+      [trimmedChapterId]: nextRecord
+    }
+  });
+  const timestamp = nowIso();
+
+  await ddb.send(
+    new PutCommand({
+      TableName: USER_PROGRESS_TABLE,
+      Item: {
+        userId: user.userId,
+        schemaVersion: 3,
+        notebooks: nextStore.notebooks,
+        chapters: nextStore.chapters,
         updatedAt: timestamp
       }
     })
@@ -837,6 +973,7 @@ async function persistCompletedChat(
   tokensUsed: number,
   modelId: string
 ) {
+  const normalizedAnswerText = normalizeAssistantAnswerText(answerText || "");
   const questionId = crypto.randomUUID();
   const sessionId = input.sessionId?.trim() || crypto.randomUUID();
   const createdAt = nowIso();
@@ -864,10 +1001,10 @@ async function persistCompletedChat(
   );
 
   await upsertAnswer({
-    questionId,
-    answerText,
-    sourceReferences,
-    tokensPrompt: tokensUsed,
+      questionId,
+    answerText: normalizedAnswerText,
+      sourceReferences,
+      tokensPrompt: tokensUsed,
     tokensCompletion: 0,
     modelId: normalizedModelId,
     latencyMs: 0,
@@ -1569,7 +1706,7 @@ export async function askQuestion(input: AskQuestionInput, user: AuthUser): Prom
 
     await upsertAnswer({
       questionId,
-      answerText: snapshot.answerText,
+      answerText: normalizeAssistantAnswerText(snapshot.answerText),
       sourceReferences: snapshot.sourceReferences,
       tokensPrompt: snapshot.tokensUsed,
       tokensCompletion: 0,
@@ -1664,7 +1801,7 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     }
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = result.text || fallbackAnswer(input.questionText, []);
+    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
@@ -1686,7 +1823,7 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     const result = await callOpenAIWithKey(prompt, modelId, apiKey);
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = result.text || fallbackAnswer(input.questionText, []);
+    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
@@ -1708,7 +1845,7 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     const result = await callGeminiWithKey(prompt, modelId, apiKey);
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = result.text || fallbackAnswer(input.questionText, []);
+    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
@@ -1766,7 +1903,7 @@ export async function getQuestionAnswer(questionId: string, user: AuthUser): Pro
     kind: "completed",
     status: question.status,
     answer: {
-      answerText: answer.answerText,
+      answerText: normalizeAssistantAnswerText(answer.answerText),
       sourceReferences: answer.sourceReferences,
       tokensUsed: answer.tokensPrompt + answer.tokensCompletion,
       timestamp: answer.createdAt
@@ -1846,6 +1983,7 @@ export async function processQuestionById(questionId: string): Promise<void> {
         contexts.map((item) => item.content)
       );
     }
+    answerText = normalizeAssistantAnswerText(answerText);
 
     const completedAt = nowIso();
     await upsertAnswer({
@@ -1989,7 +2127,7 @@ export async function listQuestionHistory(user: AuthUser, notebookId: string, se
         sessionId: normalizeHistorySessionId(question),
         sectionId: question.sectionId,
         questionText: question.questionText,
-        answerText: answer.answerText,
+        answerText: normalizeAssistantAnswerText(answer.answerText),
         sourceReferences: answer.sourceReferences,
         createdAt: question.createdAt
       };
@@ -2048,17 +2186,52 @@ export function parseLearningProgressPutInput(event: APIGatewayProxyEventV2): Le
   const lastVisitedAt = asString(payload.lastVisitedAt).trim();
   const completed = Boolean(payload.completed);
   const completedAt = asString(payload.completedAt).trim();
+  const checkBestScore = Number(payload.checkBestScore || 0);
+  const checkAttempts = Number(payload.checkAttempts || 0);
 
   if (!Number.isFinite(visits) || visits < 0) return null;
   if (!lastVisitedAt || Number.isNaN(Date.parse(lastVisitedAt))) return null;
   if (completed && (!completedAt || Number.isNaN(Date.parse(completedAt)))) return null;
   if (!completed && completedAt) return null;
+  if (!Number.isFinite(checkBestScore) || checkBestScore < 0) return null;
+  if (!Number.isFinite(checkAttempts) || checkAttempts < 0) return null;
 
   return {
     visits: Math.floor(visits),
     lastVisitedAt: new Date(Date.parse(lastVisitedAt)).toISOString(),
     completed,
-    completedAt: completed ? new Date(Date.parse(completedAt)).toISOString() : ""
+    completedAt: completed ? new Date(Date.parse(completedAt)).toISOString() : "",
+    checkPassed: Boolean(payload.checkPassed || completed),
+    checkPassedAt:
+      payload.checkPassed || completed
+        ? new Date(Date.parse(asString(payload.checkPassedAt || completedAt || lastVisitedAt))).toISOString()
+        : "",
+    checkBestScore: Math.floor(checkBestScore),
+    checkAttempts: Math.floor(checkAttempts)
+  };
+}
+
+export function parseChapterLearningProgressPutInput(event: APIGatewayProxyEventV2): LearningProgressChapterRecord | null {
+  const payload = parseJson<Record<string, unknown>>(event);
+  if (!payload) return null;
+
+  const finalPassed = Boolean(payload.finalPassed);
+  const finalPassedAt = asString(payload.finalPassedAt).trim();
+  const finalBestScore = Number(payload.finalBestScore);
+  const finalMaxScore = Number(payload.finalMaxScore);
+  const finalAttempts = Number(payload.finalAttempts);
+
+  if (finalPassed && (!finalPassedAt || Number.isNaN(Date.parse(finalPassedAt)))) return null;
+  if (!Number.isFinite(finalBestScore) || finalBestScore < 0) return null;
+  if (!Number.isFinite(finalMaxScore) || finalMaxScore < 0) return null;
+  if (!Number.isFinite(finalAttempts) || finalAttempts < 0) return null;
+
+  return {
+    finalPassed,
+    finalPassedAt: finalPassed ? new Date(Date.parse(finalPassedAt)).toISOString() : "",
+    finalBestScore: Math.floor(finalBestScore),
+    finalMaxScore: Math.floor(finalMaxScore),
+    finalAttempts: Math.floor(finalAttempts)
   };
 }
 
@@ -2177,6 +2350,458 @@ export async function listCatalog() {
         notebooks: chapter.notebooks.sort((a, b) => a.order - b.order)
       }))
   };
+}
+
+const ASSESSMENT_CHAPTER_IDS = new Set([
+  "python",
+  "machine-learning",
+  "deep-learning",
+  "reinforcement-learning",
+  "llm",
+  "deep-generative-models",
+  "world-models"
+]);
+
+function makeNotebookCheckAssessment(notebook: { id: string; title: string; tags?: string[] }) {
+  const tags = Array.isArray(notebook.tags) && notebook.tags.length ? notebook.tags.join(", ") : notebook.id;
+  return {
+    schemaVersion: 1,
+    notebookId: notebook.id,
+    title: `${notebook.title} 確認問題`,
+    passScore: 5,
+    questions: [
+      ["q1", `「${notebook.title}」で最も重視すべき学習姿勢はどれですか。`, "本文の目的、前提、コード例の関係を確認しながら読む", "本文・コード・出力のつながりを理解しているかを確認します。"],
+      ["q2", "このノートの主題として最も近いものはどれですか。", `${tags} に関する概念や実装の基礎を確認すること`, "ノートのタグとタイトルに対応する概念・実装を理解することが中心です。"],
+      ["q3", "コードセルを読むときの確認として最も適切なものはどれですか。", "入力、処理、出力が何を表しているかを対応づける", "入力から出力までの意味を追うことが重要です。"],
+      ["q4", "理解確認として最も良い行動はどれですか。", "重要な式・関数・出力を自分の言葉で説明してみる", "自分の言葉で説明できるかは、概念理解と実装理解の両方を確認できます。"],
+      ["q5", "この確認問題で合格にする条件として正しいものはどれですか。", "5問すべてに正解する", "各ノートの確認問題は5問全問正解で合格です。"]
+    ].map(([id, prompt, correctText, explanation]) => ({
+      id,
+      prompt,
+      choices: [
+        { id: "a", text: correctText },
+        { id: "b", text: "本文と関係のない用語だけを暗記する" },
+        { id: "c", text: "出力結果だけを見て本文の説明は飛ばす" },
+        { id: "d", text: "実行順序や変数の意味を無視する" }
+      ],
+      correctChoiceId: "a",
+      explanation
+    }))
+  };
+}
+
+async function findAssessmentNotebook(notebookId: string) {
+  const catalog = await listCatalog();
+  for (const chapter of catalog.chapters) {
+    const notebook = chapter.notebooks.find((item) => item.id === notebookId);
+    if (notebook && ASSESSMENT_CHAPTER_IDS.has(chapter.id)) return { chapter, notebook };
+  }
+  return null;
+}
+
+export async function getNotebookAssessment(notebookId: string) {
+  const found = await findAssessmentNotebook(notebookId);
+  if (!found) return null;
+  const assessment = makeNotebookCheckAssessment(found.notebook);
+  return {
+    ...assessment,
+    questions: assessment.questions.map(({ correctChoiceId: _correctChoiceId, ...question }) => question)
+  };
+}
+
+export async function submitNotebookAssessmentAttempt(notebookId: string, answers: Record<string, unknown>) {
+  const found = await findAssessmentNotebook(notebookId);
+  if (!found) return null;
+  const assessment = makeNotebookCheckAssessment(found.notebook);
+  const results = assessment.questions.map((question) => {
+    const selectedChoiceId = asString(answers[question.id]).trim();
+    return {
+      questionId: question.id,
+      selectedChoiceId,
+      correct: selectedChoiceId === question.correctChoiceId,
+      explanation: question.explanation,
+      correctChoiceId: question.correctChoiceId
+    };
+  });
+  const score = results.reduce((sum, result) => sum + (result.correct ? 1 : 0), 0);
+  return { notebookId, score, total: assessment.questions.length, passed: score >= assessment.passScore, results };
+}
+
+export async function getChapterFinalAssessment(chapterId: string) {
+  const catalog = await listCatalog();
+  const chapter = catalog.chapters.find((item) => item.id === chapterId);
+  if (!chapter || !ASSESSMENT_CHAPTER_IDS.has(chapter.id)) return null;
+  return {
+    schemaVersion: 1,
+    chapterId,
+    title: `${chapter.title} 最終問題`,
+    passRatio: 0.9,
+    questions: chapter.notebooks.slice(0, 10).map((notebook, index) => ({
+      id: `q${index + 1}`,
+      type: "concept",
+      prompt: `「${notebook.title}」の内容が、${chapter.title} 全体の理解にどう役立つか説明してください。`,
+      maxPoints: 10,
+      rubricPoints: [
+        { id: "notebook", description: "対象ノートの主題に触れている", points: 4, keywords: [notebook.title, ...(notebook.tags || [])] },
+        { id: "reason", description: "なぜ重要かを説明している", points: 3, keywords: ["重要", "理由", "役割", "必要"] },
+        { id: "example", description: "コード、データ、式、具体例のいずれかに触れている", points: 3, keywords: ["コード", "データ", "式", "例", "出力", "実装"] }
+      ]
+    }))
+  };
+}
+
+function gradeChapterFinalAssessmentLocally(assessment: Awaited<ReturnType<typeof getChapterFinalAssessment>>, chapterId: string, answers: Record<string, unknown>) {
+  if (!assessment) return null;
+  const results = assessment.questions.map((question) => {
+    const answer = asString(answers[question.id]).toLowerCase();
+    let score = 0;
+    const feedback: string[] = [];
+    for (const point of question.rubricPoints) {
+      const matched = point.keywords.some((keyword) => answer.includes(String(keyword).toLowerCase()));
+      if (matched && answer.trim().length >= 20) {
+        score += point.points;
+        feedback.push(`OK: ${point.description}`);
+      } else {
+        feedback.push(`要改善: ${point.description}`);
+      }
+    }
+    return { questionId: question.id, score, maxPoints: question.maxPoints, feedback: feedback.join(" / ") };
+  });
+  const score = results.reduce((sum, result) => sum + result.score, 0);
+  const maxScore = results.reduce((sum, result) => sum + result.maxPoints, 0);
+  const ratio = maxScore > 0 ? score / maxScore : 0;
+  return { chapterId, score, maxScore, ratio, passed: ratio >= assessment.passRatio, gradingProvider: "local", results };
+}
+
+function buildChapterFinalLlmGradingPrompt(assessment: NonNullable<Awaited<ReturnType<typeof getChapterFinalAssessment>>>, answers: Record<string, unknown>): string {
+  const questions = assessment.questions.map((question) => ({
+    id: question.id,
+    type: question.type,
+    prompt: question.prompt,
+    maxPoints: question.maxPoints,
+    rubricPoints: question.rubricPoints,
+    answer: asString(answers[question.id])
+  }));
+  return [
+    "You are grading Japanese learning assessment answers for Noema.",
+    "Grade strictly against the rubric points. Award points only when the answer clearly satisfies the point.",
+    "For coding answers, judge whether the submitted code or explanation would satisfy the requested behavior; do not execute code.",
+    "Return JSON only. No markdown fences.",
+    'Required schema: {"results":[{"questionId":"q1","score":0,"maxPoints":10,"feedback":"短い日本語フィードバック"}]}',
+    "Rules:",
+    "- score must be an integer from 0 to maxPoints.",
+    "- feedback must mention missing rubric points when any points are lost.",
+    "- Do not add questions not present in the input.",
+    "",
+    JSON.stringify({ chapterId: assessment.chapterId, passRatio: assessment.passRatio, questions }, null, 2)
+  ].join("\n");
+}
+
+function parseLlmJsonObject(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start < 0 || end <= start) return null;
+    try {
+      const parsed = JSON.parse(trimmed.slice(start, end + 1));
+      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export async function submitChapterFinalAssessmentAttempt(
+  chapterId: string,
+  answers: Record<string, unknown>,
+  target?: { provider?: string; modelId?: string; apiKey?: string }
+) {
+  const assessment = await getChapterFinalAssessment(chapterId);
+  if (!assessment) return null;
+  const validationError = validateChapterFinalAnswerMap(answers);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+  const sanitizedAnswers = sanitizeChapterFinalAnswerMap(answers);
+
+  const provider = asString(target?.provider).trim().toLowerCase();
+  const apiKey = asString(target?.apiKey).trim();
+  if ((provider !== "openai" && provider !== "gemini") || !apiKey) {
+    return gradeChapterFinalAssessmentLocally(assessment, chapterId, sanitizedAnswers);
+  }
+
+  const modelId = asString(target?.modelId).trim() || (provider === "openai" ? "gpt-5-nano" : "gemini-2.5-flash");
+  const prompt = buildChapterFinalLlmGradingPrompt(assessment, sanitizedAnswers);
+  let text = "";
+  try {
+    const response = provider === "openai"
+      ? await callOpenAIWithKey(prompt, modelId, apiKey)
+      : await callGeminiWithKey(prompt, modelId, apiKey);
+    text = response.text;
+  } catch {
+    return gradeChapterFinalAssessmentLocally(assessment, chapterId, sanitizedAnswers);
+  }
+  const parsed = parseLlmJsonObject(text);
+  if (!parsed) {
+    return gradeChapterFinalAssessmentLocally(assessment, chapterId, sanitizedAnswers);
+  }
+  const rawResults = Array.isArray(parsed.results) ? parsed.results : [];
+  const results = assessment.questions.map((question) => {
+    const item = rawResults.find((candidate) => {
+      return candidate && typeof candidate === "object" && asString((candidate as Record<string, unknown>).questionId) === question.id;
+    }) as Record<string, unknown> | undefined;
+    const rawScore = Number(item?.score);
+    const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(question.maxPoints, Math.round(rawScore))) : 0;
+    const feedback = asString(item?.feedback).trim() || "LLMルーブリック採点を行いました。";
+    return { questionId: question.id, score, maxPoints: question.maxPoints, feedback };
+  });
+  const score = results.reduce((sum, result) => sum + result.score, 0);
+  const maxScore = results.reduce((sum, result) => sum + result.maxPoints, 0);
+  const ratio = maxScore > 0 ? score / maxScore : 0;
+  return { chapterId, score, maxScore, ratio, passed: ratio >= assessment.passRatio, gradingProvider: provider, modelId, results };
+}
+
+function buildGradingAgentPrompt(input: {
+  chapterId: string;
+  questionId: string;
+  prompt: string;
+  maxPoints: number;
+  rubricPoints: Array<{ id: string; description: string; points: number; keywords?: string[] }>;
+  answer: string;
+}) {
+  return [
+    "You are Noema's independent grading agent.",
+    "Grade exactly one assessment answer using only the expected rubric points and the learner answer.",
+    "Return JSON only. No markdown fences.",
+    'Required schema: {"score":0,"maxPoints":10,"feedback":"日本語で短く具体的に","pointResults":[{"id":"...","met":true,"pointsAwarded":0,"comment":"..."}]}',
+    "Rules:",
+    "- Award points only for rubric points clearly satisfied by the answer.",
+    "- Do not infer unstated knowledge.",
+    "- For coding answers, inspect the code logically but do not execute it.",
+    "- score must be an integer between 0 and maxPoints.",
+    "- feedback must mention the missing points when score is not full.",
+    "",
+    JSON.stringify(input, null, 2)
+  ].join("\n");
+}
+
+function normalizeGradingAgentResult(rawText: string, maxPoints: number) {
+  const parsed = parseLlmJsonObject(rawText);
+  if (!parsed) {
+    throw new Error("Grading agent returned invalid JSON.");
+  }
+  const rawScore = Number(parsed.score);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(maxPoints, Math.round(rawScore))) : 0;
+  const feedback = asString(parsed.feedback).trim() || "採点官エージェントが採点しました。";
+  const pointResults = Array.isArray(parsed.pointResults) ? parsed.pointResults : [];
+  return { score, feedback, pointResults };
+}
+
+export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapterId: string, answers: Record<string, unknown>) {
+  const assessment = await getChapterFinalAssessment(chapterId);
+  if (!assessment) return null;
+  if (!QA_QUEUE_URL) throw new Error("QA_QUEUE_URL is not configured.");
+  const validationError = validateChapterFinalAnswerMap(answers);
+  if (validationError) throw new Error(validationError);
+  const sanitizedAnswers = sanitizeChapterFinalAnswerMap(answers);
+
+  const attemptId = crypto.randomUUID();
+  const createdAt = nowIso();
+  const modelId = resolveBedrockModelId("", "grade final assessment", JSON.stringify(assessment).slice(0, 3000));
+  const tasks = assessment.questions.map((question) => ({
+    questionId: question.id,
+    type: question.type,
+    prompt: question.prompt,
+    maxPoints: question.maxPoints,
+    rubricPoints: question.rubricPoints,
+    answer: asString(sanitizedAnswers[question.id]),
+    status: "QUEUED",
+    score: 0,
+    feedback: "",
+    pointResults: []
+  }));
+
+  await ddb.send(
+    new PutCommand({
+      TableName: QUESTIONS_TABLE,
+      Item: {
+        questionId: `ASSESSMENT_ATTEMPT#${attemptId}`,
+        attemptId,
+        itemType: "CHAPTER_FINAL_ATTEMPT",
+        userId: user.userId,
+        userEmail: user.email,
+        notebookId: `chapter:${chapterId}`,
+        chapterId,
+        sectionId: "final",
+        questionText: `${assessment.title} grading attempt`,
+        questionHash: questionHash(`${chapterId}:${attemptId}`),
+        status: "QUEUED",
+        assessmentTitle: assessment.title,
+        passRatio: assessment.passRatio,
+        gradingProvider: "bedrock",
+        modelId,
+        tasks,
+        score: 0,
+        maxScore: tasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0),
+        ratio: 0,
+        passed: false,
+        createdAt,
+        updatedAt: createdAt
+      }
+    })
+  );
+
+  await sqs.send(
+    new SendMessageCommand({
+      QueueUrl: QA_QUEUE_URL,
+      MessageBody: JSON.stringify({ gradingAttemptId: attemptId })
+    })
+  );
+
+  return {
+    attemptId,
+    chapterId,
+    status: "QUEUED",
+    gradingProvider: "bedrock",
+    modelId,
+    score: 0,
+    maxScore: tasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0),
+    ratio: 0,
+    passed: false,
+    results: tasks.map((task) => ({
+      questionId: task.questionId,
+      score: 0,
+      maxPoints: task.maxPoints,
+      feedback: "採点待ちです。"
+    }))
+  };
+}
+
+export async function getChapterFinalAssessmentAttempt(user: AuthUser, attemptId: string) {
+  const response = await ddb.send(
+    new GetCommand({
+      TableName: QUESTIONS_TABLE,
+      Key: { questionId: `ASSESSMENT_ATTEMPT#${attemptId}` }
+    })
+  );
+  const item = response.Item as Record<string, unknown> | undefined;
+  if (!item) return { kind: "not_found" as const };
+  if (!isAdmin(user) && item.userId !== user.userId) return { kind: "forbidden" as const };
+  const tasks = Array.isArray(item.tasks) ? item.tasks as Array<Record<string, unknown>> : [];
+  return {
+    kind: "ok" as const,
+    attempt: {
+      attemptId: asString(item.attemptId),
+      chapterId: asString(item.chapterId),
+      status: asString(item.status),
+      gradingProvider: asString(item.gradingProvider) || "bedrock",
+      modelId: asString(item.modelId),
+      score: Number(item.score || 0),
+      maxScore: Number(item.maxScore || 0),
+      ratio: Number(item.ratio || 0),
+      passed: Boolean(item.passed),
+      results: tasks.map((task) => ({
+        questionId: asString(task.questionId),
+        score: Number(task.score || 0),
+        maxPoints: Number(task.maxPoints || 0),
+        feedback: asString(task.feedback) || "採点待ちです。",
+        status: asString(task.status)
+      }))
+    }
+  };
+}
+
+export async function processChapterFinalAssessmentAttemptById(attemptId: string) {
+  const key = { questionId: `ASSESSMENT_ATTEMPT#${attemptId}` };
+  const response = await ddb.send(new GetCommand({ TableName: QUESTIONS_TABLE, Key: key }));
+  const item = response.Item as Record<string, unknown> | undefined;
+  if (!item) throw new Error(`Assessment attempt not found: ${attemptId}`);
+  const tasks = Array.isArray(item.tasks) ? item.tasks as Array<Record<string, unknown>> : [];
+  const modelId = asString(item.modelId) || resolveBedrockModelId("", "grade final assessment", JSON.stringify(tasks).slice(0, 3000));
+  const startedAt = nowIso();
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: QUESTIONS_TABLE,
+      Key: key,
+      UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
+      ExpressionAttributeNames: { "#status": "status" },
+      ExpressionAttributeValues: { ":status": "PROCESSING", ":updatedAt": startedAt }
+    })
+  );
+
+  const gradedTasks: Array<Record<string, unknown>> = [];
+  try {
+    for (const task of tasks) {
+      const maxPoints = Number(task.maxPoints || 0);
+      const prompt = buildGradingAgentPrompt({
+        chapterId: asString(item.chapterId),
+        questionId: asString(task.questionId),
+        prompt: asString(task.prompt),
+        maxPoints,
+        rubricPoints: Array.isArray(task.rubricPoints) ? task.rubricPoints as Array<{ id: string; description: string; points: number; keywords?: string[] }> : [],
+        answer: asString(task.answer)
+      });
+      const result = await callBedrock(prompt, modelId);
+      const normalized = normalizeGradingAgentResult(result.text, maxPoints);
+      gradedTasks.push({
+        ...task,
+        status: "COMPLETED",
+        score: normalized.score,
+        feedback: normalized.feedback,
+        pointResults: normalized.pointResults,
+        gradedAt: nowIso(),
+        gradingProvider: "bedrock",
+        modelId
+      });
+    }
+
+    const score = gradedTasks.reduce((sum, task) => sum + Number(task.score || 0), 0);
+    const maxScore = gradedTasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0);
+    const ratio = maxScore > 0 ? score / maxScore : 0;
+    const passed = ratio >= Number(item.passRatio || 0.9);
+    const completedAt = nowIso();
+
+    await ddb.send(
+      new UpdateCommand({
+        TableName: QUESTIONS_TABLE,
+        Key: key,
+        UpdateExpression: "SET #status = :status, tasks = :tasks, score = :score, maxScore = :maxScore, ratio = :ratio, passed = :passed, updatedAt = :updatedAt, completedAt = :completedAt REMOVE lastError",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":status": "COMPLETED",
+          ":tasks": gradedTasks,
+          ":score": score,
+          ":maxScore": maxScore,
+          ":ratio": ratio,
+          ":passed": passed,
+          ":updatedAt": completedAt,
+          ":completedAt": completedAt
+        }
+      })
+    );
+  } catch (error) {
+    const failedAt = nowIso();
+    await ddb.send(
+      new UpdateCommand({
+        TableName: QUESTIONS_TABLE,
+        Key: key,
+        UpdateExpression: "SET #status = :status, tasks = :tasks, updatedAt = :updatedAt, lastError = :lastError",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: {
+          ":status": "FAILED",
+          ":tasks": gradedTasks.length ? gradedTasks.concat(tasks.slice(gradedTasks.length)) : tasks,
+          ":updatedAt": failedAt,
+          ":lastError": error instanceof Error ? error.message : String(error)
+        }
+      })
+    );
+    throw error;
+  }
 }
 
 function inferChapterAudience(chapterId: string, chapterTitle: string): "beginner" | "advanced" {
@@ -3780,7 +4405,7 @@ export function parseChatCompleteInput(event: APIGatewayProxyEventV2): ChatCompl
   const apiKey = asString(payload.apiKey).trim();
 
   if (!notebookId || !questionText) return null;
-  if (questionText.length > 4000) return null;
+  if (questionText.length > ASSISTANT_INPUT_MAX_CHARS) return null;
   if (sessionId && !/^[A-Za-z0-9:_-]{1,80}$/.test(sessionId)) return null;
   if (providerRaw !== "openai" && providerRaw !== "gemini" && providerRaw !== "bedrock") return null;
   if (modelId && !/^[A-Za-z0-9._:+/-]{1,120}$/.test(modelId)) return null;

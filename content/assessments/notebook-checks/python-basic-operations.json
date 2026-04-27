@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "python-basic-operations",
+  "title": "基本的なPythonの操作 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "変数と型について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "変数は、値に名前を付けて後続の処理で再利用するために使う。" },
+        { "id": "b", "text": "`type(name)` や `type(students)` を使うと、値が文字列・整数・小数などのどの型かを確認できる。" },
+        { "id": "c", "text": "f-string を使うと、変数の値や書式指定を文字列の中に埋め込める。" },
+        { "id": "d", "text": "一度作った変数は、Pythonでは別の値を代入して更新できない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "Pythonの変数は再代入できます。型やf-stringを確認しながら、値を少しずつ加工していくのが基本です。",
+      "learningObjective": "変数と型"
+    },
+    {
+      "id": "q2",
+      "prompt": "リスト・辞書・set について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`scores[0]` はリストの先頭要素、`scores[-1]` は末尾要素を取り出す。" },
+        { "id": "b", "text": "`scores[1:4]` のようなスライスでは、開始位置は含み、終了位置は含まない。" },
+        { "id": "c", "text": "辞書は `profile[\"club\"]` のようにキーを指定して値を取り出せる。" },
+        { "id": "d", "text": "`set(scores)` は、元のリストに同じ点数が何回出たかをそのまま保持する。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "set は重複をまとめる集合です。重複回数を数えたい場合は `Counter` のような道具を使います。",
+      "learningObjective": "基本データ構造"
+    },
+    {
+      "id": "q3",
+      "prompt": "条件分岐と繰り返しについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`if`、`elif`、`else` は、条件に応じて処理を分けるために使う。" },
+        { "id": "b", "text": "ノートのラベル付けでは、90点以上をA、75点以上をB、それ以外をCとしている。" },
+        { "id": "c", "text": "`for score in scores:` は、scores の要素を1つずつ取り出して処理する。" },
+        { "id": "d", "text": "`elif score >= 75` は、90点以上のスコアにも必ず実行される。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`if score >= 90` が真なら、その下の `elif` は実行されません。条件は上から順に判定されます。",
+      "learningObjective": "条件分岐"
+    },
+    {
+      "id": "q4",
+      "prompt": "内包表記と関数について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`[x * x for x in range(1, 6)]` は、1から5までの二乗を並べたリストを作る。" },
+        { "id": "b", "text": "内包表記は、短い変換処理をリストとしてまとめるときに使える。" },
+        { "id": "c", "text": "`summarize_scores(values)` は、件数・平均・最高・最低を辞書として返している。" },
+        { "id": "d", "text": "関数の `return` は画面表示専用なので、返した値を変数に保存することはできない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`return` された値は `summary = summarize_scores(scores)` のように変数へ保存できます。",
+      "learningObjective": "内包表記と関数"
+    },
+    {
+      "id": "q5",
+      "prompt": "例外処理と標準ライブラリについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`try` / `except ValueError` は、数値変換に失敗する入力が混じる場合に処理を止めずに進めるために使える。" },
+        { "id": "b", "text": "`int(\"oops\")` のような変換失敗は `ValueError` として扱える。" },
+        { "id": "c", "text": "`Counter(labels)` は、A・B・Cのようなラベルの出現回数を数えるのに使える。" },
+        { "id": "d", "text": "`math.sqrt` は、リスト内の文字列を自動的に整数へ変換するための関数である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`math.sqrt` は平方根を計算する関数です。文字列を整数に変換する処理は `int` と例外処理で扱っています。",
+      "learningObjective": "例外処理と標準ライブラリ"
+    }
+  ]
+}

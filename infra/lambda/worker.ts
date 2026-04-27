@@ -1,12 +1,18 @@
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
-import { processQuestionById } from "./runtime";
+import { processChapterFinalAssessmentAttemptById, processQuestionById } from "./runtime";
 
 export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   const failures: SQSBatchResponse["batchItemFailures"] = [];
 
   for (const record of event.Records) {
     try {
-      const parsed = JSON.parse(record.body || "{}") as { questionId?: string };
+      const parsed = JSON.parse(record.body || "{}") as { questionId?: string; gradingAttemptId?: string };
+      const gradingAttemptId = (parsed.gradingAttemptId || "").trim();
+      if (gradingAttemptId) {
+        await processChapterFinalAssessmentAttemptById(gradingAttemptId);
+        continue;
+      }
+
       const questionId = (parsed.questionId || "").trim();
       if (!questionId) {
         throw new Error("questionId is required in message body");

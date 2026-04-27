@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "q-learning",
+  "title": "Q学習 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "Q 学習の基本について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "Q 学習は、行動価値 `Q(s,a)` を直接学びながら最適行動を目指す方法である。" },
+        { "id": "b", "text": "状態価値を経由せず、各行動をその場で比べられる。" },
+        { "id": "c", "text": "表形式 Q 学習の target の中身は、後の deep RL でも土台になる。" },
+        { "id": "d", "text": "Q 学習では、行動価値ではなく状態価値 `V(s)` だけを直接更新し、各行動の比較はしない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "Q 学習は `Q(s,a)` を直接学ぶ方法としてこのノートで説明されています。",
+      "learningObjective": "Q学習の基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "`max` を使う target について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "Q 学習では、次状態で実際に取った行動ではなく、取りうる最善行動の価値を target に入れる。" },
+        { "id": "b", "text": "このため、探索しながらでも最適方策へ寄せる off-policy 更新として読める。" },
+        { "id": "c", "text": "`r + \\gamma \\max_{a'} Q(s',a')` が target の中心になる。" },
+        { "id": "d", "text": "Q 学習では、`max` を使わず、常に実際に選んだ `a'` のみを target に入れるので on-policy になる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "実際に選んだ `a'` を使うのは SARSA 側の見方であり、Q 学習は `max` を使います。",
+      "learningObjective": "max target"
+    },
+    {
+      "id": "q3",
+      "prompt": "Q 学習と探索の関係について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "実際の行動列と、学習が目指す行動列が一致しなくてもよいのが Q 学習の特徴である。" },
+        { "id": "b", "text": "探索しながらでも、更新は最善行動を仮定した target を使える。" },
+        { "id": "c", "text": "この差が、off-policy と呼ばれる理由につながる。" },
+        { "id": "d", "text": "Q 学習では探索は不可能で、常に greedy にしか行動できない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでも、探索と活用の切り替えを含めて Q 学習を見ています。",
+      "learningObjective": "探索とoff-policy"
+    },
+    {
+      "id": "q4",
+      "prompt": "このノートの更新の見方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "参照用の return、1 回の Q 更新、greedy action の抽出を順に見ている。" },
+        { "id": "b", "text": "ベルマン更新を 1 回だけ計算しても、再帰構造の意味はかなり見える。" },
+        { "id": "c", "text": "あとで deep RL を読むときも、target の中身はここで見た `r + \\gamma \\max Q` から始まる。" },
+        { "id": "d", "text": "このノートでは、Q の 1 ステップ更新は扱わず、平均報酬の計算だけで Q 学習を説明している。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、まさに 1 ステップの Q 更新を小さな例で確認しています。",
+      "learningObjective": "更新の見方"
+    },
+    {
+      "id": "q5",
+      "prompt": "Q 学習の注意点について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`max` を使うことは最適方策へ寄せる強さにつながる。" },
+        { "id": "b", "text": "同時に、`max` は過大評価の入口にもなりうる。" },
+        { "id": "c", "text": "Q 学習と SARSA の違いを読むうえで、`max` と実際の `a'` の差が重要になる。" },
+        { "id": "d", "text": "`max` を使う target には副作用がまったくなく、常に過大評価の心配も比較上の注意点もない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、`max` が強さである一方、過大評価の入口にもなりうる点に触れています。",
+      "learningObjective": "Q学習の注意点"
+    }
+  ]
+}

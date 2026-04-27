@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "eligibility-trace-td-lambda",
+  "title": "後方観測TD(λ)とEligibility Trace 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "Eligibility Trace の基本について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "Eligibility Trace は、いま生じた TD 誤差をどの過去状態へどれだけ返すかを管理する仕組みである。" },
+        { "id": "b", "text": "最近訪れた状態ほど trace は大きく、時間が経つと減衰していく見方ができる。" },
+        { "id": "c", "text": "trace は、実装上の credit assignment そのものとして読める。" },
+        { "id": "d", "text": "trace は現在状態にしか値を持てず、過去状態へ誤差を配る役割は持たない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "trace の核心は、現在だけでなく過去状態にも誤差を配れることです。",
+      "learningObjective": "trace の基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "accumulating trace と replacing trace の違いについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "同じ状態を再訪したとき、accumulating は trace を積み増す見方である。" },
+        { "id": "b", "text": "replacing は、再訪時に trace を 1 に戻す見方である。" },
+        { "id": "c", "text": "更新を強く通したいか、暴れすぎを抑えたいかで設計差が出る。" },
+        { "id": "d", "text": "accumulating と replacing は、どんな再訪列でも常に完全に同じ trace 列を作るので区別する必要はない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、再訪の多い状態で accumulating / replacing の差がどう広がるかを見ています。",
+      "learningObjective": "accumulating vs replacing"
+    },
+    {
+      "id": "q3",
+      "prompt": "`E` の読み方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "このノートでは、`V` の最終値だけでなく `E` の形も見るべきだとしている。" },
+        { "id": "b", "text": "`E` を見ると、誤差がどこへ流れているかが分かりやすい。" },
+        { "id": "c", "text": "trace の設計差を自然に読むには、`E` の残り方を見るのが有効である。" },
+        { "id": "d", "text": "`E` は更新と無関係な補助変数なので、どの状態にどれだけ責任が残っているかを見る用途には使えない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`E` は、どの過去状態がまだ責任を持っているかを表す中心的な量です。",
+      "learningObjective": "E の読み方"
+    },
+    {
+      "id": "q4",
+      "prompt": "trace の効果について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "trace を持つと、長期依存をオンラインで扱いやすくなる。" },
+        { "id": "b", "text": "同じ TD 誤差でも、trace の形によって更新先が変わる。" },
+        { "id": "c", "text": "最近訪れた状態ほど大きく、時間とともに減衰する責任の記憶として読める。" },
+        { "id": "d", "text": "trace を入れても、TD 誤差は必ず現在状態だけにしか流れず、過去状態へ広がることはない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "Eligibility Trace の目的は、TD 誤差を過去状態へも配ることです。",
+      "learningObjective": "trace の効果"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートの位置づけについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "TD(λ) の後ろ向き実装を理解するうえで、実装的な要所を見ているノートである。" },
+        { "id": "b", "text": "後ろ向き credit assignment を、数値で追えるようにする役割を持つ。" },
+        { "id": "c", "text": "更新の設計差を、trace の残り方から読む練習になる。" },
+        { "id": "d", "text": "このノートでは Eligibility Trace には触れず、画像認識の IoU と NMS だけを扱う。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートの主題は Eligibility Trace そのものです。",
+      "learningObjective": "ノートの位置づけ"
+    }
+  ]
+}

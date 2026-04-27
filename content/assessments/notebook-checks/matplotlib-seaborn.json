@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "matplotlib-seaborn",
+  "title": "MatplotlibとSeabornの使い方 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "Matplotlibの基本的な描画手順について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`plt.plot(x, y)` は、xとyの対応を折れ線として描く基本的な入口である。" },
+        { "id": "b", "text": "`plt.show()` は、ここまで作った図を表示する区切りとして読める。" },
+        { "id": "c", "text": "`plt.figure()` は、新しい図を作ってから別のグラフを描きたいときに使える。" },
+        { "id": "d", "text": "`plt.show()` を書くと、以後そのノートでは二度とグラフを描けなくなる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`plt.show()` は表示の区切りです。以後のセルや次の図でグラフを描けなくなるわけではありません。",
+      "learningObjective": "描画の基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "グラフの種類と読みたい内容について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "折れ線グラフは、時系列や連続した変化を見るのに向いている。" },
+        { "id": "b", "text": "散布図は、2つの変数の関係を見るのに向いている。" },
+        { "id": "c", "text": "ヒストグラムは、分布の形やばらつきを見るのに使える。" },
+        { "id": "d", "text": "箱ひげ図は、折れ線の傾きだけを正確に測るための専用グラフである。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "箱ひげ図は分布、ばらつき、外れ値を把握するためのグラフです。折れ線の傾きを測る専用グラフではありません。",
+      "learningObjective": "グラフの選択"
+    },
+    {
+      "id": "q3",
+      "prompt": "`fig` と `ax` について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`fig, ax = plt.subplots()` は、図全体と描画する座標領域を受け取る書き方である。" },
+        { "id": "b", "text": "`fig` は図全体、`ax` は実際に線や点を描く場所として読むと理解しやすい。" },
+        { "id": "c", "text": "`ax.plot(...)` のように書くと、どの軸へ描くかを明示しやすい。" },
+        { "id": "d", "text": "`ax` は常に文字列であり、グラフを描くメソッドを持たない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`ax` は座標領域を表すAxesオブジェクトで、`plot` や `scatter` などの描画メソッドを使えます。",
+      "learningObjective": "figとax"
+    },
+    {
+      "id": "q4",
+      "prompt": "見た目の調整について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`color`、`linestyle`、`marker`、`label` は、グラフを読みやすくするための調整として使える。" },
+        { "id": "b", "text": "`plt.legend()` は、labelで付けた系列名を凡例として表示するのに使える。" },
+        { "id": "c", "text": "`alpha` は、点の重なりを見やすくするために透明度を調整する場面で使える。" },
+        { "id": "d", "text": "`bins` の数を変えても、ヒストグラムの見え方や分布の粗さはまったく変わらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`bins` はヒストグラムの区切り数なので、分布の見え方に影響します。調整は飾りではなく読解のために行います。",
+      "learningObjective": "可視化の調整"
+    },
+    {
+      "id": "q5",
+      "prompt": "Seabornの使い方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`sns.boxplot(data=df, x=\"class\", y=\"score\", ax=ax)` は、クラスごとのスコア分布を見るために使える。" },
+        { "id": "b", "text": "`sns.lineplot(..., hue=\"model\")` は、modelごとに系列を分けて変化を見るのに使える。" },
+        { "id": "c", "text": "`sns.heatmap(corr, annot=True, ...)` は、相関行列を色と数値で確認するのに使える。" },
+        { "id": "d", "text": "`hue` を指定すると、元データの列はすべて削除され、以後そのDataFrameは使えなくなる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`hue` は系列の色分けに使う指定です。元のDataFrameを削除する操作ではありません。",
+      "learningObjective": "Seaborn"
+    }
+  ]
+}

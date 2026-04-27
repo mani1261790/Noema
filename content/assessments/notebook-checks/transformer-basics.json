@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "transformer-basics",
+  "title": "Transformer 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "Transformer の中心的な考え方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "自己注意では、各トークンが他のトークンをどれだけ参照するかを計算する。" },
+        { "id": "b", "text": "RNN のように順番に情報を渡す代わりに、どこを見るかを毎回選ぶ見方ができる。" },
+        { "id": "c", "text": "このノートでは、attention weight が何を表しているかを読むことを重視している。" },
+        { "id": "d", "text": "Transformer では、各トークンは常に自分の直前のトークン1つだけを参照するので、重み行列を見る意味はない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "自己注意は複数位置への参照重みを持ちます。このノートでも attention 行列を可視化しています。",
+      "learningObjective": "自己注意"
+    },
+    {
+      "id": "q2",
+      "prompt": "Q, K, V と attention について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "入力埋め込みから Q, K, V を作り、重み付き和で文脈表現を作る。" },
+        { "id": "b", "text": "`softmax((QK^T)/sqrt(d_k))V` の形が最小例で出てくる。" },
+        { "id": "c", "text": "各行の重みを見ると、そのトークンがどこを見たかを読める。" },
+        { "id": "d", "text": "Q, K, V はすべて同じ固定ベクトルなので、入力に応じて変わることはない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "Q, K, V は入力から作られるので、入力や投影によって変わります。",
+      "learningObjective": "QKV"
+    },
+    {
+      "id": "q3",
+      "prompt": "因果マスクについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "GPT のような自己回帰では、未来トークンを見えてしまうと次トークン予測の意味が壊れる。" },
+        { "id": "b", "text": "因果マスクは、未来位置を見えないようにする仕組みである。" },
+        { "id": "c", "text": "このノートでは、mask を入れると何が遮られるかを確認している。" },
+        { "id": "d", "text": "因果マスクを入れると、過去も現在もすべて見えなくなるので、自己回帰には使えない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "因果マスクは未来だけを隠し、過去と現在は参照できるようにします。",
+      "learningObjective": "因果マスク"
+    },
+    {
+      "id": "q4",
+      "prompt": "位置情報と vision への拡張について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "位置情報がないと、系列の順序に関する手掛かりが弱くなる。" },
+        { "id": "b", "text": "画像を patch に切ってトークン列として扱うと、ViT の見方につながる。" },
+        { "id": "c", "text": "このノートでは、GPT, ViT, MAE を別物として暗記するより共通骨格で見ることを重視している。" },
+        { "id": "d", "text": "Transformer は文章専用なので、画像パッチをトークン列として並べる発想はこのノートでは出てこない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、画像を patch に切ってトークン列として扱う例を通して ViT / MAE へつなげています。",
+      "learningObjective": "位置情報とViT"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートの読み方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "巨大モデルの規模より、attention weight や mask の意味を読むことを重視している。" },
+        { "id": "b", "text": "どこを見せてどこを隠すかの設計が、タスクの違いに強く関わる。" },
+        { "id": "c", "text": "入力をトークン列へするという共通骨格で、GPT / ViT / MAE を見ている。" },
+        { "id": "d", "text": "attention の見方は不要で、モデル名とパラメータ数だけ覚えればこのノートの目的は達成される。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートの中心は、attention や mask の見方を身につけることです。",
+      "learningObjective": "読み方"
+    }
+  ]
+}

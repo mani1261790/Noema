@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "sarsa",
+  "title": "SARSA 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "SARSA の基本について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "SARSA は、次に実際に選ぶ行動まで含めて更新する on-policy 手法である。" },
+        { "id": "b", "text": "target は `r + \\gamma Q(s',a')` の形で書ける。" },
+        { "id": "c", "text": "探索を含む自分自身の方策を評価しながら改善していく見方ができる。" },
+        { "id": "d", "text": "SARSA では、実際に選んだ `a'` を使わず、常に `\\max_{a'} Q(s',a')` だけで target を作るので off-policy になる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "それは Q 学習側の見方です。SARSA は実際に選んだ `a'` を使います。",
+      "learningObjective": "SARSAの基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "SARSA と Q 学習の差について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "式の差は 1 箇所でも、学習される方策の性格は変わりうる。" },
+        { "id": "b", "text": "SARSA は、探索で危険な行動を踏む可能性まで価値へ織り込む。" },
+        { "id": "c", "text": "safe / risky の toy 例は、その差を見やすくするために置かれている。" },
+        { "id": "d", "text": "SARSA と Q 学習は、更新目標が完全に同一なので、on-policy / off-policy の違いは生まれない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "SARSA は `Q(s',a')`、Q 学習は `max_{a'} Q(s',a')` を使うため、方策の立場が変わります。",
+      "learningObjective": "SARSAとQ学習の差"
+    },
+    {
+      "id": "q3",
+      "prompt": "探索込みの方策を学ぶという点について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "SARSA では、方策の中に探索が入っていることを、そのまま価値へ織り込む。" },
+        { "id": "b", "text": "そのため、危険な縁を避けやすい更新になりうる。" },
+        { "id": "c", "text": "このノートでは、探索ノイズ込みの policy をそのまま学ぶ感触を掴むことを狙っている。" },
+        { "id": "d", "text": "SARSA では探索は更新へ一切影響せず、価値は常に探索なしの最善行動だけで決まる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "SARSA の特徴は、探索込み policy の危なさまで値に入ることです。",
+      "learningObjective": "探索込み方策"
+    },
+    {
+      "id": "q4",
+      "prompt": "このノートの例の読み方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "safe / risky の toy 例は単純だが、on-policy 更新の性格がかなりはっきり出る。" },
+        { "id": "b", "text": "一般の制御問題を完全に模倣するためというより、Q 学習との差分を見せるための例である。" },
+        { "id": "c", "text": "値の大小だけでなく、『誰の policy を評価しているか』を意識して読むのが大切である。" },
+        { "id": "d", "text": "toy 例は使わず、Q 学習との差分は一切扱わないノートである。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートは Q 学習との差分を明瞭に見るために toy 例を使っています。",
+      "learningObjective": "例の読み方"
+    },
+    {
+      "id": "q5",
+      "prompt": "SARSA の位置づけについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "安全側に寄りやすい on-policy 更新の感触を掴むためのノートとして読める。" },
+        { "id": "b", "text": "更新式の差は小さくても、学習結果の方策が変わることを見ている。" },
+        { "id": "c", "text": "Q 学習との差分を理解するための橋渡しになる。" },
+        { "id": "d", "text": "SARSA は強化学習ではなく、ベルマン更新や価値関数とは無関係な別分野の手法として扱われている。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "SARSA は強化学習の on-policy 制御法であり、ベルマン更新の系譜の中で扱われています。",
+      "learningObjective": "SARSAの位置づけ"
+    }
+  ]
+}

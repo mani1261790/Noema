@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "chapterId": "llm",
+  "title": "LLM 最終問題",
+  "passRatio": 0.9,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "short_text",
+      "prompt": "LLM の事前学習を、次トークン予測の観点から説明してください。文全体の確率を各位置の条件付き確率へ分解する見方と、クロスエントロピーを下げる意味を書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "factorization", "description": "文全体確率を各位置の条件付き確率の積として見る説明がある", "points": 4, "keywords": ["次トークン", "条件付き確率", "積", "前文脈"] },
+        { "id": "ce", "description": "クロスエントロピーを下げることが正解トークン確率を上げることだと説明している", "points": 4, "keywords": ["クロスエントロピー", "正解", "確率", "下げる"] },
+        { "id": "purpose", "description": "事前学習の中心が次トークン分布を出す関数を鍛えることだと述べている", "points": 2, "keywords": ["分布", "関数", "鍛える"] }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "coding",
+      "prompt": "時刻 `t` の正解トークン id が `target_id`、その位置の語彙ロジット配列が `logits` とします。数値安定化のために最大値を引いて softmax を作り、正解トークンの負の対数尤度を計算する短い Python コードを書いてください。`math.exp` と `math.log` を使う程度で十分です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "stabilize", "description": "最大値を引いて数値安定化している", "points": 3, "keywords": ["max", "stabilize", "logits"] },
+        { "id": "softmax", "description": "指数化して正規化し、softmax 確率を作っている", "points": 3, "keywords": ["exp", "sum", "softmax"] },
+        { "id": "nll", "description": "正解トークン確率に対して負の対数を取っている", "points": 3, "keywords": ["-math.log", "target_id", "prob"] },
+        { "id": "consistency", "description": "最小の NLL 計算コードとして筋が通っている", "points": 1, "keywords": ["loss", "NLL"] }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "short_text",
+      "prompt": "prompt engineering を『良い言い回し探し』ではなく『仕様設計』として扱う理由を説明してください。出力形式、禁止事項、評価軸、入力予算に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "spec", "description": "prompt engineering を入出力仕様の設計として説明している", "points": 3, "keywords": ["仕様", "出力形式", "設計"] },
+        { "id": "constraints", "description": "禁止事項や含める観点を明示すると迷いを減らせると述べている", "points": 3, "keywords": ["禁止事項", "制約", "迷い"] },
+        { "id": "evaluation", "description": "評価軸を先に決める意義に触れている", "points": 2, "keywords": ["評価軸", "改善", "比較"] },
+        { "id": "budget", "description": "入力予算やコスト管理の必要性に触れている", "points": 2, "keywords": ["入力予算", "トークン", "コスト"] }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "coding",
+      "prompt": "文字列 `text` を受け取り、空白区切りで概算 token 数を数え、上限 `max_tokens` を超えていたら先頭からその上限まで残して返す簡単な Python 関数を書いてください。厳密トークナイザでなくて構いません。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "split", "description": "空白区切りなどで粗くトークン列へ分けている", "points": 3, "keywords": ["split", "tokens"] },
+        { "id": "limit", "description": "上限 `max_tokens` を超えた場合の切り詰めがある", "points": 3, "keywords": ["max_tokens", "slice", "truncate"] },
+        { "id": "return", "description": "必要なら結合して文字列を返している", "points": 2, "keywords": ["join", "return"] },
+        { "id": "purpose", "description": "入力予算管理の最小例として筋が通っている", "points": 2, "keywords": ["予算", "概算"] }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "short_text",
+      "prompt": "SFT で回答部分だけへ主に損失を掛ける設計がなぜ重要かを説明してください。`ignore_index=-100` の役割と、学習による適応と rails による運用時制御の違いも書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "answer_only", "description": "回答部分へ学習信号を集中させる理由を説明している", "points": 3, "keywords": ["回答部分", "学習信号", "集中"] },
+        { "id": "ignore", "description": "`ignore_index=-100` で学習しない位置を切り分けると説明している", "points": 3, "keywords": ["ignore_index", "-100", "切り分け"] },
+        { "id": "adaptation", "description": "SFT が重み更新による適応だと説明している", "points": 2, "keywords": ["重み更新", "適応", "SFT"] },
+        { "id": "rails", "description": "rails は推論時の安全制御であり代用品ではないと述べている", "points": 2, "keywords": ["rails", "推論時", "安全制御"] }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "coding",
+      "prompt": "トークン列 `tokens` と、回答開始位置 `answer_start` が与えられているとします。`answer_start` より前は `-100`、それ以降は元トークン id をラベルに入れる `labels` 配列を作る短い Python コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "loop", "description": "位置を見ながらラベル列を作っている", "points": 2, "keywords": ["for", "enumerate", "labels"] },
+        { "id": "mask_before", "description": "回答開始前を `-100` にしている", "points": 4, "keywords": ["-100", "answer_start", "before"] },
+        { "id": "keep_after", "description": "回答開始以降は元のトークン id を入れている", "points": 3, "keywords": ["tokens[i]", "after", "id"] },
+        { "id": "consistency", "description": "SFT ラベル作成の最小例として筋が通っている", "points": 1, "keywords": ["labels", "SFT"] }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "short_text",
+      "prompt": "ハルシネーション対策で、軽量な grounding proxy と RLHF / DPO 系の役割がどう違うかを説明してください。proxy の限界と、学習後も rails が必要な理由を含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "proxy", "description": "grounding proxy を根拠性の粗い計測として説明している", "points": 3, "keywords": ["proxy", "grounding", "計測"] },
+        { "id": "limit", "description": "語の重なりだけでは不十分など、proxy の限界に触れている", "points": 2, "keywords": ["限界", "語の重なり", "不十分"] },
+        { "id": "preference", "description": "RLHF / DPO 系が選好や望ましさを学習へ反映する役割だと説明している", "points": 3, "keywords": ["RLHF", "DPO", "選好", "望ましさ"] },
+        { "id": "rails", "description": "学習後も配備時の rails が必要だと述べている", "points": 2, "keywords": ["rails", "配備", "防御"] }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "coding",
+      "prompt": "文字列 `question` を見て、数字の計算っぽければ `'calculator'`、`<html` を含めば `'html'`、それ以外は `'retrieval'` を返す最小の Python 関数を書いてください。精密さより、ルーティングの考え方が分かる形で十分です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "calc_rule", "description": "数式や数字の問い合わせを calculator へ振る条件がある", "points": 3, "keywords": ["calculator", "digit", "math"] },
+        { "id": "html_rule", "description": "`<html` を見て html ツールへ振る条件がある", "points": 3, "keywords": ["<html", "html"] },
+        { "id": "default", "description": "それ以外を retrieval にフォールバックしている", "points": 3, "keywords": ["retrieval", "else"] },
+        { "id": "consistency", "description": "オーケストレータの最小例として筋が通っている", "points": 1, "keywords": ["routing", "tool"] }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "short_text",
+      "prompt": "RAG と Tool Use をどう使い分けるかを説明してください。チャンク化、retrieve / rerank、引用付き回答、計算や HTML 操作の委譲、監査ログの観点を含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "rag_flow", "description": "RAG でチャンク化、retrieve、rerank、根拠付き回答の流れを説明している", "points": 4, "keywords": ["チャンク", "retrieve", "rerank", "引用"] },
+        { "id": "tool_use", "description": "計算や HTML 操作のような外部能力は Tool Use へ委譲すると説明している", "points": 3, "keywords": ["計算", "HTML", "Tool Use", "委譲"] },
+        { "id": "selection", "description": "生成前に何を取りに行くかを判断する必要に触れている", "points": 2, "keywords": ["判断", "分岐", "オーケストレータ"] },
+        { "id": "audit", "description": "plan や tool_output のような監査ログの価値に触れている", "points": 1, "keywords": ["監査", "ログ", "tool_output"] }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "short_text",
+      "prompt": "LLM 軽量化で、量子化・PEFT・推論最適化をどう使い分けるかを説明してください。重みと KV cache、品質評価、段階導入の順番に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "quant", "description": "量子化が重みや KV cache のメモリ削減に効くと説明している", "points": 3, "keywords": ["量子化", "重み", "KV cache", "メモリ"] },
+        { "id": "peft", "description": "PEFT が学習側のコスト削減や適応に効くと説明している", "points": 2, "keywords": ["PEFT", "LoRA", "学習コスト", "適応"] },
+        { "id": "inference", "description": "PagedAttention や Continuous Batching などの推論最適化に触れている", "points": 2, "keywords": ["PagedAttention", "Continuous Batching", "推論最適化"] },
+        { "id": "evaluation", "description": "品質評価と運用計測を同時に見る必要を述べている", "points": 2, "keywords": ["品質評価", "実測", "計測"] },
+        { "id": "rollout", "description": "段階導入で改善箇所を切り分ける考え方に触れている", "points": 1, "keywords": ["段階導入", "切り分け"] }
+      ]
+    }
+  ]
+}

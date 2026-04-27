@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "n-step-td",
+  "title": "n-step TD法 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "n-step TD の考え方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`n=1` なら通常の TD に近い。" },
+        { "id": "b", "text": "`n=T-t` のように長く取ると、モンテカルロ更新に近づく。" },
+        { "id": "c", "text": "1-step と Monte Carlo の間に中間を作る方法として読める。" },
+        { "id": "d", "text": "n-step TD では、`n` を変えても target の作り方は一切変わらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "`n` を変えると、何歩先まで実報酬を使い、どこから bootstrap するかが変わります。",
+      "learningObjective": "n-step TD の基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "bias と variance の見方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "短い `n` は bootstrap 依存が強くなる。" },
+        { "id": "b", "text": "長い `n` は実報酬依存が強くなる。" },
+        { "id": "c", "text": "n-step TD は、何歩先まで見るかで折り合いを調整する方法として読める。" },
+        { "id": "d", "text": "長い `n` にすると、常にノイズも不確実さも完全になくなるので、環境による有利不利は起こらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、長い `n` は遠い報酬を早く反映できる一方、ノイズや不確実さも背負うと説明しています。",
+      "learningObjective": "bias-variance の見方"
+    },
+    {
+      "id": "q3",
+      "prompt": "bootstrap 項について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`V_boot` のような bootstrap 項は、n-step return の末尾に入ることがある。" },
+        { "id": "b", "text": "このノートでは `g1` と `g3` を比べて、target の違いを見ている。" },
+        { "id": "c", "text": "target の主役は、何歩分の実報酬を使い、どこから bootstrap するかという設計にある。" },
+        { "id": "d", "text": "n-step return では bootstrap 項は絶対に存在せず、常に終端までの実報酬だけで target を作る。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "n-step TD は、数歩先まで実報酬を見て、残りを bootstrap で埋める発想です。",
+      "learningObjective": "bootstrap 項"
+    },
+    {
+      "id": "q4",
+      "prompt": "このノートと後続ノートのつながりについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "ここでの主役はアルゴリズム名より target の作り方である。" },
+        { "id": "b", "text": "後で TD(λ) を読むと、n-step return をたくさん混ぜる発想につながる。" },
+        { "id": "c", "text": "1-step と Monte Carlo を別物ではなく連続的に見る橋渡しになる。" },
+        { "id": "d", "text": "n-step TD と TD(λ) は無関係なので、このノートの target の話は後続へはつながらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートは、後の TD(λ) を理解するための重要な橋渡しです。",
+      "learningObjective": "後続とのつながり"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートの読み方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`n` を増やせば常に良い、という単純な話ではない。" },
+        { "id": "b", "text": "どのくらい先の実報酬を見たいか、どのくらい bootstrap に頼りたいかを設計していると読む。" },
+        { "id": "c", "text": "Q 更新へ適用したときの形もこのノートで確認している。" },
+        { "id": "d", "text": "n-step TD を理解するには、まず replay buffer の実装だけを覚えれば十分で、target の長さは気にしなくてよい。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートの中心は、target の長さと bootstrap の比率をどう設計するかです。",
+      "learningObjective": "読み方"
+    }
+  ]
+}

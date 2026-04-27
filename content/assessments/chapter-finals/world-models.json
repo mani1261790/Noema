@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "chapterId": "world-models",
+  "title": "世界モデル 最終問題",
+  "passRatio": 0.9,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "short_text",
+      "prompt": "世界モデルと深層生成モデルの違いを説明してください。『もっともらしい観測を作る』ことと『行動を入れた未来を追う』こと、潜在状態を経由する理由に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "gen_vs_world", "description": "生成モデルと世界モデルの役割差を説明している", "points": 4, "keywords": ["生成", "世界モデル", "観測", "未来"] },
+        { "id": "action", "description": "行動を入れた遷移予測の重要性に触れている", "points": 3, "keywords": ["行動", "遷移", "計画"] },
+        { "id": "latent", "description": "潜在状態を経由して遷移と観測復元を分ける理由を説明している", "points": 3, "keywords": ["潜在状態", "遷移", "観測復元", "分ける"] }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "coding",
+      "prompt": "行列 `A`、`B`、状態ベクトル `z_t`、行動ベクトル `a_t` が与えられているとして、線形遷移 `z_next = A @ z_t + B @ a_t` を計算する短い Python / NumPy コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "matrix_mult", "description": "`A @ z_t` と `B @ a_t` の形で行列積を使っている", "points": 5, "keywords": ["A @ z_t", "B @ a_t", "@"] },
+        { "id": "sum", "description": "二つの寄与を足して `z_next` を作っている", "points": 3, "keywords": ["z_next", "+"] },
+        { "id": "consistency", "description": "状態遷移の最小コードとして筋が通っている", "points": 2, "keywords": ["state transition", "linear"] }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "short_text",
+      "prompt": "なぜ 1 ステップ予測だけでは不十分で、長期ロールアウトを見る必要があるのかを説明してください。誤差累積、計画への影響、どの時点から崩れるかを見る意味に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "rollout", "description": "1 ステップだけでは長期の崩れが見えないと説明している", "points": 4, "keywords": ["1ステップ", "長期", "ロールアウト"] },
+        { "id": "accumulation", "description": "誤差累積に触れている", "points": 3, "keywords": ["誤差累積", "崩れる"] },
+        { "id": "planning", "description": "計画評価への影響や崩れ始める時点を見る意義に触れている", "points": 3, "keywords": ["計画", "時点", "崩れ始める"] }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "coding",
+      "prompt": "観測復元関数として、行列 `C` とバイアス `d`、状態 `z` が与えられているとします。線形デコーダ `obs_hat = C @ z + d` を計算する短い Python / NumPy コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "decode", "description": "`C @ z + d` の形で観測復元を計算している", "points": 6, "keywords": ["C @ z", "+ d", "obs_hat"] },
+        { "id": "consistency", "description": "状態から観測への線形デコードとして筋が通っている", "points": 4, "keywords": ["decode", "observation"] }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "short_text",
+      "prompt": "状態表現学習で、再構成がそこそこ当たっていても表現が弱いことがある理由を説明してください。圧縮率、下流の予測、計画候補の順位安定性の観点を含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "compression", "description": "圧縮できることと使える表現であることは別だと説明している", "points": 3, "keywords": ["圧縮", "使える表現", "別"] },
+        { "id": "downstream", "description": "下流の予測や計画に必要な情報を失うと弱いと述べている", "points": 4, "keywords": ["下流", "予測", "計画", "情報"] },
+        { "id": "ranking", "description": "計画候補の順位安定性のような観点に触れている", "points": 3, "keywords": ["順位", "安定", "候補"] }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "coding",
+      "prompt": "行動列 `plan` を先頭から順に適用し、各ステップで `z = A @ z + B @ a` と更新する簡単なループコードを書いてください。初期状態は `z0` とします。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "init", "description": "初期状態 `z = z0` などの初期化がある", "points": 2, "keywords": ["z0", "z ="] },
+        { "id": "loop", "description": "行動列 `plan` を順に回すループがある", "points": 3, "keywords": ["for", "plan"] },
+        { "id": "update", "description": "各ステップで `z = A @ z + B @ a` の更新をしている", "points": 4, "keywords": ["A @ z", "B @ a", "z ="] },
+        { "id": "consistency", "description": "ロールアウトの最小コードとして筋が通っている", "points": 1, "keywords": ["rollout"] }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "short_text",
+      "prompt": "観測予測で、自己回帰・マスク予測・拡散の違いを説明してください。何を入力にしてよいか、どのタスクに向きやすいか、計算の重さの差に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "conditions", "description": "自己回帰は過去、マスク予測は周辺文脈、拡散はノイズ付き全体という条件の違いを説明している", "points": 4, "keywords": ["過去", "周辺文脈", "ノイズ", "全体"] },
+        { "id": "tasks", "description": "逐次予測・欠損補完・ノイズ除去などの向きやすいタスク差に触れている", "points": 3, "keywords": ["逐次予測", "欠損補完", "ノイズ除去"] },
+        { "id": "cost", "description": "拡散は反復計算で重くなりやすいなど、計算の重さに触れている", "points": 3, "keywords": ["反復", "重い", "計算"] }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "coding",
+      "prompt": "予測値列 `preds` と実測値列 `targets` が同じ長さの NumPy 配列として与えられているとします。各時点誤差の絶対値 `errors` と、その平均 `mean_error` を計算する短いコードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "errors", "description": "各時点誤差の絶対値を計算している", "points": 5, "keywords": ["abs", "preds - targets", "errors"] },
+        { "id": "mean", "description": "平均誤差 `mean_error` を計算している", "points": 3, "keywords": ["mean", "mean_error"] },
+        { "id": "consistency", "description": "誤差監視の最小コードとして筋が通っている", "points": 2, "keywords": ["monitoring", "error"] }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "short_text",
+      "prompt": "シミュレーションと CG を分けて考える理由、およびマルチモーダル世界モデルで複数情報源を融合する理由を説明してください。『動き』と『見え方』の切り分け、取りこぼし低減の観点を含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "sim_cg", "description": "シミュレーションは状態遷移、CG は観測の見え方という分離を説明している", "points": 4, "keywords": ["シミュレーション", "CG", "動き", "見え方"] },
+        { "id": "debug", "description": "ズレたときに物理と表示を切り分ける意義に触れている", "points": 2, "keywords": ["切り分け", "物理", "表示", "ズレ"] },
+        { "id": "multimodal", "description": "複数モダリティ融合の必要性を説明している", "points": 2, "keywords": ["マルチモーダル", "融合", "画像", "言語", "行動"] },
+        { "id": "coverage", "description": "融合の価値を取りこぼし低減として説明している", "points": 2, "keywords": ["取りこぼし", "補完", "低減"] }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "short_text",
+      "prompt": "長い系列を扱うときの SSM と Transformer の違いを説明してください。内部状態への圧縮と直接参照、長距離依存、計算の形の違いに触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "ssm", "description": "SSM が内部状態へ過去を圧縮して持つ設計だと説明している", "points": 3, "keywords": ["SSM", "内部状態", "圧縮"] },
+        { "id": "transformer", "description": "Transformer が必要位置を直接参照する設計だと説明している", "points": 3, "keywords": ["Transformer", "直接参照", "自己注意"] },
+        { "id": "long_range", "description": "長距離依存への向き合い方の違いに触れている", "points": 2, "keywords": ["長距離依存", "違い"] },
+        { "id": "compute", "description": "計算の形や更新の仕方の差に触れている", "points": 2, "keywords": ["計算", "更新", "系列長"] }
+      ]
+    }
+  ]
+}

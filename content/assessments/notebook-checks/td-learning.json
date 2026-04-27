@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "td-learning",
+  "title": "TD法 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "TD 法の基本について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "TD 法は、終端まで待たずに学ぶための最初の一歩として読める。" },
+        { "id": "b", "text": "モンテカルロ法のように最後まで足し切る代わりに、1 ステップ先の推定値を借りて更新する。" },
+        { "id": "c", "text": "TD 法は、自分の推定値を材料にして自分を更新する bootstrapping を含む。" },
+        { "id": "d", "text": "TD 法では、次状態の価値推定を使わず、必ず終端までの実報酬だけで更新する。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "TD 法の本質は、次状態の価値推定を借りて今を更新する bootstrapping にあります。",
+      "learningObjective": "TD法の基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "TD 誤差について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "TD 誤差は `\\delta = r + \\gamma V(s') - V(s)` の形で表せる。" },
+        { "id": "b", "text": "TD 誤差は、1 ステップ先の目標値と現在の推定値の差として読める。" },
+        { "id": "c", "text": "このノートでは、Monte Carlo 参照値と TD 目標値の差も見ている。" },
+        { "id": "d", "text": "TD 誤差は、方策や推定値と無関係な固定定数なので、状態によって変わらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "TD 誤差は報酬や次状態価値、現在価値に依存して変わります。",
+      "learningObjective": "TD誤差"
+    },
+    {
+      "id": "q3",
+      "prompt": "Monte Carlo 法との比較について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "このノートでは、最初に Monte Carlo return を参照値として置いている。" },
+        { "id": "b", "text": "Monte Carlo は終端までの実報酬を全部使う見方である。" },
+        { "id": "c", "text": "TD 目標値は、Monte Carlo の完全な未来を待たずに近似的に学ぶ。" },
+        { "id": "d", "text": "Monte Carlo return と TD 目標値は常に完全に同じなので、参照用に並べる意味はない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、Monte Carlo return を参照値として置くことで、TD が何を省略しているかを見やすくしています。",
+      "learningObjective": "MCとの比較"
+    },
+    {
+      "id": "q4",
+      "prompt": "このノートでの探索の位置づけについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "探索セルは主役ではなく、更新に必要な遷移をどう集めるかを見る補助として置かれている。" },
+        { "id": "b", "text": "ここでは exploration の理論比較より、TD 更新の周辺にある前提として探索を見ている。" },
+        { "id": "c", "text": "TD(0) の骨格を掴むことが主眼である。" },
+        { "id": "d", "text": "このノートでは、TD 更新は一切扱わず、探索戦略の比較だけを主題にしている。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートの主題は TD(0) の更新原理であり、探索は補助的に置かれています。",
+      "learningObjective": "探索の位置づけ"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートの読み方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "TD 法の本質は、完全な未来を待たずに、次状態の推定で今を動かすことにある。" },
+        { "id": "b", "text": "`max` や policy の違いは後続 notebook で増えるが、骨格はここで出そろう。" },
+        { "id": "c", "text": "このノートは、bootstrapping という更新原理に集中して読む位置づけである。" },
+        { "id": "d", "text": "TD 法を理解するには、まず deep RL の安定化テクニックを先に全部覚える必要がある。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートは TD(0) の骨格を理解するためのもので、deep RL のテクニックは後続です。",
+      "learningObjective": "読み方"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "chapterId": "python",
+  "title": "Python 最終問題",
+  "passRatio": 0.9,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "short_text",
+      "prompt": "Pythonで小さな成績データを処理するとき、変数、型、リスト、辞書、関数をどのように使い分けるかを説明してください。入力から結果を得るまでの流れが分かるように書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "variables", "description": "変数を値に名前を付けて再利用するためのものとして説明している", "points": 2, "keywords": ["変数", "名前", "保存", "再利用"] },
+        { "id": "types", "description": "文字列・整数・小数・リストなどの型を確認しながら扱う必要性に触れている", "points": 2, "keywords": ["型", "type", "文字列", "整数", "小数"] },
+        { "id": "list_dict", "description": "複数の点数はリスト、名前や所属などの属性は辞書で扱えると説明している", "points": 2, "keywords": ["リスト", "辞書", "キー", "複数"] },
+        { "id": "function", "description": "繰り返し使う処理を関数にまとめ、returnで結果を返す説明がある", "points": 2, "keywords": ["関数", "def", "return", "まとめる"] },
+        { "id": "flow", "description": "入力、加工、集計、出力という処理の流れが具体的に書かれている", "points": 2, "keywords": ["入力", "加工", "集計", "出力", "流れ"] }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "coding",
+      "prompt": "数値のリスト `scores` を受け取り、件数、平均、最高、最低を辞書で返す `summarize_scores(scores)` を書いてください。空リストを受け取った場合の扱いもコードまたは説明で明示してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "definition", "description": "`summarize_scores(scores)` のように引数を持つ関数として定義している", "points": 2, "keywords": ["def", "summarize_scores", "scores"] },
+        { "id": "metrics", "description": "件数、平均、最高、最低をそれぞれ `len`、`sum / len`、`max`、`min` などで求めている", "points": 4, "keywords": ["len", "sum", "max", "min", "平均"] },
+        { "id": "dict_return", "description": "計算結果を辞書として `return` している", "points": 2, "keywords": ["return", "{", "count", "average"] },
+        { "id": "empty", "description": "空リストでゼロ除算や `max`/`min` のエラーが起きないように扱いを決めている", "points": 2, "keywords": ["空", "if", "None", "ValueError", "0"] }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "short_text",
+      "prompt": "`if` / `elif` / `else` で点数を A・B・C に分類する処理について、条件を書く順番がなぜ重要かを説明してください。90点以上をA、75点以上をB、それ以外をCにする例で説明してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "top_down", "description": "`if`、`elif`、`else` は上から順に判定されると説明している", "points": 3, "keywords": ["上から", "順", "if", "elif", "else"] },
+        { "id": "exclusive", "description": "先に真になった分岐だけが実行されることに触れている", "points": 2, "keywords": ["真", "実行", "一つ", "分岐"] },
+        { "id": "thresholds", "description": "90点以上を先に判定し、75点以上を次に判定する必要性を説明している", "points": 3, "keywords": ["90", "75", "A", "B", "C"] },
+        { "id": "risk", "description": "順番を誤ると90点以上もBなどに分類される可能性を説明している", "points": 2, "keywords": ["誤る", "分類", "B", "間違い"] }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "short_text",
+      "prompt": "NumPyの2次元配列で成績表を扱うとき、`shape`、`dtype`、`axis`、ブロードキャストがそれぞれ何を確認・実行するために役立つかを説明してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "shape", "description": "`shape` は配列の行数・列数・次元を確認するために使うと説明している", "points": 2, "keywords": ["shape", "行", "列", "次元"] },
+        { "id": "dtype", "description": "`dtype` は配列要素の型を確認するために使うと説明している", "points": 2, "keywords": ["dtype", "型", "数値"] },
+        { "id": "axis", "description": "`axis=0` と `axis=1` の違いを、列方向・行方向の集計として説明している", "points": 3, "keywords": ["axis", "0", "1", "列", "行", "平均"] },
+        { "id": "broadcast", "description": "ブロードキャストにより、配列とスカラーまたは行・列に対応する小さい配列をまとめて計算できると説明している", "points": 3, "keywords": ["ブロードキャスト", "まとめて", "足す", "引く", "配列"] }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "coding",
+      "prompt": "NumPy配列 `X` の各列を標準化する短いコードを書いてください。`mu = X.mean(axis=0)` と `sigma = X.std(axis=0)` を使い、標準偏差が0の列がある場合にどう扱うかも示してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "mean_std", "description": "`axis=0` で列ごとの平均と標準偏差を計算している", "points": 3, "keywords": ["mean", "std", "axis=0"] },
+        { "id": "standardize", "description": "`(X - mu) / sigma` という形で列ごとに標準化している", "points": 3, "keywords": ["X", "mu", "sigma", "-", "/"] },
+        { "id": "zero_sigma", "description": "標準偏差が0の列を1に置き換えるなど、ゼロ除算を避ける扱いを入れている", "points": 3, "keywords": ["0", "zero", "where", "sigma", "1"] },
+        { "id": "numpy_context", "description": "NumPy配列に対するブロードキャストを前提にしたコードになっている", "points": 1, "keywords": ["np", "numpy", "ブロードキャスト"] }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "short_text",
+      "prompt": "PandasのDataFrameで、数学が80点以上の行だけを取り出し、名前・クラブ・数学・英語の列だけを見るには、どのような操作を組み合わせればよいですか。`loc` や列選択の考え方を使って説明してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "condition", "description": "`df[\"math\"] >= 80` のような真偽値条件を作る説明がある", "points": 3, "keywords": ["math", "80", "条件", "True", "False"] },
+        { "id": "loc", "description": "`loc` などを使って条件に合う行を抽出する説明がある", "points": 3, "keywords": ["loc", "抽出", "行"] },
+        { "id": "columns", "description": "必要な列名のリストで列を選ぶ説明がある", "points": 3, "keywords": ["name", "club", "english", "列", "選択"] },
+        { "id": "order", "description": "条件抽出と列選択を組み合わせる順序が破綻していない", "points": 1, "keywords": ["組み合わせ", "DataFrame"] }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "coding",
+      "prompt": "DataFrame `df` について、`club` ごとの人数、数学の平均、英語の平均を求めるPandasコードを書いてください。列名が分かりやすくなるように集計名も付けてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "groupby", "description": "`groupby(\"club\")` などでクラブごとにグループ化している", "points": 3, "keywords": ["groupby", "club"] },
+        { "id": "named_agg", "description": "人数、数学平均、英語平均の3種類の集計を指定している", "points": 4, "keywords": ["count", "size", "mean", "math", "english"] },
+        { "id": "readable_names", "description": "`student_count`、`math_mean`、`english_mean` など意味の分かる列名を付けている", "points": 2, "keywords": ["student_count", "math_mean", "english_mean"] },
+        { "id": "result", "description": "集計結果を変数に保存するか表示できる形にしている", "points": 1, "keywords": ["summary", "reset_index", "print"] }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "short_text",
+      "prompt": "Pandasで欠損値、結合、縦長変換を扱うときの注意点を説明してください。`isna()`、`fillna()`、`merge(..., how=\"left\")`、`melt()` の役割が分かるように書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "isna", "description": "`isna()` や `isna().sum()` で欠損の有無や数を確認する説明がある", "points": 2, "keywords": ["isna", "欠損", "NaN", "確認"] },
+        { "id": "fillna", "description": "`fillna()` で平均値などを使って欠損を補完できると説明している", "points": 2, "keywords": ["fillna", "平均", "補完"] },
+        { "id": "left_merge", "description": "`how=\"left\"` は左側の表の行を残して情報を足す結合だと説明している", "points": 3, "keywords": ["merge", "left", "左", "残す", "結合"] },
+        { "id": "melt", "description": "`melt()` は横持ちの複数列を縦長形式へ変換するために使うと説明している", "points": 2, "keywords": ["melt", "縦長", "変換"] },
+        { "id": "check", "description": "各操作後に行数や列、欠損数を確認する重要性に触れている", "points": 1, "keywords": ["行数", "列", "確認"] }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "short_text",
+      "prompt": "MatplotlibやSeabornで、時系列の推移、2変数の関係、分布、カテゴリごとの分布、相関行列を見るとき、それぞれどの種類のグラフを選ぶとよいかを説明してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "time", "description": "時系列の推移には折れ線グラフを選ぶと説明している", "points": 2, "keywords": ["時系列", "推移", "折れ線", "line"] },
+        { "id": "relation", "description": "2変数の関係には散布図を選ぶと説明している", "points": 2, "keywords": ["2変数", "関係", "散布図", "scatter"] },
+        { "id": "distribution", "description": "値の分布にはヒストグラムを選ぶと説明している", "points": 2, "keywords": ["分布", "ヒストグラム", "hist"] },
+        { "id": "category", "description": "カテゴリごとの分布やばらつきには箱ひげ図などを選ぶと説明している", "points": 2, "keywords": ["カテゴリ", "箱ひげ", "boxplot", "ばらつき"] },
+        { "id": "correlation", "description": "相関行列にはヒートマップを選び、必要に応じて数値注釈を付けると説明している", "points": 2, "keywords": ["相関", "heatmap", "ヒートマップ", "annot"] }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "coding",
+      "prompt": "`hours` と `scores` という同じ長さのデータから、学習時間と点数の関係を確認する散布図を作る短いコードを書いてください。`fig, ax = plt.subplots()`、軸ラベル、タイトル、`plt.show()` を含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "subplots", "description": "`fig, ax = plt.subplots()` で描画領域を作っている", "points": 2, "keywords": ["fig", "ax", "subplots"] },
+        { "id": "scatter", "description": "`ax.scatter(hours, scores)` などで散布図を描いている", "points": 3, "keywords": ["scatter", "hours", "scores"] },
+        { "id": "labels", "description": "x軸、y軸のラベルを設定している", "points": 2, "keywords": ["set_xlabel", "set_ylabel", "xlabel", "ylabel"] },
+        { "id": "title", "description": "グラフのタイトルを設定している", "points": 1, "keywords": ["set_title", "title"] },
+        { "id": "show", "description": "`plt.show()` で表示している", "points": 2, "keywords": ["plt.show", "show"] }
+      ]
+    }
+  ]
+}

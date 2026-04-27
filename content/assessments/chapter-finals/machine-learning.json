@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "chapterId": "machine-learning",
+  "title": "機械学習 最終問題",
+  "passRatio": 0.9,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "short_text",
+      "prompt": "このセクションで扱った機械学習の流れを、単回帰、重回帰、分類、時系列、特徴量設計、SQLのうち3つ以上を含めて説明してください。モデルを当てること以外に、どんな設計や確認が必要かも書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "scope", "description": "3つ以上の題材を挙げている", "points": 3, "keywords": ["単回帰", "重回帰", "分類", "時系列", "特徴量", "SQL"] },
+        { "id": "evaluation", "description": "評価分割や比較の必要性に触れている", "points": 3, "keywords": ["評価", "train", "test", "比較", "交差検証"] },
+        { "id": "leakage", "description": "リークや未来情報を避ける必要性に触れている", "points": 2, "keywords": ["リーク", "未来情報", "point-in-time", "過去"] },
+        { "id": "workflow", "description": "入力、学習、評価、改善の流れが分かる", "points": 2, "keywords": ["入力", "学習", "評価", "改善", "流れ"] }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "coding",
+      "prompt": "数値の配列 `x` と `y` が与えられているとして、単回帰の傾き `w1` と切片 `w0` を平均と差分から求める短いPythonコードを書いてください。リスト内包表記や `sum` を使う程度の長さで十分です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "means", "description": "xとyの平均を計算している", "points": 2, "keywords": ["x_bar", "y_bar", "sum", "len"] },
+        { "id": "slope", "description": "平均との差を使って傾きを計算している", "points": 4, "keywords": ["num", "den", "w1", "xi - x_bar", "yi - y_bar"] },
+        { "id": "intercept", "description": "切片を平均と傾きから求めている", "points": 2, "keywords": ["w0", "y_bar", "x_bar"] },
+        { "id": "consistency", "description": "単回帰として筋の通った式になっている", "points": 2, "keywords": ["回帰", "予測"] }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "short_text",
+      "prompt": "重回帰で係数を読むとき、単回帰より注意が必要になる理由を説明してください。多重共線性やVIFに触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "multi", "description": "複数の説明変数を同時に見るため、寄与の切り分けが必要だと説明している", "points": 3, "keywords": ["複数", "説明変数", "寄与", "切り分け"] },
+        { "id": "collinearity", "description": "多重共線性が係数の解釈を不安定にすることを述べている", "points": 3, "keywords": ["多重共線性", "不安定", "似すぎ", "相関"] },
+        { "id": "vif", "description": "VIFを係数の読みやすさや信用度の確認として説明している", "points": 2, "keywords": ["VIF", "確認", "信用", "解釈"] },
+        { "id": "limit", "description": "係数が計算できることと安心して解釈できることは別だと述べている", "points": 2, "keywords": ["計算", "解釈", "別"] }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "coding",
+      "prompt": "PandasのDataFrame `df` に、`x1` と `x2` という列があるとします。`x1` と `x2` の相関をざっと確認し、その2列と定数項から行列 `X` を作る短いコードを書いてください。厳密なVIF計算までは不要です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "corr", "description": "x1とx2の相関や関係を確認するコードがある", "points": 3, "keywords": ["corr", "x1", "x2"] },
+        { "id": "constant", "description": "定数項の列を加えている", "points": 3, "keywords": ["ones", "1", "const", "np.ones"] },
+        { "id": "matrix", "description": "x1とx2をまとめて行列Xを作っている", "points": 3, "keywords": ["column_stack", "X", "x1", "x2"] },
+        { "id": "purpose", "description": "重回帰の入力行列として筋が通っている", "points": 1, "keywords": ["重回帰", "行列"] }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "short_text",
+      "prompt": "分類モデルを比較するとき、`dev` と `test` を分け、`test` を最後まで寝かせる理由を説明してください。Pipelineや交差検証にも触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "dev_test", "description": "モデル選択はdev、最終確認はtestという役割分担を説明している", "points": 3, "keywords": ["dev", "test", "最後", "選択", "確認"] },
+        { "id": "leak", "description": "途中でtestを見ると比較が壊れる、またはリークになると述べている", "points": 3, "keywords": ["途中", "test", "リーク", "壊れる"] },
+        { "id": "pipeline", "description": "Pipelineが前処理リーク防止に役立つと述べている", "points": 2, "keywords": ["Pipeline", "前処理", "fit", "リーク"] },
+        { "id": "cv", "description": "交差検証が分割依存のぶれを減らす役割に触れている", "points": 2, "keywords": ["交差検証", "CV", "ぶれ", "安定"] }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "short_text",
+      "prompt": "教師あり学習と教師なし学習の違いを、分類、クラスタリング、PCAを例に説明してください。見るべき指標がなぜ変わるのかも書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "supervised", "description": "教師あり学習をラベルありの予測問題として説明している", "points": 3, "keywords": ["教師あり", "ラベル", "予測", "分類"] },
+        { "id": "unsupervised", "description": "教師なし学習をラベルなしの構造発見として説明している", "points": 3, "keywords": ["教師なし", "ラベルなし", "クラスタリング", "構造"] },
+        { "id": "pca", "description": "PCAを次元圧縮や少数軸への写像として説明している", "points": 2, "keywords": ["PCA", "次元圧縮", "軸"] },
+        { "id": "metrics", "description": "目的が違うため、accuracyとsilhouetteやexplained variance ratioなど指標も変わると述べている", "points": 2, "keywords": ["accuracy", "silhouette", "explained variance", "指標"] }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "coding",
+      "prompt": "時系列DataFrame `df` に `sales` 列があるとして、`lag_1`、`lag_3`、`roll_mean_3` を未来情報を混ぜない形で作る短いPandasコードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "lag1", "description": "lag_1をshiftで作っている", "points": 3, "keywords": ["lag_1", "shift(1)"] },
+        { "id": "lag3", "description": "lag_3をshiftで作っている", "points": 2, "keywords": ["lag_3", "shift(3)"] },
+        { "id": "rolling", "description": "移動平均を過去のみで作っている", "points": 3, "keywords": ["rolling", "mean", "shift"] },
+        { "id": "no_leak", "description": "未来情報を混ぜない意図がコードや説明にある", "points": 2, "keywords": ["未来", "過去", "リーク"] }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "short_text",
+      "prompt": "特徴量エンジニアリングで、ベースラインを先に置く理由と、`ColumnTransformer` や `Pipeline` を使う理由を説明してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "baseline", "description": "ベースラインがあると追加した特徴の効果を比較しやすいと述べている", "points": 3, "keywords": ["ベースライン", "比較", "効果"] },
+        { "id": "meaningful", "description": "思いつきではなく意味のある変換を足す必要性に触れている", "points": 2, "keywords": ["意味", "変換", "特徴"] },
+        { "id": "column_transformer", "description": "数値列とカテゴリ列で前処理を分ける文脈でColumnTransformerに触れている", "points": 2, "keywords": ["ColumnTransformer", "数値", "カテゴリ"] },
+        { "id": "pipeline", "description": "Pipelineがfitの範囲を整理しリーク防止に役立つと述べている", "points": 3, "keywords": ["Pipeline", "fit", "リーク", "前処理"] }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "short_text",
+      "prompt": "機械学習用のSQLで、`snapshot`、特徴量窓、ラベル窓を分ける理由を説明してください。未来情報が混ざると何が壊れるかも書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "snapshot", "description": "snapshotを予測時点として説明している", "points": 2, "keywords": ["snapshot", "予測時点"] },
+        { "id": "feature_window", "description": "特徴量窓をsnapshotより前の情報だと説明している", "points": 3, "keywords": ["特徴量窓", "前", "過去"] },
+        { "id": "label_window", "description": "ラベル窓をsnapshot以後の結果だと説明している", "points": 2, "keywords": ["ラベル窓", "以後", "結果"] },
+        { "id": "leak", "description": "未来情報が混ざるとリークになり、学習テーブルや評価の意味が壊れると述べている", "points": 3, "keywords": ["未来情報", "リーク", "壊れる", "再現"] }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "coding",
+      "prompt": "`users` テーブルと `events` テーブルがあり、`user_id` で結合できるとします。各ユーザーのイベント件数と総クリック数を `GROUP BY` で集計する短いSQLを書いてください。`LEFT JOIN` を使う形で十分です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "join", "description": "usersとeventsをuser_idで結合している", "points": 3, "keywords": ["LEFT JOIN", "user_id", "ON"] },
+        { "id": "count", "description": "イベント件数をCOUNTで集計している", "points": 3, "keywords": ["COUNT", "event"] },
+        { "id": "sum", "description": "クリック数をSUMで集計している", "points": 2, "keywords": ["SUM", "clicks"] },
+        { "id": "groupby", "description": "ユーザーごとにGROUP BYしている", "points": 2, "keywords": ["GROUP BY", "user_id"] }
+      ]
+    }
+  ]
+}

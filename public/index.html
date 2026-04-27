@@ -940,6 +940,137 @@
       flex: 0 0 auto;
     }
 
+    .assessment-panel {
+      margin-top: 18px;
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid var(--glass-edge-soft);
+      background:
+        linear-gradient(145deg, color-mix(in oklab, var(--glass-highlight) 42%, transparent), transparent 60%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: grid;
+      gap: 12px;
+    }
+
+    .assessment-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .assessment-title {
+      margin: 0 0 4px;
+      font-size: 16px;
+      line-height: 1.45;
+      font-weight: 800;
+    }
+
+    .assessment-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
+    }
+
+    .assessment-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      border: 1px solid color-mix(in oklab, var(--accent) 32%, var(--glass-edge-soft));
+      background: color-mix(in oklab, var(--accent) 12%, transparent);
+      color: color-mix(in oklab, var(--accent) 78%, white);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .assessment-question-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .assessment-question {
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
+      display: grid;
+      gap: 10px;
+    }
+
+    .assessment-question strong {
+      line-height: 1.65;
+    }
+
+    .assessment-choice {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 60%, transparent);
+      background: color-mix(in oklab, var(--panel-soft) 70%, transparent);
+      cursor: pointer;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    .assessment-choice input {
+      margin-top: 3px;
+      accent-color: color-mix(in oklab, var(--accent) 72%, white);
+    }
+
+    .assessment-textarea {
+      width: 100%;
+      min-height: 112px;
+      border: 1px solid var(--glass-edge-soft);
+      border-radius: 10px;
+      padding: 10px;
+      resize: none;
+      overflow: auto;
+      color: var(--text);
+      background: color-mix(in oklab, var(--input-bg) 90%, transparent);
+      font: inherit;
+      line-height: 1.6;
+    }
+
+    .assessment-field-meta,
+    .composer-meta {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
+    .assessment-char-count,
+    .composer-char-count {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .assessment-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .assessment-result {
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 78%, transparent);
+      background: color-mix(in oklab, var(--panel-soft) 76%, transparent);
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
     .home-stage {
       display: grid;
       gap: 12px;
@@ -2982,6 +3113,9 @@
               <span class="send-spinner" aria-hidden="true"></span>
             </button>
           </div>
+          <div class="composer-meta">
+            <span id="chat-input-count" class="composer-char-count">0/4000</span>
+          </div>
         </div>
       </aside>
     </div>
@@ -3048,6 +3182,7 @@
       const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
+      const CHAPTER_FINAL_DRAFT_KEY_PREFIX = "noema_chapter_final_drafts_v1";
       const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
       const KEEP_LATEST_REVISIONS = 10;
       const CONFLICT_RETENTION_DAYS = 30;
@@ -3058,10 +3193,16 @@
       const ASSISTANT_MIN_WIDTH = 320;
       const ASSISTANT_MAX_WIDTH = 700;
       const ASSISTANT_CLOSE_THRESHOLD = 220;
+      const FINAL_ANSWER_MAX_CHARS = 2000;
+      const FINAL_ANSWER_REQUEST_MAX_CHARS = 25000;
+      const ASSISTANT_INPUT_MAX_CHARS = 4000;
+      const ASSISTANT_RESPONSE_MAX_CHARS = 8000;
+      const ASSISTANT_REQUEST_MAX_CHARS = 12000;
 
       const state = {
         catalog: null,
         activeNotebook: null,
+        activeFinalChapter: null,
         openChapters: {},
         query: "",
         sectionIds: [],
@@ -3108,6 +3249,7 @@
         sectionSelect: document.getElementById("section-select"),
         chatLog: document.getElementById("chat-log"),
         chatInput: document.getElementById("chat-input"),
+        chatInputCount: document.getElementById("chat-input-count"),
         sendChat: document.getElementById("send-chat"),
         assistantPanel: document.getElementById("assistant-panel"),
         chatFab: document.getElementById("chat-fab"),
@@ -3153,6 +3295,7 @@
       const blockHighlightTimers = new WeakMap();
 
       el.notebookContent.addEventListener("copy", handleNotebookCopy);
+      bindLengthCounter(el.chatInput, el.chatInputCount, ASSISTANT_INPUT_MAX_CHARS);
 
       function hasKatexCssApplied() {
         const probe = document.createElement("span");
@@ -3381,6 +3524,42 @@
         return `${LLM_SETTINGS_KEY_PREFIX}:${state.userScopeKey || "anon"}`;
       }
 
+      function getChapterFinalDraftStorageKey(chapterId) {
+        const normalizedChapterId = String(chapterId || "").trim();
+        if (!normalizedChapterId) return "";
+        return `${CHAPTER_FINAL_DRAFT_KEY_PREFIX}:${state.userScopeKey || "anon"}:${normalizedChapterId}`;
+      }
+
+      function readChapterFinalDraft(chapterId) {
+        const key = getChapterFinalDraftStorageKey(chapterId);
+        if (!key) return {};
+        const serialized = localStorage.getItem(key) || "";
+        if (!serialized) return {};
+        try {
+          const parsed = JSON.parse(serialized);
+          if (!parsed || typeof parsed !== "object") return {};
+          return Object.fromEntries(
+            Object.entries(parsed).map(([questionId, value]) => [String(questionId), String(value || "")])
+          );
+        } catch {
+          return {};
+        }
+      }
+
+      function writeChapterFinalDraft(chapterId, answers) {
+        const key = getChapterFinalDraftStorageKey(chapterId);
+        if (!key) return;
+        const next = {};
+        Object.entries(answers && typeof answers === "object" ? answers : {}).forEach(([questionId, value]) => {
+          const normalizedQuestionId = String(questionId || "").trim();
+          if (!normalizedQuestionId) return;
+          next[normalizedQuestionId] = limitText(String(value || ""), FINAL_ANSWER_MAX_CHARS);
+        });
+        try {
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch {}
+      }
+
       function normalizeLlmSettings(rawSettings) {
         const parsed = rawSettings && typeof rawSettings === "object" ? rawSettings : {};
         const selectedModel = String(parsed.selectedModel || "openai:gpt-5-nano").trim();
@@ -3555,8 +3734,9 @@
 
       function createEmptyLearningProgressStore() {
         return {
-          schemaVersion: 2,
-          notebooks: {}
+          schemaVersion: 3,
+          notebooks: {},
+          chapters: {}
         };
       }
 
@@ -3565,19 +3745,43 @@
         const normalized = createEmptyLearningProgressStore();
         const parsed = rawStore && typeof rawStore === "object" ? rawStore : {};
         const notebooks = parsed.notebooks && typeof parsed.notebooks === "object" ? parsed.notebooks : {};
+        const chapters = parsed.chapters && typeof parsed.chapters === "object" ? parsed.chapters : {};
 
         Object.entries(notebooks).forEach(([notebookId, value]) => {
           if (!notebookId) return;
           const record = value && typeof value === "object" ? value : {};
           const visitsRaw = Number(record.visits);
-          const completed = Boolean(record.completed);
+          const checkPassed = Boolean(record.checkPassed || record.completed);
+          const completed = Boolean(record.completed || checkPassed);
+          const checkAttemptsRaw = Number(record.checkAttempts);
+          const checkBestScoreRaw = Number(record.checkBestScore);
           normalized.notebooks[notebookId] = {
             visits: Number.isFinite(visitsRaw) && visitsRaw >= 0 ? Math.floor(visitsRaw) : 0,
             lastVisitedAt: toValidIsoString(record.lastVisitedAt || record.visitedAt, fallbackIso),
             completed,
             completedAt: completed
               ? toValidIsoString(record.completedAt || record.lastCompletedAt || record.lastVisitedAt, fallbackIso)
-              : ""
+              : "",
+            checkPassed,
+            checkPassedAt: checkPassed ? toValidIsoString(record.checkPassedAt || record.completedAt || record.lastVisitedAt, fallbackIso) : "",
+            checkBestScore: Number.isFinite(checkBestScoreRaw) && checkBestScoreRaw >= 0 ? Math.floor(checkBestScoreRaw) : 0,
+            checkAttempts: Number.isFinite(checkAttemptsRaw) && checkAttemptsRaw >= 0 ? Math.floor(checkAttemptsRaw) : 0
+          };
+        });
+
+        Object.entries(chapters).forEach(([chapterId, value]) => {
+          if (!chapterId) return;
+          const record = value && typeof value === "object" ? value : {};
+          const finalAttemptsRaw = Number(record.finalAttempts);
+          const finalBestScoreRaw = Number(record.finalBestScore);
+          const finalMaxScoreRaw = Number(record.finalMaxScore);
+          const finalPassed = Boolean(record.finalPassed);
+          normalized.chapters[chapterId] = {
+            finalPassed,
+            finalPassedAt: finalPassed ? toValidIsoString(record.finalPassedAt, fallbackIso) : "",
+            finalBestScore: Number.isFinite(finalBestScoreRaw) && finalBestScoreRaw >= 0 ? Math.floor(finalBestScoreRaw) : 0,
+            finalMaxScore: Number.isFinite(finalMaxScoreRaw) && finalMaxScoreRaw >= 0 ? Math.floor(finalMaxScoreRaw) : 0,
+            finalAttempts: Number.isFinite(finalAttemptsRaw) && finalAttemptsRaw >= 0 ? Math.floor(finalAttemptsRaw) : 0
           };
         });
 
@@ -3668,7 +3872,46 @@
             visits: Math.max(Number(baseRecord.visits || 0), Number(incomingRecord.visits || 0)),
             lastVisitedAt,
             completed,
-            completedAt
+            completedAt,
+            checkPassed: Boolean(baseRecord.checkPassed || incomingRecord.checkPassed || completed),
+            checkPassedAt: incomingRecord.checkPassedAt || baseRecord.checkPassedAt || completedAt,
+            checkBestScore: Math.max(Number(baseRecord.checkBestScore || 0), Number(incomingRecord.checkBestScore || 0)),
+            checkAttempts: Math.max(Number(baseRecord.checkAttempts || 0), Number(incomingRecord.checkAttempts || 0))
+          };
+        });
+
+        const chapterIds = new Set([
+          ...Object.keys(base.chapters || {}),
+          ...Object.keys(incoming.chapters || {})
+        ]);
+
+        chapterIds.forEach((chapterId) => {
+          const baseRecord = base.chapters[chapterId] || null;
+          const incomingRecord = incoming.chapters[chapterId] || null;
+          if (!baseRecord && incomingRecord) {
+            merged.chapters[chapterId] = incomingRecord;
+            return;
+          }
+          if (baseRecord && !incomingRecord) {
+            merged.chapters[chapterId] = baseRecord;
+            return;
+          }
+          if (!baseRecord || !incomingRecord) return;
+          const finalPassed = Boolean(baseRecord.finalPassed || incomingRecord.finalPassed);
+          const basePassedAt = Date.parse(baseRecord.finalPassedAt || "");
+          const incomingPassedAt = Date.parse(incomingRecord.finalPassedAt || "");
+          const finalPassedAt = finalPassed
+            ? (!Number.isNaN(basePassedAt) && !Number.isNaN(incomingPassedAt) && incomingPassedAt > basePassedAt) ||
+              (Number.isNaN(basePassedAt) && !Number.isNaN(incomingPassedAt))
+                ? incomingRecord.finalPassedAt
+                : baseRecord.finalPassedAt
+            : "";
+          merged.chapters[chapterId] = {
+            finalPassed,
+            finalPassedAt,
+            finalBestScore: Math.max(Number(baseRecord.finalBestScore || 0), Number(incomingRecord.finalBestScore || 0)),
+            finalMaxScore: Math.max(Number(baseRecord.finalMaxScore || 0), Number(incomingRecord.finalMaxScore || 0)),
+            finalAttempts: Math.max(Number(baseRecord.finalAttempts || 0), Number(incomingRecord.finalAttempts || 0))
           };
         });
 
@@ -3838,6 +4081,99 @@
           completedAt: completed ? nowIso : ""
         };
         await saveLearningProgressRecord(notebookId, nextRecord);
+      }
+
+      function isNotebookCheckPassed(notebookId) {
+        if (!notebookId) return false;
+        const store = readLearningProgressStore();
+        const record = store.notebooks[notebookId];
+        return Boolean(record && (record.checkPassed || record.completed));
+      }
+
+      async function saveNotebookCheckAttempt(notebookId, result) {
+        if (!notebookId || !result) return;
+        const store = readLearningProgressStore();
+        const nowIso = new Date().toISOString();
+        const existing = store.notebooks[notebookId] || {
+          visits: 0,
+          lastVisitedAt: nowIso,
+          completed: false,
+          completedAt: "",
+          checkPassed: false,
+          checkPassedAt: "",
+          checkBestScore: 0,
+          checkAttempts: 0
+        };
+        const passed = Boolean(existing.checkPassed || existing.completed || result.passed);
+        const nextRecord = {
+          visits: Math.max(0, Number(existing.visits || 0)),
+          lastVisitedAt: String(existing.lastVisitedAt || nowIso),
+          completed: passed,
+          completedAt: passed ? String(existing.completedAt || existing.checkPassedAt || nowIso) : "",
+          checkPassed: passed,
+          checkPassedAt: passed ? String(existing.checkPassedAt || existing.completedAt || nowIso) : "",
+          checkBestScore: Math.max(Number(existing.checkBestScore || 0), Number(result.score || 0)),
+          checkAttempts: Math.max(0, Number(existing.checkAttempts || 0)) + 1
+        };
+        await saveLearningProgressRecord(notebookId, nextRecord);
+      }
+
+      function isChapterFinalPassed(chapterId) {
+        if (!chapterId) return false;
+        const store = readLearningProgressStore();
+        return Boolean(store.chapters && store.chapters[chapterId] && store.chapters[chapterId].finalPassed);
+      }
+
+      async function saveChapterFinalAttempt(chapterId, result) {
+        if (!chapterId || !result) return;
+        const store = readLearningProgressStore();
+        const nowIso = new Date().toISOString();
+        const existing = (store.chapters && store.chapters[chapterId]) || {
+          finalPassed: false,
+          finalPassedAt: "",
+          finalBestScore: 0,
+          finalMaxScore: 0,
+          finalAttempts: 0
+        };
+        store.chapters = store.chapters || {};
+        store.chapters[chapterId] = {
+          finalPassed: Boolean(existing.finalPassed || result.passed),
+          finalPassedAt: existing.finalPassed || result.passed ? String(existing.finalPassedAt || nowIso) : "",
+          finalBestScore: Math.max(Number(existing.finalBestScore || 0), Number(result.score || 0)),
+          finalMaxScore: Math.max(Number(existing.finalMaxScore || 0), Number(result.maxScore || 0)),
+          finalAttempts: Math.max(0, Number(existing.finalAttempts || 0)) + 1
+        };
+        setLearningProgressStore(store);
+        renderSidebar();
+
+        if (!state.loggedIn) return;
+        const token = getToken();
+        if (!token) return;
+        try {
+          const response = await fetch(`${API_BASE}/api/learning-progress/chapters/${encodeURIComponent(chapterId)}`, {
+            method: "PUT",
+            headers: {
+              "content-type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(store.chapters[chapterId])
+          });
+          if (response.ok) {
+            const payload = await response.json();
+            setLearningProgressStore(payload);
+            renderSidebar();
+          }
+        } catch (error) {
+          console.warn("Chapter final progress sync failed", error);
+        }
+      }
+
+      function isChapterCompleted(chapter, completedNotebookSet) {
+        if (!chapter || isExternalTranslatedNotebook((chapter.notebooks || [])[0])) return false;
+        const notebooks = Array.isArray(chapter.notebooks) ? chapter.notebooks : [];
+        if (!notebooks.length) return false;
+        const allNotebookChecksPassed = notebooks.every((notebook) => completedNotebookSet.has(notebook.id));
+        return allNotebookChecksPassed && isChapterFinalPassed(chapter.id);
       }
 
       function formatRelativeVisitTime(isoString) {
@@ -4668,7 +5004,11 @@
                             const active = state.activeNotebook && state.activeNotebook.id === nb.id ? "active" : "";
                             return `<button class="nb-item ${active}" data-nb-id="${nb.id}" data-mobile="${forMobile ? "1" : "0"}">${renderNotebookSidebarMeta(nb) || `<span class="nb-item-title">${escapeHtml(nb.title)}</span>`}</button>`;
                           })
-                          .join("")}</div>`
+                          .join("")}${
+                          chapterSourceGroup(chapter) === "noema"
+                            ? `<button class="nb-item ${state.activeFinalChapter && state.activeFinalChapter.id === chapter.id ? "active" : ""}" data-final-chapter-id="${escapeHtmlAttribute(chapter.id)}" data-mobile="${forMobile ? "1" : "0"}"><span class="nb-item-main"><span class="nb-item-title">最終問題</span><span class="nb-item-badge">${isChapterFinalPassed(chapter.id) ? "合格済み" : "Final"}</span></span><span class="nb-item-sub">${escapeHtml(chapter.title)} の総合確認</span></button>`
+                            : ""
+                        }</div>`
                       : "";
 
                     return `
@@ -4724,6 +5064,10 @@
             const id = button.getAttribute("data-nb-id") || "";
             if (id) {
               selectNotebook(id);
+            }
+            const finalChapterId = button.getAttribute("data-final-chapter-id") || "";
+            if (finalChapterId) {
+              void selectChapterFinal(finalChapterId);
             }
             setSidebarOverlayOpen(false);
           });
@@ -4805,7 +5149,7 @@
       function renderHeader() {
         const nb = state.activeNotebook;
         if (!nb) {
-          el.headerTitle.textContent = "教材トップ";
+          el.headerTitle.textContent = state.activeFinalChapter ? `${state.activeFinalChapter.title} 最終問題` : "教材トップ";
           el.downloadBtn.style.display = "none";
           el.colabBtn.style.display = "none";
           renderPlaygroundHeaderControls();
@@ -4836,8 +5180,14 @@
       function buildProgressGroupSummary(title, description, chapters, completedNotebookSet) {
         const safeChapters = Array.isArray(chapters) ? chapters : [];
         const notebooks = safeChapters.flatMap((chapter) => (Array.isArray(chapter.notebooks) ? chapter.notebooks : []));
-        const total = notebooks.length;
-        const completed = notebooks.reduce((count, notebook) => count + (completedNotebookSet.has(notebook.id) ? 1 : 0), 0);
+        const noemaChapterCount = safeChapters.filter((chapter) => chapterSourceGroup(chapter) === "noema").length;
+        const total = notebooks.length + noemaChapterCount;
+        const completedNotebookCount = notebooks.reduce((count, notebook) => count + (completedNotebookSet.has(notebook.id) ? 1 : 0), 0);
+        const completedFinalCount = safeChapters.reduce(
+          (count, chapter) => count + (chapterSourceGroup(chapter) === "noema" && isChapterFinalPassed(chapter.id) ? 1 : 0),
+          0
+        );
+        const completed = completedNotebookCount + completedFinalCount;
         const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
         const chapterSummaries = safeChapters
           .map((chapter) => {
@@ -4847,11 +5197,19 @@
               (count, notebook) => count + (completedNotebookSet.has(notebook.id) ? 1 : 0),
               0
             );
-            const chapterPercent = chapterTotal > 0 ? Math.round((chapterCompleted / chapterTotal) * 100) : 0;
+            const hasFinal = chapterSourceGroup(chapter) === "noema";
+            const finalPassed = hasFinal && isChapterFinalPassed(chapter.id);
+            const denominator = chapterTotal + (hasFinal ? 1 : 0);
+            const numerator = chapterCompleted + (finalPassed ? 1 : 0);
+            const chapterPercent = denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
             return {
+              id: chapter.id,
               title: chapter.title,
-              total: chapterTotal,
-              completed: chapterCompleted,
+              total: denominator,
+              completed: numerator,
+              notebookCompleted: chapterCompleted,
+              notebookTotal: chapterTotal,
+              finalPassed,
               percent: chapterPercent
             };
           })
@@ -4927,7 +5285,7 @@
                 (chapter) => `
                   <article class="home-progress-chapter">
                     <strong>${escapeHtml(chapter.title)}</strong>
-                    <span>${chapter.completed}/${chapter.total}</span>
+                    <span>${chapter.completed}/${chapter.total}${chapter.finalPassed ? " final" : ""}</span>
                     <div class="home-progress-chapter-bar">
                       <span style="width:${chapter.percent}%"></span>
                     </div>
@@ -5860,6 +6218,7 @@
 
         if (!target) return false;
 
+        state.activeFinalChapter = null;
         const previousNotebook = state.activeNotebook;
         const previousSectionIds = Array.isArray(state.sectionIds) ? state.sectionIds.slice() : [];
         const previousActiveSection = state.activeSection;
@@ -5933,6 +6292,7 @@
 
           const url = new URL(window.location.href);
           url.searchParams.set("notebookId", target.id);
+          url.searchParams.delete("finalChapterId");
           window.history.replaceState(null, "", url.toString());
           return true;
         } catch (error) {
@@ -5963,6 +6323,223 @@
           }
           return false;
         }
+      }
+
+      async function selectChapterFinal(chapterId) {
+        const chapters = notebookList();
+        const chapter = chapters.find((item) => item.id === chapterId);
+        if (!chapter || chapterSourceGroup(chapter) !== "noema") return false;
+
+        state.activeNotebook = null;
+        state.activeFinalChapter = chapter;
+        state.openChapters[chapter.id] = true;
+        state.sectionIds = ["final"];
+        state.activeSection = "final";
+        state.selectedText = "";
+        state.selectedSection = "";
+        state.selectedContext = null;
+        state.activeEditorMap = new Map();
+        renderSidebar();
+        renderHeader();
+        renderSections();
+        renderSelectionCard();
+        el.notebookContent.classList.add("reader-prose");
+        el.notebookContent.innerHTML = `
+          <section class="assessment-panel glass-soft">
+            <div class="assessment-header">
+              <div>
+                <h2 class="assessment-title">${escapeHtml(chapter.title)} 最終問題</h2>
+                <p class="assessment-copy">セクション全体を振り返る総合問題です。90%以上で合格です。合格済みでも再挑戦できます。</p>
+              </div>
+              <span class="assessment-status">${isChapterFinalPassed(chapter.id) ? "合格済み" : "未合格"}</span>
+            </div>
+            <div class="assessment-result">最終問題を読み込み中...</div>
+          </section>
+        `;
+        await hydrateChapterFinalAssessment(el.notebookContent.querySelector(".assessment-panel"), chapter.id);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("notebookId");
+        url.searchParams.set("finalChapterId", chapter.id);
+        window.history.replaceState(null, "", url.toString());
+        syncChatFabState();
+        return true;
+      }
+
+      async function hydrateChapterFinalAssessment(wrapper, chapterId) {
+        const resultBox = wrapper.querySelector(".assessment-result");
+        try {
+          const assessment = await fetchJsonWithFallback([
+            buildChapterFinalUrl(chapterId, ""),
+            buildChapterFinalUrl(chapterId, "", API_BASE)
+          ], { cache: "no-cache", headers: assessmentFetchHeaders() });
+          const draftAnswers = readChapterFinalDraft(chapterId);
+          const questionsHtml = (assessment.questions || []).map((question, index) => {
+            const type = String(question.type || "short_text");
+            const draftValue = limitText(String(draftAnswers[String(question.id || "")] || ""), FINAL_ANSWER_MAX_CHARS);
+            const choicesHtml = type === "multiple_choice"
+              ? (question.choices || []).map((choice) => `
+                <label class="assessment-choice">
+                  <input type="radio" name="final-${escapeHtmlAttribute(question.id)}" value="${escapeHtmlAttribute(choice.id)}" ${draftValue === String(choice.id || "") ? "checked" : ""} />
+                  <span>${escapeHtml(String(choice.text || ""))}</span>
+                </label>
+              `).join("")
+              : `
+                <textarea
+                  class="assessment-textarea"
+                  data-final-answer="${escapeHtmlAttribute(question.id)}"
+                  placeholder="ここに回答を書いてください"
+                  maxlength="${FINAL_ANSWER_MAX_CHARS}"
+                >${escapeHtml(draftValue)}</textarea>
+                <div class="assessment-field-meta">
+                  <span class="assessment-char-count" data-final-count="${escapeHtmlAttribute(question.id)}">${draftValue.length}/${FINAL_ANSWER_MAX_CHARS}</span>
+                </div>
+              `;
+            return `
+              <article class="assessment-question" data-question-id="${escapeHtmlAttribute(question.id)}" data-question-type="${escapeHtmlAttribute(type)}">
+                <strong>${index + 1}. ${escapeHtml(String(question.prompt || ""))}</strong>
+                <div>${choicesHtml}</div>
+              </article>
+            `;
+          }).join("");
+          wrapper.innerHTML = `
+            <div class="assessment-header">
+              <div>
+                <h2 class="assessment-title">${escapeHtml(String(assessment.title || "最終問題"))}</h2>
+                <p class="assessment-copy">90%以上で合格です。</p>
+              </div>
+              <span class="assessment-status">${isChapterFinalPassed(chapterId) ? "合格済み" : "未合格"}</span>
+            </div>
+            <div class="assessment-question-list">${questionsHtml}</div>
+            <div class="assessment-actions">
+              <button class="button" type="button" data-final-submit>採点する</button>
+            </div>
+            <div class="assessment-result is-hidden"></div>
+          `;
+          const submit = wrapper.querySelector("[data-final-submit]");
+          const persistFinalDraft = function () {
+            const answers = {};
+            wrapper.querySelectorAll(".assessment-question").forEach((node) => {
+              const questionId = String(node.getAttribute("data-question-id") || "");
+              const type = String(node.getAttribute("data-question-type") || "");
+              if (!questionId) return;
+              if (type === "multiple_choice") {
+                const checked = node.querySelector("input[type='radio']:checked");
+                answers[questionId] = checked ? String(checked.value || "") : "";
+              } else {
+                const textarea = node.querySelector("textarea");
+                answers[questionId] = textarea ? limitText(String(textarea.value || ""), FINAL_ANSWER_MAX_CHARS) : "";
+              }
+            });
+            writeChapterFinalDraft(chapterId, answers);
+          };
+          wrapper.querySelectorAll("[data-final-answer]").forEach((textarea) => {
+            const questionId = String(textarea.getAttribute("data-final-answer") || "");
+            const counter = wrapper.querySelector(`[data-final-count="${CSS.escape(questionId)}"]`);
+            bindLengthCounter(textarea, counter, FINAL_ANSWER_MAX_CHARS);
+            textarea.addEventListener("input", persistFinalDraft);
+          });
+          wrapper.querySelectorAll(".assessment-question input[type='radio']").forEach((radio) => {
+            radio.addEventListener("change", persistFinalDraft);
+          });
+          submit.addEventListener("click", async function () {
+            if (!getToken()) {
+              redirectToLogin();
+              return;
+            }
+            const answers = {};
+            wrapper.querySelectorAll(".assessment-question").forEach((node) => {
+              const questionId = String(node.getAttribute("data-question-id") || "");
+              const type = String(node.getAttribute("data-question-type") || "");
+              if (type === "multiple_choice") {
+                const checked = node.querySelector("input[type='radio']:checked");
+                answers[questionId] = checked ? String(checked.value || "") : "";
+              } else {
+                const textarea = node.querySelector("textarea");
+                answers[questionId] = textarea ? limitText(String(textarea.value || "").trim(), FINAL_ANSWER_MAX_CHARS) : "";
+              }
+            });
+            writeChapterFinalDraft(chapterId, answers);
+            const body = JSON.stringify({ answers });
+            if (body.length > FINAL_ANSWER_REQUEST_MAX_CHARS) {
+              const box = wrapper.querySelector(".assessment-result");
+              box.classList.remove("is-hidden");
+              box.textContent = `回答全体が長すぎます。合計 ${FINAL_ANSWER_REQUEST_MAX_CHARS} 文字以内にしてください。`;
+              return;
+            }
+            submit.disabled = true;
+            submit.textContent = "採点中...";
+            try {
+              const result = await fetchJsonWithFallback([
+                buildChapterFinalUrl(chapterId, "/attempts", API_BASE),
+                buildChapterFinalUrl(chapterId, "/attempts")
+              ], {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json",
+                  ...assessmentFetchHeaders()
+                },
+                body
+              });
+              if (result.attemptId && result.status && result.status !== "COMPLETED") {
+                const box = wrapper.querySelector(".assessment-result");
+                box.classList.remove("is-hidden");
+                box.textContent = "採点官エージェントがBedrockで採点中です...";
+                const completed = await pollChapterFinalAttempt(chapterId, result.attemptId, box);
+                if (!completed) return;
+                Object.assign(result, completed);
+              }
+              await saveChapterFinalAttempt(chapterId, result);
+              const lines = (result.results || []).map((item, index) => `${index + 1}. ${item.score}/${item.maxPoints} - ${item.feedback || ""}`);
+              const box = wrapper.querySelector(".assessment-result");
+              box.classList.remove("is-hidden");
+              const grader = result.gradingProvider
+                ? `採点: ${result.gradingProvider}${result.modelId ? ` / ${result.modelId}` : ""}`
+                : "採点官エージェント";
+              box.textContent = `${result.passed ? "合格です。" : "不合格です。90%以上で合格です。"}\nスコア: ${result.score}/${result.maxScore} (${Math.round(Number(result.ratio || 0) * 100)}%)\n${grader}\n\n${lines.join("\n")}`;
+              wrapper.querySelector(".assessment-status").textContent = isChapterFinalPassed(chapterId) ? "合格済み" : "未合格";
+            } catch (error) {
+              const box = wrapper.querySelector(".assessment-result");
+              box.classList.remove("is-hidden");
+              box.textContent = error instanceof Error ? error.message : "採点に失敗しました。";
+            } finally {
+              submit.disabled = false;
+              submit.textContent = "採点する";
+            }
+          });
+        } catch (error) {
+          if (resultBox) {
+            resultBox.textContent = error instanceof Error ? error.message : "最終問題の読み込みに失敗しました。";
+          }
+        }
+      }
+
+      async function pollChapterFinalAttempt(chapterId, attemptId, resultBox) {
+        const startedAt = Date.now();
+        const timeoutMs = 180000;
+        while (Date.now() - startedAt < timeoutMs) {
+          await new Promise((resolve) => window.setTimeout(resolve, 2500));
+          try {
+            const result = await fetchJsonWithFallback([
+              buildChapterFinalAttemptUrl(chapterId, attemptId, API_BASE),
+              buildChapterFinalAttemptUrl(chapterId, attemptId)
+            ], {
+              cache: "no-cache",
+              headers: assessmentFetchHeaders()
+            });
+            if (result.status === "COMPLETED") return result;
+            if (result.status === "FAILED") {
+              resultBox.textContent = "採点に失敗しました。時間を置いて再提出してください。";
+              return null;
+            }
+            const done = (result.results || []).filter((item) => item.status === "COMPLETED").length;
+            const total = (result.results || []).length;
+            resultBox.textContent = `採点官エージェントがBedrockで採点中です... ${done}/${total}`;
+          } catch (error) {
+            resultBox.textContent = error instanceof Error ? error.message : "採点状況の取得に失敗しました。";
+          }
+        }
+        resultBox.textContent = "採点がまだ完了していません。しばらくしてから再確認してください。";
+        return null;
       }
 
       function captureSelection() {
@@ -6086,29 +6663,154 @@
         el.selectionText.textContent = state.selectedText;
       }
 
+      function assessmentFetchHeaders() {
+        const token = getToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+      }
+
+      async function fetchJsonWithFallback(paths, options) {
+        let lastError = null;
+        for (const path of paths) {
+          try {
+            const response = await fetch(path, options || {});
+            if (!response.ok) {
+              lastError = new Error(`HTTP ${response.status}`);
+              continue;
+            }
+            return await response.json();
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("request failed");
+      }
+
+      function buildNotebookAssessmentUrl(notebookId, suffix, apiRoot) {
+        const encoded = encodeURIComponent(String(notebookId || "").trim());
+        return `${apiRoot || ""}/api/assessments/notebooks/${encoded}${suffix || ""}`;
+      }
+
+      function buildChapterFinalUrl(chapterId, suffix, apiRoot) {
+        const encoded = encodeURIComponent(String(chapterId || "").trim());
+        return `${apiRoot || ""}/api/assessments/chapters/${encoded}/final${suffix || ""}`;
+      }
+
+      function buildChapterFinalAttemptUrl(chapterId, attemptId, apiRoot) {
+        const encodedChapterId = encodeURIComponent(String(chapterId || "").trim());
+        const encodedAttemptId = encodeURIComponent(String(attemptId || "").trim());
+        return `${apiRoot || ""}/api/assessments/chapters/${encodedChapterId}/final/attempts/${encodedAttemptId}`;
+      }
+
       function renderNotebookCompletionControl(notebookId) {
         if (!notebookId) return;
-        const existing = el.notebookContent.querySelector(".notebook-completion-panel");
+        const existing = el.notebookContent.querySelector(".assessment-panel");
         if (existing) existing.remove();
 
         const wrapper = document.createElement("section");
-        wrapper.className = "notebook-completion-panel glass-soft";
-        const completed = isNotebookCompleted(notebookId);
+        wrapper.className = "assessment-panel glass-soft";
+        const passed = isNotebookCheckPassed(notebookId);
+        const store = readLearningProgressStore();
+        const record = store.notebooks[notebookId] || {};
         wrapper.innerHTML = `
-          <label class="notebook-completion-label">
-            <input class="notebook-completion-checkbox" type="checkbox" ${completed ? "checked" : ""} />
-            <span>このノートを読み終えた</span>
-          </label>
+          <div class="assessment-header">
+            <div>
+              <h3 class="assessment-title">確認問題</h3>
+              <p class="assessment-copy">5問すべてに正解すると、このノートは合格になります。不合格でも何度でもやり直せます。</p>
+            </div>
+            <span class="assessment-status">${passed ? "合格済み" : "未合格"}${record.checkAttempts ? ` / ${record.checkAttempts}回` : ""}</span>
+          </div>
+          <div class="assessment-result">確認問題を読み込み中...</div>
         `;
-
-        const checkbox = wrapper.querySelector(".notebook-completion-checkbox");
-        if (checkbox) {
-          checkbox.addEventListener("change", function () {
-            const checked = Boolean(checkbox.checked);
-            void setNotebookCompleted(notebookId, checked);
-          });
-        }
         el.notebookContent.appendChild(wrapper);
+        void hydrateNotebookAssessment(wrapper, notebookId);
+      }
+
+      async function hydrateNotebookAssessment(wrapper, notebookId) {
+        const resultBox = wrapper.querySelector(".assessment-result");
+        try {
+          const assessment = await fetchJsonWithFallback([
+            buildNotebookAssessmentUrl(notebookId, ""),
+            buildNotebookAssessmentUrl(notebookId, "", API_BASE)
+          ], { cache: "no-cache", headers: assessmentFetchHeaders() });
+          const questionsHtml = (assessment.questions || []).map((question, index) => {
+            const choicesHtml = (question.choices || []).map((choice) => `
+              <label class="assessment-choice">
+                <input type="radio" name="assessment-${escapeHtmlAttribute(question.id)}" value="${escapeHtmlAttribute(choice.id)}" />
+                <span>${escapeHtml(String(choice.text || ""))}</span>
+              </label>
+            `).join("");
+            return `
+              <article class="assessment-question" data-question-id="${escapeHtmlAttribute(question.id)}">
+                <strong>${index + 1}. ${escapeHtml(String(question.prompt || ""))}</strong>
+                <div>${choicesHtml}</div>
+              </article>
+            `;
+          }).join("");
+          wrapper.innerHTML = `
+            <div class="assessment-header">
+              <div>
+                <h3 class="assessment-title">${escapeHtml(String(assessment.title || "確認問題"))}</h3>
+                <p class="assessment-copy">5問すべてに正解すると、このノートは合格になります。合格済みでも再挑戦できます。</p>
+              </div>
+              <span class="assessment-status">${isNotebookCheckPassed(notebookId) ? "合格済み" : "未合格"}</span>
+            </div>
+            <div class="assessment-question-list">${questionsHtml}</div>
+            <div class="assessment-actions">
+              <button class="button" type="button" data-assessment-submit>採点する</button>
+            </div>
+            <div class="assessment-result is-hidden"></div>
+          `;
+          const submit = wrapper.querySelector("[data-assessment-submit]");
+          submit.addEventListener("click", async function () {
+            const answers = {};
+            wrapper.querySelectorAll(".assessment-question").forEach((node) => {
+              const questionId = String(node.getAttribute("data-question-id") || "");
+              const checked = node.querySelector("input[type='radio']:checked");
+              answers[questionId] = checked ? String(checked.value || "") : "";
+            });
+            submit.disabled = true;
+            submit.textContent = "採点中...";
+            try {
+              const result = await fetchJsonWithFallback([
+                buildNotebookAssessmentUrl(notebookId, "/attempts"),
+                buildNotebookAssessmentUrl(notebookId, "/attempts", API_BASE)
+              ], {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json",
+                  ...assessmentFetchHeaders()
+                },
+                body: JSON.stringify({ answers })
+              });
+              await saveNotebookCheckAttempt(notebookId, result);
+              const lines = (result.results || []).map((item, index) => {
+                return `${index + 1}. ${item.correct ? "正解" : "不正解"} - ${item.explanation || ""}`;
+              });
+              const box = wrapper.querySelector(".assessment-result");
+              box.classList.remove("is-hidden");
+              box.textContent = `${result.passed ? "合格です。" : "不合格です。全問正解で合格です。"}\nスコア: ${result.score}/${result.total}\n\n${lines.join("\n")}`;
+              wrapper.querySelector(".assessment-status").textContent = isNotebookCheckPassed(notebookId) ? "合格済み" : "未合格";
+              renderHomeDashboardIfVisible();
+            } catch (error) {
+              const box = wrapper.querySelector(".assessment-result");
+              box.classList.remove("is-hidden");
+              box.textContent = error instanceof Error ? error.message : "採点に失敗しました。";
+            } finally {
+              submit.disabled = false;
+              submit.textContent = "採点する";
+            }
+          });
+        } catch (error) {
+          if (resultBox) {
+            resultBox.textContent = error instanceof Error ? error.message : "確認問題の読み込みに失敗しました。";
+          }
+        }
+      }
+
+      function renderHomeDashboardIfVisible() {
+        if (!state.activeNotebook && !state.activeFinalChapter) {
+          renderHomeDashboard();
+        }
       }
 
       function pushMessage(role, text, meta) {
@@ -6196,6 +6898,28 @@
 
       function escapeHtmlAttribute(value) {
         return escapeHtml(String(value || ""));
+      }
+
+      function limitText(value, maxChars) {
+        return String(value || "").slice(0, Math.max(0, Number(maxChars) || 0));
+      }
+
+      function setCharCount(node, current, maxChars) {
+        if (!node) return;
+        node.textContent = `${current}/${maxChars}`;
+      }
+
+      function bindLengthCounter(textarea, counterNode, maxChars) {
+        if (!textarea) return;
+        textarea.maxLength = maxChars;
+        const sync = function () {
+          if (textarea.value.length > maxChars) {
+            textarea.value = textarea.value.slice(0, maxChars);
+          }
+          setCharCount(counterNode, textarea.value.length, maxChars);
+        };
+        textarea.addEventListener("input", sync);
+        sync();
       }
 
       function renderInlineMarkdown(source) {
@@ -6421,6 +7145,9 @@
         if (!token) {
           throw new Error("セッションが切れています。再ログインしてください。");
         }
+        if (questionText.length > ASSISTANT_INPUT_MAX_CHARS) {
+          throw new Error(`質問は ${ASSISTANT_INPUT_MAX_CHARS} 文字以内にしてください。`);
+        }
 
         const provider = target.provider;
         const modelId = target.modelId || "";
@@ -6450,13 +7177,18 @@
           body.apiKey = apiKey;
         }
 
+        const requestBody = JSON.stringify(body);
+        if (requestBody.length > ASSISTANT_REQUEST_MAX_CHARS) {
+          throw new Error(`質問データが長すぎます。${ASSISTANT_REQUEST_MAX_CHARS} 文字以内に収めてください。`);
+        }
+
         const response = await fetch(`${API_BASE}/api/chat/complete`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify(body)
+          body: requestBody
         });
 
         let payload = {};
@@ -6469,7 +7201,8 @@
           throw new Error(String(message));
         }
 
-        return { ...payload, sessionId: String(payload.sessionId || sessionId) };
+        const answerText = limitText(String(payload.answerText || ""), ASSISTANT_RESPONSE_MAX_CHARS).trim();
+        return { ...payload, answerText, sessionId: String(payload.sessionId || sessionId) };
       }
 
       async function sendQuestion() {
@@ -6477,6 +7210,10 @@
 
         const text = el.chatInput.value.trim();
         if (!text) return;
+        if (text.length > ASSISTANT_INPUT_MAX_CHARS) {
+          pushMessage("system", `質問は ${ASSISTANT_INPUT_MAX_CHARS} 文字以内にしてください。`);
+          return;
+        }
 
         const notebook = state.activeNotebook;
         if (!notebook) {
@@ -6502,6 +7239,10 @@
 
         const sectionId = state.selectedSection || state.activeSection || "intro";
         const questionText = buildQuestionTextWithSelection(text, state.selectedContext);
+        if (questionText.length > ASSISTANT_INPUT_MAX_CHARS) {
+          pushMessage("system", `選択中のコードや文脈を含めると長すぎます。${ASSISTANT_INPUT_MAX_CHARS} 文字以内に収まるよう短くしてください。`);
+          return;
+        }
         const target = selectedLlmTarget();
         const keyCommand = handleAssistantApiKeyCommand(text, target);
         if (keyCommand.handled) {
@@ -6820,11 +7561,17 @@
         return q.get("notebookId") || "";
       }
 
+      function findInitialFinalChapterId() {
+        const q = new URLSearchParams(window.location.search);
+        return q.get("finalChapterId") || "";
+      }
+
       function showHomeDashboard() {
         if (state.chatOpen) {
           setChatOpen(false);
         }
         state.activeNotebook = null;
+        state.activeFinalChapter = null;
         state.sectionIds = [];
         state.activeSection = "intro";
         state.selectedText = "";
@@ -6839,6 +7586,7 @@
         syncChatFabState();
         const url = new URL(window.location.href);
         url.searchParams.delete("notebookId");
+        url.searchParams.delete("finalChapterId");
         window.history.replaceState(null, "", url.toString());
       }
 
@@ -6861,12 +7609,16 @@
         }
 
         const requested = findInitialNotebookId();
+        const requestedFinalChapterId = findInitialFinalChapterId();
         const requestedNotebook = notebooks.find((nb) => nb.id === requested) || null;
+        const requestedFinalChapter = chapters.find((chapter) => chapter.id === requestedFinalChapterId) || null;
 
         state.openChapters = {};
         renderSidebar();
         if (requestedNotebook) {
           await selectNotebook(requestedNotebook.id);
+        } else if (requestedFinalChapter) {
+          await selectChapterFinal(requestedFinalChapter.id);
         } else {
           showHomeDashboard();
         }

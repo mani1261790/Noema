@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "convolution-basics",
+  "title": "畳み込みとCNN 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "CNN の基本的な見方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "CNN は、画像の縦横の並びを壊さずに局所構造を見る設計として読める。" },
+        { "id": "b", "text": "局所窓を滑らせる計算により、どこに模様があるかをある程度保てる。" },
+        { "id": "c", "text": "全結合層と違って、形や位置の変化を追うことが重要になる。" },
+        { "id": "d", "text": "CNN を理解するときは、最初に画像を完全に平坦化して位置情報を捨てることが本質である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、画像を平坦化しないまま局所構造を見ることが CNN の強みとして説明されています。",
+      "learningObjective": "CNNの基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "畳み込みの最小実装について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "このノートでは、1チャネル画像への 2 次元演算を自分で実装している。" },
+        { "id": "b", "text": "深層学習ライブラリの `Conv2d` と同じ慣習に合わせ、カーネル反転なしの相互相関を標準にしている。" },
+        { "id": "c", "text": "カーネルがどこで強く反応するかを見ることが、最小の理解につながる。" },
+        { "id": "d", "text": "畳み込みでは、入力 shape や出力 shape を追う必要はなく、重みの値だけ見れば十分である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、重みより先にテンソル shape と反応位置を追うことを重視しています。",
+      "learningObjective": "最小実装"
+    },
+    {
+      "id": "q3",
+      "prompt": "padding と stride について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "padding は、周辺情報をどれだけ残すかに関係する。" },
+        { "id": "b", "text": "stride は、どれだけ粗く見るか、出力解像度をどうするかに関係する。" },
+        { "id": "c", "text": "padding や stride を変えると、出力サイズは変わりうる。" },
+        { "id": "d", "text": "padding と stride をどう設定しても、出力の高さと幅は必ず入力と同じになる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、padding と stride を変えて shape がどう変わるかを実際に確認しています。",
+      "learningObjective": "paddingとstride"
+    },
+    {
+      "id": "q4",
+      "prompt": "pooling と 1x1 conv について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "pooling は、細かな位置情報をある程度捨てて要約する役割として読める。" },
+        { "id": "b", "text": "1x1 conv は、空間よりチャネル方向の混合に関わる。" },
+        { "id": "c", "text": "どちらも CNN 全体の設計で役割を持つ部品として扱われている。" },
+        { "id": "d", "text": "pooling は、チャネル数を必ず増やすための操作であり、要約やダウンサンプリングとは無関係である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "pooling は細かな位置情報を要約する役割で説明されており、チャネル数を増やす操作そのものではありません。",
+      "learningObjective": "poolingと1x1 conv"
+    },
+    {
+      "id": "q5",
+      "prompt": "パラメータ効率について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "このノートでは、全結合層と 3x3 Conv のパラメータ数も比較している。" },
+        { "id": "b", "text": "局所窓を共有する設計は、パラメータ効率の良さにもつながる。" },
+        { "id": "c", "text": "Conv では、位置ごとにまったく別の重みを持つわけではない。" },
+        { "id": "d", "text": "CNN は全結合層より常にパラメータ数が多くなるので、効率を見る意味はない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、むしろ Conv がパラメータ効率の良い設計として比較されています。",
+      "learningObjective": "パラメータ効率"
+    }
+  ]
+}

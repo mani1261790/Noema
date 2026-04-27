@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "continuous-diffusion-flow-matching",
+  "title": "連続時間拡散モデルとフローマッチング理論 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "Flow Matching の基本的な見方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "ノイズ点からデータ点へ至る経路上の速度場を直接学ぶ発想がある。" },
+        { "id": "b", "text": "どんな path を選ぶかと、その path に沿う vector field をどう学ぶかが中心になる。" },
+        { "id": "c", "text": "学習後は、学んだ速度場を ODE として積分して生成する見方ができる。" },
+        { "id": "d", "text": "Flow Matching では path 設計は不要で、常に唯一の固定経路しか存在しない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、path と vector field の 2 箇所が設計自由度だと説明しています。",
+      "learningObjective": "Flow Matching の基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "目標速度 `u_t` と `v_theta(x,t)` について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "各時刻でどちらへ動くべきかを、速度場として回帰する。" },
+        { "id": "b", "text": "最適予測は、同じ `(x,t)` に集まる教師速度の条件付き期待値として読める。" },
+        { "id": "c", "text": "Flow Matching は、各ペア速度をそのまま丸暗記するというより平均場を学ぶ見方ができる。" },
+        { "id": "d", "text": "速度場を学んでも、生成時には積分せずその場で 1 点だけ見れば十分である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "学習後は、`dx/dt = v_theta(x,t)` を積分して生成します。",
+      "learningObjective": "速度場学習"
+    },
+    {
+      "id": "q3",
+      "prompt": "path 設計について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "線形パスと三角関数パスでは、中間点の混ざり方が異なりうる。" },
+        { "id": "b", "text": "どの中間点を通るかで、学習しやすさや速度場の形が変わりうる。" },
+        { "id": "c", "text": "Flow Matching では、どの道を通るか自体が重要な設計対象になる。" },
+        { "id": "d", "text": "path を変えても中間分布や学習の難しさは一切変わらないので、どの path でも完全に同じである。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、path の違いが生成統計や学習難易度に効くことを見ています。",
+      "learningObjective": "path 設計"
+    },
+    {
+      "id": "q4",
+      "prompt": "time conditioning の必要性について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "同じ場所 `x` でも、時刻によって望ましい動き方が変わることがある。" },
+        { "id": "b", "text": "初期と終盤で速度場の性格が違うなら、`t` を入れる意味がある。" },
+        { "id": "c", "text": "`t` を消すと、全時刻で同じ速度しか出せず表現力が落ちることがある。" },
+        { "id": "d", "text": "時刻入力は飾りであり、連続時間生成では入れても入れなくても同じ表現力になる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、`with-t` と `no-t` を比較して時刻入力の重要性を示しています。",
+      "learningObjective": "time conditioning"
+    },
+    {
+      "id": "q5",
+      "prompt": "OT-CFM の位置づけについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "損失の形そのものより、どの `(x_0, x_1)` の組を作るかを工夫する発想がある。" },
+        { "id": "b", "text": "ノイズ側とデータ側を、できるだけ無理のない対応で結ぶことを狙う。" },
+        { "id": "c", "text": "ミニバッチ近似 OT の計算コストと近似精度にはトレードオフがある。" },
+        { "id": "d", "text": "OT-CFM では、path やペアの作り方は変えずに、常に loss 関数だけを変えるのが本質である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、OT-CFM を『ペアの作り方を工夫する』手法として説明しています。",
+      "learningObjective": "OT-CFM の考え方"
+    }
+  ]
+}

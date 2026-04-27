@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "chapterId": "deep-learning",
+  "title": "ディープラーニング 最終問題",
+  "passRatio": 0.9,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "short_text",
+      "prompt": "単一ニューロンで OR は扱えても XOR は難しい理由を説明してください。隠れ層を入れた 2 層 MLP が何を変えているかにも触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "or_xor", "description": "OR と XOR の違いを、単層で解けるかどうかの観点で説明している", "points": 3, "keywords": ["OR", "XOR", "単層", "線形"] },
+        { "id": "single_limit", "description": "単一ニューロンの限界に触れている", "points": 2, "keywords": ["単一", "ニューロン", "限界", "境界"] },
+        { "id": "hidden", "description": "隠れ層で表現を作り直す点を説明している", "points": 3, "keywords": ["隠れ層", "表現", "作り直す", "MLP"] },
+        { "id": "effect", "description": "2層化で XOR のような題材を扱いやすくなると述べている", "points": 2, "keywords": ["2層", "XOR", "扱える"] }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "coding",
+      "prompt": "ロジット `z` と正解ラベル `target` が与えられているとします。`y = sigmoid(z)`、BCE 損失、そして `grad_z = y - target` を計算する短いPythonコードを書いてください。`math.exp` と `math.log` を使う程度で十分です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "sigmoid", "description": "sigmoid で確率 `y` を計算している", "points": 3, "keywords": ["sigmoid", "exp", "y"] },
+        { "id": "bce", "description": "BCE 損失を計算している", "points": 3, "keywords": ["log", "loss", "target"] },
+        { "id": "grad", "description": "`grad_z = y - target` を計算している", "points": 3, "keywords": ["grad_z", "y - target"] },
+        { "id": "consistency", "description": "最小例として筋の通ったコードになっている", "points": 1, "keywords": ["BCE", "勾配"] }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "short_text",
+      "prompt": "学習率を小さくすることと、weight decay を入れることの違いを説明してください。見た目が似ていても更新の意味が違う点を書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "lr", "description": "学習率は歩幅の調整だと説明している", "points": 3, "keywords": ["学習率", "歩幅", "進む"] },
+        { "id": "wd", "description": "weight decay は大きい重みを押し戻す効果だと説明している", "points": 3, "keywords": ["weight decay", "重み", "押し戻す"] },
+        { "id": "difference", "description": "見た目が似ても更新の中身は別物だと述べている", "points": 2, "keywords": ["似て", "別物", "更新"] },
+        { "id": "loss_view", "description": "data loss と total loss を分けて見る文脈に触れている", "points": 2, "keywords": ["data loss", "total loss", "正則化"] }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "coding",
+      "prompt": "2次元の単チャネル画像 `image` と 3x3 カーネル `kernel` に対して、padding なし・stride 1 の相互相関を計算する最小の二重ループコードを書いてください。関数名や細部は自由です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "shape", "description": "出力の高さと幅を入力とカーネル shape から決めている", "points": 2, "keywords": ["shape", "out_h", "out_w"] },
+        { "id": "loops", "description": "位置を走査する二重ループがある", "points": 3, "keywords": ["for", "i", "j"] },
+        { "id": "window", "description": "局所窓とカーネルの積和を取っている", "points": 4, "keywords": ["window", "*", "sum", "kernel"] },
+        { "id": "xcorr", "description": "カーネル反転なしの相互相関として筋が通っている", "points": 1, "keywords": ["反転なし", "cross-correlation"] }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "short_text",
+      "prompt": "単純 RNN が長い系列で苦しくなりやすい理由を説明してください。隠れ状態の持ち回りと勾配消失に触れたうえで、LSTM や GRU が何を足しているかも書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "hidden", "description": "単純 RNN が隠れ状態を時刻間で持ち回ると説明している", "points": 2, "keywords": ["隠れ状態", "持ち回る", "RNN"] },
+        { "id": "vanish", "description": "長い系列で勾配消失が起こりやすいことを述べている", "points": 3, "keywords": ["勾配消失", "長い系列", "小さくなる"] },
+        { "id": "gates", "description": "LSTM / GRU がゲートで情報の保持や忘却を制御すると説明している", "points": 3, "keywords": ["LSTM", "GRU", "ゲート", "保持", "忘却"] },
+        { "id": "purpose", "description": "情報の交通整理を足しているという見方に触れている", "points": 2, "keywords": ["交通整理", "情報", "制御"] }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "short_text",
+      "prompt": "Transformer の自己注意で、`Q`、`K`、`V` と attention weight がそれぞれ何を表しているかを説明してください。因果マスクを入れる理由にも触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "qkv", "description": "Q、K、V を入力から作る参照用の表現として説明している", "points": 3, "keywords": ["Q", "K", "V", "入力", "表現"] },
+        { "id": "weights", "description": "attention weight が各トークンがどこを見たかを表すと説明している", "points": 3, "keywords": ["attention", "weight", "どこを見る", "重み"] },
+        { "id": "context", "description": "重み付き和で文脈表現を作ることに触れている", "points": 2, "keywords": ["重み付き和", "文脈"] },
+        { "id": "causal", "description": "因果マスクで未来を隠し、次トークン予測の意味を守ると説明している", "points": 2, "keywords": ["因果マスク", "未来", "次トークン"] }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "coding",
+      "prompt": "NumPy 配列 `scores` が 2 次元正方行列として与えられているとします。上三角の未来位置を `-np.inf` にして因果マスクをかける短いコードを書いてください。`np.triu` を使う形で十分です。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "mask", "description": "上三角マスクを作っている", "points": 3, "keywords": ["np.triu", "mask", "upper"] },
+        { "id": "future", "description": "対角より上だけを未来位置として選んでいる", "points": 2, "keywords": ["k=1", "未来", "上"] },
+        { "id": "apply", "description": "その位置へ `-np.inf` を入れている", "points": 4, "keywords": ["-np.inf", "scores", "masked"] },
+        { "id": "purpose", "description": "因果マスクとして筋が通っている", "points": 1, "keywords": ["因果", "mask"] }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "short_text",
+      "prompt": "NLP で、トークン化の設計と SFT の損失マスクがなぜ重要かを説明してください。日本語の扱い、語彙化、回答部分だけに loss を掛ける話を含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "tokenization", "description": "トークン化の仕方で系列長や未知語の出方が変わると述べている", "points": 3, "keywords": ["トークン化", "系列長", "未知語"] },
+        { "id": "japanese", "description": "日本語では空白分割が雑になりやすいことに触れている", "points": 2, "keywords": ["日本語", "空白分割"] },
+        { "id": "vocab", "description": "語彙化や ID 変換の必要性に触れている", "points": 2, "keywords": ["語彙", "ID", "変換"] },
+        { "id": "sft_mask", "description": "SFT で回答部分だけに loss を掛ける設計を説明している", "points": 3, "keywords": ["SFT", "回答", "loss", "マスク"] }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "short_text",
+      "prompt": "物体検出で、`xyxy` と `xywh` の表現を往復できること、IoU を見ること、NMS を使うことがなぜ必要かを説明してください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "box_formats", "description": "ボックス表現を統一・変換できる必要性を説明している", "points": 3, "keywords": ["xyxy", "xywh", "変換", "表現"] },
+        { "id": "iou", "description": "IoU が位置の一致度を見る指標だと説明している", "points": 3, "keywords": ["IoU", "位置", "一致", "重なり"] },
+        { "id": "nms", "description": "NMS が重複予測を間引く手続きだと説明している", "points": 2, "keywords": ["NMS", "重複", "間引く"] },
+        { "id": "detection", "description": "検出ではクラスだけでなく場所も必要だと述べている", "points": 2, "keywords": ["検出", "場所", "クラス"] }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "coding",
+      "prompt": "`box_a` と `box_b` が `[x1, y1, x2, y2]` 形式で与えられているとして、IoU を計算する短いPython関数を書いてください。交差領域、和集合、0除算回避まで含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "intersection", "description": "交差領域の左上・右下と幅高さを計算している", "points": 4, "keywords": ["max", "min", "inter", "width", "height"] },
+        { "id": "areas", "description": "各ボックス面積と和集合を計算している", "points": 3, "keywords": ["area", "union"] },
+        { "id": "iou", "description": "IoU を `inter / union` の形で返している", "points": 2, "keywords": ["IoU", "/", "union"] },
+        { "id": "safe", "description": "0除算を避ける工夫がある", "points": 1, "keywords": ["1e-12", "0除算", "safe"] }
+      ]
+    }
+  ]
+}

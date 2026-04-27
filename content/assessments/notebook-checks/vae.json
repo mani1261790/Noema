@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "vae",
+  "title": "VAE（Variational Autoencoder） 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "VAE の基本的な狙いについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "再構成だけでなく、潜在空間から新しいサンプルを生成できるようにしたい。" },
+        { "id": "b", "text": "潜在分布を事前分布へ寄せることで、サンプリングしやすい空間を作る。" },
+        { "id": "c", "text": "普通のオートエンコーダより、生成モデルとしての性格を明示的に持つ。" },
+        { "id": "d", "text": "VAE では、潜在変数を確率分布で扱う必要はなく、再構成誤差だけを最小化すれば同じである。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "VAE では、再構成だけでなく潜在分布を整える KL 項が重要です。",
+      "learningObjective": "VAE の目的"
+    },
+    {
+      "id": "q2",
+      "prompt": "ELBO の 2 項について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "再構成項は、入力をうまく戻す圧力として働く。" },
+        { "id": "b", "text": "KL 項は、`q(z|x)` を事前分布へ寄せる役割を持つ。" },
+        { "id": "c", "text": "再構成項と KL 項の綱引きが、VAE の振る舞いを決める。" },
+        { "id": "d", "text": "ELBO では KL 項は不要で、入れても入れなくても生成しやすさは変わらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "KL 項があるからこそ、潜在空間を生成に使いやすい形へ寄せられます。",
+      "learningObjective": "ELBO の役割"
+    },
+    {
+      "id": "q3",
+      "prompt": "再パラメータ化トリックについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`z = mu + sigma * eps` と書くことで、乱数源と学習したい量を分けられる。" },
+        { "id": "b", "text": "`eps` を別に切り出すことで、`mu` や `sigma` へ勾配を流しやすくする。" },
+        { "id": "c", "text": "乱数を完全に消すのではなく、どこにノイズを置くかを書き換えている。" },
+        { "id": "d", "text": "再パラメータ化では、潜在変数からのサンプリングそのものを禁止して決定論化する。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "再パラメータ化は、サンプリングを消すのではなく勾配が通る形へ書き換える工夫です。",
+      "learningObjective": "再パラメータ化"
+    },
+    {
+      "id": "q4",
+      "prompt": "beta-VAE のトレードオフについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`beta` を大きくすると、KL をより強く罰する方向になる。" },
+        { "id": "b", "text": "潜在空間は整いやすくなる一方、再構成が悪化しやすい。" },
+        { "id": "c", "text": "`beta` を変えると目的関数自体が変わるので、objective 値の横比較には注意がいる。" },
+        { "id": "d", "text": "`beta` を大きくしても、再構成と潜在の整い方の間にトレードオフは生じない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "beta-VAE では、再構成と潜在分布の整い方の綱引きがより強くなります。",
+      "learningObjective": "beta-VAE"
+    },
+    {
+      "id": "q5",
+      "prompt": "posterior collapse について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "デコーダが強すぎたり KL を強くしすぎたりすると、潜在がほとんど使われなくなることがある。" },
+        { "id": "b", "text": "`q(z|x)` がほぼ事前分布になり、入力情報を持たなくなるのが典型である。" },
+        { "id": "c", "text": "KL warm-up や free bits のような対策が使われることがある。" },
+        { "id": "d", "text": "posterior collapse は、潜在変数がよく活用されている理想状態を指す。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "posterior collapse は、潜在を入れたのに潜在情報を使わなくなる失敗です。",
+      "learningObjective": "posterior collapse"
+    }
+  ]
+}

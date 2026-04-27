@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "llm-efficiency",
+  "title": "LLM軽量化（圧縮・最適化・効率化） 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "軽量化の基本姿勢について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "軽量化は、単にモデルを小さくする話ではなく、配備条件を満たす設計として考える。" },
+        { "id": "b", "text": "まず重み、KV cache、レイテンシのどこが詰まっているかを見るのが重要である。" },
+        { "id": "c", "text": "理論値と実測値は一致しないことがあるので、rough estimate の後に実測を見る必要がある。" },
+        { "id": "d", "text": "どの資源がボトルネックかを見なくても、量子化を入れれば常に最適解になる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、資源ボトルネックを先に見ることを中心に据えています。",
+      "learningObjective": "軽量化の考え方"
+    },
+    {
+      "id": "q2",
+      "prompt": "量子化について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "重み量子化は、メモリ帯域や容量を下げる代表的な手法である。" },
+        { "id": "b", "text": "長文推論では、KV cache の量子化も効くことがある。" },
+        { "id": "c", "text": "Activation 量子化は、推論だけでなく学習時メモリにも関わることがある。" },
+        { "id": "d", "text": "量子化では bit 幅だけが変わり、精度やハードウェア依存性は実務上ほぼ問題にならない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、精度劣化や実装差も評価対象に入れています。",
+      "learningObjective": "量子化"
+    },
+    {
+      "id": "q3",
+      "prompt": "Pruning について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "ゼロを増やしただけでは、実行カーネル次第で速度が伸びないことがある。" },
+        { "id": "b", "text": "Structured pruning は、行列サイズそのものを小さくするので実運用速度へつなげやすいことがある。" },
+        { "id": "c", "text": "Unstructured pruning は、柔軟だがハードウェアでそのまま速くなるとは限らない。" },
+        { "id": "d", "text": "pruning では、理論削減率と実測速度が常に一致するので、実測確認は不要である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、理論削減と実測速度を分けて考えています。",
+      "learningObjective": "Pruning"
+    },
+    {
+      "id": "q4",
+      "prompt": "PEFT / QLoRA / 蒸留について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "PEFT は、更新対象を絞ることで学習コストを下げる手法群である。" },
+        { "id": "b", "text": "QLoRA は、量子化したベース重みと LoRA 学習を組み合わせる実務的な選択肢である。" },
+        { "id": "c", "text": "蒸留では、教師分布の情報を使って小さいモデルへ判断傾向を移すことがある。" },
+        { "id": "d", "text": "PEFT も蒸留も、品質評価なしに導入してよく、計測は後回しでよい。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、導入のたびに品質評価と運用計測をセットで回すことを重視しています。",
+      "learningObjective": "PEFT と蒸留"
+    },
+    {
+      "id": "q5",
+      "prompt": "推論最適化と導入順について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "PagedAttention や Continuous Batching は、運用側で GPU の無駄を減らす工夫として読める。" },
+        { "id": "b", "text": "Speculative Decoding の効果は、下書きモデルがどれだけ当たるかに依存する。" },
+        { "id": "c", "text": "まず観測し、その後に量子化や KV cache 設計、バッチング戦略を段階導入するのが安全である。" },
+        { "id": "d", "text": "最初からすべての軽量化手法を同時投入した方が、改善箇所の切り分けやロールバックがしやすい。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、段階導入の方が原因切り分けとロールバックをしやすいとしています。",
+      "learningObjective": "推論最適化と導入順"
+    }
+  ]
+}

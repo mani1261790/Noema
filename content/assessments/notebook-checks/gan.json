@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "gan",
+  "title": "GAN 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "GAN の基本構造について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "生成器 `G` と識別器 `D` を競わせることで、分布差を間接的に埋める。" },
+        { "id": "b", "text": "識別器は、本物か偽物かを見分ける採点器として働く。" },
+        { "id": "c", "text": "生成器は、識別器をだます方向に更新される。" },
+        { "id": "d", "text": "GAN では識別器は不要で、生成器だけの自己採点で学習が安定して進むのが基本である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "GAN の特徴は、識別器を対戦相手として置く点にあります。",
+      "learningObjective": "GAN の基本構造"
+    },
+    {
+      "id": "q2",
+      "prompt": "2 峰分布を使う理由として、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "mode collapse が起きたときに、片方のモードしか出せていない失敗を見つけやすい。" },
+        { "id": "b", "text": "単峰データより、多様性低下の異常が見えやすい。" },
+        { "id": "c", "text": "左右モード比率のような観測も置きやすい。" },
+        { "id": "d", "text": "2 峰分布を使うと、生成器の表現力不足による失敗は原理的に起こらなくなる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、表現力不足だけでも mode collapse が起こりうることを示しています。",
+      "learningObjective": "mode collapse の見え方"
+    },
+    {
+      "id": "q3",
+      "prompt": "minimax と non-saturating の違いについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "non-saturating 版は、初期段階で生成器の勾配を確保しやすい。" },
+        { "id": "b", "text": "識別器がすぐ勝ちすぎると、minimax 版では勾配が弱くなりやすい。" },
+        { "id": "c", "text": "実装では non-saturating 版がよく使われる理由がある。" },
+        { "id": "d", "text": "minimax と non-saturating は、勾配の強さや初期学習のしやすさにまったく差がない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、両者の違いを勾配の強さとして比較しています。",
+      "learningObjective": "GAN 損失の違い"
+    },
+    {
+      "id": "q4",
+      "prompt": "表現力不足と学習不安定性の関係について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "学習が悪いだけでなく、生成器がそもそも分布族を持っていない場合も失敗の原因になる。" },
+        { "id": "b", "text": "線形生成器では、2 峰分布を正確に表せないことがある。" },
+        { "id": "c", "text": "GAN を改善するには、損失だけでなく生成器の表現力も見る必要がある。" },
+        { "id": "d", "text": "GAN の失敗はすべて最適化だけの問題で、モデル族の制約は無関係である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、モデルがその分布を表せるかどうか自体を重要な論点にしています。",
+      "learningObjective": "表現力と失敗"
+    },
+    {
+      "id": "q5",
+      "prompt": "LSGAN や WGAN の位置づけについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "LSGAN は、勾配をなめらかにして学習を安定させたい方向の設計として読める。" },
+        { "id": "b", "text": "WGAN は、Wasserstein 距離に基づく評価で不安定さを減らしたい発想がある。" },
+        { "id": "c", "text": "どちらも、GAN の失敗モードに対応するための設計として理解するとよい。" },
+        { "id": "d", "text": "LSGAN や WGAN は名前だけが違う同一手法で、何を直したいかの違いはない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、派生損失を『どの失敗を減らしたいか』という観点で整理しています。",
+      "learningObjective": "GAN 派生手法の狙い"
+    }
+  ]
+}

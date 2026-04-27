@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "deep-rl",
+  "title": "深層強化学習 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "深層強化学習の出発点について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "表形式 Q 学習は、状態数が少ないうちは明快だが、大きな観測では持ちきれなくなりやすい。" },
+        { "id": "b", "text": "深層強化学習は、Q テーブルをニューラルネットワークへ置き換える発想から始まる。" },
+        { "id": "c", "text": "変わるのは `Q(s,a)` の持ち方であり、ベルマン更新の骨格は残る。" },
+        { "id": "d", "text": "深層化すると、ベルマン更新そのものが不要になり、reward の和だけを直接 memorization するので target は使わない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、表がネットへ置き換わっても target の骨格は `r + \\gamma \\max q_next` のままだと説明しています。",
+      "learningObjective": "deep RL の出発点"
+    },
+    {
+      "id": "q2",
+      "prompt": "このノートの target について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "このノートでは、`target = r + \\gamma \\max q_next` をネットワーク近似に乗せる最小骨格を見る。" },
+        { "id": "b", "text": "終端遷移では bootstrap を切る条件が重要になる。" },
+        { "id": "c", "text": "one-hot 状態を入力して、各行動の Q 値を出す最小 MLP を使っている。" },
+        { "id": "d", "text": "終端かどうかに関係なく、常に `\\gamma \\max q_next` を足し続けるのが唯一正しい target である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、終端遷移で bootstrap を切る条件を明示的に見ています。",
+      "learningObjective": "target と終端"
+    },
+    {
+      "id": "q3",
+      "prompt": "一般化について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "ネットワーク近似では、一つの更新が近い状態へ波及する一般化が起こりうる。" },
+        { "id": "b", "text": "この一般化は、表形式にはない利点にも不安定さにもつながる。" },
+        { "id": "c", "text": "このノートでは、更新が他状態へ波及する入口を見る。" },
+        { "id": "d", "text": "ネットワーク近似にすると、更新は常に1つの状態にだけ完全に局所化され、他状態への波及は絶対に起こらない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "一般化が起こることが、ネットワーク近似へ置き換える大きな差分です。",
+      "learningObjective": "一般化"
+    },
+    {
+      "id": "q4",
+      "prompt": "このノートでまだ入れていないものについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "このノートは DQN 系の完成形ではなく、最小骨格に絞っている。" },
+        { "id": "b", "text": "target network や replay buffer は、まだ入れていないと明示している。" },
+        { "id": "c", "text": "実際の DQN では、不安定さに対処するためにそうした部品が必要になることがある。" },
+        { "id": "d", "text": "このノートでは、最初から target network と replay buffer の全実装が主役で、最小 MLP や one-hot 状態の話は出てこない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートはむしろ、その前段階として最小の neural approximation を見る構成です。",
+      "learningObjective": "最小骨格の位置づけ"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートの読み方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "式よりも、表形式から関数近似へ持ち方が変わる差分を見るのが重要である。" },
+        { "id": "b", "text": "ネットに置き換えても、何が残り、何が新しく難しくなるかを切り分けて読む。" },
+        { "id": "c", "text": "終端遷移と通常遷移がどこで変わるかも見どころに入る。" },
+        { "id": "d", "text": "deep RL を読むには、表形式 Q 学習との連続性は考えず、まったく別物として覚えるべきだとしている。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートは、表形式 Q 学習から neural approximation へ渡る橋として書かれています。",
+      "learningObjective": "読み方"
+    }
+  ]
+}

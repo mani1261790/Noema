@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "tool-use-rag",
+  "title": "Tool UseとRAG 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "RAG と Tool Use の違いについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "RAG は文書を検索してから回答する方式である。" },
+        { "id": "b", "text": "Tool Use は、計算や外部操作を明示的なツール呼び出しとして扱う方式である。" },
+        { "id": "c", "text": "どちらも、LLM 単体の記憶だけで答えをひねり出さないための接続方法として読める。" },
+        { "id": "d", "text": "RAG と Tool Use は本質的に同一で、検索・計算・操作の区別は不要である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、RAG は文書取得、Tool Use は操作や計算の委譲として切り分けています。",
+      "learningObjective": "RAG と Tool Use の違い"
+    },
+    {
+      "id": "q2",
+      "prompt": "RAG パイプラインについて、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "長い文書を検索単位へ分解するチャンク化が入口になる。" },
+        { "id": "b", "text": "retrieve した候補を、そのまま最終回答へ使う前に rerank する設計には意味がある。" },
+        { "id": "c", "text": "引用付き回答では、文章の自然さだけでなく根拠チャンクとの対応も重要である。" },
+        { "id": "d", "text": "一度 retrieve で拾えた候補は常に十分なので、rerank や根拠確認は不要である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、候補取得と最終回答用の候補整理を分けています。",
+      "learningObjective": "RAG の基本パイプライン"
+    },
+    {
+      "id": "q3",
+      "prompt": "評価指標について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "`hit@k` は、上位 k 件のどこかに正解文書が入る割合である。" },
+        { "id": "b", "text": "`MRR` は、正解順位の逆数平均を見る指標である。" },
+        { "id": "c", "text": "retrieval 指標と end-to-end 成功率を分けると、失敗箇所を切り分けやすい。" },
+        { "id": "d", "text": "routing accuracy は、回答文の流暢さだけを測る指標であり、ツール選択の成否とは関係ない。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "routing accuracy は、適切なツールを選べたかを見る指標です。",
+      "learningObjective": "RAG / Tool Use の評価"
+    },
+    {
+      "id": "q4",
+      "prompt": "Tool Use の設計について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "数値問題は、検索より計算ツールへ投げた方が確実な場面がある。" },
+        { "id": "b", "text": "HTML 断片からの情報抽出は、外部状態を読む最小例として使える。" },
+        { "id": "c", "text": "plan や tool_output を残すと、監査しやすい推論ログを作りやすい。" },
+        { "id": "d", "text": "Tool Use を使うと、ルーティング誤りやツール側失敗は原理的に起こらなくなる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、ルーティング誤りやツール失敗を前提に評価と監視が必要だと述べています。",
+      "learningObjective": "Tool Use の設計"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートのまとめとして、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "RAG と Tool Use は、LLM の外にある情報や能力を接続する手段として共通骨格を持つ。" },
+        { "id": "b", "text": "どこで検索し、どこで行動するかを分岐するオーケストレータが重要になる。" },
+        { "id": "c", "text": "根拠付き回答、外部操作、監査ログを同じパイプラインで扱う発想がある。" },
+        { "id": "d", "text": "RAG と Tool Use を組み合わせれば、以後の評価指標や監視設計は不要になる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、組み合わせた後も継続監視が前提です。",
+      "learningObjective": "RAG と Tool Use の統合"
+    }
+  ]
+}

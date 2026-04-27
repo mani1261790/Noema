@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "notebookId": "hallucination-rlhf",
+  "title": "ハルシネーションとRLHF 確認問題",
+  "passScore": 5,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "ハルシネーションの捉え方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "文として自然でも、根拠のない内容を生成してしまうことが問題になる。" },
+        { "id": "b", "text": "流暢さと grounded であることは同じではない。" },
+        { "id": "c", "text": "まず何を悪い出力とみなすかを測る工程が重要である。" },
+        { "id": "d", "text": "回答が流暢であれば、根拠との対応は見なくてよい。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、流暢さと根拠性を分けて扱っています。",
+      "learningObjective": "ハルシネーションの基本"
+    },
+    {
+      "id": "q2",
+      "prompt": "grounding score のような軽量 proxy について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "出発点として、根拠に支えられているかをざっくり見る用途には価値がある。" },
+        { "id": "b", "text": "語の重なりだけでは、言い換えや同義表現に弱い。" },
+        { "id": "c", "text": "proxy が高いことと、本当に事実に grounded していることは同じではない。" },
+        { "id": "d", "text": "proxy を一度置けば、以後は人手監査や別の安全制御は一切不要になる。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、軽量 proxy を出発点としつつ、それだけで真実判定は済まないと述べています。",
+      "learningObjective": "grounding proxy"
+    },
+    {
+      "id": "q3",
+      "prompt": "RLHF の本質について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "人間の選好や安全基準を、事前学習 loss の外側から持ち込む考え方がある。" },
+        { "id": "b", "text": "どの応答が望ましいかという選好データを作り、更新方向へ使う。" },
+        { "id": "c", "text": "選好学習は、事前学習だけでは表しづらい望ましさを補う役割を持つ。" },
+        { "id": "d", "text": "RLHF では選好比較を使わず、常に正誤ラベルだけで十分である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、選好データと報酬の考え方を RLHF の中心に置いています。",
+      "learningObjective": "RLHF の役割"
+    },
+    {
+      "id": "q4",
+      "prompt": "DPO と GRPO の見方について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "DPO は、chosen / rejected の差分を使って方策を直接押す考え方として読める。" },
+        { "id": "b", "text": "GRPO 系では、同一プロンプトの複数候補を相対比較する発想が入る。" },
+        { "id": "c", "text": "どちらも、何を比較して更新しているかを見ると理解しやすい。" },
+        { "id": "d", "text": "DPO と GRPO は、どちらも根拠性や安全性とは無関係で、流暢さだけを最適化する手法である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートでは、選好や安全性を反映する更新の一部として DPO / GRPO を扱っています。",
+      "learningObjective": "DPO / GRPO の違い"
+    },
+    {
+      "id": "q5",
+      "prompt": "このノートでの最終的な設計観について、間違っているものを1つ選んでください。",
+      "choices": [
+        { "id": "a", "text": "事前学習や SFT による基礎品質向上、RLHF、推論時ガードレールを3層で考えている。" },
+        { "id": "b", "text": "RLHF だけでは配備品質は閉じず、推論時の防御も別に必要とされる。" },
+        { "id": "c", "text": "計測、改善、安全制御をつないで見ることが安定運用につながる。" },
+        { "id": "d", "text": "一度 RLHF を回せば、以後の監視や rails は不要になるという立場である。" }
+      ],
+      "correctChoiceId": "d",
+      "explanation": "このノートは、学習後も配備時の安全制御と監視が必要だという前提で書かれています。",
+      "learningObjective": "運用設計の全体像"
+    }
+  ]
+}

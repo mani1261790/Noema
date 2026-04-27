@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "chapterId": "deep-generative-models",
+  "title": "深層生成モデル 最終問題",
+  "passRatio": 0.9,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "short_text",
+      "prompt": "分類モデルと生成モデルの違いを説明してください。分布そのものを学ぶこと、頻出/稀なパターン、多様性の必要性に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "distribution", "description": "生成モデルがデータ分布そのものを近似すると説明している", "points": 4, "keywords": ["分布", "生成モデル", "分類"] },
+        { "id": "frequency", "description": "頻出パターンと稀なパターンの違いに触れている", "points": 3, "keywords": ["頻出", "稀", "パターン"] },
+        { "id": "diversity", "description": "多様性や新規サンプル生成の必要性に触れている", "points": 3, "keywords": ["多様性", "新しいサンプル", "生成"] }
+      ]
+    },
+    {
+      "id": "q2",
+      "type": "coding",
+      "prompt": "混合比 `pi`、ベルヌーイ成分の 1 の確率 `p0`, `p1`、観測 `x` が 0 か 1 として与えられているとします。2 成分混合ベルヌーイで、成分 0 の責任率 `gamma0` を計算する短い Python コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "likelihoods", "description": "各成分での観測尤度を計算している", "points": 3, "keywords": ["p0", "p1", "x", "1 - p"] },
+        { "id": "weighted", "description": "混合比を掛けた重み付き尤度を作っている", "points": 3, "keywords": ["pi", "1 - pi", "weighted"] },
+        { "id": "normalize", "description": "成分 0 の責任率を全体で割って正規化している", "points": 3, "keywords": ["gamma0", "/", "normalize"] },
+        { "id": "consistency", "description": "EM の E-step として筋が通っている", "points": 1, "keywords": ["E-step", "responsibility"] }
+      ]
+    },
+    {
+      "id": "q3",
+      "type": "short_text",
+      "prompt": "VAE の ELBO を、再構成項と KL 項の綱引きとして説明してください。なぜ普通のオートエンコーダより生成しやすい潜在空間を作れるのかも書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "recon", "description": "再構成項の役割を説明している", "points": 3, "keywords": ["再構成", "入力に忠実"] },
+        { "id": "kl", "description": "KL 項が潜在分布を事前分布へ寄せる役割を説明している", "points": 4, "keywords": ["KL", "事前分布", "標準正規"] },
+        { "id": "sampling", "description": "その結果サンプリングしやすい潜在空間になることに触れている", "points": 3, "keywords": ["サンプリング", "潜在空間", "生成"] }
+      ]
+    },
+    {
+      "id": "q4",
+      "type": "coding",
+      "prompt": "`mu`, `logvar`, `eps` が与えられているとして、VAE の再パラメータ化 `z = mu + sigma * eps` を計算する短い Python コードを書いてください。`sigma = exp(0.5 * logvar)` を使ってください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "sigma", "description": "`sigma = exp(0.5 * logvar)` を計算している", "points": 4, "keywords": ["exp", "0.5", "logvar", "sigma"] },
+        { "id": "z", "description": "`z = mu + sigma * eps` を計算している", "points": 4, "keywords": ["mu", "sigma", "eps", "z ="] },
+        { "id": "purpose", "description": "再パラメータ化の最小コードとして筋が通っている", "points": 2, "keywords": ["reparameterization", "VAE"] }
+      ]
+    },
+    {
+      "id": "q5",
+      "type": "short_text",
+      "prompt": "GAN で mode collapse が起こる理由を説明してください。識別器との対戦構造、生成器の表現力不足、non-saturating 損失の意味に触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "adversarial", "description": "識別器との対戦構造に触れている", "points": 2, "keywords": ["識別器", "生成器", "対戦"] },
+        { "id": "collapse", "description": "一部モードしか出せなくなる collapse を説明している", "points": 3, "keywords": ["mode collapse", "一部", "モード"] },
+        { "id": "capacity", "description": "表現力不足も原因になりうると述べている", "points": 2, "keywords": ["表現力", "分布族", "不足"] },
+        { "id": "ns", "description": "non-saturating 損失が勾配確保に効くことに触れている", "points": 3, "keywords": ["non-saturating", "勾配", "初期"] }
+      ]
+    },
+    {
+      "id": "q6",
+      "type": "coding",
+      "prompt": "2 次元の affine coupling で、`y1 = z1`, `y2 = z2 * exp(s) + t` とします。`z1`, `z2`, `s`, `t` が与えられているとして、`y1`, `y2`, `logdet` を計算する短い Python コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "forward", "description": "`y1 = z1`, `y2 = z2 * exp(s) + t` を計算している", "points": 5, "keywords": ["y1 = z1", "exp(s)", "y2"] },
+        { "id": "logdet", "description": "log-det を `s` として扱っている", "points": 3, "keywords": ["logdet", "s"] },
+        { "id": "consistency", "description": "affine coupling の前向き計算として筋が通っている", "points": 2, "keywords": ["coupling", "flow"] }
+      ]
+    },
+    {
+      "id": "q7",
+      "type": "short_text",
+      "prompt": "EBM で負例が必要な理由を説明してください。分配関数の難しさ、SGLD、Replay Buffer の役割も含めてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "negative", "description": "データを下げるだけでなく負例を上げる必要を説明している", "points": 3, "keywords": ["負例", "データ", "上げる", "下げる"] },
+        { "id": "partition", "description": "分配関数の扱いづらさに触れている", "points": 2, "keywords": ["分配関数", "Z", "難しい"] },
+        { "id": "sgld", "description": "SGLD で負例を作る発想を説明している", "points": 3, "keywords": ["SGLD", "負例", "エネルギー勾配"] },
+        { "id": "buffer", "description": "Replay Buffer の安定化効果に触れている", "points": 2, "keywords": ["Replay Buffer", "安定化", "再利用"] }
+      ]
+    },
+    {
+      "id": "q8",
+      "type": "coding",
+      "prompt": "エネルギー関数 `E(x)` の勾配値 `dE_dx`、現在位置 `x`、`step_size`、`noise_std`、標準正規ノイズ `eps` が与えられているとして、SGLD の 1 ステップ更新 `x_next` を計算する短い Python コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "drift", "description": "`- step_size * dE_dx` のドリフト項を使っている", "points": 4, "keywords": ["step_size", "dE_dx", "-"] },
+        { "id": "noise", "description": "`noise_std * eps` のノイズ項を足している", "points": 4, "keywords": ["noise_std", "eps", "+"] },
+        { "id": "result", "description": "`x_next` を現在位置から更新している", "points": 2, "keywords": ["x_next", "x +"] }
+      ]
+    },
+    {
+      "id": "q9",
+      "type": "short_text",
+      "prompt": "スコアベースモデル / 拡散モデルと Flow Matching の共通点と違いを説明してください。『戻る向き』と『速度場』、time conditioning、ステップ数や path 設計のトレードオフに触れてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "common", "description": "どちらも連続的に分布へ戻す/運ぶ方向情報を学ぶと説明している", "points": 3, "keywords": ["方向", "戻る", "連続"] },
+        { "id": "difference", "description": "拡散はスコア/ノイズ予測、Flow Matching は速度場回帰という違いを説明している", "points": 3, "keywords": ["スコア", "ノイズ予測", "速度場", "Flow Matching"] },
+        { "id": "time", "description": "time conditioning の必要性に触れている", "points": 2, "keywords": ["time", "時刻", "conditioning"] },
+        { "id": "tradeoff", "description": "ステップ数や path 設計のトレードオフに触れている", "points": 2, "keywords": ["ステップ数", "path", "トレードオフ"] }
+      ]
+    },
+    {
+      "id": "q10",
+      "type": "coding",
+      "prompt": "`x0`, `x1`, `t` が与えられているとして、線形 path `x_t = (1 - t) * x0 + t * x1` と、その教師速度 `u_t = x1 - x0` を計算する短い Python コードを書いてください。",
+      "maxPoints": 10,
+      "rubricPoints": [
+        { "id": "path", "description": "線形 path `x_t = (1 - t) * x0 + t * x1` を書いている", "points": 5, "keywords": ["1 - t", "x0", "t * x1", "x_t"] },
+        { "id": "velocity", "description": "教師速度 `u_t = x1 - x0` を計算している", "points": 4, "keywords": ["u_t", "x1 - x0"] },
+        { "id": "consistency", "description": "Flow Matching の最小例として筋が通っている", "points": 1, "keywords": ["path", "velocity"] }
+      ]
+    }
+  ]
+}

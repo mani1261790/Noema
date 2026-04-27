@@ -4,11 +4,16 @@ import {
   assertAdminNotebookCreatable,
   assertAdminContentWritable,
   completeChat,
+  createChapterFinalAssessmentAttempt,
   createNotebookColabSession,
   deleteAdminNotebook,
   downloadNotebookIpynb,
+  eventBodyTooLarge,
   getAdminNotebookDetail,
+  getChapterFinalAssessment,
+  getChapterFinalAssessmentAttempt,
   getLearningProgress,
+  getNotebookAssessment,
   getAuthUser,
   getQuestionAnswer,
   isAdmin,
@@ -25,6 +30,7 @@ import {
   parseAdminPatchInput,
   parseAskQuestionInput,
   parseChatCompleteInput,
+  parseChapterLearningProgressPutInput,
   parseLearningProgressPutInput,
   parseNotebookColabSessionInput,
   parsePythonRuntimeInput,
@@ -34,9 +40,12 @@ import {
   proposeAdminNotebookPatch,
   previewAdminNotebook,
   patchAdminAnswer,
+  putChapterLearningProgress,
   preloadPythonRuntime,
   putLearningProgress,
   runPythonRuntime,
+  submitChapterFinalAssessmentAttempt,
+  submitNotebookAssessmentAttempt,
   upsertNotebookFromEvent
 } from "./runtime";
 
@@ -76,6 +85,37 @@ function publicNotebookIdFromEvent(event: APIGatewayProxyEventV2): string {
   return "";
 }
 
+function assessmentChapterIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.chapterId?.trim();
+  if (fromParams) return fromParams;
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  if (segments.length >= 4 && segments[0] === "api" && segments[1] === "assessments" && segments[2] === "chapters") {
+    return decodeURIComponent(segments[3]);
+  }
+  return "";
+}
+
+function assessmentNotebookIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.notebookId?.trim();
+  if (fromParams) return fromParams;
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  if (segments.length >= 4 && segments[0] === "api" && segments[1] === "assessments" && segments[2] === "notebooks") {
+    return decodeURIComponent(segments[3]);
+  }
+  return "";
+}
+
+function assessmentAttemptIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.attemptId?.trim();
+  if (fromParams) return fromParams;
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  const attemptsIndex = segments.indexOf("attempts");
+  if (attemptsIndex >= 0 && segments[attemptsIndex + 1]) {
+    return decodeURIComponent(segments[attemptsIndex + 1]);
+  }
+  return "";
+}
+
 function learningProgressNotebookIdFromEvent(event: APIGatewayProxyEventV2): string {
   const fromParams = event.pathParameters?.notebookId?.trim();
   if (fromParams) return fromParams;
@@ -83,6 +123,18 @@ function learningProgressNotebookIdFromEvent(event: APIGatewayProxyEventV2): str
   const segments = (event.rawPath || "").split("/").filter(Boolean);
   if (segments.length >= 3 && segments[0] === "api" && segments[1] === "learning-progress") {
     return decodeURIComponent(segments[2]);
+  }
+
+  return "";
+}
+
+function learningProgressChapterIdFromEvent(event: APIGatewayProxyEventV2): string {
+  const fromParams = event.pathParameters?.chapterId?.trim();
+  if (fromParams) return fromParams;
+
+  const segments = (event.rawPath || "").split("/").filter(Boolean);
+  if (segments.length >= 4 && segments[0] === "api" && segments[1] === "learning-progress" && segments[2] === "chapters") {
+    return decodeURIComponent(segments[3]);
   }
 
   return "";
@@ -96,6 +148,17 @@ function routeKey(event: APIGatewayProxyEventV2): string {
   }
 
   return `${event.requestContext.http.method} ${event.rawPath}`;
+}
+
+function parseJsonBody(event: APIGatewayProxyEventV2): Record<string, any> {
+  if (!event.body) return {};
+  try {
+    const raw = event.isBase64Encoded ? Buffer.from(event.body, "base64").toString("utf8") : event.body;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -131,6 +194,28 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     return result;
   }
 
+  if (/^GET \/api\/assessments\/notebooks\/[^/]+$/.test(route)) {
+    const notebookId = assessmentNotebookIdFromEvent(event);
+    const result = await getNotebookAssessment(notebookId);
+    if (!result) return json(404, { error: "Assessment not found" });
+    return json(200, result);
+  }
+
+  if (/^POST \/api\/assessments\/notebooks\/[^/]+\/attempts$/.test(route)) {
+    const notebookId = assessmentNotebookIdFromEvent(event);
+    const payload = parseJsonBody(event);
+    const result = await submitNotebookAssessmentAttempt(notebookId, payload.answers || {});
+    if (!result) return json(404, { error: "Assessment not found" });
+    return json(200, result);
+  }
+
+  if (/^GET \/api\/assessments\/chapters\/[^/]+\/final$/.test(route)) {
+    const chapterId = assessmentChapterIdFromEvent(event);
+    const result = await getChapterFinalAssessment(chapterId);
+    if (!result) return json(404, { error: "Assessment not found" });
+    return json(200, result);
+  }
+
   const user = getAuthUser(event);
   if (!user) {
     return json(401, { error: "Unauthorized" });
@@ -146,6 +231,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   if (route === "POST /api/questions") {
+    if (eventBodyTooLarge(event, 12000)) {
+      return json(413, { error: "Request body is too large." });
+    }
     const payload = parseAskQuestionInput(event);
     if (!payload) {
       return json(400, { error: "Invalid request", details: "notebookId/sectionId/questionText are required" });
@@ -167,9 +255,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   if (route === "POST /api/chat/complete") {
+    if (eventBodyTooLarge(event, 12000)) {
+      return json(413, { error: "Request body is too large." });
+    }
     const payload = parseChatCompleteInput(event);
     if (!payload) {
-      return json(400, { error: "Invalid request", details: "notebookId/questionText/provider are required" });
+      return json(400, { error: "Invalid request", details: "notebookId/questionText/provider are required and questionText must be within the allowed limit" });
     }
 
     try {
@@ -187,6 +278,39 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
               : 500;
       return json(statusCode, { error: message });
     }
+  }
+
+  if (/^POST \/api\/assessments\/chapters\/[^/]+\/final\/attempts$/.test(route)) {
+    if (eventBodyTooLarge(event, 25000)) {
+      return json(413, { error: "Request body is too large." });
+    }
+    const chapterId = assessmentChapterIdFromEvent(event);
+    const payload = parseJsonBody(event);
+    try {
+      const result = await createChapterFinalAssessmentAttempt(user, chapterId, payload.answers || {});
+      if (!result) return json(404, { error: "Assessment not found" });
+      return json(202, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const statusCode =
+        message.includes("exceeds 2000 characters") || message.includes("must be a string") || message === "Invalid answers payload."
+          ? 400
+          :
+        message === "BEDROCK_REGION is not configured." ||
+        message.includes("Bedrock model is not configured") ||
+        message === "QA_QUEUE_URL is not configured."
+          ? 500
+          : 500;
+      return json(statusCode, { error: message });
+    }
+  }
+
+  if (/^GET \/api\/assessments\/chapters\/[^/]+\/final\/attempts\/[^/]+$/.test(route)) {
+    const attemptId = assessmentAttemptIdFromEvent(event);
+    const result = await getChapterFinalAssessmentAttempt(user, attemptId);
+    if (result.kind === "not_found") return json(404, { error: "Attempt not found" });
+    if (result.kind === "forbidden") return json(403, { error: "Forbidden" });
+    return json(200, result.attempt);
   }
 
   if (route === "GET /api/questions/history") {
@@ -228,6 +352,26 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     try {
       const result = await putLearningProgress(user, notebookId, payload);
+      return json(200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
+  }
+
+  if (/^PUT \/api\/learning-progress\/chapters\/[^/]+$/.test(route)) {
+    const chapterId = learningProgressChapterIdFromEvent(event);
+    if (!chapterId) {
+      return json(400, { error: "chapterId is required" });
+    }
+
+    const payload = parseChapterLearningProgressPutInput(event);
+    if (!payload) {
+      return json(400, { error: "Invalid request", details: "final progress fields are invalid" });
+    }
+
+    try {
+      const result = await putChapterLearningProgress(user, chapterId, payload);
       return json(200, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
