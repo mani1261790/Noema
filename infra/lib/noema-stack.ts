@@ -519,6 +519,24 @@ export class NoemaStack extends Stack {
     });
 
     api.addRoutes({
+      path: "/api/assessments/notebooks/{notebookId}",
+      methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration
+    });
+
+    api.addRoutes({
+      path: "/api/assessments/notebooks/{notebookId}/attempts",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: apiIntegration
+    });
+
+    api.addRoutes({
+      path: "/api/assessments/chapters/{chapterId}/final",
+      methods: [apigwv2.HttpMethod.GET],
+      integration: apiIntegration
+    });
+
+    api.addRoutes({
       path: "/api/questions",
       methods: [apigwv2.HttpMethod.POST],
       integration: apiIntegration,
