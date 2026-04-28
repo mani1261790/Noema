@@ -2,7 +2,7 @@
 
 ## Daily checks
 
-1. Confirm CI passed for latest `main` commit.
+1. Confirm CI passed for latest `develop` and `main` commits.
 2. Check CloudWatch error rate for API and worker Lambdas.
 3. Check SQS backlog (`ApproximateNumberOfMessagesVisible`).
 4. Check DynamoDB throttling metrics.
@@ -12,10 +12,12 @@
 
 ## Deployment checklist
 
-1. Merge to `main` only after CI green.
-2. Run infra deploy workflow (if stack changes).
-3. Run app deploy workflow.
-4. Validate:
+1. Merge to `develop` first after CI green.
+2. Validate the `development` environment.
+3. Promote to `main` only after the dev environment is confirmed healthy.
+4. Run infra deploy workflow only when stack changes.
+5. Run app deploy workflow if auto deploy was skipped or needs rerun.
+6. Validate:
    - login
    - notebook page render
    - question submit / answer fetch
@@ -24,14 +26,15 @@
 ### Infra workflow inputs (`Deploy Infra`)
 
 - `aws_region`: usually `ap-northeast-3`
-- `stack_stage`: usually `prod`
+- `target_environment`: `development` or `production`
+- `stack_stage`: usually `dev` for development, `prod` for production
 - `frontend_url`: public frontend URL (for Cognito callback/logout), example `https://noema.example.com`
 - `alarm_email` (optional): email for SNS alarm notifications
 - `cognito_domain_prefix` (optional): custom Cognito domain prefix
 - `create_github_deploy_role` (recommended): `true` when using `noema-<stage>-github-deploy`
 - `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
-- `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/main` or `refs/heads/*`
-- `github_environment_name` (optional): GitHub Environment trust name, default `production`
+- `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/develop` or `refs/heads/main`
+- `github_environment_name` (optional): GitHub Environment trust name, usually `development` or `production`
 - `qa_model_provider` (optional): `auto` / `openai` / `bedrock` / `mock`
 - `bedrock_region` (optional): `us-east-1` / `us-west-2` / `ap-northeast-1` / `ap-northeast-3`
 - `bedrock_model_small` (required when `qa_model_provider=bedrock`): `amazon.nova-micro-v1:0` or `amazon.nova-lite-v1:0`
@@ -47,20 +50,27 @@
 
 ### Static asset deploy (`Deploy Static Assets`)
 
-- Normal operation: runs automatically on `main` push when app/content files change.
+- Normal operation:
+  - `development` is deployed manually until the environment bootstrap is finished
+  - `main` push -> `production`
 - Manual fallback: run `Deploy Static Assets` workflow with inputs below.
 - Manual inputs:
+  - `target_environment`
   - `aws_region`
   - `site_bucket`
   - `notebook_bucket`
   - `notebooks_table`
   - `cloudfront_distribution_id`
-- Required repository variables for auto deploy:
+- Required GitHub Environment variables for auto deploy:
   - `NOEMA_AWS_REGION` (usually `ap-northeast-3`)
   - `NOEMA_SITE_BUCKET` (stack output `SiteBucketName`)
   - `NOEMA_NOTEBOOK_BUCKET` (stack output `NotebookBucketName`)
   - `NOEMA_NOTEBOOKS_TABLE` (stack output `NotebooksTableName`)
   - `NOEMA_CLOUDFRONT_DISTRIBUTION_ID` (stack output `CloudFrontDistributionId`)
+  - `NOEMA_STACK_STAGE` (`dev` or `prod`)
+  - `NOEMA_FRONTEND_URL`
+  - `NOEMA_GITHUB_REF_PATTERN`
+  - `NOEMA_GITHUB_ENVIRONMENT_NAME`
 
 ## Incident: Q&A delayed
 

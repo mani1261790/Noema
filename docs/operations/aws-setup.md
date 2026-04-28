@@ -1,6 +1,6 @@
 # AWS Setup (Owner Steps)
 
-This guide is for the repository owner who will run production infra on AWS.
+This guide is for the repository owner who will run Noema infra on AWS.
 
 ## 0. Current status (your environment)
 
@@ -88,6 +88,11 @@ If it was already bootstrapped, this is safe to re-run.
 
 ## 5. Deploy infrastructure (recommended settings)
 
+Recommended stages:
+
+- `dev` -> GitHub Environment `development`, branch `develop`
+- `prod` -> GitHub Environment `production`, branch `main`
+
 ```bash
 cd infra
 npm run deploy -- --require-approval never \
@@ -108,6 +113,25 @@ Notes:
 - `alarmEmail` is optional but strongly recommended.
 - When GitHub Actions uses stack-managed deploy role (`noema-<stage>-github-deploy`), keep `createGithubDeployRole=true` in infra deploy to avoid role deletion.
 - Keep `githubEnvironmentName` aligned with the workflow environment name (default: `production`).
+
+### 5.0 Create a separate development stack
+
+Deploy a second stack for development before enabling auto deploy from `develop`:
+
+```bash
+cd infra
+npm run deploy -- --require-approval never \
+  -c stage=dev \
+  -c frontendUrl=https://your-dev-frontend-domain \
+  -c cognitoDomainPrefix=noema-dev-auth \
+  -c createGithubDeployRole=true \
+  -c githubRepo=mani1261790/Noema \
+  -c githubRefPattern=refs/heads/develop \
+  -c githubEnvironmentName=development
+cd ..
+```
+
+This creates a separate `noema-dev` stack and matching deploy role.
 
 ## 5.1 AWS-only QA (Bedrock, recommended)
 
@@ -175,41 +199,62 @@ Important outputs:
 - `HttpApiUrl`
 - `GitHubDeployRoleArn` (only if OIDC role creation was enabled)
 
+Repeat the same command for `noema-dev` when wiring the development environment.
+
 ## 7. Configure GitHub Actions secret/variables
 
-Repository secret required:
+GitHub Actions secret required in each GitHub Environment:
 
-- `AWS_DEPLOY_ROLE_ARN` = output `GitHubDeployRoleArn`
+- `AWS_DEPLOY_ROLE_ARN`
+
+Recommended setup:
+
+- GitHub Environment `production`: set `AWS_DEPLOY_ROLE_ARN` to `noema-prod` output `GitHubDeployRoleArn`
+- GitHub Environment `development`: set `AWS_DEPLOY_ROLE_ARN` to `noema-dev` output `GitHubDeployRoleArn`
 
 GitHub UI path:
 
 - `Noema` repo -> `Settings` -> `Secrets and variables` -> `Actions`
 
-Repository variables required for automatic static deploy:
+Environment variables required for automatic deploy in each GitHub Environment:
 
 - `NOEMA_AWS_REGION` = `ap-northeast-3`
 - `NOEMA_SITE_BUCKET` = output `SiteBucketName`
 - `NOEMA_NOTEBOOK_BUCKET` = output `NotebookBucketName`
 - `NOEMA_NOTEBOOKS_TABLE` = output `NotebooksTableName`
 - `NOEMA_CLOUDFRONT_DISTRIBUTION_ID` = output `CloudFrontDistributionId`
+- `NOEMA_STACK_STAGE` = `dev` or `prod`
+- `NOEMA_FRONTEND_URL` = environment-specific frontend origin
+- `NOEMA_GITHUB_REF_PATTERN` = `refs/heads/develop` for development, `refs/heads/main` for production
+- `NOEMA_GITHUB_ENVIRONMENT_NAME` = `development` or `production`
 
 Optional but recommended:
 
-- Create GitHub Environment `production` and require reviewer approval for deploy workflows.
+- Create GitHub Environments `development` and `production`.
+- Require reviewer approval only on `production`.
 
 ## 8. Deploy static assets from GitHub Actions
 
-After step 7, static assets are deployed automatically on `main` push when app/content files change.
+After step 7:
+
+- use manual workflow dispatch for `development` until the dev environment is fully wired
+- pushes to `main` deploy to the `production` environment
 
 Manual fallback: run workflow `Deploy Static Assets` with:
 
+- `target_environment`: `development` or `production`
 - `aws_region`: `ap-northeast-3`
 - `site_bucket`: `SiteBucketName`
 - `notebook_bucket`: `NotebookBucketName`
 - `notebooks_table`: stack output table name (usually `noema-prod-notebooks`)
 - `cloudfront_distribution_id`: `CloudFrontDistributionId`
 
-Run workflow `Deploy Infra` with `run_cdk_bootstrap=false` for normal deploys.
+Run workflow `Deploy Infra` with:
+
+- `target_environment=development` when updating `noema-dev`
+- `target_environment=production` when updating `noema-prod`
+
+Keep `run_cdk_bootstrap=false` for normal deploys.
 Set `run_cdk_bootstrap=true` only when CDK bootstrap is not initialized yet.
 
 ## 9. Smoke checks after deploy

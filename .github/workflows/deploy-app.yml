@@ -15,6 +15,10 @@ on:
       - ".github/workflows/deploy-app.yml"
   workflow_dispatch:
     inputs:
+      target_environment:
+        description: GitHub Environment to deploy (`development` or `production`)
+        required: true
+        default: production
       aws_region:
         description: AWS region
         required: true
@@ -37,14 +41,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-static-assets-prod
+  group: deploy-static-assets-${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'develop' && 'development' || 'production') }}
   cancel-in-progress: true
 
 jobs:
   deploy-static-assets:
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'develop' && 'development' || 'production') }}
     env:
+      DEPLOY_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'develop' && 'development' || 'production') }}
       AWS_REGION: ${{ inputs.aws_region || vars.NOEMA_AWS_REGION || 'ap-northeast-3' }}
       SITE_BUCKET: ${{ inputs.site_bucket || vars.NOEMA_SITE_BUCKET }}
       NOTEBOOK_BUCKET: ${{ inputs.notebook_bucket || vars.NOEMA_NOTEBOOK_BUCKET }}
