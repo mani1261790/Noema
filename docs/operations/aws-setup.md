@@ -237,7 +237,7 @@ Optional but recommended:
 
 After step 7:
 
-- pushes to `develop` deploy to the `development` environment
+- use manual workflow dispatch for `development` until the dev environment is fully wired
 - pushes to `main` deploy to the `production` environment
 
 Manual fallback: run workflow `Deploy Static Assets` with:

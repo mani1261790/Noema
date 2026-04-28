@@ -51,7 +51,7 @@
 ### Static asset deploy (`Deploy Static Assets`)
 
 - Normal operation:
-  - `develop` push -> `development`
+  - `development` is deployed manually until the environment bootstrap is finished
   - `main` push -> `production`
 - Manual fallback: run `Deploy Static Assets` workflow with inputs below.
 - Manual inputs:

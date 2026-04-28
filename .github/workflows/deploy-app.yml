@@ -2,7 +2,7 @@ name: Deploy Static Assets
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "content/**"
       - "src/**"
