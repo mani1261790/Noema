@@ -765,14 +765,12 @@ export class NoemaStack extends Stack {
     }
 
     if (createGithubDeployRole && githubRepo) {
-      const githubOidcProvider = new iam.OpenIdConnectProvider(this, "GitHubOidcProvider", {
-        url: "https://token.actions.githubusercontent.com",
-        clientIds: ["sts.amazonaws.com"]
-      });
+      // GitHub's OIDC provider is account-global, so stage-specific stacks should reuse it.
+      const githubOidcProviderArn = `arn:${cdk.Aws.PARTITION}:iam::${cdk.Aws.ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com`;
 
       const githubDeployRole = new iam.Role(this, "GitHubDeployRole", {
         roleName: `${prefix}-github-deploy`,
-        assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
+        assumedBy: new iam.WebIdentityPrincipal(githubOidcProviderArn, {
           StringEquals: {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
           },

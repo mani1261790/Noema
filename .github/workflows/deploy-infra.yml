@@ -2,12 +2,16 @@ name: Deploy Infra
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "infra/**"
       - ".github/workflows/deploy-infra.yml"
   workflow_dispatch:
     inputs:
+      target_environment:
+        description: GitHub Environment to deploy (`development` or `production`)
+        required: true
+        default: production
       aws_region:
         description: AWS region
         required: true
@@ -107,17 +111,18 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'develop' && 'development' || 'production') }}
     env:
+      DEPLOY_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'develop' && 'development' || 'production') }}
       AWS_REGION: ${{ inputs.aws_region || vars.NOEMA_AWS_REGION || 'ap-northeast-3' }}
-      STACK_STAGE: ${{ inputs.stack_stage || vars.NOEMA_STACK_STAGE || 'prod' }}
+      STACK_STAGE: ${{ inputs.stack_stage || vars.NOEMA_STACK_STAGE || (github.ref_name == 'develop' && 'dev' || 'prod') }}
       FRONTEND_URL: ${{ inputs.frontend_url || vars.NOEMA_FRONTEND_URL }}
       ALARM_EMAIL: ${{ inputs.alarm_email || vars.NOEMA_ALARM_EMAIL || '' }}
       COGNITO_DOMAIN_PREFIX: ${{ inputs.cognito_domain_prefix || vars.NOEMA_COGNITO_DOMAIN_PREFIX || '' }}
       CREATE_GITHUB_DEPLOY_ROLE: ${{ inputs.create_github_deploy_role || vars.NOEMA_CREATE_GITHUB_DEPLOY_ROLE || 'true' }}
       GITHUB_REPO: ${{ inputs.github_repo || vars.NOEMA_GITHUB_REPO || 'mani1261790/Noema' }}
-      GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern || vars.NOEMA_GITHUB_REF_PATTERN || 'refs/heads/main' }}
-      GITHUB_ENVIRONMENT_NAME: ${{ inputs.github_environment_name || vars.NOEMA_GITHUB_ENVIRONMENT_NAME || 'production' }}
+      GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern || vars.NOEMA_GITHUB_REF_PATTERN || (github.ref_name == 'develop' && 'refs/heads/develop' || 'refs/heads/main') }}
+      GITHUB_ENVIRONMENT_NAME: ${{ inputs.github_environment_name || vars.NOEMA_GITHUB_ENVIRONMENT_NAME || (github.ref_name == 'develop' && 'development' || 'production') }}
       QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider || vars.NOEMA_QA_MODEL_PROVIDER || 'auto' }}
       BEDROCK_REGION: ${{ inputs.bedrock_region || vars.NOEMA_BEDROCK_REGION || 'us-east-1' }}
       BEDROCK_MODEL_SMALL: ${{ inputs.bedrock_model_small || vars.NOEMA_BEDROCK_MODEL_SMALL || '' }}
