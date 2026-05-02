@@ -101,3 +101,6 @@ updates:
       - dependency-name: "aws-actions/*"
         update-types:
           - "version-update:semver-major"
+      - dependency-name: "astral-sh/setup-uv"
+        update-types:
+          - "version-update:semver-major"
