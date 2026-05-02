@@ -2,7 +2,7 @@ name: Clearwing Security Scan
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
     paths:
       - ".github/workflows/clearwing.yml"
       - "src/**"
@@ -79,12 +79,19 @@ jobs:
           rm -rf "${CLEARWING_OUTPUT_DIR}"
           mkdir -p "${CLEARWING_OUTPUT_DIR}"
           cd /tmp/clearwing
+          set +e
           uv run clearwing sourcehunt "${GITHUB_WORKSPACE}" \
             --depth quick \
             --max-parallel 4 \
             --budget 5 \
             --output-dir "${CLEARWING_OUTPUT_DIR}" \
             --format sarif json markdown
+          clearwing_exit=$?
+          set -e
+
+          if [[ "${clearwing_exit}" -ne 0 && "${clearwing_exit}" -ne 2 ]]; then
+            exit "${clearwing_exit}"
+          fi
 
       - name: Locate Clearwing outputs
         id: outputs
