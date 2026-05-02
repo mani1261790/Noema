@@ -848,7 +848,7 @@
 
   <script>
     (function () {
-      const API_BASE = "https://52d3l83li2.execute-api.ap-northeast-3.amazonaws.com";
+      const API_BASE = window.location.origin.replace(/\/$/, "");
       const TOKEN_KEY = "noema_id_token";
 
       const el = {

@@ -90,6 +90,9 @@ jobs:
       - name: Build app
         run: npm run build
 
+      - name: Validate shell API origin
+        run: npm run check:shell-api-origin
+
       - name: Upload site static files
         run: |
           aws s3 sync ./public s3://${SITE_BUCKET} --delete
