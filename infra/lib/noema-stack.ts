@@ -357,10 +357,7 @@ export class NoemaStack extends Stack {
             return [];
           },
           afterBundling(inputDir: string, outputDir: string) {
-            return [
-              `mkdir -p "${outputDir}/content"`,
-              `cp -R "${inputDir}/../content/assessments" "${outputDir}/content/assessments"`
-            ];
+            return [];
           }
         }
       }
@@ -508,6 +505,22 @@ export class NoemaStack extends Stack {
         ],
         allowOrigins: ["http://localhost:3000", frontendUrl]
       }
+    });
+
+    const apiOrigin = new origins.HttpOrigin(`${api.apiId}.execute-api.${this.region}.${cdk.Aws.URL_SUFFIX}`);
+
+    distribution.addBehavior("/api/*", apiOrigin, {
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
+    });
+
+    distribution.addBehavior("/health", apiOrigin, {
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
     });
 
     const jwtAuthorizer = new HttpJwtAuthorizer("JwtAuthorizer", userPool.userPoolProviderUrl, {

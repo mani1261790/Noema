@@ -84,11 +84,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate assessment integrity
+        run: npm run check:assessment-integrity
+
       - name: Build notebooks
         run: npm run build:notebooks
 
       - name: Build app
         run: npm run build
+
+      - name: Validate shell API origin
+        run: npm run check:shell-api-origin
 
       - name: Upload site static files
         run: |
@@ -104,6 +110,15 @@ jobs:
             --exclude "*" \
             --include "*.html" \
             --content-type "text/html; charset=utf-8"
+
+      - name: Upload assessments
+        run: |
+          aws s3 sync ./content/assessments s3://${NOTEBOOK_BUCKET}/assessments --delete
+          aws s3 cp ./content/assessments s3://${NOTEBOOK_BUCKET}/assessments \
+            --recursive \
+            --exclude "*" \
+            --include "*.json" \
+            --content-type "application/json; charset=utf-8"
 
       - name: Sync notebook metadata/chunks to DynamoDB
         run: |

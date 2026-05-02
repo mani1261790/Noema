@@ -1,5 +1,13 @@
 # Operations Runbook
 
+## Environment URLs
+
+- `development`: `https://d8mpxq2nx10ai.cloudfront.net/`
+
+Notes:
+- Frontend URLs are public identifiers, not secrets.
+- The canonical value should also be kept in the GitHub Environment variable `NOEMA_FRONTEND_URL`.
+
 ## Daily checks
 
 1. Confirm CI passed for latest `develop` and `main` commits.

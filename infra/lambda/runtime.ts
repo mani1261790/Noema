@@ -89,6 +89,7 @@ type NotebookChunk = {
 type NotebookRecord = {
   notebookId: string;
   title: string;
+  chapterId?: string;
   chapter: string;
   chapterOrder?: number;
   audience?: "beginner" | "advanced";
@@ -2314,7 +2315,7 @@ export async function listCatalog() {
   });
 
   for (const row of rows) {
-    const chapterId = slugify(row.chapter) || "chapter";
+    const chapterId = resolveCanonicalChapterId(row.chapterId || "", row.chapter);
     const chapter = chapters.get(chapterId) ?? {
       id: chapterId,
       title: row.chapter,
@@ -2365,6 +2366,7 @@ const ASSESSMENT_CHAPTER_IDS = new Set([
 const ASSESSMENT_ROOT = path.join(process.cwd(), "content", "assessments");
 const NOTEBOOK_CHECK_DIR = path.join(ASSESSMENT_ROOT, "notebook-checks");
 const CHAPTER_FINAL_DIR = path.join(ASSESSMENT_ROOT, "chapter-finals");
+type AssessmentStorageKind = "notebook-checks" | "chapter-finals";
 
 type NotebookAssessmentChoice = {
   id: string;
@@ -2529,16 +2531,34 @@ async function findAssessmentNotebook(notebookId: string) {
   return null;
 }
 
-export async function getNotebookAssessment(notebookId: string) {
-  const found = await findAssessmentNotebook(notebookId);
-  if (!found) return null;
-  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
-  let raw: unknown;
+async function loadAssessmentJson(kind: AssessmentStorageKind, id: string): Promise<unknown | null> {
+  if (NOTEBOOK_BUCKET) {
+    try {
+      const response = await s3.send(
+        new GetObjectCommand({
+          Bucket: NOTEBOOK_BUCKET,
+          Key: `assessments/${kind}/${id}.json`
+        })
+      );
+      return JSON.parse(await streamBodyToString(response.Body)) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  const localDir = kind === "notebook-checks" ? NOTEBOOK_CHECK_DIR : CHAPTER_FINAL_DIR;
   try {
-    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
+    return JSON.parse(await fs.readFile(path.join(localDir, `${id}.json`), "utf8")) as unknown;
   } catch {
     return null;
   }
+}
+
+export async function getNotebookAssessment(notebookId: string) {
+  const found = await findAssessmentNotebook(notebookId);
+  if (!found) return null;
+  const raw = await loadAssessmentJson("notebook-checks", notebookId);
+  if (!raw) return null;
   const assessment = validateNotebookCheckAssessment(raw, found.notebook);
   if (!assessment) return null;
   return {
@@ -2550,13 +2570,8 @@ export async function getNotebookAssessment(notebookId: string) {
 export async function submitNotebookAssessmentAttempt(notebookId: string, answers: Record<string, unknown>) {
   const found = await findAssessmentNotebook(notebookId);
   if (!found) return null;
-  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
-  let raw: unknown;
-  try {
-    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-  } catch {
-    return null;
-  }
+  const raw = await loadAssessmentJson("notebook-checks", notebookId);
+  if (!raw) return null;
   const assessment = validateNotebookCheckAssessment(raw, found.notebook);
   if (!assessment) return null;
   const results = assessment.questions.map((question) => {
@@ -2577,13 +2592,8 @@ export async function getChapterFinalAssessment(chapterId: string) {
   const catalog = await listCatalog();
   const chapter = catalog.chapters.find((item) => item.id === chapterId);
   if (!chapter || !ASSESSMENT_CHAPTER_IDS.has(chapter.id)) return null;
-  const filePath = path.join(CHAPTER_FINAL_DIR, `${chapterId}.json`);
-  let raw: unknown;
-  try {
-    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-  } catch {
-    return null;
-  }
+  const raw = await loadAssessmentJson("chapter-finals", chapterId);
+  if (!raw) return null;
   return validateChapterFinalAssessment(raw, chapter);
 }
 
@@ -2957,6 +2967,28 @@ function inferChapterAudience(chapterId: string, chapterTitle: string): "beginne
   return "advanced";
 }
 
+const KNOWN_CHAPTER_ID_BY_TITLE: Record<string, string> = {
+  Python: "python",
+  機械学習: "machine-learning",
+  ディープラーニング: "deep-learning",
+  強化学習: "reinforcement-learning",
+  LLM: "llm",
+  深層生成モデル: "deep-generative-models",
+  世界モデル: "world-models",
+  "Neuromatch Academy / Computational Neuroscience": "nma-compneuro",
+  "Neuromatch Academy / Deep Learning": "nma-deep-learning"
+};
+
+function resolveCanonicalChapterId(rawChapterId: string, chapterTitle: string): string {
+  const explicit = String(rawChapterId || "").trim();
+  if (explicit) return explicit;
+
+  const known = KNOWN_CHAPTER_ID_BY_TITLE[String(chapterTitle || "").trim()];
+  if (known) return known;
+
+  return slugify(chapterTitle) || "chapter";
+}
+
 function normalizeNotebookTags(raw: unknown): string[] | undefined {
   if (raw === undefined) return undefined;
 
@@ -3015,6 +3047,7 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
 
   const title = asString(record.title).trim() || notebookId;
   const chapter = asString(record.chapter).trim() || "未分類";
+  const chapterId = resolveCanonicalChapterId(asString(record.chapterId).trim(), chapter);
   const chapterOrderValue = asFiniteNumber(record.chapterOrder, Number.NaN);
   const chapterOrder = Number.isFinite(chapterOrderValue) ? Math.max(1, Math.floor(chapterOrderValue)) : undefined;
   const rawAudience = asString(record.audience).trim().toLowerCase();
@@ -3063,6 +3096,7 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
   return {
     notebookId,
     title,
+    chapterId,
     chapter,
     chapterOrder,
     audience,
@@ -3321,6 +3355,7 @@ export async function putAdminNotebook(notebookId: string, input: AdminNotebookP
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId,
     title,
+    chapterId: existing.chapterId || resolveCanonicalChapterId("", chapter),
     chapter,
     chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
     audience: existing.audience,
@@ -3365,6 +3400,7 @@ export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promis
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId: existing.notebookId,
     title,
+    chapterId: existing.chapterId || resolveCanonicalChapterId("", chapter),
     chapter,
     chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
     audience: existing.audience,
@@ -4046,6 +4082,7 @@ async function upsertNotebook(item: NotebookRecord) {
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId: item.notebookId,
     title: item.title,
+    chapterId: item.chapterId || existing?.chapterId || resolveCanonicalChapterId("", item.chapter),
     chapter: item.chapter,
     chapterOrder:
       Number.isFinite(item.chapterOrder) ? Number(item.chapterOrder) : Number.isFinite(existing?.chapterOrder) ? Number(existing?.chapterOrder) : undefined,
