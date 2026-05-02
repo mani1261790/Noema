@@ -1,6 +1,5 @@
-import { promises as fs } from "fs";
-import path from "path";
 import { getCatalog, type ChapterSummary, type NotebookSummary } from "@/lib/notebooks";
+import { loadAssessmentJson } from "@/lib/assessment-storage";
 
 export type AssessmentChoice = {
   id: string;
@@ -97,9 +96,6 @@ export type ChapterFinalLlmTarget = {
 export const CHAPTER_FINAL_ANSWER_MAX_CHARS = 2000;
 export const CHAPTER_FINAL_REQUEST_BODY_MAX_CHARS = 25000;
 
-const ASSESSMENT_ROOT = path.join(process.cwd(), "content", "assessments");
-const NOTEBOOK_CHECK_DIR = path.join(ASSESSMENT_ROOT, "notebook-checks");
-const CHAPTER_FINAL_DIR = path.join(ASSESSMENT_ROOT, "chapter-finals");
 const NOEMA_CHAPTER_IDS = new Set([
   "python",
   "machine-learning",
@@ -200,13 +196,8 @@ export async function getNotebookCheckAssessment(notebookId: string): Promise<No
   const found = findNotebook(catalog, notebookId);
   if (!found || !NOEMA_CHAPTER_IDS.has(found.chapter.id)) return null;
 
-  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
-  try {
-    const raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-    return validateNotebookCheck(raw, found.notebook);
-  } catch {
-    return null;
-  }
+  const raw = await loadAssessmentJson("notebook-checks", notebookId);
+  return raw ? validateNotebookCheck(raw, found.notebook) : null;
 }
 
 export async function getPublicNotebookCheckAssessment(notebookId: string): Promise<NotebookCheckPublicAssessment | null> {
@@ -274,13 +265,8 @@ export async function getChapterFinalAssessment(chapterId: string): Promise<Chap
   const chapter = catalog.chapters.find((item) => item.id === chapterId);
   if (!chapter || !NOEMA_CHAPTER_IDS.has(chapter.id)) return null;
 
-  const filePath = path.join(CHAPTER_FINAL_DIR, `${chapterId}.json`);
-  try {
-    const raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-    return validateChapterFinal(raw, chapter);
-  } catch {
-    return null;
-  }
+  const raw = await loadAssessmentJson("chapter-finals", chapterId);
+  return raw ? validateChapterFinal(raw, chapter) : null;
 }
 
 function scoreRubricQuestion(question: ChapterFinalQuestion, answer: string) {

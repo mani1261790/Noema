@@ -13,6 +13,7 @@
     "generate:curriculum-shell": "tsx scripts/generate-curriculum-shell.ts",
     "author:curriculum": "tsx scripts/author-curriculum.ts",
     "check:shell-api-origin": "node scripts/check-shell-api-origin.mjs",
+    "check:assessment-integrity": "tsx scripts/check-assessment-integrity.ts",
     "check:notebook-code": "python3 scripts/check-notebook-code.py",
     "check:notebook-isolated-run": "python3 scripts/check-notebook-isolated-run.py",
     "check:python-runtime-safety": "tsx scripts/check-python-runtime-safety.ts",

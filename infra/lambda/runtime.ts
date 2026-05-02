@@ -2365,6 +2365,7 @@ const ASSESSMENT_CHAPTER_IDS = new Set([
 const ASSESSMENT_ROOT = path.join(process.cwd(), "content", "assessments");
 const NOTEBOOK_CHECK_DIR = path.join(ASSESSMENT_ROOT, "notebook-checks");
 const CHAPTER_FINAL_DIR = path.join(ASSESSMENT_ROOT, "chapter-finals");
+type AssessmentStorageKind = "notebook-checks" | "chapter-finals";
 
 type NotebookAssessmentChoice = {
   id: string;
@@ -2529,16 +2530,34 @@ async function findAssessmentNotebook(notebookId: string) {
   return null;
 }
 
-export async function getNotebookAssessment(notebookId: string) {
-  const found = await findAssessmentNotebook(notebookId);
-  if (!found) return null;
-  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
-  let raw: unknown;
+async function loadAssessmentJson(kind: AssessmentStorageKind, id: string): Promise<unknown | null> {
+  if (NOTEBOOK_BUCKET) {
+    try {
+      const response = await s3.send(
+        new GetObjectCommand({
+          Bucket: NOTEBOOK_BUCKET,
+          Key: `assessments/${kind}/${id}.json`
+        })
+      );
+      return JSON.parse(await streamBodyToString(response.Body)) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  const localDir = kind === "notebook-checks" ? NOTEBOOK_CHECK_DIR : CHAPTER_FINAL_DIR;
   try {
-    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
+    return JSON.parse(await fs.readFile(path.join(localDir, `${id}.json`), "utf8")) as unknown;
   } catch {
     return null;
   }
+}
+
+export async function getNotebookAssessment(notebookId: string) {
+  const found = await findAssessmentNotebook(notebookId);
+  if (!found) return null;
+  const raw = await loadAssessmentJson("notebook-checks", notebookId);
+  if (!raw) return null;
   const assessment = validateNotebookCheckAssessment(raw, found.notebook);
   if (!assessment) return null;
   return {
@@ -2550,13 +2569,8 @@ export async function getNotebookAssessment(notebookId: string) {
 export async function submitNotebookAssessmentAttempt(notebookId: string, answers: Record<string, unknown>) {
   const found = await findAssessmentNotebook(notebookId);
   if (!found) return null;
-  const filePath = path.join(NOTEBOOK_CHECK_DIR, `${notebookId}.json`);
-  let raw: unknown;
-  try {
-    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-  } catch {
-    return null;
-  }
+  const raw = await loadAssessmentJson("notebook-checks", notebookId);
+  if (!raw) return null;
   const assessment = validateNotebookCheckAssessment(raw, found.notebook);
   if (!assessment) return null;
   const results = assessment.questions.map((question) => {
@@ -2577,13 +2591,8 @@ export async function getChapterFinalAssessment(chapterId: string) {
   const catalog = await listCatalog();
   const chapter = catalog.chapters.find((item) => item.id === chapterId);
   if (!chapter || !ASSESSMENT_CHAPTER_IDS.has(chapter.id)) return null;
-  const filePath = path.join(CHAPTER_FINAL_DIR, `${chapterId}.json`);
-  let raw: unknown;
-  try {
-    raw = JSON.parse(await fs.readFile(filePath, "utf8")) as unknown;
-  } catch {
-    return null;
-  }
+  const raw = await loadAssessmentJson("chapter-finals", chapterId);
+  if (!raw) return null;
   return validateChapterFinalAssessment(raw, chapter);
 }
 
