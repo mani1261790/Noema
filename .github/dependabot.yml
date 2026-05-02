@@ -32,6 +32,9 @@ updates:
       - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
+      - dependency-name: "@aws-sdk/*"
+        update-types:
+          - "version-update:semver-major"
       - dependency-name: "react"
         update-types:
           - "version-update:semver-major"
@@ -74,6 +77,9 @@ updates:
       - dependency-name: "typescript"
         update-types:
           - "version-update:semver-major"
+      - dependency-name: "@aws-sdk/*"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -89,18 +95,9 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      - dependency-name: "actions/checkout"
+      - dependency-name: "actions/*"
         update-types:
           - "version-update:semver-major"
-      - dependency-name: "actions/setup-python"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "actions/github-script"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "actions/upload-artifact"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "aws-actions/configure-aws-credentials"
+      - dependency-name: "aws-actions/*"
         update-types:
           - "version-update:semver-major"
