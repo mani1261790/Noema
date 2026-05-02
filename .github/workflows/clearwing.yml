@@ -34,7 +34,7 @@ jobs:
       issues: write
       security-events: write
     env:
-      CLEARWING_VERSION: "1.0.0"
+      CLEARWING_VERSION: "v1.0.0"
       CLEARWING_OUTPUT_DIR: ${{ github.workspace }}/results/sourcehunt
     steps:
       - name: Checkout
