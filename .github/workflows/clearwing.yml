@@ -84,7 +84,7 @@ jobs:
             --max-parallel 4 \
             --budget 5 \
             --output-dir "${CLEARWING_OUTPUT_DIR}" \
-            --format sarif,json,markdown
+            --format sarif json markdown
 
       - name: Locate Clearwing outputs
         id: outputs
