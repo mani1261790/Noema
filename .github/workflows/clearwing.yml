@@ -1,0 +1,241 @@
+name: Clearwing Security Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/clearwing.yml"
+      - "src/**"
+      - "infra/**"
+      - "public/**"
+      - "content/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "next.config.*"
+      - "tailwind.config.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clearwing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clearwing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: security-scan
+    permissions:
+      contents: read
+      issues: write
+      security-events: write
+    env:
+      CLEARWING_VERSION: "9dcc8b4ae456a1e3a0216295216e3c3509c4dc7c"
+      CLEARWING_OUTPUT_DIR: ${{ github.workspace }}/results/sourcehunt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Validate Clearwing secrets
+        env:
+          CLEARWING_BASE_URL: ${{ secrets.CLEARWING_BASE_URL }}
+          CLEARWING_API_KEY: ${{ secrets.CLEARWING_API_KEY }}
+          CLEARWING_MODEL: ${{ secrets.CLEARWING_MODEL }}
+        run: |
+          set -euo pipefail
+          for var_name in CLEARWING_BASE_URL CLEARWING_API_KEY CLEARWING_MODEL; do
+            if [[ -z "${!var_name:-}" ]]; then
+              echo "Missing ${var_name}. Configure it in the security-scan environment secrets."
+              exit 1
+            fi
+          done
+
+      - name: Install Clearwing
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/Lazarus-AI/clearwing.git /tmp/clearwing
+          cd /tmp/clearwing
+          git fetch --depth 1 origin "${CLEARWING_VERSION}"
+          git checkout --detach "${CLEARWING_VERSION}"
+          uv sync --all-extras
+
+      - name: Run Clearwing sourcehunt
+        env:
+          CLEARWING_BASE_URL: ${{ secrets.CLEARWING_BASE_URL }}
+          CLEARWING_API_KEY: ${{ secrets.CLEARWING_API_KEY }}
+          CLEARWING_MODEL: ${{ secrets.CLEARWING_MODEL }}
+        run: |
+          set -euo pipefail
+          rm -rf "${CLEARWING_OUTPUT_DIR}"
+          mkdir -p "${CLEARWING_OUTPUT_DIR}"
+          cd /tmp/clearwing
+          set +e
+          uv run clearwing sourcehunt "${GITHUB_WORKSPACE}" \
+            --depth quick \
+            --max-parallel 4 \
+            --budget 5 \
+            --output-dir "${CLEARWING_OUTPUT_DIR}" \
+            --format sarif json markdown
+          clearwing_exit=$?
+          set -e
+
+          if [[ "${clearwing_exit}" -ne 0 && "${clearwing_exit}" -ne 2 ]]; then
+            exit "${clearwing_exit}"
+          fi
+
+      - name: Locate Clearwing outputs
+        id: outputs
+        run: |
+          set -euo pipefail
+          sarif_file="$(find "${CLEARWING_OUTPUT_DIR}" -type f -name '*.sarif' | sort | head -n 1 || true)"
+          findings_file="$(find "${CLEARWING_OUTPUT_DIR}" -type f -name 'findings.json' | sort | head -n 1 || true)"
+
+          {
+            echo "sarif_file=${sarif_file}"
+            echo "findings_file=${findings_file}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clearwing-results
+          path: results/sourcehunt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload SARIF to GitHub code scanning
+        if: ${{ always() && steps.outputs.outputs.sarif_file != '' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.outputs.outputs.sarif_file }}
+          category: clearwing-sourcehunt
+
+      - name: Create issues from high-confidence findings
+        if: ${{ github.event_name == 'push' && github.ref_name == 'main' && steps.outputs.outputs.findings_file != '' }}
+        uses: actions/github-script@v7
+        env:
+          FINDINGS_FILE: ${{ steps.outputs.outputs.findings_file }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const confidenceRank = {
+              suspicion: 0,
+              static_corroboration: 1,
+              crash_reproduced: 2,
+              root_cause_explained: 3,
+              exploit_demonstrated: 4,
+              patch_validated: 5,
+            };
+
+            const findingsPath = process.env.FINDINGS_FILE;
+            const data = JSON.parse(fs.readFileSync(findingsPath, 'utf8'));
+            const findings = Array.isArray(data.findings) ? data.findings : [];
+            const existingIssues = new Set();
+
+            for await (const page of github.paginate.iterator(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                labels: 'clearwing',
+                per_page: 100,
+              }
+            )) {
+              for (const issue of page.data) {
+                existingIssues.add(issue.title);
+              }
+            }
+
+            function shouldCreateIssue(finding) {
+              const evidence = String(finding.evidence_level || '').trim();
+              if (!evidence) {
+                return false;
+              }
+              return (confidenceRank[evidence] ?? -1) >= confidenceRank.root_cause_explained;
+            }
+
+            function summarize(value, fallback = 'N/A') {
+              const text = String(value || '').trim();
+              if (!text) {
+                return fallback;
+              }
+              return text.length > 1200 ? `${text.slice(0, 1200)}…` : text;
+            }
+
+            for (const finding of findings) {
+              try {
+                if (!shouldCreateIssue(finding)) {
+                  continue;
+                }
+
+                const file = finding.file || 'unknown';
+                const line = finding.line || 'unknown';
+                const type = finding.type || finding.rule_id || 'issue';
+                const evidence = finding.evidence_level || 'unknown';
+                const title = `[Clearwing] ${String(type).replace(/"/g, "'")} in ${String(file).replace(/"/g, "'")}:${line}`;
+
+                if (existingIssues.has(title)) {
+                  core.info(`Skip duplicate: ${title}`);
+                  continue;
+                }
+
+                const body = [
+                  'Detected by Clearwing.',
+                  '',
+                  `- File: ${file}`,
+                  `- Line: ${line}`,
+                  `- Function: ${finding.function || 'unknown'}`,
+                  `- Type: ${type}`,
+                  `- Evidence level: ${evidence}`,
+                  '',
+                  'Summary:',
+                  summarize(finding.summary || finding.description || finding.title),
+                  '',
+                  'Notes:',
+                  'Detailed reproduction steps and stack traces remain in the workflow artifact to avoid oversharing sensitive internals in a public issue.',
+                ].join('\n');
+
+                try {
+                  await github.rest.issues.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title,
+                    body,
+                    labels: ['clearwing', 'security', 'auto-generated'],
+                  });
+                } catch (labelError) {
+                  core.warning(`Label assignment failed for ${title}: ${labelError?.message || labelError}`);
+                  try {
+                    await github.rest.issues.create({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      title,
+                      body,
+                    });
+                  } catch (createError) {
+                    core.warning(`Issue creation failed for ${title}: ${createError?.message || createError}`);
+                    continue;
+                  }
+                }
+
+                existingIssues.add(title);
+                core.info(`Created issue: ${title}`);
+              } catch (findingError) {
+                core.warning(`Skipping finding because issue processing failed: ${findingError?.message || findingError}`);
+              }
+            }
