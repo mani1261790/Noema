@@ -10,6 +10,15 @@ This repository currently contains:
 - a static learning app shell (`public/index.html`)
 - build/deploy scripts and AWS CDK infrastructure (`scripts`, `infra`)
 
+## Environment URLs
+
+- `development`: `https://d8mpxq2nx10ai.cloudfront.net/`
+
+Notes:
+- This URL is not a secret. It is safe to document publicly.
+- Access control must not rely on the URL being unlisted.
+- The source of truth for the current frontend URL is the GitHub Environment variable `NOEMA_FRONTEND_URL`.
+
 ## What Noema Does
 
 - Serves lesson content from Jupyter notebooks
