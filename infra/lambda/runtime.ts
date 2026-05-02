@@ -89,6 +89,7 @@ type NotebookChunk = {
 type NotebookRecord = {
   notebookId: string;
   title: string;
+  chapterId?: string;
   chapter: string;
   chapterOrder?: number;
   audience?: "beginner" | "advanced";
@@ -2314,7 +2315,7 @@ export async function listCatalog() {
   });
 
   for (const row of rows) {
-    const chapterId = slugify(row.chapter) || "chapter";
+    const chapterId = resolveCanonicalChapterId(row.chapterId || "", row.chapter);
     const chapter = chapters.get(chapterId) ?? {
       id: chapterId,
       title: row.chapter,
@@ -2966,6 +2967,28 @@ function inferChapterAudience(chapterId: string, chapterTitle: string): "beginne
   return "advanced";
 }
 
+const KNOWN_CHAPTER_ID_BY_TITLE: Record<string, string> = {
+  Python: "python",
+  機械学習: "machine-learning",
+  ディープラーニング: "deep-learning",
+  強化学習: "reinforcement-learning",
+  LLM: "llm",
+  深層生成モデル: "deep-generative-models",
+  世界モデル: "world-models",
+  "Neuromatch Academy / Computational Neuroscience": "nma-compneuro",
+  "Neuromatch Academy / Deep Learning": "nma-deep-learning"
+};
+
+function resolveCanonicalChapterId(rawChapterId: string, chapterTitle: string): string {
+  const explicit = String(rawChapterId || "").trim();
+  if (explicit) return explicit;
+
+  const known = KNOWN_CHAPTER_ID_BY_TITLE[String(chapterTitle || "").trim()];
+  if (known) return known;
+
+  return slugify(chapterTitle) || "chapter";
+}
+
 function normalizeNotebookTags(raw: unknown): string[] | undefined {
   if (raw === undefined) return undefined;
 
@@ -3024,6 +3047,7 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
 
   const title = asString(record.title).trim() || notebookId;
   const chapter = asString(record.chapter).trim() || "未分類";
+  const chapterId = resolveCanonicalChapterId(asString(record.chapterId).trim(), chapter);
   const chapterOrderValue = asFiniteNumber(record.chapterOrder, Number.NaN);
   const chapterOrder = Number.isFinite(chapterOrderValue) ? Math.max(1, Math.floor(chapterOrderValue)) : undefined;
   const rawAudience = asString(record.audience).trim().toLowerCase();
@@ -3072,6 +3096,7 @@ function normalizeNotebookRecord(raw: unknown): NotebookRecord | null {
   return {
     notebookId,
     title,
+    chapterId,
     chapter,
     chapterOrder,
     audience,
@@ -3330,6 +3355,7 @@ export async function putAdminNotebook(notebookId: string, input: AdminNotebookP
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId,
     title,
+    chapterId: existing.chapterId || resolveCanonicalChapterId("", chapter),
     chapter,
     chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
     audience: existing.audience,
@@ -3374,6 +3400,7 @@ export async function patchAdminNotebook(input: AdminNotebookPatchInput): Promis
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId: existing.notebookId,
     title,
+    chapterId: existing.chapterId || resolveCanonicalChapterId("", chapter),
     chapter,
     chapterOrder: Number.isFinite(existing.chapterOrder) ? Number(existing.chapterOrder) : undefined,
     audience: existing.audience,
@@ -4055,6 +4082,7 @@ async function upsertNotebook(item: NotebookRecord) {
   const baseItem: Omit<NotebookRecord, "chunks"> = {
     notebookId: item.notebookId,
     title: item.title,
+    chapterId: item.chapterId || existing?.chapterId || resolveCanonicalChapterId("", item.chapter),
     chapter: item.chapter,
     chapterOrder:
       Number.isFinite(item.chapterOrder) ? Number(item.chapterOrder) : Number.isFinite(existing?.chapterOrder) ? Number(existing?.chapterOrder) : undefined,

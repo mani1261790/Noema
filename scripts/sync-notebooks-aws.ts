@@ -160,6 +160,7 @@ async function main() {
       const baseItem = {
         notebookId: notebook.id,
         title: notebook.title,
+        chapterId: chapter.id,
         chapter: chapter.title,
         chapterOrder: chapter.order,
         audience: chapter.audience === "beginner" ? "beginner" : "advanced",
