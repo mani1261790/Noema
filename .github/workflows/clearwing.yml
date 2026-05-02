@@ -34,7 +34,7 @@ jobs:
       issues: write
       security-events: write
     env:
-      CLEARWING_VERSION: "v1.0.0"
+      CLEARWING_VERSION: "9dcc8b4ae456a1e3a0216295216e3c3509c4dc7c"
       CLEARWING_OUTPUT_DIR: ${{ github.workspace }}/results/sourcehunt
     steps:
       - name: Checkout
@@ -65,8 +65,10 @@ jobs:
       - name: Install Clearwing
         run: |
           set -euo pipefail
-          git clone --branch "${CLEARWING_VERSION}" --depth 1 https://github.com/Lazarus-AI/clearwing.git /tmp/clearwing
+          git clone --depth 1 https://github.com/Lazarus-AI/clearwing.git /tmp/clearwing
           cd /tmp/clearwing
+          git fetch --depth 1 origin "${CLEARWING_VERSION}"
+          git checkout --detach "${CLEARWING_VERSION}"
           uv sync --all-extras
 
       - name: Run Clearwing sourcehunt
@@ -135,6 +137,22 @@ jobs:
             const findingsPath = process.env.FINDINGS_FILE;
             const data = JSON.parse(fs.readFileSync(findingsPath, 'utf8'));
             const findings = Array.isArray(data.findings) ? data.findings : [];
+            const existingIssues = new Set();
+
+            for await (const page of github.paginate.iterator(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                labels: 'clearwing',
+                per_page: 100,
+              }
+            )) {
+              for (const issue of page.data) {
+                existingIssues.add(issue.title);
+              }
+            }
 
             function shouldCreateIssue(finding) {
               const evidence = String(finding.evidence_level || '').trim();
@@ -153,58 +171,64 @@ jobs:
             }
 
             for (const finding of findings) {
-              if (!shouldCreateIssue(finding)) {
-                continue;
-              }
-
-              const file = finding.file || 'unknown';
-              const line = finding.line || 'unknown';
-              const type = finding.type || finding.rule_id || 'issue';
-              const evidence = finding.evidence_level || 'unknown';
-              const title = `[Clearwing] ${type} in ${file}:${line}`;
-
-              const existing = await github.rest.search.issuesAndPullRequests({
-                q: `repo:${context.repo.owner}/${context.repo.repo} "${title}" in:title is:issue`,
-              });
-
-              if (existing.data.items.length > 0) {
-                core.info(`Skip duplicate: ${title}`);
-                continue;
-              }
-
-              const body = [
-                'Detected by Clearwing.',
-                '',
-                `- File: ${file}`,
-                `- Line: ${line}`,
-                `- Function: ${finding.function || 'unknown'}`,
-                `- Type: ${type}`,
-                `- Evidence level: ${evidence}`,
-                '',
-                'Summary:',
-                summarize(finding.summary || finding.description || finding.title),
-                '',
-                'Notes:',
-                'Detailed reproduction steps and stack traces remain in the workflow artifact to avoid oversharing sensitive internals in a public issue.',
-              ].join('\n');
-
               try {
-                await github.rest.issues.create({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  title,
-                  body,
-                  labels: ['clearwing', 'security', 'auto-generated'],
-                });
-              } catch (error) {
-                core.warning(`Issue label assignment failed for ${title}: ${error.message}`);
-                await github.rest.issues.create({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  title,
-                  body,
-                });
-              }
+                if (!shouldCreateIssue(finding)) {
+                  continue;
+                }
 
-              core.info(`Created issue: ${title}`);
+                const file = finding.file || 'unknown';
+                const line = finding.line || 'unknown';
+                const type = finding.type || finding.rule_id || 'issue';
+                const evidence = finding.evidence_level || 'unknown';
+                const title = `[Clearwing] ${String(type).replace(/"/g, "'")} in ${String(file).replace(/"/g, "'")}:${line}`;
+
+                if (existingIssues.has(title)) {
+                  core.info(`Skip duplicate: ${title}`);
+                  continue;
+                }
+
+                const body = [
+                  'Detected by Clearwing.',
+                  '',
+                  `- File: ${file}`,
+                  `- Line: ${line}`,
+                  `- Function: ${finding.function || 'unknown'}`,
+                  `- Type: ${type}`,
+                  `- Evidence level: ${evidence}`,
+                  '',
+                  'Summary:',
+                  summarize(finding.summary || finding.description || finding.title),
+                  '',
+                  'Notes:',
+                  'Detailed reproduction steps and stack traces remain in the workflow artifact to avoid oversharing sensitive internals in a public issue.',
+                ].join('\n');
+
+                try {
+                  await github.rest.issues.create({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    title,
+                    body,
+                    labels: ['clearwing', 'security', 'auto-generated'],
+                  });
+                } catch (labelError) {
+                  core.warning(`Label assignment failed for ${title}: ${labelError?.message || labelError}`);
+                  try {
+                    await github.rest.issues.create({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      title,
+                      body,
+                    });
+                  } catch (createError) {
+                    core.warning(`Issue creation failed for ${title}: ${createError?.message || createError}`);
+                    continue;
+                  }
+                }
+
+                existingIssues.add(title);
+                core.info(`Created issue: ${title}`);
+              } catch (findingError) {
+                core.warning(`Skipping finding because issue processing failed: ${findingError?.message || findingError}`);
+              }
             }
