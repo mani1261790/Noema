@@ -24,7 +24,7 @@
     "@aws-sdk/util-dynamodb": "^3.930.0",
     "@highlightjs/cdn-assets": "^11.11.1",
     "@types/sanitize-html": "^2.16.0",
-    "katex": "^0.16.28",
+    "katex": "^0.16.45",
     "markdown-it": "^14.1.1",
     "markdown-it-katex": "^2.0.3",
     "next": "^14.2.26",
