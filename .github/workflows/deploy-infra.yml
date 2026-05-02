@@ -14,15 +14,16 @@ on:
         default: production
       aws_region:
         description: AWS region
-        required: true
-        default: ap-northeast-3
+        required: false
+        default: ""
       stack_stage:
         description: Stage suffix
-        required: true
-        default: prod
+        required: false
+        default: ""
       frontend_url:
         description: Frontend URL for Cognito callback/logout
-        required: true
+        required: false
+        default: ""
       alarm_email:
         description: Optional alarm notification email
         required: false
@@ -34,27 +35,27 @@ on:
       create_github_deploy_role:
         description: Create GitHub OIDC deploy role (true/false)
         required: false
-        default: "true"
+        default: ""
       github_repo:
         description: Repo slug for OIDC role trust (owner/repo)
         required: false
-        default: mani1261790/Noema
+        default: ""
       github_ref_pattern:
         description: Git ref pattern for OIDC trust (ex refs/heads/main or refs/heads/*)
         required: false
-        default: refs/heads/main
+        default: ""
       github_environment_name:
         description: GitHub Environment name allowed for OIDC trust
         required: false
-        default: production
+        default: ""
       qa_model_provider:
         description: QA model provider (auto/openai/bedrock/mock)
         required: false
-        default: auto
+        default: ""
       bedrock_region:
         description: Bedrock runtime region
         required: false
-        default: us-east-1
+        default: ""
       bedrock_model_small:
         description: Bedrock small model ID
         required: false
@@ -70,7 +71,7 @@ on:
       openai_model_small:
         description: OpenAI small model id
         required: false
-        default: gpt-5-nano
+        default: ""
       openai_model_mid:
         description: Optional OpenAI mid model id
         required: false
@@ -115,28 +116,6 @@ jobs:
     env:
       DEPLOY_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'develop' && 'development' || 'production') }}
       AWS_REGION: ${{ inputs.aws_region || vars.NOEMA_AWS_REGION || 'ap-northeast-3' }}
-      STACK_STAGE: ${{ inputs.stack_stage || vars.NOEMA_STACK_STAGE || (github.ref_name == 'develop' && 'dev' || 'prod') }}
-      FRONTEND_URL: ${{ inputs.frontend_url || vars.NOEMA_FRONTEND_URL }}
-      ALARM_EMAIL: ${{ inputs.alarm_email || vars.NOEMA_ALARM_EMAIL || '' }}
-      COGNITO_DOMAIN_PREFIX: ${{ inputs.cognito_domain_prefix || vars.NOEMA_COGNITO_DOMAIN_PREFIX || '' }}
-      CREATE_GITHUB_DEPLOY_ROLE: ${{ inputs.create_github_deploy_role || vars.NOEMA_CREATE_GITHUB_DEPLOY_ROLE || 'true' }}
-      GITHUB_REPO: ${{ inputs.github_repo || vars.NOEMA_GITHUB_REPO || 'mani1261790/Noema' }}
-      GITHUB_REF_PATTERN: ${{ inputs.github_ref_pattern || vars.NOEMA_GITHUB_REF_PATTERN || (github.ref_name == 'develop' && 'refs/heads/develop' || 'refs/heads/main') }}
-      GITHUB_ENVIRONMENT_NAME: ${{ inputs.github_environment_name || vars.NOEMA_GITHUB_ENVIRONMENT_NAME || (github.ref_name == 'develop' && 'development' || 'production') }}
-      QA_MODEL_PROVIDER: ${{ inputs.qa_model_provider || vars.NOEMA_QA_MODEL_PROVIDER || 'auto' }}
-      BEDROCK_REGION: ${{ inputs.bedrock_region || vars.NOEMA_BEDROCK_REGION || 'us-east-1' }}
-      BEDROCK_MODEL_SMALL: ${{ inputs.bedrock_model_small || vars.NOEMA_BEDROCK_MODEL_SMALL || '' }}
-      BEDROCK_MODEL_MID: ${{ inputs.bedrock_model_mid || vars.NOEMA_BEDROCK_MODEL_MID || '' }}
-      BEDROCK_MODEL_LARGE: ${{ inputs.bedrock_model_large || vars.NOEMA_BEDROCK_MODEL_LARGE || '' }}
-      OPENAI_MODEL_SMALL: ${{ inputs.openai_model_small || vars.NOEMA_OPENAI_MODEL_SMALL || 'gpt-5-nano' }}
-      OPENAI_MODEL_MID: ${{ inputs.openai_model_mid || vars.NOEMA_OPENAI_MODEL_MID || '' }}
-      OPENAI_MODEL_LARGE: ${{ inputs.openai_model_large || vars.NOEMA_OPENAI_MODEL_LARGE || '' }}
-      OPENAI_API_KEY_SSM_PARAMETER: ${{ inputs.openai_api_key_ssm_parameter || vars.NOEMA_OPENAI_API_KEY_SSM_PARAMETER || '' }}
-      ADMIN_EMAILS: ${{ inputs.admin_emails || vars.NOEMA_ADMIN_EMAILS || '' }}
-      NOEMA_INLINE_QA: ${{ inputs.noema_inline_qa || vars.NOEMA_INLINE_QA || 'false' }}
-      QA_RATE_LIMIT_MAX: ${{ inputs.qa_rate_limit_max || vars.NOEMA_QA_RATE_LIMIT_MAX || '6' }}
-      QA_RATE_LIMIT_WINDOW_MINUTES: ${{ inputs.qa_rate_limit_window_minutes || vars.NOEMA_QA_RATE_LIMIT_WINDOW_MINUTES || '1' }}
-      RUN_CDK_BOOTSTRAP: ${{ inputs.run_cdk_bootstrap || vars.NOEMA_RUN_CDK_BOOTSTRAP || 'false' }}
     defaults:
       run:
         working-directory: infra
@@ -151,6 +130,111 @@ jobs:
           cache: npm
           cache-dependency-path: infra/package-lock.json
 
+      - name: Resolve deployment configuration
+        run: |
+          set -euo pipefail
+
+          if [[ "${DEPLOY_ENVIRONMENT}" == "development" ]]; then
+            default_stack_stage="dev"
+            default_github_ref_pattern="refs/heads/develop"
+            default_github_environment_name="development"
+          else
+            default_stack_stage="prod"
+            default_github_ref_pattern="refs/heads/main"
+            default_github_environment_name="production"
+          fi
+
+          aws_region="${{ inputs.aws_region || '' }}"
+          stack_stage="${{ inputs.stack_stage || '' }}"
+          frontend_url="${{ inputs.frontend_url || '' }}"
+          alarm_email="${{ inputs.alarm_email || '' }}"
+          cognito_domain_prefix="${{ inputs.cognito_domain_prefix || '' }}"
+          create_github_deploy_role="${{ inputs.create_github_deploy_role || '' }}"
+          github_repo="${{ inputs.github_repo || '' }}"
+          github_ref_pattern="${{ inputs.github_ref_pattern || '' }}"
+          github_environment_name="${{ inputs.github_environment_name || '' }}"
+          qa_model_provider="${{ inputs.qa_model_provider || '' }}"
+          bedrock_region="${{ inputs.bedrock_region || '' }}"
+          bedrock_model_small="${{ inputs.bedrock_model_small || '' }}"
+          bedrock_model_mid="${{ inputs.bedrock_model_mid || '' }}"
+          bedrock_model_large="${{ inputs.bedrock_model_large || '' }}"
+          openai_model_small="${{ inputs.openai_model_small || '' }}"
+          openai_model_mid="${{ inputs.openai_model_mid || '' }}"
+          openai_model_large="${{ inputs.openai_model_large || '' }}"
+          openai_api_key_ssm_parameter="${{ inputs.openai_api_key_ssm_parameter || '' }}"
+          admin_emails="${{ inputs.admin_emails || '' }}"
+          noema_inline_qa="${{ inputs.noema_inline_qa || '' }}"
+          qa_rate_limit_max="${{ inputs.qa_rate_limit_max || '' }}"
+          qa_rate_limit_window_minutes="${{ inputs.qa_rate_limit_window_minutes || '' }}"
+          run_cdk_bootstrap="${{ inputs.run_cdk_bootstrap || '' }}"
+
+          aws_region="${aws_region:-${AWS_REGION:-ap-northeast-3}}"
+          stack_stage="${stack_stage:-${{ vars.NOEMA_STACK_STAGE || '' }}}"
+          frontend_url="${frontend_url:-${{ vars.NOEMA_FRONTEND_URL || '' }}}"
+          alarm_email="${alarm_email:-${{ vars.NOEMA_ALARM_EMAIL || '' }}}"
+          cognito_domain_prefix="${cognito_domain_prefix:-${{ vars.NOEMA_COGNITO_DOMAIN_PREFIX || '' }}}"
+          create_github_deploy_role="${create_github_deploy_role:-${{ vars.NOEMA_CREATE_GITHUB_DEPLOY_ROLE || 'true' }}}"
+          github_repo="${github_repo:-${{ vars.NOEMA_GITHUB_REPO || 'mani1261790/Noema' }}}"
+          qa_model_provider="${qa_model_provider:-${{ vars.NOEMA_QA_MODEL_PROVIDER || 'auto' }}}"
+          bedrock_region="${bedrock_region:-${{ vars.NOEMA_BEDROCK_REGION || 'us-east-1' }}}"
+          bedrock_model_small="${bedrock_model_small:-${{ vars.NOEMA_BEDROCK_MODEL_SMALL || '' }}}"
+          bedrock_model_mid="${bedrock_model_mid:-${{ vars.NOEMA_BEDROCK_MODEL_MID || '' }}}"
+          bedrock_model_large="${bedrock_model_large:-${{ vars.NOEMA_BEDROCK_MODEL_LARGE || '' }}}"
+          openai_model_small="${openai_model_small:-${{ vars.NOEMA_OPENAI_MODEL_SMALL || 'gpt-5-nano' }}}"
+          openai_model_mid="${openai_model_mid:-${{ vars.NOEMA_OPENAI_MODEL_MID || '' }}}"
+          openai_model_large="${openai_model_large:-${{ vars.NOEMA_OPENAI_MODEL_LARGE || '' }}}"
+          openai_api_key_ssm_parameter="${openai_api_key_ssm_parameter:-${{ vars.NOEMA_OPENAI_API_KEY_SSM_PARAMETER || '' }}}"
+          admin_emails="${admin_emails:-${{ vars.NOEMA_ADMIN_EMAILS || '' }}}"
+          noema_inline_qa="${noema_inline_qa:-${{ vars.NOEMA_INLINE_QA || 'false' }}}"
+          qa_rate_limit_max="${qa_rate_limit_max:-${{ vars.NOEMA_QA_RATE_LIMIT_MAX || '6' }}}"
+          qa_rate_limit_window_minutes="${qa_rate_limit_window_minutes:-${{ vars.NOEMA_QA_RATE_LIMIT_WINDOW_MINUTES || '1' }}}"
+          run_cdk_bootstrap="${run_cdk_bootstrap:-${{ vars.NOEMA_RUN_CDK_BOOTSTRAP || 'false' }}}"
+
+          stack_stage="${stack_stage:-$default_stack_stage}"
+          create_github_deploy_role="${create_github_deploy_role:-true}"
+          github_repo="${github_repo:-mani1261790/Noema}"
+          qa_model_provider="${qa_model_provider:-auto}"
+          bedrock_region="${bedrock_region:-us-east-1}"
+          openai_model_small="${openai_model_small:-gpt-5-nano}"
+          noema_inline_qa="${noema_inline_qa:-false}"
+          qa_rate_limit_max="${qa_rate_limit_max:-6}"
+          qa_rate_limit_window_minutes="${qa_rate_limit_window_minutes:-1}"
+          run_cdk_bootstrap="${run_cdk_bootstrap:-false}"
+
+          if [[ "${DEPLOY_ENVIRONMENT}" == "development" ]]; then
+            github_ref_pattern="${github_ref_pattern:-refs/heads/develop}"
+            github_environment_name="${github_environment_name:-development}"
+          else
+            github_ref_pattern="${github_ref_pattern:-refs/heads/main}"
+            github_environment_name="${github_environment_name:-production}"
+          fi
+
+          {
+            echo "AWS_REGION=${aws_region}"
+            echo "STACK_STAGE=${stack_stage}"
+            echo "FRONTEND_URL=${frontend_url}"
+            echo "ALARM_EMAIL=${alarm_email}"
+            echo "COGNITO_DOMAIN_PREFIX=${cognito_domain_prefix}"
+            echo "CREATE_GITHUB_DEPLOY_ROLE=${create_github_deploy_role}"
+            echo "GITHUB_REPO=${github_repo}"
+            echo "GITHUB_REF_PATTERN=${github_ref_pattern}"
+            echo "GITHUB_ENVIRONMENT_NAME=${github_environment_name}"
+            echo "QA_MODEL_PROVIDER=${qa_model_provider}"
+            echo "BEDROCK_REGION=${bedrock_region}"
+            echo "BEDROCK_MODEL_SMALL=${bedrock_model_small}"
+            echo "BEDROCK_MODEL_MID=${bedrock_model_mid}"
+            echo "BEDROCK_MODEL_LARGE=${bedrock_model_large}"
+            echo "OPENAI_MODEL_SMALL=${openai_model_small}"
+            echo "OPENAI_MODEL_MID=${openai_model_mid}"
+            echo "OPENAI_MODEL_LARGE=${openai_model_large}"
+            echo "OPENAI_API_KEY_SSM_PARAMETER=${openai_api_key_ssm_parameter}"
+            echo "ADMIN_EMAILS=${admin_emails}"
+            echo "NOEMA_INLINE_QA=${noema_inline_qa}"
+            echo "QA_RATE_LIMIT_MAX=${qa_rate_limit_max}"
+            echo "QA_RATE_LIMIT_WINDOW_MINUTES=${qa_rate_limit_window_minutes}"
+            echo "RUN_CDK_BOOTSTRAP=${run_cdk_bootstrap}"
+          } >> "${GITHUB_ENV}"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -160,6 +244,17 @@ jobs:
       - name: Validate deployment variables
         run: |
           set -euo pipefail
+
+          if [[ "${DEPLOY_ENVIRONMENT}" == "development" ]]; then
+            [[ "${STACK_STAGE}" == "dev" ]] || { echo "development deploy must use STACK_STAGE=dev"; exit 1; }
+            [[ "${GITHUB_REF_PATTERN}" == "refs/heads/develop" ]] || { echo "development deploy must use GITHUB_REF_PATTERN=refs/heads/develop"; exit 1; }
+            [[ "${GITHUB_ENVIRONMENT_NAME}" == "development" ]] || { echo "development deploy must use GITHUB_ENVIRONMENT_NAME=development"; exit 1; }
+          else
+            [[ "${STACK_STAGE}" == "prod" ]] || { echo "production deploy must use STACK_STAGE=prod"; exit 1; }
+            [[ "${GITHUB_REF_PATTERN}" == "refs/heads/main" ]] || { echo "production deploy must use GITHUB_REF_PATTERN=refs/heads/main"; exit 1; }
+            [[ "${GITHUB_ENVIRONMENT_NAME}" == "production" ]] || { echo "production deploy must use GITHUB_ENVIRONMENT_NAME=production"; exit 1; }
+          fi
+
           for var_name in STACK_STAGE CREATE_GITHUB_DEPLOY_ROLE GITHUB_REPO GITHUB_REF_PATTERN GITHUB_ENVIRONMENT_NAME QA_MODEL_PROVIDER BEDROCK_REGION OPENAI_MODEL_SMALL NOEMA_INLINE_QA QA_RATE_LIMIT_MAX QA_RATE_LIMIT_WINDOW_MINUTES; do
             if [[ -z "${!var_name:-}" ]]; then
               echo "Missing ${var_name}. Set workflow input or repository/environment variable."
