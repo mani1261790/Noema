@@ -125,7 +125,7 @@ jobs:
 
       - name: Create issues from high-confidence findings
         if: ${{ github.event_name == 'push' && github.ref_name == 'main' && steps.outputs.outputs.findings_file != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           FINDINGS_FILE: ${{ steps.outputs.outputs.findings_file }}
         with:
