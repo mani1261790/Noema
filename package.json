@@ -20,9 +20,9 @@
     "sync:notebooks:aws": "tsx scripts/sync-notebooks-aws.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.930.0",
-    "@aws-sdk/client-s3": "^3.991.0",
-    "@aws-sdk/lib-dynamodb": "^3.930.0",
+    "@aws-sdk/client-dynamodb": "^3.1041.0",
+    "@aws-sdk/client-s3": "^3.1041.0",
+    "@aws-sdk/lib-dynamodb": "^3.1041.0",
     "@aws-sdk/util-dynamodb": "^3.930.0",
     "@highlightjs/cdn-assets": "^11.11.1",
     "@types/sanitize-html": "^2.16.0",
