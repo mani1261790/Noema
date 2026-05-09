@@ -3531,6 +3531,10 @@
         updateAuthState();
       }
 
+      function assistantAuthErrorMessage() {
+        return "認証エラーが発生しました。再度お試しください。解消しない場合のみ再ログインしてください。";
+      }
+
       function buildLoginUrl() {
         const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const params = new URLSearchParams();
@@ -7323,8 +7327,7 @@
 
         if (!response.ok) {
           if (response.status === 401) {
-            resetExpiredSession({ closeChat: true });
-            throw new Error("セッションが切れています。再ログインしてください。");
+            throw new Error(assistantAuthErrorMessage());
           }
           const parsedError = payload && typeof payload === "object" ? String(payload.error || payload.rawText || "").trim() : "";
           const message = parsedError || `質問の送信に失敗しました (HTTP ${response.status})`;
@@ -7450,8 +7453,7 @@
           }
 
           if (response.status === 401) {
-            resetExpiredSession({ closeChat: true });
-            throw new Error("セッションが切れています。再ログインしてください。");
+            throw new Error(assistantAuthErrorMessage());
           }
 
           if (!response.ok) {
@@ -7509,8 +7511,7 @@
 
           if (!response.ok) {
             if (response.status === 401) {
-              resetExpiredSession({ closeChat: true });
-              throw new Error("セッションが切れています。再ログインしてください。");
+              throw new Error(assistantAuthErrorMessage());
             }
             throw new Error(payload && payload.error ? payload.error : "履歴の取得に失敗しました");
           }
