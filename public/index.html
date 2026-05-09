@@ -3468,6 +3468,16 @@
         updateAuthState();
       }
 
+      function resetExpiredSession(options = {}) {
+        const { closeChat = false } = options;
+        localStorage.removeItem(TOKEN_KEY);
+        state.chatSessionId = "";
+        if (closeChat) {
+          setChatOpen(false);
+        }
+        updateAuthState();
+      }
+
       function buildLoginUrl() {
         const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const params = new URLSearchParams();
@@ -3946,9 +3956,6 @@
         } catch {}
 
         if (response.status === 401) {
-          if (tokenAtRequest === getToken()) {
-            resetExpiredSession();
-          }
           throw new Error("セッションが切れています。再ログインしてください。");
         }
 
@@ -4646,9 +4653,6 @@
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.status === 401) {
-            if (token === getToken()) {
-              resetExpiredSession();
-            }
             return;
           }
           if (!response.ok) return;
