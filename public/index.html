@@ -3465,6 +3465,59 @@
         return "";
       }
 
+      async function getAuthFetchTokens(options = {}) {
+        const forceRefresh = Boolean(options.forceRefresh);
+        const session = forceRefresh ? await auth.refreshSession(true).catch(() => null) : await auth.ensureSession();
+        if (!session) {
+          return [];
+        }
+
+        const candidates = [session.accessToken, session.idToken]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        return Array.from(new Set(candidates));
+      }
+
+      async function fetchWithAuth(input, init, options = {}) {
+        const redirectOnFailure = Boolean(options.redirectOnFailure);
+        const tryRefreshOnUnauthorized = options.tryRefreshOnUnauthorized !== false;
+
+        async function attempt(forceRefresh) {
+          const tokens = await getAuthFetchTokens({ forceRefresh });
+          if (!tokens.length) {
+            updateAuthState();
+            if (redirectOnFailure) {
+              redirectToLogin();
+            }
+            return { response: null, token: "" };
+          }
+
+          let lastResponse = null;
+          let lastToken = "";
+          for (const token of tokens) {
+            const headers = new Headers(init && init.headers ? init.headers : {});
+            headers.set("Authorization", `Bearer ${token}`);
+            const response = await fetch(input, {
+              ...(init || {}),
+              headers
+            });
+            if (response.status !== 401) {
+              return { response, token };
+            }
+            lastResponse = response;
+            lastToken = token;
+          }
+
+          return { response: lastResponse, token: lastToken };
+        }
+
+        let result = await attempt(false);
+        if (result.response && result.response.status === 401 && tryRefreshOnUnauthorized && auth.hasRefreshToken()) {
+          result = await attempt(true);
+        }
+        return result;
+      }
+
       function resetExpiredSession(options = {}) {
         const { closeChat = false } = options;
         auth.clearSession();
@@ -4649,9 +4702,12 @@
         setElementVisibility(el.adminLinkMobile, false);
 
         try {
-          const response = await fetch(`${API_BASE}/api/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const { response } = await fetchWithAuth(
+            `${API_BASE}/api/me`,
+            { headers: { Authorization: `Bearer ${token}` } },
+            { tryRefreshOnUnauthorized: true }
+          );
+          if (!response) return;
           if (response.status === 401) {
             return;
           }
@@ -7197,8 +7253,10 @@
       }
 
       async function completeAssistantChat(questionText, notebookId, sectionId, target) {
-        const token = await getToken({ redirectOnFailure: true });
-        if (!token) {
+        const tokens = await getAuthFetchTokens();
+        if (!tokens.length) {
+          updateAuthState();
+          redirectToLogin();
           throw new Error("セッションが切れています。再ログインしてください。");
         }
         if (questionText.length > ASSISTANT_INPUT_MAX_CHARS) {
@@ -7238,14 +7296,20 @@
           throw new Error(`質問データが長すぎます。${ASSISTANT_REQUEST_MAX_CHARS} 文字以内に収めてください。`);
         }
 
-        const response = await fetch(`${API_BASE}/api/chat/complete`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer ${token}`
+        const { response } = await fetchWithAuth(
+          `${API_BASE}/api/chat/complete`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json"
+            },
+            body: requestBody
           },
-          body: requestBody
-        });
+          { redirectOnFailure: true, tryRefreshOnUnauthorized: true }
+        );
+        if (!response) {
+          throw new Error("セッションが切れています。再ログインしてください。");
+        }
 
         const rawText = await response.text();
         let payload = {};
@@ -7291,11 +7355,12 @@
           return;
         }
 
-        const token = await getToken({ redirectOnFailure: true });
-        if (!token) {
+        const tokens = await getAuthFetchTokens();
+        if (!tokens.length) {
           pushMessage("system", "セッションが切れています。再ログインしてください。");
           setChatOpen(false);
           updateAuthState();
+          redirectToLogin();
           return;
         }
 
@@ -7361,11 +7426,12 @@
           return;
         }
 
-        const token = await getToken({ redirectOnFailure: true });
-        if (!token) {
+        const tokens = await getAuthFetchTokens();
+        if (!tokens.length) {
           pushMessage("system", "セッションが切れています。再ログインしてください。");
           setChatOpen(false);
           updateAuthState();
+          redirectToLogin();
           return;
         }
 
@@ -7374,10 +7440,14 @@
         el.chatHistory.textContent = "Loading...";
 
         try {
-          const response = await fetch(
+          const { response } = await fetchWithAuth(
             `${API_BASE}/api/questions/history?notebookId=${encodeURIComponent(notebook.id)}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            {},
+            { redirectOnFailure: true, tryRefreshOnUnauthorized: true }
           );
+          if (!response) {
+            throw new Error("セッションが切れています。再ログインしてください。");
+          }
 
           if (response.status === 401) {
             resetExpiredSession({ closeChat: true });
@@ -7416,17 +7486,21 @@
 
       async function openHistorySession(sessionId) {
         const notebook = state.activeNotebook;
-        const token = await getToken({ redirectOnFailure: true });
-        if (!notebook || !token || !sessionId) {
+        const tokens = await getAuthFetchTokens();
+        if (!notebook || !tokens.length || !sessionId) {
           return;
         }
 
         el.chatHistory.disabled = true;
         try {
-          const response = await fetch(
+          const { response } = await fetchWithAuth(
             `${API_BASE}/api/questions/history?notebookId=${encodeURIComponent(notebook.id)}&sessionId=${encodeURIComponent(sessionId)}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            {},
+            { redirectOnFailure: true, tryRefreshOnUnauthorized: true }
           );
+          if (!response) {
+            throw new Error("セッションが切れています。再ログインしてください。");
+          }
 
           let payload = {};
           try {
