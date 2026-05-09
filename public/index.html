@@ -7218,14 +7218,20 @@
           body: requestBody
         });
 
+        const rawText = await response.text();
         let payload = {};
-        try {
-          payload = await response.json();
-        } catch {}
+        if (rawText) {
+          try {
+            payload = JSON.parse(rawText);
+          } catch {
+            payload = { rawText };
+          }
+        }
 
         if (!response.ok) {
-          const message = payload && payload.error ? payload.error : "質問の送信に失敗しました";
-          throw new Error(String(message));
+          const parsedError = payload && typeof payload === "object" ? String(payload.error || payload.rawText || "").trim() : "";
+          const message = parsedError || `質問の送信に失敗しました (HTTP ${response.status})`;
+          throw new Error(message);
         }
 
         const answerText = limitText(String(payload.answerText || ""), ASSISTANT_RESPONSE_MAX_CHARS).trim();
