@@ -77,22 +77,16 @@
     } else {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
     }
-    if (session.refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
-    } else {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-    }
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
   function buildSession(input) {
     const id = normalizeToken(input && input.idToken, "id");
     const access = normalizeToken(input && input.accessToken, "access");
-    const refreshToken = String((input && input.refreshToken) || "").trim();
-    if (!id.token && !access.token && !refreshToken) return null;
+    if (!id.token && !access.token) return null;
     return {
       idToken: id.token,
       accessToken: access.token,
-      refreshToken,
       idClaims: id.claims,
       accessClaims: access.claims,
       savedAt: new Date().toISOString()
@@ -138,20 +132,26 @@
 
   function saveCognitoAuthResult(result) {
     const auth = result && typeof result === "object" ? result : {};
-    return saveSession({
+    const session = saveSession({
       idToken: auth.IdToken,
-      accessToken: auth.AccessToken,
-      refreshToken: auth.RefreshToken
+      accessToken: auth.AccessToken
     });
+    if (!session) {
+      throw new Error("Cognito authentication did not return a valid session.");
+    }
+    return session;
   }
 
   function saveOAuthTokenPayload(payload) {
     const data = payload && typeof payload === "object" ? payload : {};
-    return saveSession({
+    const session = saveSession({
       idToken: data.id_token,
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token
+      accessToken: data.access_token
     });
+    if (!session) {
+      throw new Error("OAuth token payload did not contain a valid session.");
+    }
+    return session;
   }
 
   function clearSession() {

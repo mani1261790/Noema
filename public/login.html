@@ -583,8 +583,7 @@
         document.getElementById("back-btn").setAttribute("href", returnTo);
       }
 
-      const existing = auth.getIdentityToken();
-      if (existing) {
+      if (auth.isAuthenticated()) {
         setStatus("info", "既にログイン済みです。再ログインが必要な場合のみ入力してください。", "セッション有効");
       } else {
         setStatus("info", "", "");

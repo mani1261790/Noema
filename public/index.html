@@ -3459,6 +3459,9 @@
         const { closeChat = false } = options;
         auth.clearSession();
         state.chatSessionId = "";
+        state.chatView = "messages";
+        state.messages = [];
+        state.chatHistorySessions = [];
         if (closeChat) {
           setChatOpen(false);
         }
@@ -3929,6 +3932,7 @@
         if (!token) {
           throw new Error("セッションが切れています。再ログインしてください。");
         }
+        const tokenAtRequest = token;
 
         const response = await fetch(`${API_BASE}/api/learning-progress`, {
           headers: {
@@ -3942,7 +3946,9 @@
         } catch {}
 
         if (response.status === 401) {
-          resetExpiredSession();
+          if (tokenAtRequest === getToken()) {
+            resetExpiredSession();
+          }
           throw new Error("セッションが切れています。再ログインしてください。");
         }
 
@@ -4662,9 +4668,10 @@
 
       function updateAuthState() {
         hidePrivilegedSidebarControls();
-        const token = auth.getIdentityToken();
-        state.loggedIn = Boolean(token);
-        state.userScopeKey = token ? resolveUserScopeKey(token) : "";
+        const identityToken = auth.getIdentityToken();
+        const accessToken = auth.getAuthorizationToken();
+        state.loggedIn = Boolean(accessToken);
+        state.userScopeKey = identityToken ? resolveUserScopeKey(identityToken) : "";
 
         if (state.loggedIn) {
           state.learningProgressLoaded = false;
@@ -4676,14 +4683,13 @@
             link.href = "#";
             link.onclick = function (event) {
               event.preventDefault();
-              auth.clearSession();
+              resetExpiredSession();
               setSidebarOverlayOpen(false);
-              updateAuthState();
               showHomeDashboard();
             };
           });
           syncChatFabState();
-          void updateAdminVisibility(token);
+          void updateAdminVisibility(accessToken);
           void syncLearningProgressFromServer();
           if (state.activeNotebook) {
             void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
