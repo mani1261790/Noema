@@ -3451,21 +3451,18 @@
         }
       }
 
-      function getToken() {
-        return auth.getAuthorizationToken();
-      }
-
-      function resetExpiredSession(options = {}) {
-        const { closeChat = false } = options;
-        auth.clearSession();
-        state.chatSessionId = "";
-        state.chatView = "messages";
-        state.messages = [];
-        state.chatHistorySessions = [];
-        if (closeChat) {
-          setChatOpen(false);
+      async function getToken(options = {}) {
+        const redirectOnFailure = Boolean(options.redirectOnFailure);
+        const session = await auth.ensureSession();
+        const token = session && session.accessToken ? session.accessToken : "";
+        if (token) {
+          return token;
         }
         updateAuthState();
+        if (redirectOnFailure) {
+          redirectToLogin();
+        }
+        return "";
       }
 
       function resetExpiredSession(options = {}) {
@@ -3941,7 +3938,7 @@
       }
 
       async function fetchLearningProgressStore() {
-        const token = getToken();
+        const token = await getToken();
         if (!token) {
           throw new Error("セッションが切れています。再ログインしてください。");
         }
@@ -3991,7 +3988,7 @@
 
         if (!state.loggedIn) return;
 
-        const token = getToken();
+        const token = await getToken();
         if (!token) return;
 
         try {
@@ -4167,7 +4164,7 @@
         renderSidebar();
 
         if (!state.loggedIn) return;
-        const token = getToken();
+        const token = await getToken();
         if (!token) return;
         try {
           const response = await fetch(`${API_BASE}/api/learning-progress/chapters/${encodeURIComponent(chapterId)}`, {
@@ -4675,10 +4672,11 @@
 
       function updateAuthState() {
         hidePrivilegedSidebarControls();
+        const session = auth.getSession();
+        const accessToken = auth.getAccessToken();
         const identityToken = auth.getIdentityToken();
-        const accessToken = auth.getAuthorizationToken();
-        state.loggedIn = Boolean(accessToken);
-        state.userScopeKey = identityToken ? resolveUserScopeKey(identityToken) : "";
+        state.loggedIn = auth.isAuthenticated();
+        state.userScopeKey = resolveUserScopeKey(identityToken || accessToken || "");
 
         if (state.loggedIn) {
           state.learningProgressLoaded = false;
@@ -4696,10 +4694,23 @@
             };
           });
           syncChatFabState();
-          void updateAdminVisibility(accessToken);
-          void syncLearningProgressFromServer();
-          if (state.activeNotebook) {
-            void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+          if (accessToken) {
+            void updateAdminVisibility(accessToken);
+            void syncLearningProgressFromServer();
+            if (state.activeNotebook) {
+              void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+            }
+          } else if (session && session.refreshToken) {
+            void (async () => {
+              const refreshedToken = await getToken();
+              if (!refreshedToken) return;
+              if (!state.loggedIn) return;
+              void updateAdminVisibility(refreshedToken);
+              void syncLearningProgressFromServer();
+              if (state.activeNotebook) {
+                void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+              }
+            })();
           }
           renderPlaygroundSidebarControls();
           renderPlaygroundHeaderControls();
@@ -5537,7 +5548,7 @@
 
       async function preloadNotebookPackages(container, notebookId) {
         if (!state.loggedIn) return;
-        const token = getToken();
+        const token = await getToken();
         if (!token) return;
 
         const modules = normalizeModuleHints(collectNotebookImportedModules(container));
@@ -5564,7 +5575,7 @@
       }
 
       async function runPythonOnServer(source, contextSource, notebookId, sectionId, expectedModules) {
-        const token = getToken();
+        const token = await getToken({ redirectOnFailure: true });
         if (!token) {
           throw new Error("コード実行にはログインが必要です。");
         }
@@ -5961,7 +5972,7 @@
         if (!state.activeNotebook || state.colabSessionBusy) return;
         const notebookId = state.activeNotebook.id;
         const fallbackColabUrl = state.activeNotebook.colabUrl || "https://colab.research.google.com/";
-        const token = getToken();
+        const token = await getToken();
         if (!token) {
           openInNewTab(fallbackColabUrl);
           return;
@@ -6317,6 +6328,7 @@
           url.searchParams.set("notebookId", target.id);
           url.searchParams.delete("finalChapterId");
           window.history.replaceState(null, "", url.toString());
+          syncChatFabState();
           return true;
         } catch (error) {
           state.activeNotebook = previousNotebook;
@@ -6466,8 +6478,7 @@
             radio.addEventListener("change", persistFinalDraft);
           });
           submit.addEventListener("click", async function () {
-            if (!getToken()) {
-              redirectToLogin();
+            if (!(await getToken({ redirectOnFailure: true }))) {
               return;
             }
             const answers = {};
@@ -6691,7 +6702,7 @@
       }
 
       function assessmentFetchHeaders() {
-        const token = getToken();
+        const token = auth.getAccessToken();
         return token ? { Authorization: `Bearer ${token}` } : {};
       }
 
@@ -7186,7 +7197,7 @@
       }
 
       async function completeAssistantChat(questionText, notebookId, sectionId, target) {
-        const token = getToken();
+        const token = await getToken({ redirectOnFailure: true });
         if (!token) {
           throw new Error("セッションが切れています。再ログインしてください。");
         }
@@ -7261,7 +7272,11 @@
       }
 
       async function sendQuestion() {
-        if (state.busy || !state.loggedIn) return;
+        if (state.busy) return;
+        if (!state.loggedIn) {
+          redirectToLogin();
+          return;
+        }
 
         const text = el.chatInput.value.trim();
         if (!text) return;
@@ -7276,7 +7291,7 @@
           return;
         }
 
-        const token = getToken();
+        const token = await getToken({ redirectOnFailure: true });
         if (!token) {
           pushMessage("system", "セッションが切れています。再ログインしてください。");
           setChatOpen(false);
@@ -7346,7 +7361,7 @@
           return;
         }
 
-        const token = getToken();
+        const token = await getToken({ redirectOnFailure: true });
         if (!token) {
           pushMessage("system", "セッションが切れています。再ログインしてください。");
           setChatOpen(false);
@@ -7401,7 +7416,7 @@
 
       async function openHistorySession(sessionId) {
         const notebook = state.activeNotebook;
-        const token = getToken();
+        const token = await getToken({ redirectOnFailure: true });
         if (!notebook || !token || !sessionId) {
           return;
         }

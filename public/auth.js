@@ -4,6 +4,11 @@
   const ACCESS_TOKEN_KEY = "noema_access_token";
   const REFRESH_TOKEN_KEY = "noema_refresh_token";
   const CLOCK_SKEW_MS = 30 * 1000;
+  const REGION = "ap-northeast-3";
+  const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+  const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
+
+  let refreshPromise = null;
 
   function decodeBase64Url(value) {
     const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
@@ -77,18 +82,26 @@
     } else {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
     }
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    if (session.refreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken);
+    } else {
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+    }
   }
 
   function buildSession(input) {
     const id = normalizeToken(input && input.idToken, "id");
     const access = normalizeToken(input && input.accessToken, "access");
-    if (!id.token && !access.token) return null;
+    const refreshToken = String((input && input.refreshToken) || "").trim();
+    if (!id.token && !access.token && !refreshToken) return null;
     return {
       idToken: id.token,
       accessToken: access.token,
+      refreshToken,
       idClaims: id.claims,
       accessClaims: access.claims,
+      idTokenExpired: id.expired,
+      accessTokenExpired: access.expired,
       savedAt: new Date().toISOString()
     };
   }
@@ -117,7 +130,9 @@
     const changed =
       normalized.idToken !== session.idToken ||
       normalized.accessToken !== session.accessToken ||
-      normalized.refreshToken !== session.refreshToken;
+      normalized.refreshToken !== session.refreshToken ||
+      normalized.idTokenExpired !== session.idTokenExpired ||
+      normalized.accessTokenExpired !== session.accessTokenExpired;
     if (changed) {
       writeSessionObject(normalized);
     }
@@ -134,7 +149,8 @@
     const auth = result && typeof result === "object" ? result : {};
     const session = saveSession({
       idToken: auth.IdToken,
-      accessToken: auth.AccessToken
+      accessToken: auth.AccessToken,
+      refreshToken: auth.RefreshToken
     });
     if (!session) {
       throw new Error("Cognito authentication did not return a valid session.");
@@ -146,7 +162,8 @@
     const data = payload && typeof payload === "object" ? payload : {};
     const session = saveSession({
       idToken: data.id_token,
-      accessToken: data.access_token
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token
     });
     if (!session) {
       throw new Error("OAuth token payload did not contain a valid session.");
@@ -160,16 +177,16 @@
 
   function getIdentityToken() {
     const session = getSession();
-    return session && session.idToken ? session.idToken : "";
+    return session && session.idToken && !session.idTokenExpired ? session.idToken : "";
   }
 
   function getAccessToken() {
     const session = getSession();
-    return session && session.accessToken ? session.accessToken : "";
+    return session && session.accessToken && !session.accessTokenExpired ? session.accessToken : "";
   }
 
   function getAuthorizationToken() {
-    return getIdentityToken() || getAccessToken();
+    return getAccessToken() || getIdentityToken();
   }
 
   function getIdentityClaims() {
@@ -177,8 +194,96 @@
     return session && session.idClaims ? session.idClaims : null;
   }
 
+  function hasRefreshToken() {
+    const session = getSession();
+    return Boolean(session && session.refreshToken);
+  }
+
   function isAuthenticated() {
-    return Boolean(getIdentityToken() || getAccessToken());
+    const session = getSession();
+    return Boolean(
+      (session && !session.accessTokenExpired && session.accessToken) ||
+      (session && !session.idTokenExpired && session.idToken) ||
+      (session && session.refreshToken)
+    );
+  }
+
+  async function cognitoCall(target, payload) {
+    const response = await fetch(COGNITO_IDP_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-amz-json-1.1",
+        "x-amz-target": `AWSCognitoIdentityProviderService.${target}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data.message || data.Message || `${target} failed`;
+      throw new Error(String(message || "Cognito refresh failed"));
+    }
+
+    return data;
+  }
+
+  async function refreshSession(force) {
+    const session = getSession();
+    if (!session || !session.refreshToken) {
+      clearSession();
+      return null;
+    }
+
+    if (!force && session.accessToken && !session.accessTokenExpired) {
+      return session;
+    }
+
+    if (!refreshPromise) {
+      refreshPromise = cognitoCall("InitiateAuth", {
+        AuthFlow: "REFRESH_TOKEN_AUTH",
+        ClientId: CLIENT_ID,
+        AuthParameters: {
+          REFRESH_TOKEN: session.refreshToken
+        }
+      })
+        .then((data) => {
+          const auth = data && data.AuthenticationResult ? data.AuthenticationResult : {};
+          return saveSession({
+            idToken: auth.IdToken,
+            accessToken: auth.AccessToken,
+            refreshToken: session.refreshToken
+          });
+        })
+        .catch((error) => {
+          clearSession();
+          throw error;
+        })
+        .finally(() => {
+          refreshPromise = null;
+        });
+    }
+
+    return refreshPromise;
+  }
+
+  async function ensureSession() {
+    const session = getSession();
+    if (!session) return null;
+    if (session.accessToken && !session.accessTokenExpired) {
+      return session;
+    }
+    if (session.refreshToken) {
+      try {
+        return await refreshSession(false);
+      } catch {
+        return null;
+      }
+    }
+    if (session.idToken && !session.idTokenExpired) {
+      return session;
+    }
+    clearSession();
+    return null;
   }
 
   global.NoemaAuth = {
@@ -192,6 +297,9 @@
     getAccessToken,
     getAuthorizationToken,
     getIdentityClaims,
-    isAuthenticated
+    hasRefreshToken,
+    isAuthenticated,
+    ensureSession,
+    refreshSession
   };
 })(window);

@@ -920,7 +920,6 @@
       function getToken() {
         return auth.getAuthorizationToken();
       }
-
       function buildLoginUrl() {
         const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const params = new URLSearchParams();
@@ -932,15 +931,16 @@
         window.location.href = buildLoginUrl();
       }
 
-      function requireLogin() {
-        const token = getToken();
+      async function requireLogin() {
+        const session = await auth.ensureSession();
+        const token = session && session.accessToken ? session.accessToken : "";
         if (token) return token;
         redirectToLogin();
         throw new Error("ログインが必要です。");
       }
 
       async function api(path, init) {
-        const token = requireLogin();
+        const token = await requireLogin();
         let response;
         try {
           response = await fetch(`${API_BASE}${path}`, {
@@ -975,7 +975,7 @@
             redirectToLogin();
           }
           if (response.status === 403) {
-            const tokenPayload = auth.getIdentityClaims() || auth.parseJwt(token) || {};
+            const tokenPayload = auth.parseJwt(token) || {};
             const identity =
               String(tokenPayload.email || tokenPayload["cognito:username"] || tokenPayload.username || "").trim() || "不明";
             throw new Error(`管理者権限が必要です（現在ログイン: ${identity}）。admin_emails 設定を確認してください。`);
@@ -1658,7 +1658,7 @@
         });
       }
 
-      requireLogin();
+      void requireLogin();
       bindTopLevelEvents();
       void loadCatalog();
     })();
