@@ -917,6 +917,9 @@
         return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       }
 
+      function getToken() {
+        return auth.getAuthorizationToken();
+      }
       function buildLoginUrl() {
         const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const params = new URLSearchParams();
