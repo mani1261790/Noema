@@ -3471,6 +3471,16 @@
         return token;
       }
 
+      function resetExpiredSession(options = {}) {
+        const { closeChat = false } = options;
+        localStorage.removeItem(TOKEN_KEY);
+        state.chatSessionId = "";
+        if (closeChat) {
+          setChatOpen(false);
+        }
+        updateAuthState();
+      }
+
       function buildLoginUrl() {
         const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const params = new URLSearchParams();
@@ -3946,6 +3956,11 @@
         try {
           payload = await response.json();
         } catch {}
+
+        if (response.status === 401) {
+          resetExpiredSession();
+          throw new Error("セッションが切れています。再ログインしてください。");
+        }
 
         if (!response.ok) {
           const message = payload && payload.error ? payload.error : "進捗の取得に失敗しました";
@@ -4640,6 +4655,12 @@
           const response = await fetch(`${API_BASE}/api/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
+          if (response.status === 401) {
+            if (token === getToken()) {
+              resetExpiredSession();
+            }
+            return;
+          }
           if (!response.ok) return;
 
           const payload = await response.json();
@@ -7229,6 +7250,10 @@
         }
 
         if (!response.ok) {
+          if (response.status === 401) {
+            resetExpiredSession({ closeChat: true });
+            throw new Error("セッションが切れています。再ログインしてください。");
+          }
           const parsedError = payload && typeof payload === "object" ? String(payload.error || payload.rawText || "").trim() : "";
           const message = parsedError || `質問の送信に失敗しました (HTTP ${response.status})`;
           throw new Error(message);
@@ -7342,6 +7367,11 @@
             { headers: { Authorization: `Bearer ${token}` } }
           );
 
+          if (response.status === 401) {
+            resetExpiredSession({ closeChat: true });
+            throw new Error("セッションが切れています。再ログインしてください。");
+          }
+
           if (!response.ok) {
             let error = "履歴の取得に失敗しました";
             try {
@@ -7392,6 +7422,10 @@
           } catch {}
 
           if (!response.ok) {
+            if (response.status === 401) {
+              resetExpiredSession({ closeChat: true });
+              throw new Error("セッションが切れています。再ログインしてください。");
+            }
             throw new Error(payload && payload.error ? payload.error : "履歴の取得に失敗しました");
           }
 
