@@ -846,10 +846,11 @@
     </section>
   </main>
 
+  <script src="/auth.js"></script>
   <script>
     (function () {
+      const auth = window.NoemaAuth;
       const API_BASE = window.location.origin.replace(/\/$/, "");
-      const TOKEN_KEY = "noema_id_token";
 
       const el = {
         catalog: document.getElementById("catalog"),
@@ -916,25 +917,8 @@
         return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       }
 
-      function parseJwt(token) {
-        try {
-          const payload = token.split(".")[1];
-          return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-        } catch {
-          return null;
-        }
-      }
-
       function getToken() {
-        const token = localStorage.getItem(TOKEN_KEY) || "";
-        if (!token) return "";
-        const payload = parseJwt(token);
-        if (!payload) return "";
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-          localStorage.removeItem(TOKEN_KEY);
-          return "";
-        }
-        return token;
+        return auth.getAuthorizationToken();
       }
 
       function buildLoginUrl() {
@@ -987,11 +971,11 @@
 
         if (!response.ok) {
           if (response.status === 401) {
-            localStorage.removeItem(TOKEN_KEY);
+            auth.clearSession();
             redirectToLogin();
           }
           if (response.status === 403) {
-            const tokenPayload = parseJwt(token) || {};
+            const tokenPayload = auth.getIdentityClaims() || auth.parseJwt(token) || {};
             const identity =
               String(tokenPayload.email || tokenPayload["cognito:username"] || tokenPayload.username || "").trim() || "不明";
             throw new Error(`管理者権限が必要です（現在ログイン: ${identity}）。admin_emails 設定を確認してください。`);
@@ -1603,7 +1587,7 @@
           void loadCatalog();
         });
         el.logoutBtn.addEventListener("click", function () {
-          localStorage.removeItem(TOKEN_KEY);
+          auth.clearSession();
           redirectToLogin();
         });
         el.reloadNotebookBtn.addEventListener("click", function () {

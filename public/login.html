@@ -327,12 +327,13 @@
     </div>
   </main>
 
+  <script src="/auth.js"></script>
   <script>
     (function () {
+      const auth = window.NoemaAuth;
       const REGION = "ap-northeast-3";
       const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
-      const TOKEN_KEY = "noema_id_token";
       const RETURN_TO_KEY = "noema_return_to";
       const statusTitles = {
         info: "Information",
@@ -478,12 +479,12 @@
             }
           });
 
-          const idToken = data?.AuthenticationResult?.IdToken;
-          if (!idToken) {
+          const authResult = data?.AuthenticationResult;
+          if (!authResult?.IdToken) {
             throw new Error("IDトークンが取得できませんでした。");
           }
 
-          localStorage.setItem(TOKEN_KEY, idToken);
+          auth.saveCognitoAuthResult(authResult);
           sessionStorage.removeItem(RETURN_TO_KEY);
           setStatus("success", "ログインに成功しました。元のページへ移動します。", "完了");
           setTimeout(() => {
@@ -582,7 +583,7 @@
         document.getElementById("back-btn").setAttribute("href", returnTo);
       }
 
-      const existing = localStorage.getItem(TOKEN_KEY);
+      const existing = auth.getIdentityToken();
       if (existing) {
         setStatus("info", "既にログイン済みです。再ログインが必要な場合のみ入力してください。", "セッション有効");
       } else {

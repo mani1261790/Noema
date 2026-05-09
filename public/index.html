@@ -3180,10 +3180,11 @@
     </div>
   </div>
 
+  <script src="/auth.js"></script>
   <script>
     (function () {
+      const auth = window.NoemaAuth;
       const API_BASE = window.location.origin.replace(/\/$/, "");
-      const TOKEN_KEY = "noema_id_token";
       const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
@@ -3450,30 +3451,13 @@
         }
       }
 
-      function parseJwt(token) {
-        try {
-          const payload = token.split(".")[1];
-          return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-        } catch {
-          return null;
-        }
-      }
-
       function getToken() {
-        const token = localStorage.getItem(TOKEN_KEY) || "";
-        if (!token) return "";
-        const payload = parseJwt(token);
-        if (!payload) return "";
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-          localStorage.removeItem(TOKEN_KEY);
-          return "";
-        }
-        return token;
+        return auth.getAuthorizationToken();
       }
 
       function resetExpiredSession(options = {}) {
         const { closeChat = false } = options;
-        localStorage.removeItem(TOKEN_KEY);
+        auth.clearSession();
         state.chatSessionId = "";
         if (closeChat) {
           setChatOpen(false);
@@ -3493,7 +3477,7 @@
       }
 
       function resolveUserScopeKey(token) {
-        const payload = parseJwt(token);
+        const payload = auth.parseJwt(token);
         if (!payload || typeof payload !== "object") return "";
         const raw =
           (typeof payload.sub === "string" && payload.sub.trim()) ||
@@ -4678,7 +4662,7 @@
 
       function updateAuthState() {
         hidePrivilegedSidebarControls();
-        const token = getToken();
+        const token = auth.getIdentityToken();
         state.loggedIn = Boolean(token);
         state.userScopeKey = token ? resolveUserScopeKey(token) : "";
 
@@ -4692,7 +4676,7 @@
             link.href = "#";
             link.onclick = function (event) {
               event.preventDefault();
-              localStorage.removeItem(TOKEN_KEY);
+              auth.clearSession();
               setSidebarOverlayOpen(false);
               updateAuthState();
               showHomeDashboard();
