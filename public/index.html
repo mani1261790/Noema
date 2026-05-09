@@ -3470,8 +3470,11 @@
 
       function resetExpiredSession(options = {}) {
         const { closeChat = false } = options;
-        localStorage.removeItem(TOKEN_KEY);
+        auth.clearSession();
         state.chatSessionId = "";
+        state.chatView = "messages";
+        state.messages = [];
+        state.chatHistorySessions = [];
         if (closeChat) {
           setChatOpen(false);
         }
