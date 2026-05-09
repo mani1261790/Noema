@@ -106,6 +106,10 @@ const NOEMA_CHAPTER_IDS = new Set([
   "world-models"
 ]);
 
+function openAIResponsesSupportsTemperature(modelId: string): boolean {
+  return !/^gpt-5([-.]|$)/i.test(modelId.trim());
+}
+
 function findNotebook(catalog: { chapters: ChapterSummary[] }, notebookId: string) {
   for (const chapter of catalog.chapters) {
     const notebook = chapter.notebooks.find((item) => item.id === notebookId);
@@ -398,18 +402,21 @@ function buildLlmGradingPrompt(assessment: ChapterFinalAssessment, answers: Reco
 
 async function callOpenAIForGrading(prompt: string, target: Required<Pick<ChapterFinalLlmTarget, "modelId" | "apiKey">>) {
   const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
+  const body: Record<string, unknown> = {
+    model: target.modelId,
+    input: prompt,
+    max_output_tokens: 1400
+  };
+  if (openAIResponsesSupportsTemperature(target.modelId)) {
+    body.temperature = 0;
+  }
   const response = await fetch(`${baseUrl}/responses`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${target.apiKey}`
     },
-    body: JSON.stringify({
-      model: target.modelId,
-      input: prompt,
-      max_output_tokens: 1400,
-      temperature: 0
-    })
+    body: JSON.stringify(body)
   });
   if (!response.ok) {
     throw new Error(`OpenAI grading failed (${response.status}): ${(await response.text()).slice(0, 300)}`);

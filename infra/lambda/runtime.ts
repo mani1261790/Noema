@@ -111,6 +111,10 @@ type NotebookRecord = {
   updatedAt?: string;
 };
 
+function openAIResponsesSupportsTemperature(modelId: string): boolean {
+  return !/^gpt-5([-.]|$)/i.test(modelId.trim());
+}
+
 type AdminNotebookPatchInput = {
   notebookId: string;
   title?: string;
@@ -1172,6 +1176,14 @@ async function callOpenAIWithKey(prompt: string, modelId: string, apiKey: string
   const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const maxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800);
   const temperature = Number(process.env.OPENAI_TEMPERATURE || 0.2);
+  const body: Record<string, unknown> = {
+    model: modelId,
+    input: prompt,
+    max_output_tokens: maxOutputTokens
+  };
+  if (openAIResponsesSupportsTemperature(modelId)) {
+    body.temperature = temperature;
+  }
 
   const response = await fetch(`${baseUrl}/responses`, {
     method: "POST",
@@ -1179,12 +1191,7 @@ async function callOpenAIWithKey(prompt: string, modelId: string, apiKey: string
       "content-type": "application/json",
       authorization: `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model: modelId,
-      input: prompt,
-      max_output_tokens: maxOutputTokens,
-      temperature
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
