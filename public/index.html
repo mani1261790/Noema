@@ -4653,9 +4653,6 @@
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.status === 401) {
-            if (token === getToken()) {
-              resetExpiredSession();
-            }
             return;
           }
           if (!response.ok) return;
