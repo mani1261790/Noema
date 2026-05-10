@@ -1056,7 +1056,10 @@ function extractOpenAIText(payload: unknown): string {
   }
 
   if (typeof data.output_text === "string") {
-    return data.output_text.trim();
+    const trimmed = data.output_text.trim();
+    if (trimmed) {
+      return trimmed;
+    }
   }
 
   if (Array.isArray(data.output)) {
