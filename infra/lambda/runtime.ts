@@ -1100,6 +1100,20 @@ function summarizeOpenAITextPayload(payload: unknown): string {
   });
 }
 
+function openAIResponseOutputTypes(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const data = payload as Record<string, unknown>;
+  if (!Array.isArray(data.output)) return [];
+  return data.output
+    .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).type).trim().toLowerCase() : ""))
+    .filter(Boolean);
+}
+
+function isReasoningOnlyOpenAIResponse(payload: unknown): boolean {
+  const outputTypes = openAIResponseOutputTypes(payload);
+  return outputTypes.length > 0 && outputTypes.every((type) => type === "reasoning");
+}
+
 async function getOpenAiApiKey(): Promise<string | null> {
   if (process.env.OPENAI_API_KEY?.trim()) {
     return process.env.OPENAI_API_KEY.trim();
@@ -1219,40 +1233,51 @@ async function callOpenAIWithKey(prompt: string, modelId: string, apiKey: string
   const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const maxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800);
   const temperature = Number(process.env.OPENAI_TEMPERATURE || 0.2);
-  const body: Record<string, unknown> = {
-    model: modelId,
-    input: prompt,
-    max_output_tokens: maxOutputTokens
-  };
-  if (openAIResponsesSupportsTemperature(modelId)) {
-    body.temperature = temperature;
+  async function requestWithLimit(outputTokenLimit: number): Promise<{ payload: Record<string, unknown>; usage: Record<string, unknown>; text: string }> {
+    const body: Record<string, unknown> = {
+      model: modelId,
+      input: prompt,
+      max_output_tokens: outputTokenLimit
+    };
+    if (openAIResponsesSupportsTemperature(modelId)) {
+      body.temperature = temperature;
+    }
+    if (/^gpt-5([-.]|$)/i.test(modelId.trim())) {
+      body.reasoning = { effort: "low" };
+    }
+
+    const response = await fetch(`${baseUrl}/responses`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const bodyText = await response.text();
+      throw new Error(`OpenAI request failed (${response.status}): ${bodyText.slice(0, 300)}`);
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const usage = (payload.usage as Record<string, unknown> | undefined) ?? {};
+    return { payload, usage, text: extractOpenAIText(payload) };
   }
 
-  const response = await fetch(`${baseUrl}/responses`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`OpenAI request failed (${response.status}): ${body.slice(0, 300)}`);
+  let result = await requestWithLimit(maxOutputTokens);
+  if (!result.text && isReasoningOnlyOpenAIResponse(result.payload)) {
+    result = await requestWithLimit(Math.max(maxOutputTokens * 2, 1600));
   }
 
-  const payload = (await response.json()) as Record<string, unknown>;
-  const usage = (payload.usage as Record<string, unknown> | undefined) ?? {};
-  const text = extractOpenAIText(payload);
-  if (!text) {
-    throw new Error(`OpenAI response did not contain extractable text. ${summarizeOpenAITextPayload(payload)}`);
+  if (!result.text) {
+    throw new Error(`OpenAI response did not contain extractable text. ${summarizeOpenAITextPayload(result.payload)}`);
   }
 
   return {
-    text,
-    inputTokens: toNumber(usage.input_tokens ?? usage.prompt_tokens),
-    outputTokens: toNumber(usage.output_tokens ?? usage.completion_tokens)
+    text: result.text,
+    inputTokens: toNumber(result.usage.input_tokens ?? result.usage.prompt_tokens),
+    outputTokens: toNumber(result.usage.output_tokens ?? result.usage.completion_tokens)
   };
 }
 
