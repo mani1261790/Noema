@@ -266,10 +266,12 @@
     </div>
   </main>
 
+  <script src="/auth-config.js"></script>
   <script>
     (function () {
-      const REGION = "ap-northeast-3";
-      const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+      const authConfig = window.__NOEMA_AUTH_CONFIG__ || {};
+      const REGION = String(authConfig.region || "ap-northeast-3");
+      const CLIENT_ID = String(authConfig.clientId || "1tkarvhnc0bmo9ikn598afmg9");
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
       const statusTitles = {
         info: "Information",

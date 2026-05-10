@@ -1,11 +1,25 @@
 (function (global) {
+  const authConfig = (() => {
+    const fallback = {
+      region: "ap-northeast-3",
+      clientId: "1tkarvhnc0bmo9ikn598afmg9",
+      cognitoDomain: "https://noema-437089831576-auth.auth.ap-northeast-3.amazoncognito.com"
+    };
+    const source = global.__NOEMA_AUTH_CONFIG__;
+    if (!source || typeof source !== "object") return fallback;
+    return {
+      region: String(source.region || fallback.region).trim() || fallback.region,
+      clientId: String(source.clientId || fallback.clientId).trim() || fallback.clientId,
+      cognitoDomain: String(source.cognitoDomain || fallback.cognitoDomain).trim() || fallback.cognitoDomain
+    };
+  })();
   const STORAGE_KEY = "noema_auth_session";
   const ID_TOKEN_KEY = "noema_id_token";
   const ACCESS_TOKEN_KEY = "noema_access_token";
   const REFRESH_TOKEN_KEY = "noema_refresh_token";
   const CLOCK_SKEW_MS = 30 * 1000;
-  const REGION = "ap-northeast-3";
-  const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+  const REGION = authConfig.region;
+  const CLIENT_ID = authConfig.clientId;
   const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
 
   let refreshPromise = null;
@@ -287,6 +301,7 @@
   }
 
   global.NoemaAuth = {
+    config: authConfig,
     parseJwt,
     getSession,
     saveSession,

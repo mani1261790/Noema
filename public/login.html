@@ -327,12 +327,13 @@
     </div>
   </main>
 
+  <script src="/auth-config.js"></script>
   <script src="/auth.js"></script>
   <script>
     (function () {
       const auth = window.NoemaAuth;
-      const REGION = "ap-northeast-3";
-      const CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+      const REGION = auth.config.region;
+      const CLIENT_ID = auth.config.clientId;
       const COGNITO_IDP_ENDPOINT = `https://cognito-idp.${REGION}.amazonaws.com/`;
       const RETURN_TO_KEY = "noema_return_to";
       const statusTitles = {
