@@ -96,6 +96,43 @@ jobs:
       - name: Validate shell API origin
         run: npm run check:shell-api-origin
 
+      - name: Prepare auth config
+        run: |
+          set -euo pipefail
+          if [[ "${DEPLOY_ENVIRONMENT}" == "development" ]]; then
+            STACK_STAGE="dev"
+          else
+            STACK_STAGE="prod"
+          fi
+          STACK_NAME="noema-${STACK_STAGE}"
+          COGNITO_CLIENT_ID="$(
+            aws cloudformation describe-stacks \
+              --stack-name "${STACK_NAME}" \
+              --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolClientId'].OutputValue" \
+              --output text
+          )"
+          COGNITO_DOMAIN_NAME="$(
+            aws cloudformation describe-stacks \
+              --stack-name "${STACK_NAME}" \
+              --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" \
+              --output text
+          )"
+          if [[ -z "${COGNITO_CLIENT_ID}" ]] || [[ "${COGNITO_CLIENT_ID}" == "None" ]]; then
+            echo "Missing CognitoUserPoolClientId output from ${STACK_NAME}"
+            exit 1
+          fi
+          if [[ -z "${COGNITO_DOMAIN_NAME}" ]] || [[ "${COGNITO_DOMAIN_NAME}" == "None" ]]; then
+            echo "Missing CognitoDomain output from ${STACK_NAME}"
+            exit 1
+          fi
+          cat <<EOF > ./public/auth-config.js
+          window.__NOEMA_AUTH_CONFIG__ = {
+            region: "${AWS_REGION}",
+            clientId: "${COGNITO_CLIENT_ID}",
+            cognitoDomain: "https://${COGNITO_DOMAIN_NAME}"
+          };
+          EOF
+
       - name: Upload site static files
         run: |
           aws s3 sync ./public s3://${SITE_BUCKET} --delete
