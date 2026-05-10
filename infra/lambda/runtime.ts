@@ -1044,8 +1044,10 @@ function extractOpenAIText(payload: unknown): string {
     const direct = [
       ...collectText(record.output_text),
       ...collectText(record.text),
+      ...collectText(record.value),
       ...collectText(record.content),
       ...collectText(record.message),
+      ...collectText(record.summary),
       ...collectText(record.refusal)
     ];
     if (direct.length > 0) {
@@ -1077,6 +1079,25 @@ function extractOpenAIText(payload: unknown): string {
   }
 
   return "";
+}
+
+function summarizeOpenAITextPayload(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "non-object payload";
+  const data = payload as Record<string, unknown>;
+  const outputCount = Array.isArray(data.output) ? data.output.length : 0;
+  const choiceCount = Array.isArray(data.choices) ? data.choices.length : 0;
+  const outputTypes = Array.isArray(data.output)
+    ? data.output
+        .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).type) : ""))
+        .filter(Boolean)
+        .slice(0, 8)
+    : [];
+  return JSON.stringify({
+    hasOutputText: typeof data.output_text === "string",
+    outputCount,
+    choiceCount,
+    outputTypes
+  });
 }
 
 async function getOpenAiApiKey(): Promise<string | null> {
@@ -1223,9 +1244,13 @@ async function callOpenAIWithKey(prompt: string, modelId: string, apiKey: string
 
   const payload = (await response.json()) as Record<string, unknown>;
   const usage = (payload.usage as Record<string, unknown> | undefined) ?? {};
+  const text = extractOpenAIText(payload);
+  if (!text) {
+    throw new Error(`OpenAI response did not contain extractable text. ${summarizeOpenAITextPayload(payload)}`);
+  }
 
   return {
-    text: extractOpenAIText(payload),
+    text,
     inputTokens: toNumber(usage.input_tokens ?? usage.prompt_tokens),
     outputTokens: toNumber(usage.output_tokens ?? usage.completion_tokens)
   };
