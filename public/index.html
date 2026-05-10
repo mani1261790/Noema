@@ -3547,6 +3547,17 @@
         window.location.href = buildLoginUrl();
       }
 
+      async function ensureLoggedInState(options = {}) {
+        const redirectOnFailure = Boolean(options.redirectOnFailure);
+        const session = await auth.ensureSession().catch(() => null);
+        updateAuthState();
+        const loggedIn = Boolean(session && auth.isAuthenticated());
+        if (!loggedIn && redirectOnFailure) {
+          redirectToLogin();
+        }
+        return loggedIn;
+      }
+
       function resolveUserScopeKey(token) {
         const payload = auth.parseJwt(token);
         if (!payload || typeof payload !== "object") return "";
@@ -4687,8 +4698,7 @@
       }
 
       async function setPlaygroundEnabled(nextEnabled) {
-        if (nextEnabled && !state.loggedIn) {
-          redirectToLogin();
+        if (nextEnabled && !(await ensureLoggedInState({ redirectOnFailure: true }))) {
           return;
         }
         state.playgroundEnabled = Boolean(nextEnabled);
@@ -7596,8 +7606,7 @@
       }
 
       async function handleAssistantTriggerClick() {
-        if (!state.loggedIn) {
-          redirectToLogin();
+        if (!(await ensureLoggedInState({ redirectOnFailure: true }))) {
           return;
         }
         if (!state.activeNotebook && !state.chatOpen) {
