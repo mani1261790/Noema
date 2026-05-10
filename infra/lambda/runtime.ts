@@ -1286,50 +1286,77 @@ async function callGeminiWithKey(prompt: string, modelId: string, apiKey: string
     throw new Error("Gemini API key is required.");
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }]
-          }
-        ],
-        generationConfig: {
-          temperature: Number(process.env.OPENAI_TEMPERATURE || 0.2),
-          maxOutputTokens: Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800)
-        }
-      })
-    }
-  );
+  const temperature = Number(process.env.OPENAI_TEMPERATURE || 0.2);
+  const defaultMaxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800);
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Gemini request failed (${response.status}): ${body.slice(0, 300)}`);
+  async function requestWithLimit(outputTokenLimit: number): Promise<{
+    text: string;
+    usage: Record<string, unknown>;
+    finishReason: string;
+    candidateCount: number;
+  }> {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature,
+            maxOutputTokens: outputTokenLimit
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gemini request failed (${response.status}): ${body.slice(0, 300)}`);
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+    const firstCandidate = candidates[0] as Record<string, unknown> | undefined;
+    const content = firstCandidate && typeof firstCandidate.content === "object" ? (firstCandidate.content as Record<string, unknown>) : null;
+    const parts = content && Array.isArray(content.parts) ? content.parts : [];
+    const text = parts
+      .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).text) : ""))
+      .join("\n")
+      .trim();
+    const usage = payload.usageMetadata && typeof payload.usageMetadata === "object"
+      ? (payload.usageMetadata as Record<string, unknown>)
+      : {};
+    const finishReason = asString(firstCandidate?.finishReason).trim().toUpperCase();
+
+    return {
+      text,
+      usage,
+      finishReason,
+      candidateCount: candidates.length
+    };
   }
 
-  const payload = (await response.json()) as Record<string, unknown>;
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
-  const firstCandidate = candidates[0] as Record<string, unknown> | undefined;
-  const content = firstCandidate && typeof firstCandidate.content === "object" ? firstCandidate.content as Record<string, unknown> : null;
-  const parts = content && Array.isArray(content.parts) ? content.parts : [];
-  const text = parts
-    .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).text) : ""))
-    .join("\n")
-    .trim();
-  const usage = payload.usageMetadata && typeof payload.usageMetadata === "object"
-    ? payload.usageMetadata as Record<string, unknown>
-    : {};
+  let result = await requestWithLimit(Math.max(defaultMaxOutputTokens, 1600));
+  if (result.finishReason === "MAX_TOKENS") {
+    result = await requestWithLimit(Math.max(defaultMaxOutputTokens * 2, 3200));
+  }
+
+  if (!result.text) {
+    throw new Error(`Gemini response did not contain extractable text. ${JSON.stringify({ finishReason: result.finishReason, candidateCount: result.candidateCount })}`);
+  }
 
   return {
-    text,
-    inputTokens: toNumber(usage.promptTokenCount),
-    outputTokens: toNumber(usage.candidatesTokenCount ?? usage.totalTokenCount)
+    text: result.text,
+    inputTokens: toNumber(result.usage.promptTokenCount),
+    outputTokens: toNumber(result.usage.candidatesTokenCount ?? result.usage.totalTokenCount)
   };
 }
 
