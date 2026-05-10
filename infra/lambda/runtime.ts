@@ -524,7 +524,11 @@ export function getAuthUser(event: APIGatewayProxyEventV2): AuthUser | null {
   const claims = requestContext.authorizer?.jwt?.claims;
   if (!claims) return null;
 
-  const userId = asString(claims.sub || claims.username);
+  const userId =
+    asString(claims.sub || "") ||
+    asString(claims.username || "") ||
+    asString(claims["cognito:username"] || "") ||
+    asString(claims.preferred_username || "");
   if (!userId) return null;
 
   const email =
