@@ -523,14 +523,8 @@ export class NoemaStack extends Stack {
       originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
     });
 
-    const jwtAudiences = Array.from(
-      new Set([
-        userPoolClient.userPoolClientId,
-        "1tkarvhnc0bmo9ikn598afmg9"
-      ].map((value) => String(value || "").trim()).filter(Boolean))
-    );
     const jwtAuthorizer = new HttpJwtAuthorizer("JwtAuthorizer", userPool.userPoolProviderUrl, {
-      jwtAudience: jwtAudiences
+      jwtAudience: [userPoolClient.userPoolClientId]
     });
 
     const apiIntegration = new HttpLambdaIntegration("ApiIntegration", apiFunction);
