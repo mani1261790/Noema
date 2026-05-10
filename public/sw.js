@@ -1,10 +1,12 @@
-const VERSION = "noema-pwa-v3";
+const VERSION = "noema-pwa-v4";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/login.html",
   "/admin.html",
   "/verify.html",
+  "/auth.js",
+  "/auth-config.js",
   "/manifest.webmanifest",
   "/pwa.js",
   "/favicon.svg",

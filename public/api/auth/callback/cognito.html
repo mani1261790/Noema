@@ -51,10 +51,13 @@
     <p id="detail" class="mono"></p>
   </main>
 
+  <script src="/auth-config.js"></script>
+  <script src="/auth.js"></script>
   <script>
     (function () {
-      const COGNITO_DOMAIN = "https://noema-437089831576-auth.auth.ap-northeast-3.amazoncognito.com";
-      const COGNITO_CLIENT_ID = "1tkarvhnc0bmo9ikn598afmg9";
+      const auth = window.NoemaAuth;
+      const COGNITO_DOMAIN = auth.config.cognitoDomain;
+      const COGNITO_CLIENT_ID = auth.config.clientId;
       const REDIRECT_URI = `${window.location.origin}/api/auth/callback/cognito`;
       const RETURN_TO_KEY = "noema_return_to";
 
@@ -130,10 +133,7 @@
           return;
         }
 
-        localStorage.setItem("noema_id_token", tokenPayload.id_token);
-        if (tokenPayload.access_token) {
-          localStorage.setItem("noema_access_token", tokenPayload.access_token);
-        }
+        auth.saveOAuthTokenPayload(tokenPayload);
 
         const returnTo = normalizeReturnTo(sessionStorage.getItem(RETURN_TO_KEY)) || "/";
         sessionStorage.removeItem("noema_pkce_state");

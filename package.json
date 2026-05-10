@@ -20,23 +20,23 @@
     "sync:notebooks:aws": "tsx scripts/sync-notebooks-aws.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.930.0",
-    "@aws-sdk/client-s3": "^3.991.0",
-    "@aws-sdk/lib-dynamodb": "^3.930.0",
-    "@aws-sdk/util-dynamodb": "^3.930.0",
+    "@aws-sdk/client-dynamodb": "^3.1041.0",
+    "@aws-sdk/client-s3": "^3.1041.0",
+    "@aws-sdk/lib-dynamodb": "^3.1041.0",
+    "@aws-sdk/util-dynamodb": "^3.996.2",
     "@highlightjs/cdn-assets": "^11.11.1",
-    "@types/sanitize-html": "^2.16.0",
-    "katex": "^0.16.28",
+    "@types/sanitize-html": "^2.16.1",
+    "katex": "^0.16.45",
     "markdown-it": "^14.1.1",
     "markdown-it-katex": "^2.0.3",
     "next": "^14.2.26",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "sanitize-html": "^2.17.0"
+    "sanitize-html": "^2.17.3"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
-    "@types/node": "^22.10.7",
+    "@types/node": "^22.19.17",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "eslint": "^8.57.1",

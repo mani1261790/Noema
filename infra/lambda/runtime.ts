@@ -111,6 +111,10 @@ type NotebookRecord = {
   updatedAt?: string;
 };
 
+function openAIResponsesSupportsTemperature(modelId: string): boolean {
+  return !/^gpt-5([-.]|$)/i.test(modelId.trim());
+}
+
 type AdminNotebookPatchInput = {
   notebookId: string;
   title?: string;
@@ -520,7 +524,11 @@ export function getAuthUser(event: APIGatewayProxyEventV2): AuthUser | null {
   const claims = requestContext.authorizer?.jwt?.claims;
   if (!claims) return null;
 
-  const userId = asString(claims.sub || claims.username);
+  const userId =
+    asString(claims.sub || "") ||
+    asString(claims.username || "") ||
+    asString(claims["cognito:username"] || "") ||
+    asString(claims.preferred_username || "");
   if (!userId) return null;
 
   const email =
@@ -1020,37 +1028,90 @@ function extractOpenAIText(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const data = payload as Record<string, unknown>;
 
+  function collectText(value: unknown): string[] {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed ? [trimmed] : [];
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap((item) => collectText(item));
+    }
+    if (!value || typeof value !== "object") {
+      return [];
+    }
+
+    const record = value as Record<string, unknown>;
+    const direct = [
+      ...collectText(record.output_text),
+      ...collectText(record.text),
+      ...collectText(record.value),
+      ...collectText(record.content),
+      ...collectText(record.message),
+      ...collectText(record.summary),
+      ...collectText(record.refusal)
+    ];
+    if (direct.length > 0) {
+      return direct;
+    }
+
+    return [];
+  }
+
   if (typeof data.output_text === "string") {
-    return data.output_text.trim();
+    const trimmed = data.output_text.trim();
+    if (trimmed) {
+      return trimmed;
+    }
   }
 
   if (Array.isArray(data.output)) {
-    const chunks: string[] = [];
-    for (const item of data.output) {
-      if (!item || typeof item !== "object") continue;
-      const message = item as Record<string, unknown>;
-      if (!Array.isArray(message.content)) continue;
-      for (const contentItem of message.content) {
-        if (!contentItem || typeof contentItem !== "object") continue;
-        const content = contentItem as Record<string, unknown>;
-        if (typeof content.text === "string" && content.text.trim()) {
-          chunks.push(content.text.trim());
-        }
-      }
-    }
-
+    const chunks = data.output.flatMap((item) => collectText(item));
     if (chunks.length > 0) {
       return chunks.join("\n");
     }
   }
 
   if (Array.isArray(data.choices)) {
-    const first = data.choices[0] as { message?: { content?: string }; text?: string } | undefined;
-    if (first?.message?.content) return first.message.content.trim();
-    if (first?.text) return first.text.trim();
+    const chunks = data.choices.flatMap((choice) => collectText(choice));
+    if (chunks.length > 0) {
+      return chunks.join("\n");
+    }
   }
 
   return "";
+}
+
+function summarizeOpenAITextPayload(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "non-object payload";
+  const data = payload as Record<string, unknown>;
+  const outputCount = Array.isArray(data.output) ? data.output.length : 0;
+  const choiceCount = Array.isArray(data.choices) ? data.choices.length : 0;
+  const outputTypes = Array.isArray(data.output)
+    ? data.output
+        .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).type) : ""))
+        .filter(Boolean)
+        .slice(0, 8)
+    : [];
+  return JSON.stringify({
+    hasOutputText: typeof data.output_text === "string",
+    outputCount,
+    choiceCount,
+    outputTypes
+  });
+}
+
+function openAIResponseOutputTypes(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const data = payload as Record<string, unknown>;
+  if (!Array.isArray(data.output)) return [];
+  return data.output
+    .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).type).trim().toLowerCase() : ""))
+    .filter(Boolean);
+}
+
+function isReasoningOnlyOpenAIResponse(payload: unknown): boolean {
+  const outputTypes = openAIResponseOutputTypes(payload);
+  return outputTypes.length > 0 && outputTypes.every((type) => type === "reasoning");
 }
 
 async function getOpenAiApiKey(): Promise<string | null> {
@@ -1172,33 +1233,51 @@ async function callOpenAIWithKey(prompt: string, modelId: string, apiKey: string
   const baseUrl = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
   const maxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800);
   const temperature = Number(process.env.OPENAI_TEMPERATURE || 0.2);
-
-  const response = await fetch(`${baseUrl}/responses`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
+  async function requestWithLimit(outputTokenLimit: number): Promise<{ payload: Record<string, unknown>; usage: Record<string, unknown>; text: string }> {
+    const body: Record<string, unknown> = {
       model: modelId,
       input: prompt,
-      max_output_tokens: maxOutputTokens,
-      temperature
-    })
-  });
+      max_output_tokens: outputTokenLimit
+    };
+    if (openAIResponsesSupportsTemperature(modelId)) {
+      body.temperature = temperature;
+    }
+    if (/^gpt-5([-.]|$)/i.test(modelId.trim())) {
+      body.reasoning = { effort: "low" };
+    }
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`OpenAI request failed (${response.status}): ${body.slice(0, 300)}`);
+    const response = await fetch(`${baseUrl}/responses`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const bodyText = await response.text();
+      throw new Error(`OpenAI request failed (${response.status}): ${bodyText.slice(0, 300)}`);
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const usage = (payload.usage as Record<string, unknown> | undefined) ?? {};
+    return { payload, usage, text: extractOpenAIText(payload) };
   }
 
-  const payload = (await response.json()) as Record<string, unknown>;
-  const usage = (payload.usage as Record<string, unknown> | undefined) ?? {};
+  let result = await requestWithLimit(maxOutputTokens);
+  if (!result.text && isReasoningOnlyOpenAIResponse(result.payload)) {
+    result = await requestWithLimit(Math.max(maxOutputTokens * 2, 1600));
+  }
+
+  if (!result.text) {
+    throw new Error(`OpenAI response did not contain extractable text. ${summarizeOpenAITextPayload(result.payload)}`);
+  }
 
   return {
-    text: extractOpenAIText(payload),
-    inputTokens: toNumber(usage.input_tokens ?? usage.prompt_tokens),
-    outputTokens: toNumber(usage.output_tokens ?? usage.completion_tokens)
+    text: result.text,
+    inputTokens: toNumber(result.usage.input_tokens ?? result.usage.prompt_tokens),
+    outputTokens: toNumber(result.usage.output_tokens ?? result.usage.completion_tokens)
   };
 }
 
@@ -1207,50 +1286,77 @@ async function callGeminiWithKey(prompt: string, modelId: string, apiKey: string
     throw new Error("Gemini API key is required.");
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }]
-          }
-        ],
-        generationConfig: {
-          temperature: Number(process.env.OPENAI_TEMPERATURE || 0.2),
-          maxOutputTokens: Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800)
-        }
-      })
-    }
-  );
+  const temperature = Number(process.env.OPENAI_TEMPERATURE || 0.2);
+  const defaultMaxOutputTokens = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || process.env.BEDROCK_MAX_TOKENS || 800);
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Gemini request failed (${response.status}): ${body.slice(0, 300)}`);
+  async function requestWithLimit(outputTokenLimit: number): Promise<{
+    text: string;
+    usage: Record<string, unknown>;
+    finishReason: string;
+    candidateCount: number;
+  }> {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature,
+            maxOutputTokens: outputTokenLimit
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gemini request failed (${response.status}): ${body.slice(0, 300)}`);
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+    const firstCandidate = candidates[0] as Record<string, unknown> | undefined;
+    const content = firstCandidate && typeof firstCandidate.content === "object" ? (firstCandidate.content as Record<string, unknown>) : null;
+    const parts = content && Array.isArray(content.parts) ? content.parts : [];
+    const text = parts
+      .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).text) : ""))
+      .join("\n")
+      .trim();
+    const usage = payload.usageMetadata && typeof payload.usageMetadata === "object"
+      ? (payload.usageMetadata as Record<string, unknown>)
+      : {};
+    const finishReason = asString(firstCandidate?.finishReason).trim().toUpperCase();
+
+    return {
+      text,
+      usage,
+      finishReason,
+      candidateCount: candidates.length
+    };
   }
 
-  const payload = (await response.json()) as Record<string, unknown>;
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
-  const firstCandidate = candidates[0] as Record<string, unknown> | undefined;
-  const content = firstCandidate && typeof firstCandidate.content === "object" ? firstCandidate.content as Record<string, unknown> : null;
-  const parts = content && Array.isArray(content.parts) ? content.parts : [];
-  const text = parts
-    .map((item) => (item && typeof item === "object" ? asString((item as Record<string, unknown>).text) : ""))
-    .join("\n")
-    .trim();
-  const usage = payload.usageMetadata && typeof payload.usageMetadata === "object"
-    ? payload.usageMetadata as Record<string, unknown>
-    : {};
+  let result = await requestWithLimit(Math.max(defaultMaxOutputTokens, 1600));
+  if (result.finishReason === "MAX_TOKENS") {
+    result = await requestWithLimit(Math.max(defaultMaxOutputTokens * 2, 3200));
+  }
+
+  if (!result.text) {
+    throw new Error(`Gemini response did not contain extractable text. ${JSON.stringify({ finishReason: result.finishReason, candidateCount: result.candidateCount })}`);
+  }
 
   return {
-    text,
-    inputTokens: toNumber(usage.promptTokenCount),
-    outputTokens: toNumber(usage.candidatesTokenCount ?? usage.totalTokenCount)
+    text: result.text,
+    inputTokens: toNumber(result.usage.promptTokenCount),
+    outputTokens: toNumber(result.usage.candidatesTokenCount ?? result.usage.totalTokenCount)
   };
 }
 
@@ -1824,7 +1930,11 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     const result = await callOpenAIWithKey(prompt, modelId, apiKey);
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
+    const answerTextRaw = normalizeAssistantAnswerText(result.text || "");
+    if (!answerTextRaw) {
+      throw new Error("OpenAI returned an empty response.");
+    }
+    const answerText = answerTextRaw;
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
@@ -1846,7 +1956,11 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     const result = await callGeminiWithKey(prompt, modelId, apiKey);
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
+    const answerTextRaw = normalizeAssistantAnswerText(result.text || "");
+    if (!answerTextRaw) {
+      throw new Error("Gemini returned an empty response.");
+    }
+    const answerText = answerTextRaw;
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,

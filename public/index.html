@@ -3180,10 +3180,12 @@
     </div>
   </div>
 
+  <script src="/auth-config.js"></script>
+  <script src="/auth.js"></script>
   <script>
     (function () {
+      const auth = window.NoemaAuth;
       const API_BASE = window.location.origin.replace(/\/$/, "");
-      const TOKEN_KEY = "noema_id_token";
       const PLAYGROUND_DRAFT_KEY_PREFIX = "noema_playground_drafts_v1";
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
@@ -3450,25 +3452,88 @@
         }
       }
 
-      function parseJwt(token) {
-        try {
-          const payload = token.split(".")[1];
-          return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-        } catch {
-          return null;
+      async function getToken(options = {}) {
+        const redirectOnFailure = Boolean(options.redirectOnFailure);
+        const session = await auth.ensureSession();
+        const token = session && session.accessToken ? session.accessToken : "";
+        if (token) {
+          return token;
         }
+        updateAuthState();
+        if (redirectOnFailure) {
+          redirectToLogin();
+        }
+        return "";
       }
 
-      function getToken() {
-        const token = localStorage.getItem(TOKEN_KEY) || "";
-        if (!token) return "";
-        const payload = parseJwt(token);
-        if (!payload) return "";
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-          localStorage.removeItem(TOKEN_KEY);
-          return "";
+      async function getAuthFetchTokens(options = {}) {
+        const forceRefresh = Boolean(options.forceRefresh);
+        const session = forceRefresh ? await auth.refreshSession(true).catch(() => null) : await auth.ensureSession();
+        if (!session) {
+          return [];
         }
-        return token;
+
+        const candidates = [session.accessToken, session.idToken]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        return Array.from(new Set(candidates));
+      }
+
+      async function fetchWithAuth(input, init, options = {}) {
+        const redirectOnFailure = Boolean(options.redirectOnFailure);
+        const tryRefreshOnUnauthorized = options.tryRefreshOnUnauthorized !== false;
+
+        async function attempt(forceRefresh) {
+          const tokens = await getAuthFetchTokens({ forceRefresh });
+          if (!tokens.length) {
+            updateAuthState();
+            if (redirectOnFailure) {
+              redirectToLogin();
+            }
+            return { response: null, token: "" };
+          }
+
+          let lastResponse = null;
+          let lastToken = "";
+          for (const token of tokens) {
+            const headers = new Headers(init && init.headers ? init.headers : {});
+            headers.set("Authorization", `Bearer ${token}`);
+            const response = await fetch(input, {
+              ...(init || {}),
+              headers
+            });
+            if (response.status !== 401) {
+              return { response, token };
+            }
+            lastResponse = response;
+            lastToken = token;
+          }
+
+          return { response: lastResponse, token: lastToken };
+        }
+
+        let result = await attempt(false);
+        if (result.response && result.response.status === 401 && tryRefreshOnUnauthorized && auth.hasRefreshToken()) {
+          result = await attempt(true);
+        }
+        return result;
+      }
+
+      function resetExpiredSession(options = {}) {
+        const { closeChat = false } = options;
+        auth.clearSession();
+        state.chatSessionId = "";
+        state.chatView = "messages";
+        state.messages = [];
+        state.chatHistorySessions = [];
+        if (closeChat) {
+          setChatOpen(false);
+        }
+        updateAuthState();
+      }
+
+      function assistantAuthErrorMessage() {
+        return "認証エラーが発生しました。再度お試しください。解消しない場合のみ再ログインしてください。";
       }
 
       function buildLoginUrl() {
@@ -3482,8 +3547,19 @@
         window.location.href = buildLoginUrl();
       }
 
+      async function ensureLoggedInState(options = {}) {
+        const redirectOnFailure = Boolean(options.redirectOnFailure);
+        const session = await auth.ensureSession().catch(() => null);
+        updateAuthState();
+        const loggedIn = Boolean(session && auth.isAuthenticated());
+        if (!loggedIn && redirectOnFailure) {
+          redirectToLogin();
+        }
+        return loggedIn;
+      }
+
       function resolveUserScopeKey(token) {
-        const payload = parseJwt(token);
+        const payload = auth.parseJwt(token);
         if (!payload || typeof payload !== "object") return "";
         const raw =
           (typeof payload.sub === "string" && payload.sub.trim()) ||
@@ -3931,10 +4007,11 @@
       }
 
       async function fetchLearningProgressStore() {
-        const token = getToken();
+        const token = await getToken();
         if (!token) {
           throw new Error("セッションが切れています。再ログインしてください。");
         }
+        const tokenAtRequest = token;
 
         const response = await fetch(`${API_BASE}/api/learning-progress`, {
           headers: {
@@ -3946,6 +4023,10 @@
         try {
           payload = await response.json();
         } catch {}
+
+        if (response.status === 401) {
+          throw new Error("セッションが切れています。再ログインしてください。");
+        }
 
         if (!response.ok) {
           const message = payload && payload.error ? payload.error : "進捗の取得に失敗しました";
@@ -3976,7 +4057,7 @@
 
         if (!state.loggedIn) return;
 
-        const token = getToken();
+        const token = await getToken();
         if (!token) return;
 
         try {
@@ -4152,7 +4233,7 @@
         renderSidebar();
 
         if (!state.loggedIn) return;
-        const token = getToken();
+        const token = await getToken();
         if (!token) return;
         try {
           const response = await fetch(`${API_BASE}/api/learning-progress/chapters/${encodeURIComponent(chapterId)}`, {
@@ -4617,8 +4698,7 @@
       }
 
       async function setPlaygroundEnabled(nextEnabled) {
-        if (nextEnabled && !state.loggedIn) {
-          redirectToLogin();
+        if (nextEnabled && !(await ensureLoggedInState({ redirectOnFailure: true }))) {
           return;
         }
         state.playgroundEnabled = Boolean(nextEnabled);
@@ -4637,9 +4717,15 @@
         setElementVisibility(el.adminLinkMobile, false);
 
         try {
-          const response = await fetch(`${API_BASE}/api/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const { response } = await fetchWithAuth(
+            `${API_BASE}/api/me`,
+            { headers: { Authorization: `Bearer ${token}` } },
+            { tryRefreshOnUnauthorized: true }
+          );
+          if (!response) return;
+          if (response.status === 401) {
+            return;
+          }
           if (!response.ok) return;
 
           const payload = await response.json();
@@ -4657,9 +4743,11 @@
 
       function updateAuthState() {
         hidePrivilegedSidebarControls();
-        const token = getToken();
-        state.loggedIn = Boolean(token);
-        state.userScopeKey = token ? resolveUserScopeKey(token) : "";
+        const session = auth.getSession();
+        const accessToken = auth.getAccessToken();
+        const identityToken = auth.getIdentityToken();
+        state.loggedIn = auth.isAuthenticated();
+        state.userScopeKey = resolveUserScopeKey(identityToken || accessToken || "");
 
         if (state.loggedIn) {
           state.learningProgressLoaded = false;
@@ -4671,17 +4759,29 @@
             link.href = "#";
             link.onclick = function (event) {
               event.preventDefault();
-              localStorage.removeItem(TOKEN_KEY);
+              resetExpiredSession();
               setSidebarOverlayOpen(false);
-              updateAuthState();
               showHomeDashboard();
             };
           });
           syncChatFabState();
-          void updateAdminVisibility(token);
-          void syncLearningProgressFromServer();
-          if (state.activeNotebook) {
-            void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+          if (accessToken) {
+            void updateAdminVisibility(accessToken);
+            void syncLearningProgressFromServer();
+            if (state.activeNotebook) {
+              void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+            }
+          } else if (session && session.refreshToken) {
+            void (async () => {
+              const refreshedToken = await getToken();
+              if (!refreshedToken) return;
+              if (!state.loggedIn) return;
+              void updateAdminVisibility(refreshedToken);
+              void syncLearningProgressFromServer();
+              if (state.activeNotebook) {
+                void preloadNotebookPackages(el.notebookContent, state.activeNotebook.id);
+              }
+            })();
           }
           renderPlaygroundSidebarControls();
           renderPlaygroundHeaderControls();
@@ -5519,7 +5619,7 @@
 
       async function preloadNotebookPackages(container, notebookId) {
         if (!state.loggedIn) return;
-        const token = getToken();
+        const token = await getToken();
         if (!token) return;
 
         const modules = normalizeModuleHints(collectNotebookImportedModules(container));
@@ -5546,7 +5646,7 @@
       }
 
       async function runPythonOnServer(source, contextSource, notebookId, sectionId, expectedModules) {
-        const token = getToken();
+        const token = await getToken({ redirectOnFailure: true });
         if (!token) {
           throw new Error("コード実行にはログインが必要です。");
         }
@@ -5943,7 +6043,7 @@
         if (!state.activeNotebook || state.colabSessionBusy) return;
         const notebookId = state.activeNotebook.id;
         const fallbackColabUrl = state.activeNotebook.colabUrl || "https://colab.research.google.com/";
-        const token = getToken();
+        const token = await getToken();
         if (!token) {
           openInNewTab(fallbackColabUrl);
           return;
@@ -6299,6 +6399,7 @@
           url.searchParams.set("notebookId", target.id);
           url.searchParams.delete("finalChapterId");
           window.history.replaceState(null, "", url.toString());
+          syncChatFabState();
           return true;
         } catch (error) {
           state.activeNotebook = previousNotebook;
@@ -6448,8 +6549,7 @@
             radio.addEventListener("change", persistFinalDraft);
           });
           submit.addEventListener("click", async function () {
-            if (!getToken()) {
-              redirectToLogin();
+            if (!(await getToken({ redirectOnFailure: true }))) {
               return;
             }
             const answers = {};
@@ -6673,7 +6773,7 @@
       }
 
       function assessmentFetchHeaders() {
-        const token = getToken();
+        const token = auth.getAccessToken();
         return token ? { Authorization: `Bearer ${token}` } : {};
       }
 
@@ -7168,8 +7268,10 @@
       }
 
       async function completeAssistantChat(questionText, notebookId, sectionId, target) {
-        const token = getToken();
-        if (!token) {
+        const tokens = await getAuthFetchTokens();
+        if (!tokens.length) {
+          updateAuthState();
+          redirectToLogin();
           throw new Error("セッションが切れています。再ログインしてください。");
         }
         if (questionText.length > ASSISTANT_INPUT_MAX_CHARS) {
@@ -7209,23 +7311,38 @@
           throw new Error(`質問データが長すぎます。${ASSISTANT_REQUEST_MAX_CHARS} 文字以内に収めてください。`);
         }
 
-        const response = await fetch(`${API_BASE}/api/chat/complete`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            Authorization: `Bearer ${token}`
+        const { response } = await fetchWithAuth(
+          `${API_BASE}/api/chat/complete`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json"
+            },
+            body: requestBody
           },
-          body: requestBody
-        });
+          { redirectOnFailure: true, tryRefreshOnUnauthorized: true }
+        );
+        if (!response) {
+          throw new Error("セッションが切れています。再ログインしてください。");
+        }
 
+        const rawText = await response.text();
         let payload = {};
-        try {
-          payload = await response.json();
-        } catch {}
+        if (rawText) {
+          try {
+            payload = JSON.parse(rawText);
+          } catch {
+            payload = { rawText };
+          }
+        }
 
         if (!response.ok) {
-          const message = payload && payload.error ? payload.error : "質問の送信に失敗しました";
-          throw new Error(String(message));
+          if (response.status === 401) {
+            throw new Error(assistantAuthErrorMessage());
+          }
+          const parsedError = payload && typeof payload === "object" ? String(payload.error || payload.rawText || "").trim() : "";
+          const message = parsedError || `質問の送信に失敗しました (HTTP ${response.status})`;
+          throw new Error(message);
         }
 
         const answerText = limitText(String(payload.answerText || ""), ASSISTANT_RESPONSE_MAX_CHARS).trim();
@@ -7233,7 +7350,11 @@
       }
 
       async function sendQuestion() {
-        if (state.busy || !state.loggedIn) return;
+        if (state.busy) return;
+        if (!state.loggedIn) {
+          redirectToLogin();
+          return;
+        }
 
         const text = el.chatInput.value.trim();
         if (!text) return;
@@ -7248,11 +7369,12 @@
           return;
         }
 
-        const token = getToken();
-        if (!token) {
+        const tokens = await getAuthFetchTokens();
+        if (!tokens.length) {
           pushMessage("system", "セッションが切れています。再ログインしてください。");
           setChatOpen(false);
           updateAuthState();
+          redirectToLogin();
           return;
         }
 
@@ -7318,11 +7440,12 @@
           return;
         }
 
-        const token = getToken();
-        if (!token) {
+        const tokens = await getAuthFetchTokens();
+        if (!tokens.length) {
           pushMessage("system", "セッションが切れています。再ログインしてください。");
           setChatOpen(false);
           updateAuthState();
+          redirectToLogin();
           return;
         }
 
@@ -7331,10 +7454,18 @@
         el.chatHistory.textContent = "Loading...";
 
         try {
-          const response = await fetch(
+          const { response } = await fetchWithAuth(
             `${API_BASE}/api/questions/history?notebookId=${encodeURIComponent(notebook.id)}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            {},
+            { redirectOnFailure: true, tryRefreshOnUnauthorized: true }
           );
+          if (!response) {
+            throw new Error("セッションが切れています。再ログインしてください。");
+          }
+
+          if (response.status === 401) {
+            throw new Error(assistantAuthErrorMessage());
+          }
 
           if (!response.ok) {
             let error = "履歴の取得に失敗しました";
@@ -7368,17 +7499,21 @@
 
       async function openHistorySession(sessionId) {
         const notebook = state.activeNotebook;
-        const token = getToken();
-        if (!notebook || !token || !sessionId) {
+        const tokens = await getAuthFetchTokens();
+        if (!notebook || !tokens.length || !sessionId) {
           return;
         }
 
         el.chatHistory.disabled = true;
         try {
-          const response = await fetch(
+          const { response } = await fetchWithAuth(
             `${API_BASE}/api/questions/history?notebookId=${encodeURIComponent(notebook.id)}&sessionId=${encodeURIComponent(sessionId)}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+            {},
+            { redirectOnFailure: true, tryRefreshOnUnauthorized: true }
           );
+          if (!response) {
+            throw new Error("セッションが切れています。再ログインしてください。");
+          }
 
           let payload = {};
           try {
@@ -7386,6 +7521,9 @@
           } catch {}
 
           if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error(assistantAuthErrorMessage());
+            }
             throw new Error(payload && payload.error ? payload.error : "履歴の取得に失敗しました");
           }
 
@@ -7468,8 +7606,7 @@
       }
 
       async function handleAssistantTriggerClick() {
-        if (!state.loggedIn) {
-          redirectToLogin();
+        if (!(await ensureLoggedInState({ redirectOnFailure: true }))) {
           return;
         }
         if (!state.activeNotebook && !state.chatOpen) {
