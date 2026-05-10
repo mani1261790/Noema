@@ -1028,34 +1028,52 @@ function extractOpenAIText(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const data = payload as Record<string, unknown>;
 
+  function collectText(value: unknown): string[] {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed ? [trimmed] : [];
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap((item) => collectText(item));
+    }
+    if (!value || typeof value !== "object") {
+      return [];
+    }
+
+    const record = value as Record<string, unknown>;
+    const direct = [
+      ...collectText(record.output_text),
+      ...collectText(record.text),
+      ...collectText(record.content),
+      ...collectText(record.message),
+      ...collectText(record.refusal)
+    ];
+    if (direct.length > 0) {
+      return direct;
+    }
+
+    return [];
+  }
+
   if (typeof data.output_text === "string") {
-    return data.output_text.trim();
+    const trimmed = data.output_text.trim();
+    if (trimmed) {
+      return trimmed;
+    }
   }
 
   if (Array.isArray(data.output)) {
-    const chunks: string[] = [];
-    for (const item of data.output) {
-      if (!item || typeof item !== "object") continue;
-      const message = item as Record<string, unknown>;
-      if (!Array.isArray(message.content)) continue;
-      for (const contentItem of message.content) {
-        if (!contentItem || typeof contentItem !== "object") continue;
-        const content = contentItem as Record<string, unknown>;
-        if (typeof content.text === "string" && content.text.trim()) {
-          chunks.push(content.text.trim());
-        }
-      }
-    }
-
+    const chunks = data.output.flatMap((item) => collectText(item));
     if (chunks.length > 0) {
       return chunks.join("\n");
     }
   }
 
   if (Array.isArray(data.choices)) {
-    const first = data.choices[0] as { message?: { content?: string }; text?: string } | undefined;
-    if (first?.message?.content) return first.message.content.trim();
-    if (first?.text) return first.text.trim();
+    const chunks = data.choices.flatMap((choice) => collectText(choice));
+    if (chunks.length > 0) {
+      return chunks.join("\n");
+    }
   }
 
   return "";
@@ -1835,7 +1853,11 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     const result = await callOpenAIWithKey(prompt, modelId, apiKey);
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
+    const answerTextRaw = normalizeAssistantAnswerText(result.text || "");
+    if (!answerTextRaw) {
+      throw new Error("OpenAI returned an empty response.");
+    }
+    const answerText = answerTextRaw;
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
@@ -1857,7 +1879,11 @@ export async function completeChat(input: ChatCompleteInput, user: AuthUser): Pr
     const result = await callGeminiWithKey(prompt, modelId, apiKey);
     await recordQuestionRateLimitUsage(rateLimitScope);
     const tokensUsed = result.inputTokens + result.outputTokens;
-    const answerText = normalizeAssistantAnswerText(result.text || fallbackAnswer(input.questionText, []));
+    const answerTextRaw = normalizeAssistantAnswerText(result.text || "");
+    if (!answerTextRaw) {
+      throw new Error("Gemini returned an empty response.");
+    }
+    const answerText = answerTextRaw;
     const sessionId = await persistCompletedChat(input, user, answerText, sourceReferences, tokensUsed, modelId);
     return {
       answerText,
