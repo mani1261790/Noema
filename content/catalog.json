@@ -69,9 +69,21 @@
       "order": 2,
       "notebooks": [
         {
+          "id": "machine-learning-roadmap",
+          "title": "機械学習の入口と学び方",
+          "order": 1,
+          "tags": [
+            "machine-learning",
+            "overview",
+            "prerequisite"
+          ],
+          "htmlPath": "/notebooks/machine-learning-roadmap.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/machine-learning/machine-learning-roadmap.ipynb"
+        },
+        {
           "id": "simple-regression",
           "title": "単回帰分析",
-          "order": 1,
+          "order": 2,
           "tags": [
             "machine-learning",
             "regression",
@@ -83,7 +95,7 @@
         {
           "id": "multiple-regression",
           "title": "重回帰分析",
-          "order": 2,
+          "order": 3,
           "tags": [
             "machine-learning",
             "regression",
@@ -95,7 +107,7 @@
         {
           "id": "sklearn-xgboost",
           "title": "scikit-learnとXGBoostの使い方",
-          "order": 3,
+          "order": 4,
           "tags": [
             "machine-learning",
             "sklearn",
@@ -107,7 +119,7 @@
         {
           "id": "feature-engineering",
           "title": "特徴量エンジニアリング",
-          "order": 4,
+          "order": 5,
           "tags": [
             "machine-learning",
             "feature-engineering",
@@ -119,7 +131,7 @@
         {
           "id": "supervised-unsupervised-learning",
           "title": "教師あり学習と教師なし学習",
-          "order": 5,
+          "order": 6,
           "tags": [
             "machine-learning",
             "supervised",
@@ -131,7 +143,7 @@
         {
           "id": "time-series-data",
           "title": "時系列データの扱い",
-          "order": 6,
+          "order": 7,
           "tags": [
             "machine-learning",
             "time-series",
@@ -143,7 +155,7 @@
         {
           "id": "sql-for-ml",
           "title": "機械学習のためのSQL",
-          "order": 7,
+          "order": 8,
           "tags": [
             "machine-learning",
             "sql",
@@ -157,13 +169,25 @@
     {
       "id": "deep-learning",
       "title": "ディープラーニング",
-      "audience": "advanced",
+      "audience": "beginner",
       "order": 3,
       "notebooks": [
         {
+          "id": "deep-learning-bridge",
+          "title": "ディープラーニングに入る前の橋渡し",
+          "order": 1,
+          "tags": [
+            "deep-learning",
+            "overview",
+            "prerequisite"
+          ],
+          "htmlPath": "/notebooks/deep-learning-bridge.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/deep-learning/deep-learning-bridge.ipynb"
+        },
+        {
           "id": "neural-network-basics",
           "title": "ニューラルネットワーク",
-          "order": 1,
+          "order": 2,
           "tags": [
             "deep-learning",
             "neural-network",
@@ -175,7 +199,7 @@
         {
           "id": "loss-and-gradient-descent",
           "title": "損失関数と勾配降下法",
-          "order": 2,
+          "order": 3,
           "tags": [
             "deep-learning",
             "loss",
@@ -187,7 +211,7 @@
         {
           "id": "optimization-regularization",
           "title": "最適化と正則化",
-          "order": 3,
+          "order": 4,
           "tags": [
             "deep-learning",
             "optimization",
@@ -199,7 +223,7 @@
         {
           "id": "convolution-basics",
           "title": "畳み込みとCNN",
-          "order": 4,
+          "order": 5,
           "tags": [
             "deep-learning",
             "cnn",
@@ -211,7 +235,7 @@
         {
           "id": "image-recognition-yolo",
           "title": "画像認識（YOLOを含む）",
-          "order": 5,
+          "order": 6,
           "tags": [
             "deep-learning",
             "computer-vision",
@@ -223,7 +247,7 @@
         {
           "id": "recurrent-neural-networks",
           "title": "再帰型ニューラルネットワーク（RNN/LSTM/GRU）",
-          "order": 6,
+          "order": 7,
           "tags": [
             "deep-learning",
             "rnn",
@@ -236,7 +260,7 @@
         {
           "id": "transformer-basics",
           "title": "Transformer",
-          "order": 7,
+          "order": 8,
           "tags": [
             "deep-learning",
             "transformer",
@@ -248,7 +272,7 @@
         {
           "id": "nlp-deep-learning",
           "title": "自然言語処理",
-          "order": 8,
+          "order": 9,
           "tags": [
             "deep-learning",
             "nlp",
@@ -262,7 +286,7 @@
     {
       "id": "reinforcement-learning",
       "title": "強化学習",
-      "audience": "advanced",
+      "audience": "beginner",
       "order": 4,
       "notebooks": [
         {
@@ -391,13 +415,25 @@
     {
       "id": "llm",
       "title": "LLM",
-      "audience": "advanced",
+      "audience": "beginner",
       "order": 5,
       "notebooks": [
         {
+          "id": "llm-roadmap",
+          "title": "LLM章の入口",
+          "order": 1,
+          "tags": [
+            "llm",
+            "overview",
+            "prerequisite"
+          ],
+          "htmlPath": "/notebooks/llm-roadmap.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/llm/llm-roadmap.ipynb"
+        },
+        {
           "id": "prompt-engineering",
           "title": "プロンプトエンジニアリング",
-          "order": 1,
+          "order": 2,
           "tags": [
             "llm",
             "prompt",
@@ -409,7 +445,7 @@
         {
           "id": "llm-pretraining",
           "title": "事前学習と最小GPT実装",
-          "order": 2,
+          "order": 3,
           "tags": [
             "llm",
             "pretraining",
@@ -421,7 +457,7 @@
         {
           "id": "scaling-laws",
           "title": "スケーリング則",
-          "order": 3,
+          "order": 4,
           "tags": [
             "llm",
             "scaling-law",
@@ -433,7 +469,7 @@
         {
           "id": "fine-tuning",
           "title": "ファインチューニング",
-          "order": 4,
+          "order": 5,
           "tags": [
             "llm",
             "fine-tuning",
@@ -445,7 +481,7 @@
         {
           "id": "hallucination-rlhf",
           "title": "ハルシネーションとRLHF",
-          "order": 5,
+          "order": 6,
           "tags": [
             "llm",
             "hallucination",
@@ -457,7 +493,7 @@
         {
           "id": "tool-use-rag",
           "title": "Tool UseとRAG",
-          "order": 6,
+          "order": 7,
           "tags": [
             "llm",
             "tool-use",
@@ -469,7 +505,7 @@
         {
           "id": "llm-efficiency",
           "title": "軽量化（圧縮・最適化・効率化）",
-          "order": 7,
+          "order": 8,
           "tags": [
             "llm",
             "quantization",
@@ -484,7 +520,7 @@
     {
       "id": "deep-generative-models",
       "title": "深層生成モデル",
-      "audience": "advanced",
+      "audience": "beginner",
       "order": 6,
       "notebooks": [
         {
@@ -588,13 +624,25 @@
     {
       "id": "world-models",
       "title": "世界モデル",
-      "audience": "advanced",
+      "audience": "beginner",
       "order": 7,
       "notebooks": [
         {
+          "id": "world-models-roadmap",
+          "title": "世界モデル章の入口",
+          "order": 1,
+          "tags": [
+            "world-model",
+            "overview",
+            "prerequisite"
+          ],
+          "htmlPath": "/notebooks/world-models-roadmap.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/world-models-roadmap.ipynb"
+        },
+        {
           "id": "world-models-and-generative-models",
           "title": "世界モデルと深層生成モデル",
-          "order": 1,
+          "order": 2,
           "tags": [
             "world-model",
             "generative-model",
@@ -602,18 +650,6 @@
           ],
           "htmlPath": "/notebooks/world-models-and-generative-models.html",
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/world-models-and-generative-models.ipynb"
-        },
-        {
-          "id": "control-model-and-mbrl",
-          "title": "制御モデルとモデルベース強化学習",
-          "order": 2,
-          "tags": [
-            "world-model",
-            "control",
-            "model-based-rl"
-          ],
-          "htmlPath": "/notebooks/control-model-and-mbrl.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/control-model-and-mbrl.ipynb"
         },
         {
           "id": "state-space-models",
@@ -640,16 +676,17 @@
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/state-representation-learning.ipynb"
         },
         {
-          "id": "state-prediction-models",
-          "title": "状態予測モデル",
+          "id": "observation-prediction-models",
+          "title": "観測予測モデル（自己回帰・マスク予測・拡散）",
           "order": 5,
           "tags": [
             "world-model",
-            "prediction",
-            "dynamics"
+            "autoregressive",
+            "masked-modeling",
+            "diffusion"
           ],
-          "htmlPath": "/notebooks/state-prediction-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/state-prediction-models.ipynb"
+          "htmlPath": "/notebooks/observation-prediction-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/observation-prediction-models.ipynb"
         },
         {
           "id": "vae-diffusion-world-models",
@@ -664,9 +701,33 @@
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/vae-diffusion-world-models.ipynb"
         },
         {
+          "id": "state-prediction-models",
+          "title": "状態予測モデル",
+          "order": 7,
+          "tags": [
+            "world-model",
+            "prediction",
+            "dynamics"
+          ],
+          "htmlPath": "/notebooks/state-prediction-models.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/state-prediction-models.ipynb"
+        },
+        {
+          "id": "control-model-and-mbrl",
+          "title": "制御モデルとモデルベース強化学習",
+          "order": 8,
+          "tags": [
+            "world-model",
+            "control",
+            "model-based-rl"
+          ],
+          "htmlPath": "/notebooks/control-model-and-mbrl.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/control-model-and-mbrl.ipynb"
+        },
+        {
           "id": "simulation-and-cg",
           "title": "シミュレーションとコンピュータグラフィックス",
-          "order": 7,
+          "order": 9,
           "tags": [
             "world-model",
             "simulation",
@@ -674,31 +735,6 @@
           ],
           "htmlPath": "/notebooks/simulation-and-cg.html",
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/simulation-and-cg.ipynb"
-        },
-        {
-          "id": "ssm-and-transformer",
-          "title": "状態空間モデルとTransformer",
-          "order": 8,
-          "tags": [
-            "world-model",
-            "state-space-model",
-            "transformer"
-          ],
-          "htmlPath": "/notebooks/ssm-and-transformer.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/ssm-and-transformer.ipynb"
-        },
-        {
-          "id": "observation-prediction-models",
-          "title": "観測予測モデル（自己回帰・マスク予測・拡散）",
-          "order": 9,
-          "tags": [
-            "world-model",
-            "autoregressive",
-            "masked-modeling",
-            "diffusion"
-          ],
-          "htmlPath": "/notebooks/observation-prediction-models.html",
-          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/observation-prediction-models.ipynb"
         },
         {
           "id": "multimodal-world-models",
@@ -711,6 +747,18 @@
           ],
           "htmlPath": "/notebooks/multimodal-world-models.html",
           "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/multimodal-world-models.ipynb"
+        },
+        {
+          "id": "ssm-and-transformer",
+          "title": "状態空間モデルとTransformer",
+          "order": 11,
+          "tags": [
+            "world-model",
+            "state-space-model",
+            "transformer"
+          ],
+          "htmlPath": "/notebooks/ssm-and-transformer.html",
+          "colabUrl": "https://colab.research.google.com/github/mani1261790/Noema/blob/main/content/notebooks/core/world-models/ssm-and-transformer.ipynb"
         }
       ]
     },
