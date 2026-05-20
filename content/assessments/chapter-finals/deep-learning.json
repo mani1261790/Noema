@@ -7,13 +7,14 @@
     {
       "id": "q1",
       "type": "short_text",
-      "prompt": "単一ニューロンで OR は扱えても XOR は難しい理由を説明してください。隠れ層を入れた 2 層 MLP が何を変えているかにも触れてください。",
+      "prompt": "ディープラーニング章の入口という観点から、単一ニューロンで OR は扱えても XOR は難しい理由を説明してください。『予測→損失→更新』の共通骨格を保ったまま、隠れ層を入れた 2 層 MLP が何を変えているかにも触れてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "or_xor", "description": "OR と XOR の違いを、単層で解けるかどうかの観点で説明している", "points": 3, "keywords": ["OR", "XOR", "単層", "線形"] },
         { "id": "single_limit", "description": "単一ニューロンの限界に触れている", "points": 2, "keywords": ["単一", "ニューロン", "限界", "境界"] },
         { "id": "hidden", "description": "隠れ層で表現を作り直す点を説明している", "points": 3, "keywords": ["隠れ層", "表現", "作り直す", "MLP"] },
-        { "id": "effect", "description": "2層化で XOR のような題材を扱いやすくなると述べている", "points": 2, "keywords": ["2層", "XOR", "扱える"] }
+        { "id": "effect", "description": "2層化で XOR のような題材を扱いやすくなると述べている", "points": 1, "keywords": ["2層", "XOR", "扱える"] },
+        { "id": "bridge", "description": "表現力は増えても予測・損失・更新の骨格は同じだと触れている", "points": 1, "keywords": ["予測", "損失", "更新", "共通骨格"] }
       ]
     },
     {
