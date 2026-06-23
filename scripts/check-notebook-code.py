@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Static checker for undefined symbols across notebook code cells.
+"""Static checker for undefined symbols across public notebook code cells.
 
 The checker simulates Jupyter execution order:
 - Cells are evaluated from top to bottom.
 - A symbol defined in an earlier cell is available in later cells.
+
+By default, only notebooks listed in content/catalog.json are checked. Source
+material kept outside the public catalog can be incomplete, translated, or
+awaiting rewrite without blocking the public curriculum gate.
 """
 
 from __future__ import annotations
@@ -200,9 +204,39 @@ def check_notebook(path: Path) -> list[str]:
     return findings
 
 
+def catalog_notebook_ids(catalog_path: Path) -> list[str]:
+    with catalog_path.open("r", encoding="utf-8") as fh:
+        catalog = json.load(fh)
+
+    notebook_ids: list[str] = []
+    for chapter in catalog.get("chapters", []):
+        for notebook in chapter.get("notebooks", []):
+            notebook_id = notebook.get("id")
+            if isinstance(notebook_id, str) and notebook_id:
+                notebook_ids.append(notebook_id)
+    return notebook_ids
+
+
+def public_notebook_paths(root: Path, catalog_path: Path) -> list[Path]:
+    notebook_by_id = {path.stem: path for path in root.rglob("*.ipynb")}
+    paths: list[Path] = []
+    missing: list[str] = []
+
+    for notebook_id in catalog_notebook_ids(catalog_path):
+        path = notebook_by_id.get(notebook_id)
+        if path is None:
+            missing.append(notebook_id)
+        else:
+            paths.append(path)
+
+    if missing:
+        raise FileNotFoundError(f"Catalog notebooks missing source files: {', '.join(missing)}")
+    return paths
+
+
 def main() -> int:
     root = Path("content/notebooks")
-    notebooks = sorted(root.rglob("*.ipynb"))
+    notebooks = public_notebook_paths(root, Path("content/catalog.json"))
     findings: list[str] = []
 
     for notebook in notebooks:
