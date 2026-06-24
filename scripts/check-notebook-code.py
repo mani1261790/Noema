@@ -16,6 +16,7 @@ import ast
 import builtins
 import json
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
@@ -218,7 +219,19 @@ def catalog_notebook_ids(catalog_path: Path) -> list[str]:
 
 
 def public_notebook_paths(root: Path, catalog_path: Path) -> list[Path]:
-    notebook_by_id = {path.stem: path for path in root.rglob("*.ipynb")}
+    by_stem: dict[str, list[Path]] = defaultdict(list)
+    for path in sorted(root.rglob("*.ipynb")):
+        by_stem[path.stem].append(path)
+
+    duplicate_stems = {stem: paths for stem, paths in by_stem.items() if len(paths) > 1}
+    if duplicate_stems:
+        details = "; ".join(
+            f"{stem} -> {', '.join(str(path) for path in paths)}"
+            for stem, paths in sorted(duplicate_stems.items())
+        )
+        raise ValueError(f"Duplicate notebook id stems found under {root}: {details}")
+
+    notebook_by_id = {stem: paths[0] for stem, paths in by_stem.items()}
     paths: list[Path] = []
     missing: list[str] = []
 
