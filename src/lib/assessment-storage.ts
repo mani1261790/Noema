@@ -21,11 +21,18 @@ async function streamToString(stream: unknown): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+// Assessment ids are notebook/chapter slugs: lowercase alphanumerics and hyphens only.
+// Reject anything else so an `id` carrying "../" or a slash can never escape the assessment
+// root (local fs) or read an unintended S3 key.
+const SAFE_ASSESSMENT_ID = /^[a-z0-9][a-z0-9-]*$/;
+
 function localAssessmentPath(kind: AssessmentStorageKind, id: string) {
   return path.join(LOCAL_ASSESSMENT_ROOT, kind, `${id}.json`);
 }
 
 export async function loadAssessmentJson(kind: AssessmentStorageKind, id: string): Promise<unknown | null> {
+  if (!SAFE_ASSESSMENT_ID.test(id)) return null;
+
   if (s3Client && assessmentBucket) {
     try {
       const response = await s3Client.send(

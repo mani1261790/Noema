@@ -2872,6 +2872,23 @@ export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapte
   if (validationError) throw new Error(validationError);
   const sanitizedAnswers = sanitizeChapterFinalAnswerMap(answers);
 
+  // Cost guard: a single attempt fans out to one Bedrock grading call per question in the
+  // worker, so an unbounded submit loop could run up the bill. Gate attempt creation behind
+  // the same sliding-window rate limit and per-user daily Bedrock budget used by chat/Q&A.
+  const adminUser = isAdmin(user);
+  if (!adminUser) {
+    await assertQuestionRateLimitAvailable(user.userId);
+    try {
+      await acquireBedrockDailySlot(`bedrock:${user.userId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("ConditionalCheckFailed")) {
+        throw new Error("本日の採点回数の上限に達しました。時間をおいて再度お試しください。");
+      }
+      throw error;
+    }
+  }
+
   const attemptId = crypto.randomUUID();
   const createdAt = nowIso();
   const modelId = resolveBedrockModelId("", "grade final assessment", JSON.stringify(assessment).slice(0, 3000));
@@ -2888,42 +2905,54 @@ export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapte
     pointResults: []
   }));
 
-  await ddb.send(
-    new PutCommand({
-      TableName: QUESTIONS_TABLE,
-      Item: {
-        questionId: `ASSESSMENT_ATTEMPT#${attemptId}`,
-        attemptId,
-        itemType: "CHAPTER_FINAL_ATTEMPT",
-        userId: user.userId,
-        userEmail: user.email,
-        notebookId: `chapter:${chapterId}`,
-        chapterId,
-        sectionId: "final",
-        questionText: `${assessment.title} grading attempt`,
-        questionHash: questionHash(`${chapterId}:${attemptId}`),
-        status: "QUEUED",
-        assessmentTitle: assessment.title,
-        passRatio: assessment.passRatio,
-        gradingProvider: "bedrock",
-        modelId,
-        tasks,
-        score: 0,
-        maxScore: tasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0),
-        ratio: 0,
-        passed: false,
-        createdAt,
-        updatedAt: createdAt
-      }
-    })
-  );
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: QUESTIONS_TABLE,
+        Item: {
+          questionId: `ASSESSMENT_ATTEMPT#${attemptId}`,
+          attemptId,
+          itemType: "CHAPTER_FINAL_ATTEMPT",
+          userId: user.userId,
+          userEmail: user.email,
+          notebookId: `chapter:${chapterId}`,
+          chapterId,
+          sectionId: "final",
+          questionText: `${assessment.title} grading attempt`,
+          questionHash: questionHash(`${chapterId}:${attemptId}`),
+          status: "QUEUED",
+          assessmentTitle: assessment.title,
+          passRatio: assessment.passRatio,
+          gradingProvider: "bedrock",
+          modelId,
+          tasks,
+          score: 0,
+          maxScore: tasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0),
+          ratio: 0,
+          passed: false,
+          createdAt,
+          updatedAt: createdAt
+        }
+      })
+    );
 
-  await sqs.send(
-    new SendMessageCommand({
-      QueueUrl: QA_QUEUE_URL,
-      MessageBody: JSON.stringify({ gradingAttemptId: attemptId })
-    })
-  );
+    await sqs.send(
+      new SendMessageCommand({
+        QueueUrl: QA_QUEUE_URL,
+        MessageBody: JSON.stringify({ gradingAttemptId: attemptId })
+      })
+    );
+  } catch (error) {
+    // Roll back the consumed daily Bedrock slot if the attempt never made it onto the queue.
+    if (!adminUser) {
+      await releaseBedrockDailySlot(`bedrock:${user.userId}`);
+    }
+    throw error;
+  }
+
+  if (!adminUser) {
+    await recordQuestionRateLimitUsage(user.userId);
+  }
 
   return {
     attemptId,
