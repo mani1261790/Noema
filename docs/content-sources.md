@@ -78,9 +78,13 @@ For each imported open-license notebook, include:
 - Indication that Noema translated and/or adapted the material
 - Any code-specific license notes if the upstream repo separates content and code licenses
 
-## Neuromatch Academy Example
+## Imported Course Handling
 
-For `https://github.com/NeuromatchAcademy/course-content`:
+Imported courses can be kept in the repository as source material, but they
+should not appear in the public catalog until they have been rewritten into the
+same beginner-to-practitioner progression as the core Noema lessons.
+
+For open-license course material such as `https://github.com/NeuromatchAcademy/course-content`:
 
 - Content license: `CC BY 4.0`
 - Code license: `BSD-3-Clause`

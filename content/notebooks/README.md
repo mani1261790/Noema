@@ -7,8 +7,9 @@
 - `core/llm/`: LLM section.
 - `core/deep-generative-models/`: Generative models section.
 - `core/world-models/`: World models section.
-- `nma/compneuro/`: Neuromatch Academy computational neuroscience notebooks.
-- `nma/deep-learning/`: Neuromatch Academy deep learning notebooks.
+
+Public catalog notebooks should be Noema-authored core lessons unless an imported
+course is explicitly being prepared with attribution, review, and adaptation.
 
 Math authoring rules:
 
