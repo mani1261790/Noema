@@ -2151,7 +2151,42 @@ async function buildNotebookOne(
   ]);
 }
 
+async function countExistingNotebooks(dir: string): Promise<number> {
+  const entries = await fs
+    .readdir(dir, { withFileTypes: true })
+    .catch(() => [] as import("fs").Dirent[]);
+  let count = 0;
+  for (const entry of entries) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      count += await countExistingNotebooks(entryPath);
+    } else if (entry.isFile() && entry.name.endsWith(".ipynb")) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+// Safety guard: this script OVERWRITES every catalog notebook's .ipynb with procedurally
+// generated content. Once real curriculum exists, that destroys authored bodies. Refuse to
+// run when notebooks are already present unless the overwrite is explicitly requested.
+async function assertSafeToAuthor() {
+  const forced = process.argv.includes("--force") || process.env.ALLOW_CURRICULUM_RESET === "1";
+  if (forced) return;
+  const existing = await countExistingNotebooks(notebooksDir);
+  if (existing > 0) {
+    throw new Error(
+      `Refusing to author: ${existing} notebook(s) already exist under content/notebooks.\n` +
+        "This script overwrites each catalog notebook's .ipynb with generated content, destroying\n" +
+        "authored bodies. The .ipynb files are now the source of truth. If you really intend a full\n" +
+        "regeneration, re-run with:\n" +
+        "  npm run author:curriculum -- --force   (or ALLOW_CURRICULUM_RESET=1)"
+    );
+  }
+}
+
 async function main() {
+  await assertSafeToAuthor();
   await fs.mkdir(notebooksDir, { recursive: true });
   await fs.mkdir(reportsDir, { recursive: true });
 

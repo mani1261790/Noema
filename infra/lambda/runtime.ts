@@ -854,7 +854,16 @@ function jstDayKey(now: Date) {
   return `${year}-${month}-${date}`;
 }
 
-async function acquireBedrockDailySlot(scopeUserId: string) {
+function isConditionalCheckFailed(error: unknown) {
+  const candidate = error as { name?: unknown; message?: unknown };
+  return candidate?.name === "ConditionalCheckFailedException" || String(candidate?.message ?? error).includes("ConditionalCheckFailed");
+}
+
+async function acquireBedrockDailySlot(scopeUserId: string, amount = 1) {
+  const slots = Math.max(1, Math.floor(amount));
+  if (slots > BEDROCK_DAILY_LIMIT) {
+    throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
+  }
   const now = new Date();
   const dayStart = jstDayStart(now);
   const dayKey = `DAY#${jstDayKey(now)}`;
@@ -867,12 +876,12 @@ async function acquireBedrockDailySlot(scopeUserId: string) {
         requestAt: dayKey
       },
       UpdateExpression: "SET expiresAt = :expiresAt, usageCount = if_not_exists(usageCount, :zero) + :inc",
-      ConditionExpression: "attribute_not_exists(usageCount) OR usageCount < :limit",
+      ConditionExpression: "attribute_not_exists(usageCount) OR usageCount <= :available",
       ExpressionAttributeValues: {
         ":expiresAt": expiresAt,
         ":zero": 0,
-        ":inc": 1,
-        ":limit": BEDROCK_DAILY_LIMIT
+        ":inc": slots,
+        ":available": BEDROCK_DAILY_LIMIT - slots
       },
       ReturnValues: "ALL_NEW"
     })
@@ -882,7 +891,8 @@ async function acquireBedrockDailySlot(scopeUserId: string) {
   return Math.max(0, BEDROCK_DAILY_LIMIT - usageCount);
 }
 
-async function releaseBedrockDailySlot(scopeUserId: string) {
+async function releaseBedrockDailySlot(scopeUserId: string, amount = 1) {
+  const slots = Math.max(1, Math.floor(amount));
   const dayKey = `DAY#${jstDayKey(new Date())}`;
   await ddb
     .send(
@@ -893,10 +903,10 @@ async function releaseBedrockDailySlot(scopeUserId: string) {
           requestAt: dayKey
         },
         UpdateExpression: "SET usageCount = if_not_exists(usageCount, :zero) - :dec",
-        ConditionExpression: "attribute_exists(usageCount) AND usageCount > :zero",
+        ConditionExpression: "attribute_exists(usageCount) AND usageCount >= :dec",
         ExpressionAttributeValues: {
           ":zero": 0,
-          ":dec": 1
+          ":dec": slots
         }
       })
     )
@@ -2694,8 +2704,7 @@ export async function submitNotebookAssessmentAttempt(notebookId: string, answer
       questionId: question.id,
       selectedChoiceId,
       correct: selectedChoiceId === question.correctChoiceId,
-      explanation: question.explanation,
-      correctChoiceId: question.correctChoiceId
+      explanation: question.explanation
     };
   });
   const score = results.reduce((sum, result) => sum + (result.correct ? 1 : 0), 0);
@@ -2887,36 +2896,61 @@ export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapte
     feedback: "",
     pointResults: []
   }));
+  const bedrockSlotCount = tasks.length;
 
-  await ddb.send(
-    new PutCommand({
-      TableName: QUESTIONS_TABLE,
-      Item: {
-        questionId: `ASSESSMENT_ATTEMPT#${attemptId}`,
-        attemptId,
-        itemType: "CHAPTER_FINAL_ATTEMPT",
-        userId: user.userId,
-        userEmail: user.email,
-        notebookId: `chapter:${chapterId}`,
-        chapterId,
-        sectionId: "final",
-        questionText: `${assessment.title} grading attempt`,
-        questionHash: questionHash(`${chapterId}:${attemptId}`),
-        status: "QUEUED",
-        assessmentTitle: assessment.title,
-        passRatio: assessment.passRatio,
-        gradingProvider: "bedrock",
-        modelId,
-        tasks,
-        score: 0,
-        maxScore: tasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0),
-        ratio: 0,
-        passed: false,
-        createdAt,
-        updatedAt: createdAt
+  // Cost guard: the worker performs one Bedrock grading call per task. Reserve that same
+  // number of daily slots before queueing so the stored daily budget matches actual calls.
+  const adminUser = isAdmin(user);
+  if (!adminUser) {
+    await assertQuestionRateLimitAvailable(user.userId);
+    await recordQuestionRateLimitUsage(user.userId);
+    try {
+      await acquireBedrockDailySlot(`bedrock:${user.userId}`, bedrockSlotCount);
+    } catch (error) {
+      if (isConditionalCheckFailed(error)) {
+        throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
       }
-    })
-  );
+      throw error;
+    }
+  }
+
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: QUESTIONS_TABLE,
+        Item: {
+          questionId: `ASSESSMENT_ATTEMPT#${attemptId}`,
+          attemptId,
+          itemType: "CHAPTER_FINAL_ATTEMPT",
+          userId: user.userId,
+          userEmail: user.email,
+          notebookId: `chapter:${chapterId}`,
+          chapterId,
+          sectionId: "final",
+          questionText: `${assessment.title} grading attempt`,
+          questionHash: questionHash(`${chapterId}:${attemptId}`),
+          status: "QUEUED",
+          assessmentTitle: assessment.title,
+          passRatio: assessment.passRatio,
+          gradingProvider: "bedrock",
+          modelId,
+          tasks,
+          score: 0,
+          maxScore: tasks.reduce((sum, task) => sum + Number(task.maxPoints || 0), 0),
+          ratio: 0,
+          passed: false,
+          createdAt,
+          updatedAt: createdAt
+        }
+      })
+    );
+  } catch (error) {
+    // If the attempt record was never created, no worker can consume the reserved slots.
+    if (!adminUser) {
+      await releaseBedrockDailySlot(`bedrock:${user.userId}`, bedrockSlotCount);
+    }
+    throw error;
+  }
 
   await sqs.send(
     new SendMessageCommand({

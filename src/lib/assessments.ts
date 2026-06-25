@@ -67,7 +67,6 @@ export type NotebookCheckAttemptResult = {
     selectedChoiceId: string;
     correct: boolean;
     explanation: string;
-    correctChoiceId: string;
   }>;
 };
 
@@ -220,8 +219,7 @@ export function gradeNotebookCheck(
       questionId: question.id,
       selectedChoiceId,
       correct,
-      explanation: question.explanation,
-      correctChoiceId: question.correctChoiceId
+      explanation: question.explanation
     };
   });
   const score = results.reduce((sum, result) => sum + (result.correct ? 1 : 0), 0);
