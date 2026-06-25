@@ -1,9 +1,9 @@
-# Assessment Content
+# 評価コンテンツ
 
-Noema assessments are authored one chapter at a time.
+Noema の評価は章単位で作成します。
 
-- `notebook-checks/{notebookId}.json`: 5 multiple-choice questions for a notebook. Passing requires 5/5.
-- `chapter-finals/{chapterId}.json`: about 10 final questions for a chapter. Passing requires 90%.
-- Notebook checks must include `correctChoiceId` for every question.
-- Chapter finals are rubric-based and are graded question-by-question by the grading agent.
-- Missing or invalid files should fail fast. Generic placeholder fallback assessments are no longer used.
+- `notebook-checks/{notebookId}.json`: notebook ごとの5問の多肢選択問題。合格には 5/5 が必要。
+- `chapter-finals/{chapterId}.json`: 章ごとの約10問の最終課題。合格には 90% が必要。
+- Notebook check では、すべての問題に `correctChoiceId` を含める。
+- Chapter final は rubric ベースで、採点エージェントが設問ごとに採点する。
+- ファイルが欠けている場合や形式が不正な場合は、すぐに失敗させる。汎用のプレースホルダー assessment へのフォールバックは使わない。

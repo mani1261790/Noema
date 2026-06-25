@@ -1,45 +1,46 @@
 # Noema
 
-Noema is a notebook-first learning platform for Python, machine learning, deep learning, LLMs, reinforcement learning, and world models.
+Noema は、Python、機械学習、深層学習、LLM、強化学習、世界モデルをノートブック中心で学ぶための学習プラットフォームです。
 
-This repository currently contains:
+このリポジトリには、現在次の要素が含まれています。
 
-- notebook source content (`content/notebooks`)
-- assessment source content (`content/assessments`)
-- a Next.js site for landing/list/detail pages (`src/app`)
-- a static learning app shell (`public/index.html`)
-- build/deploy scripts and AWS CDK infrastructure (`scripts`, `infra`)
+- 教材ノートブックのソース（`content/notebooks`）
+- 確認問題・章末課題のソース（`content/assessments`）
+- ランディング、一覧、詳細ページを提供する Next.js サイト（`src/app`）
+- 静的な学習アプリのシェル（`public/index.html`）
+- ビルド・デプロイスクリプトと AWS CDK インフラ（`scripts`, `infra`）
 
-## Environment URLs
+## 環境 URL
 
 - `development`: `https://d8mpxq2nx10ai.cloudfront.net/`
 
-Notes:
-- This URL is not a secret. It is safe to document publicly.
-- Access control must not rely on the URL being unlisted.
-- The source of truth for the current frontend URL is the GitHub Environment variable `NOEMA_FRONTEND_URL`.
+注意:
 
-## What Noema Does
+- この URL は秘密情報ではありません。公開ドキュメントに記載して問題ありません。
+- アクセス制御は URL が非公開であることに依存してはいけません。
+- 現在のフロントエンド URL の正は GitHub Environment 変数 `NOEMA_FRONTEND_URL` です。
 
-- Serves lesson content from Jupyter notebooks
-- Serves notebook checks and chapter-final assessments from JSON content
-- Generates SEO-friendly lesson detail pages
-- Lets learners open the same material in Colab
-- Provides notebook download/content APIs for the app shell
-- Persists learner progress and chapter-final answer drafts in browser storage
-- Keeps infrastructure mostly serverless to reduce operating cost
+## Noema が提供すること
 
-## Learning Flow
+- Jupyter Notebook から作成した教材を配信する
+- JSON で管理された notebook check と chapter final を配信する
+- SEO に向いた教材詳細ページを生成する
+- 同じ教材を Colab で開けるようにする
+- 学習アプリ向けにノートブックのダウンロード API と本文 API を提供する
+- 学習進捗と章末課題の下書きをブラウザストレージに保存する
+- 運用コストを抑えるため、インフラはできるだけサーバーレスに保つ
+
+## 学習コンテンツの流れ
 
 ```mermaid
 flowchart LR
-  A["Edit ipynb in content/notebooks"] --> B["Run build:notebooks"]
-  B --> C["Generate public/notebooks/*.html"]
-  C --> D["Render via /learn or /index.html"]
-  D --> E["Learner opens Colab / downloads ipynb"]
+  A["content/notebooks の ipynb を編集"] --> B["build:notebooks を実行"]
+  B --> C["public/notebooks/*.html を生成"]
+  C --> D["/learn または /index.html で表示"]
+  D --> E["学習者が Colab を開く / ipynb をダウンロード"]
 ```
 
-## System Overview
+## システム概要
 
 ```mermaid
 flowchart TD
@@ -48,41 +49,40 @@ flowchart TD
   A --> D["content/catalog.json"]
   D --> E["Next.js routes (/learn, /learn/{id})"]
   C --> E
-  E --> F["Learner browser"]
+  E --> F["学習者のブラウザ"]
   F --> G["/api/catalog"]
   F --> H["/api/notebooks/{id}/content"]
   F --> I["/api/notebooks/{id}/download"]
   J["infra (CDK)"] --> K["CloudFront + S3 + API + Lambda + DynamoDB + SQS + Cognito"]
 ```
 
-## Repository Structure
+## リポジトリ構成
 
-- `content/notebooks`: lesson source notebooks
-- `content/assessments`: notebook checks and chapter-final definitions
-- `content/catalog.json`: lesson catalog and ordering
-- `public`: generated public assets
-- `src`: app shell and shared logic
-- `infra`: AWS CDK infrastructure
-- `docs`: architecture/operations/spec docs (`docs/README.md`)
+- `content/notebooks`: 教材ノートブックのソース
+- `content/assessments`: notebook check と chapter final の定義
+- `content/catalog.json`: 教材カタログと表示順
+- `public`: 生成済みの公開アセット
+- `src`: アプリシェルと共有ロジック
+- `infra`: AWS CDK インフラ
+- `docs`: アーキテクチャ、運用、仕様のドキュメント（`docs/README.md`）
 
-## For Learners
+## 学習者向け
 
-The repository is public because the curriculum itself is part of the product.  
-The source of truth for lessons lives in `content/notebooks`, and the platform is built around keeping those notebooks easy to inspect, improve, and reuse.
+このリポジトリは、カリキュラム自体がプロダクトの一部であるため公開されています。教材の正は `content/notebooks` にあり、教材を確認し、改善し、再利用しやすい状態に保つことを前提に設計しています。
 
-## For Contributors
+## コントリビューター向け
 
-### Content Pipeline
+### コンテンツパイプライン
 
 ```mermaid
 flowchart LR
-  A["Edit ipynb in content/notebooks"] --> B["Update content/catalog.json if needed"]
-  B --> C["Build notebook artifacts"]
-  C --> D["Review rendered lesson output"]
-  D --> E["Deploy app and infrastructure"]
+  A["content/notebooks の ipynb を編集"] --> B["必要なら content/catalog.json を更新"]
+  B --> C["ノートブック成果物をビルド"]
+  C --> D["描画された教材を確認"]
+  D --> E["アプリとインフラをデプロイ"]
 ```
 
-### Local Development
+### ローカル開発
 
 ```bash
 npm install
@@ -90,7 +90,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Useful commands:
+よく使うコマンド:
 
 - `npm run build`
 - `npm run build:notebooks`
@@ -99,13 +99,13 @@ Useful commands:
 - `npm run check:notebook-isolated-run`
 - `npm run check:python-runtime-safety`
 
-## Documentation
+## ドキュメント
 
-Start from:
+まず読むもの:
 
 - `docs/README.md`
 
-Frequently used docs:
+よく使うドキュメント:
 
 - `docs/system-architecture.md`
 - `docs/openapi.yaml`
@@ -113,4 +113,4 @@ Frequently used docs:
 - `docs/operations/dev-loop.md`
 - `docs/operations/runbook.md`
 
-For AWS infrastructure details, see `infra/README.md`.
+AWS インフラの詳細は `infra/README.md` を参照してください。

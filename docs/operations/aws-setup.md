@@ -1,27 +1,27 @@
-# AWS Setup (Owner Steps)
+# AWS セットアップ（Owner 手順）
 
-This guide is for the repository owner who will run Noema infra on AWS.
+この手順は、Noema のインフラを AWS 上で運用するリポジトリ owner 向けです。
 
-## 0. Current status (your environment)
+## 0. 現在の状態（この環境）
 
-You already completed SSO successfully for account `437089831576` with profile `noema-prod`.
+アカウント `437089831576`、profile `noema-prod` で SSO は完了済みです。
 
 ```bash
 aws sts get-caller-identity --profile noema-prod
 ```
 
-Expected account: `437089831576`.
+期待する account: `437089831576`
 
-## 1. One-time local prerequisites
+## 1. 初回だけ必要なローカル準備
 
-### 1.1 Install tools
+### 1.1 ツールのインストール
 
 - AWS CLI v2
 - Node.js 20+
 - npm
-- GitHub account access to `mani1261790/Noema`
+- `mani1261790/Noema` にアクセスできる GitHub account
 
-Check versions:
+バージョン確認:
 
 ```bash
 aws --version
@@ -29,7 +29,7 @@ node -v
 npm -v
 ```
 
-### 1.2 Clone repository and install dependencies
+### 1.2 リポジトリを clone して依存関係を入れる
 
 ```bash
 git clone https://github.com/mani1261790/Noema.git
@@ -40,34 +40,34 @@ npm ci
 cd ..
 ```
 
-## 2. Configure AWS SSO profile (one-time)
+## 2. AWS SSO profile を設定する（初回のみ）
 
-You already did this, but this is the canonical setup.
+すでに実施済みですが、標準手順は次です。
 
 ```bash
 aws configure sso --profile noema-prod
 ```
 
-Use these values:
+入力値:
 
 - `SSO start URL`: `https://ssoins-7223a092685f44dd.portal.us-east-1.app.aws`
 - `SSO region`: `us-east-1`
-- `SSO registration scopes`: `sso:account:access` (default)
+- `SSO registration scopes`: `sso:account:access`（既定値）
 - Account: `437089831576`
 - Role: `AdministratorAccess`
 - `Default client Region`: `ap-northeast-3`
 - `CLI default output format`: `json`
 
-If you see `InvalidRequestException` at `RegisterClient`, the usual fix is correcting `SSO region` to `us-east-1`.
+`RegisterClient` で `InvalidRequestException` が出る場合、多くは `SSO region` が `us-east-1` になっていないことが原因です。
 
-## 3. Daily login before any deploy
+## 3. デプロイ前の日次ログイン
 
 ```bash
 aws sso login --profile noema-prod
 aws sts get-caller-identity --profile noema-prod
 ```
 
-Then export environment variables in the same terminal session:
+同じターミナルセッションで環境変数を設定します。
 
 ```bash
 export AWS_PROFILE=noema-prod
@@ -76,7 +76,7 @@ export CDK_DEFAULT_ACCOUNT=437089831576
 export CDK_DEFAULT_REGION=ap-northeast-3
 ```
 
-## 4. Bootstrap CDK (first deploy only)
+## 4. CDK bootstrap（初回デプロイ時のみ）
 
 ```bash
 cd infra
@@ -84,11 +84,11 @@ npx cdk bootstrap aws://437089831576/ap-northeast-3
 cd ..
 ```
 
-If it was already bootstrapped, this is safe to re-run.
+すでに bootstrap 済みでも、再実行して問題ありません。
 
-## 5. Deploy infrastructure (recommended settings)
+## 5. インフラをデプロイする（推奨設定）
 
-Recommended stages:
+推奨 stage:
 
 - `dev` -> GitHub Environment `development`, branch `develop`
 - `prod` -> GitHub Environment `production`, branch `main`
@@ -107,16 +107,16 @@ npm run deploy -- --require-approval never \
 cd ..
 ```
 
-Notes:
+注意:
 
-- Replace `https://your-frontend-domain` with your actual CloudFront/app domain.
-- `alarmEmail` is optional but strongly recommended.
-- When GitHub Actions uses stack-managed deploy role (`noema-<stage>-github-deploy`), keep `createGithubDeployRole=true` in infra deploy to avoid role deletion.
-- Keep `githubEnvironmentName` aligned with the workflow environment name (default: `production`).
+- `https://your-frontend-domain` は実際の CloudFront/app domain に置き換えます。
+- `alarmEmail` は任意ですが、設定を推奨します。
+- GitHub Actions が stack 管理の deploy role（`noema-<stage>-github-deploy`）を使う場合、role 削除を避けるため infra deploy では `createGithubDeployRole=true` を維持します。
+- `githubEnvironmentName` は workflow の environment 名（既定値 `production`）と合わせます。
 
-### 5.0 Create a separate development stack
+### 5.0 development 用の別 stack を作る
 
-Deploy a second stack for development before enabling auto deploy from `develop`:
+`develop` からの自動デプロイを有効にする前に、development 用の2つ目の stack をデプロイします。
 
 ```bash
 cd infra
@@ -131,11 +131,11 @@ npm run deploy -- --require-approval never \
 cd ..
 ```
 
-This creates a separate `noema-dev` stack and matching deploy role.
+これで `noema-dev` stack と対応する deploy role が作られます。
 
-## 5.1 AWS-only QA (Bedrock, recommended)
+## 5.1 AWS だけで Q&A を動かす（Bedrock 推奨）
 
-No external API key is required. Deploy with Bedrock as primary provider:
+外部 API key は不要です。Bedrock を primary provider としてデプロイします。
 
 ```bash
 cd infra
@@ -152,9 +152,9 @@ npm run deploy -- --require-approval never \
 cd ..
 ```
 
-## 5.2 Configure OpenAI key in SSM (optional fallback)
+## 5.2 OpenAI key を SSM に設定する（任意 fallback）
 
-Store your OpenAI key as SSM SecureString (avoid plaintext in deploy args):
+OpenAI key は SSM SecureString として保存します。デプロイ引数に平文で渡さないでください。
 
 ```bash
 aws ssm put-parameter \
@@ -164,7 +164,7 @@ aws ssm put-parameter \
   --value '<OPENAI_API_KEY>'
 ```
 
-Then deploy with QA model context:
+その後、QA model context を指定してデプロイします。
 
 ```bash
 cd infra
@@ -181,7 +181,7 @@ npm run deploy -- --require-approval never \
 cd ..
 ```
 
-## 6. Read stack outputs you need for app deploy
+## 6. アプリデプロイに必要な stack output を読む
 
 ```bash
 aws cloudformation describe-stacks \
@@ -190,82 +190,82 @@ aws cloudformation describe-stacks \
   --output table
 ```
 
-Important outputs:
+重要な output:
 
 - `SiteBucketName`
 - `NotebookBucketName`
 - `CloudFrontDistributionId`
 - `CloudFrontDomainName`
 - `HttpApiUrl`
-- `GitHubDeployRoleArn` (only if OIDC role creation was enabled)
+- `GitHubDeployRoleArn`（OIDC role 作成を有効にした場合のみ）
 
-Repeat the same command for `noema-dev` when wiring the development environment.
+development 環境を接続するときは、`noema-dev` に対しても同じコマンドを実行します。
 
-## 7. Configure GitHub Actions secret/variables
+## 7. GitHub Actions の secret / variable を設定する
 
-GitHub Actions secret required in each GitHub Environment:
+各 GitHub Environment に必要な GitHub Actions secret:
 
 - `AWS_DEPLOY_ROLE_ARN`
 
-Recommended setup:
+推奨設定:
 
-- GitHub Environment `production`: set `AWS_DEPLOY_ROLE_ARN` to `noema-prod` output `GitHubDeployRoleArn`
-- GitHub Environment `development`: set `AWS_DEPLOY_ROLE_ARN` to `noema-dev` output `GitHubDeployRoleArn`
+- GitHub Environment `production`: `AWS_DEPLOY_ROLE_ARN` に `noema-prod` output の `GitHubDeployRoleArn` を設定
+- GitHub Environment `development`: `AWS_DEPLOY_ROLE_ARN` に `noema-dev` output の `GitHubDeployRoleArn` を設定
 
 GitHub UI path:
 
 - `Noema` repo -> `Settings` -> `Secrets and variables` -> `Actions`
 
-Environment variables required for automatic deploy in each GitHub Environment:
+各 GitHub Environment の自動デプロイに必要な environment variable:
 
 - `NOEMA_AWS_REGION` = `ap-northeast-3`
 - `NOEMA_SITE_BUCKET` = output `SiteBucketName`
 - `NOEMA_NOTEBOOK_BUCKET` = output `NotebookBucketName`
 - `NOEMA_NOTEBOOKS_TABLE` = output `NotebooksTableName`
 - `NOEMA_CLOUDFRONT_DISTRIBUTION_ID` = output `CloudFrontDistributionId`
-- `NOEMA_STACK_STAGE` = `dev` or `prod`
-- `NOEMA_FRONTEND_URL` = environment-specific frontend origin
-- `NOEMA_GITHUB_REF_PATTERN` = `refs/heads/develop` for development, `refs/heads/main` for production
-- `NOEMA_GITHUB_ENVIRONMENT_NAME` = `development` or `production`
+- `NOEMA_STACK_STAGE` = `dev` または `prod`
+- `NOEMA_FRONTEND_URL` = 環境ごとの frontend origin
+- `NOEMA_GITHUB_REF_PATTERN` = development は `refs/heads/develop`、production は `refs/heads/main`
+- `NOEMA_GITHUB_ENVIRONMENT_NAME` = `development` または `production`
 
-Optional but recommended:
+任意ですが推奨:
 
-- Create GitHub Environments `development` and `production`.
-- Require reviewer approval only on `production`.
+- GitHub Environments `development` と `production` を作成する。
+- reviewer approval は `production` だけ必須にする。
 
-## 8. Deploy static assets from GitHub Actions
+## 8. GitHub Actions から静的アセットをデプロイする
 
-After step 7:
+手順 7 の後:
 
-- use manual workflow dispatch for `development` until the dev environment is fully wired
-- pushes to `main` deploy to the `production` environment
+- development 環境が完全に接続されるまでは、`development` は manual workflow dispatch を使う
+- `main` への push は `production` へデプロイする
 
-Manual fallback: run workflow `Deploy Static Assets` with:
+手動 fallback: workflow `Deploy Static Assets` を次の入力で実行します。
 
-- `target_environment`: `development` or `production`
+- `target_environment`: `development` または `production`
 - `aws_region`: `ap-northeast-3`
 - `site_bucket`: `SiteBucketName`
 - `notebook_bucket`: `NotebookBucketName`
-- `notebooks_table`: stack output table name (usually `noema-prod-notebooks`)
+- `notebooks_table`: stack output の table name（通常 `noema-prod-notebooks`）
 - `cloudfront_distribution_id`: `CloudFrontDistributionId`
 
-Run workflow `Deploy Infra` with:
+workflow `Deploy Infra` は次の入力で実行します。
 
-- `target_environment=development` when updating `noema-dev`
-- `target_environment=production` when updating `noema-prod`
+- `target_environment=development`: `noema-dev` を更新する場合
+- `target_environment=production`: `noema-prod` を更新する場合
 
-Keep `run_cdk_bootstrap=false` for normal deploys.
-Set `run_cdk_bootstrap=true` only when CDK bootstrap is not initialized yet.
+通常のデプロイでは `run_cdk_bootstrap=false` のままにします。
+CDK bootstrap がまだ初期化されていない場合だけ `run_cdk_bootstrap=true` にします。
 
-## 9. Smoke checks after deploy
+## 9. デプロイ後の smoke check
 
-### 9.1 Frontend
+### 9.1 フロントエンド
 
 ```bash
 curl -I https://<CloudFrontDomainName>
 ```
 
-Expect HTTP `200` or `304`.
+期待値: HTTP `200` または `304`
 
 ### 9.2 API health
 
@@ -273,39 +273,39 @@ Expect HTTP `200` or `304`.
 curl -sS <HttpApiUrl>/health
 ```
 
-Expect JSON response (health check payload).
+期待値: JSON response（health check payload）
 
 ### 9.3 Alarm subscription confirmation
 
-If `alarmEmail` was set, confirm the SNS subscription email and verify status is `Confirmed`.
+`alarmEmail` を設定した場合は、SNS subscription email を承認し、status が `Confirmed` になっていることを確認します。
 
-## 10. Common errors and fixes
+## 10. よくあるエラーと修正
 
-### `InvalidRequestException` during `aws configure sso`
+### `aws configure sso` 中の `InvalidRequestException`
 
-- Cause: wrong `SSO region`.
-- Fix: re-run with `SSO region=us-east-1`.
+- 原因: `SSO region` が誤っている。
+- 修正: `SSO region=us-east-1` で再実行する。
 
 ### `The security token included in the request is invalid`
 
-- Cause: SSO session expired.
-- Fix:
+- 原因: SSO session が期限切れ。
+- 修正:
 
 ```bash
 aws sso login --profile noema-prod
 ```
 
-### `NoCredentialProviders` from CDK/AWS CLI
+### CDK/AWS CLI の `NoCredentialProviders`
 
-- Cause: `AWS_PROFILE` not set in current shell.
-- Fix:
+- 原因: 現在の shell で `AWS_PROFILE` が設定されていない。
+- 修正:
 
 ```bash
 export AWS_PROFILE=noema-prod
 ```
 
-### GitHub Actions cannot assume role
+### GitHub Actions が role を assume できない
 
-- Check `AWS_DEPLOY_ROLE_ARN` secret value.
-- Check `githubRepo` and `githubRefPattern` used when role was created.
-- Check workflow branch matches `githubRefPattern`.
+- `AWS_DEPLOY_ROLE_ARN` secret の値を確認する。
+- role 作成時に使った `githubRepo` と `githubRefPattern` を確認する。
+- workflow の branch が `githubRefPattern` と一致していることを確認する。
