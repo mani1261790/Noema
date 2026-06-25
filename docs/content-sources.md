@@ -1,15 +1,15 @@
-# Content Sources
+# コンテンツソース
 
-Noema supports two content source modes in `content/catalog.json`.
+Noema は `content/catalog.json` で 2 種類のコンテンツソースを扱います。
 
 - `noema-original`
   - Noema が独自に制作した教材
 - `open-license-translation`
   - 外部のオープンライセンス教材を Noema が翻訳・再構成して掲載する教材
 
-## Catalog Fields
+## カタログ項目
 
-Root-level defaults:
+ルートレベルの既定値:
 
 ```json
 {
@@ -21,7 +21,7 @@ Root-level defaults:
 }
 ```
 
-Per chapter:
+章単位:
 
 ```json
 {
@@ -34,10 +34,10 @@ Per chapter:
 ```
 
 - `audience`
-  - `beginner` or `advanced`
-  - Sidebar groups `Python` and `機械学習` under beginner, and advanced topics separately.
+  - `beginner` または `advanced`
+  - Sidebar では `Python` と `機械学習` を beginner に置き、発展的なテーマを別枠に分けます。
 
-Per notebook for imported translations:
+外部教材を翻訳して取り込む notebook の例:
 
 ```json
 {
@@ -58,35 +58,33 @@ Per notebook for imported translations:
 }
 ```
 
-## Display Rules
+## 表示ルール
 
 - Sidebar:
-  - `open-license-translation` notebooks show a `翻訳教材` badge.
-- Notebook page:
-  - Imported translations show an attribution banner above the article body.
-- Original Noema notebooks:
-  - No attribution banner is shown.
+  - `open-license-translation` の notebook には `翻訳教材` バッジを表示します。
+- Notebook ページ:
+  - 翻訳教材では、本文の上に出典表示バナーを出します。
+- Noema 独自教材:
+  - 出典表示バナーは出しません。
 
-## Attribution Checklist
+## 出典表示チェックリスト
 
-For each imported open-license notebook, include:
+外部のオープンライセンス notebook を取り込む場合は、次を含めます。
 
-- Original provider name
-- Original title
-- Original URL
-- Original license
-- Indication that Noema translated and/or adapted the material
-- Any code-specific license notes if the upstream repo separates content and code licenses
+- 元の提供者名
+- 元のタイトル
+- 元の URL
+- 元のライセンス
+- Noema が翻訳または再構成したことの明記
+- コンテンツとコードでライセンスが分かれている場合は、コード側ライセンスの注記
 
-## Imported Course Handling
+## 外部コースの扱い
 
-Imported courses can be kept in the repository as source material, but they
-should not appear in the public catalog until they have been rewritten into the
-same beginner-to-practitioner progression as the core Noema lessons.
+外部コースはソース資料としてリポジトリに置けます。ただし、Noema の中核教材と同じく、初学者から実務レベルまで順に進める構成へ書き直すまでは公開カタログに出しません。
 
-For open-license course material such as `https://github.com/NeuromatchAcademy/course-content`:
+`https://github.com/NeuromatchAcademy/course-content` のようなオープンライセンス教材の場合:
 
-- Content license: `CC BY 4.0`
-- Code license: `BSD-3-Clause`
-- Recommended `source.license` value:
+- コンテンツライセンス: `CC BY 4.0`
+- コードライセンス: `BSD-3-Clause`
+- 推奨する `source.license` の値:
   - `CC BY 4.0 / BSD-3-Clause (code)`

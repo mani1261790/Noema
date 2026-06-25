@@ -1,28 +1,28 @@
 openapi: 3.0.3
 info:
-  title: Noema Next.js Public API
+  title: Noema Next.js 公開 API
   version: 1.0.0
   description: |
-    Contract for APIs implemented under `src/app/api`.
-    This spec does not cover AWS Lambda APIs implemented in `infra/lambda/api.ts`.
+    `src/app/api` 配下で実装される API の契約です。
+    `infra/lambda/api.ts` で実装される AWS Lambda API は、この仕様の対象外です。
 servers:
   - url: https://noema-learn.uk
   - url: http://localhost:3000
 paths:
   /api/catalog:
     get:
-      summary: Get notebook catalog
+      summary: notebook catalog を取得する
       tags: [Catalog]
       responses:
         '200':
-          description: Catalog response
+          description: catalog のレスポンス
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Catalog'
   /api/notebooks/{notebookId}/content:
     get:
-      summary: Get rendered notebook HTML fragment
+      summary: 描画済み notebook HTML fragment を取得する
       tags: [Notebooks]
       parameters:
         - in: path
@@ -32,20 +32,20 @@ paths:
             type: string
       responses:
         '200':
-          description: HTML content
+          description: HTML content のレスポンス
           content:
             text/html:
               schema:
                 type: string
         '404':
-          description: Notebook or notebook HTML not found
+          description: Notebook または notebook HTML が見つからない
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/notebooks/{notebookId}/download:
     get:
-      summary: Download notebook ipynb
+      summary: notebook ipynb をダウンロードする
       tags: [Notebooks]
       parameters:
         - in: path
@@ -55,13 +55,13 @@ paths:
             type: string
       responses:
         '200':
-          description: ipynb file attachment
+          description: ipynb file attachment のレスポンス
           content:
             application/x-ipynb+json:
               schema:
                 type: string
         '404':
-          description: Notebook or ipynb not found
+          description: Notebook または ipynb が見つからない
           content:
             application/json:
               schema:

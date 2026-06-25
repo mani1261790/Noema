@@ -1,113 +1,114 @@
-# Operations Runbook
+# 運用 runbook
 
-## Environment URLs
+## 環境 URL
 
 - `development`: `https://d8mpxq2nx10ai.cloudfront.net/`
 
-Notes:
-- Frontend URLs are public identifiers, not secrets.
-- The canonical value should also be kept in the GitHub Environment variable `NOEMA_FRONTEND_URL`.
+注意:
 
-## Daily checks
+- フロントエンド URL は公開識別子であり、秘密情報ではありません。
+- 正の値は GitHub Environment 変数 `NOEMA_FRONTEND_URL` にも保持します。
 
-1. Confirm CI passed for latest `develop` and `main` commits.
-2. Check CloudWatch error rate for API and worker Lambdas.
-3. Check SQS backlog (`ApproximateNumberOfMessagesVisible`).
-4. Check DynamoDB throttling metrics.
-5. Check LLM usage/cost spikes (OpenAI or Bedrock).
-6. Check CloudWatch dashboard `CloudWatchDashboardName`.
-7. Confirm SNS alarm emails are received (if `alarmEmail` is configured).
+## 日次確認
 
-## Deployment checklist
+1. 最新の `develop` と `main` の CI が成功していることを確認する。
+2. API Lambda と worker Lambda の CloudWatch エラー率を見る。
+3. SQS backlog（`ApproximateNumberOfMessagesVisible`）を見る。
+4. DynamoDB throttling メトリクスを見る。
+5. LLM 利用量とコストの急増を確認する（OpenAI または Bedrock）。
+6. CloudWatch ダッシュボード `CloudWatchDashboardName` を確認する。
+7. `alarmEmail` を設定している場合は、SNS アラームメールが届いていることを確認する。
 
-1. Merge to `develop` first after CI green.
-2. Validate the `development` environment.
-3. Promote to `main` only after the dev environment is confirmed healthy.
-4. Run infra deploy workflow only when stack changes.
-5. Run app deploy workflow if auto deploy was skipped or needs rerun.
-6. Validate:
+## デプロイチェックリスト
+
+1. CI が green になった後、まず `develop` に merge する。
+2. `development` 環境を検証する。
+3. dev 環境が健全であることを確認してから `main` に昇格する。
+4. スタック変更がある場合だけ infra deploy workflow を実行する。
+5. 自動デプロイがスキップされた、または再実行が必要な場合は app deploy workflow を実行する。
+6. 次を検証する。
    - login
    - notebook page render
-   - question submit / answer fetch
+   - 質問送信 / 回答取得
    - admin Q&A edit
 
-### Infra workflow inputs (`Deploy Infra`)
+### Infra workflow の入力（`Deploy Infra`）
 
-- `aws_region`: usually `ap-northeast-3`
-- `target_environment`: `development` or `production`
-- `stack_stage`: usually `dev` for development, `prod` for production
-- `frontend_url`: public frontend URL (for Cognito callback/logout), example `https://noema.example.com`
-- `alarm_email` (optional): email for SNS alarm notifications
-- `cognito_domain_prefix` (optional): custom Cognito domain prefix
-- `create_github_deploy_role` (recommended): `true` when using `noema-<stage>-github-deploy`
-- `github_repo` (required if previous is `true`): e.g. `mani1261790/Noema`
-- `github_ref_pattern` (optional): trusted git ref pattern, e.g. `refs/heads/develop` or `refs/heads/main`
-- `github_environment_name` (optional): GitHub Environment trust name, usually `development` or `production`
-- `qa_model_provider` (optional): `auto` / `openai` / `bedrock` / `mock`
-- `bedrock_region` (optional): `us-east-1` / `us-west-2` / `ap-northeast-1` / `ap-northeast-3`
-- `bedrock_model_small` (required when `qa_model_provider=bedrock`): `amazon.nova-micro-v1:0` or `amazon.nova-lite-v1:0`
-- `bedrock_model_mid`, `bedrock_model_large` (optional): same allowlist as above
-- `openai_model_small` (optional): default `gpt-5-nano`
-- `openai_model_mid`, `openai_model_large` (optional): fallback model IDs
-- `openai_api_key_ssm_parameter` (optional): SSM SecureString name for OpenAI key
-- `admin_emails` (optional): comma-separated admin emails
-- `noema_inline_qa` (optional): `true` to process synchronously in API
-- `qa_rate_limit_max` (optional): max asks per user in window (default `6`)
-- `qa_rate_limit_window_minutes` (optional): rate-limit window minutes (default `1`)
-- `run_cdk_bootstrap` (optional): `true` only for first-time bootstrap (default `false`)
+- `aws_region`: 通常は `ap-northeast-3`
+- `target_environment`: `development` または `production`
+- `stack_stage`: 通常は development なら `dev`、production なら `prod`
+- `frontend_url`: 公開フロントエンド URL（Cognito callback/logout 用）。例: `https://noema.example.com`
+- `alarm_email`（任意）: SNS アラーム通知用メールアドレス
+- `cognito_domain_prefix`（任意）: Cognito のカスタムドメイン prefix
+- `create_github_deploy_role`（推奨）: `noema-<stage>-github-deploy` を使う場合は `true`
+- `github_repo`（上記が `true` の場合は必須）: 例 `mani1261790/Noema`
+- `github_ref_pattern`（任意）: 信頼する git ref pattern。例 `refs/heads/develop` または `refs/heads/main`
+- `github_environment_name`（任意）: 信頼する GitHub Environment 名。通常は `development` または `production`
+- `qa_model_provider`（任意）: `auto` / `openai` / `bedrock` / `mock`
+- `bedrock_region`（任意）: `us-east-1` / `us-west-2` / `ap-northeast-1` / `ap-northeast-3`
+- `bedrock_model_small`（`qa_model_provider=bedrock` の場合は必須）: `amazon.nova-micro-v1:0` または `amazon.nova-lite-v1:0`
+- `bedrock_model_mid`, `bedrock_model_large`（任意）: 上と同じ allowlist
+- `openai_model_small`（任意）: 既定値 `gpt-5-nano`
+- `openai_model_mid`, `openai_model_large`（任意）: fallback model ID
+- `openai_api_key_ssm_parameter`（任意）: OpenAI key を保存した SSM SecureString 名
+- `admin_emails`（任意）: カンマ区切りの管理者メールアドレス
+- `noema_inline_qa`（任意）: API 内で同期処理する場合は `true`
+- `qa_rate_limit_max`（任意）: window 内でユーザーが質問できる最大数（既定値 `6`）
+- `qa_rate_limit_window_minutes`（任意）: rate-limit window の分数（既定値 `1`）
+- `run_cdk_bootstrap`（任意）: 初回 bootstrap の場合だけ `true`（既定値 `false`）
 
-### Static asset deploy (`Deploy Static Assets`)
+### 静的アセットデプロイ（`Deploy Static Assets`）
 
-- Normal operation:
-  - `development` is deployed manually until the environment bootstrap is finished
+- 通常運用:
+  - `development` は環境 bootstrap が完了するまで手動デプロイする
   - `main` push -> `production`
-- Manual fallback: run `Deploy Static Assets` workflow with inputs below.
-- Manual inputs:
+- 手動 fallback: 以下の入力で `Deploy Static Assets` workflow を実行する。
+- 手動入力:
   - `target_environment`
   - `aws_region`
   - `site_bucket`
   - `notebook_bucket`
   - `notebooks_table`
   - `cloudfront_distribution_id`
-- Required GitHub Environment variables for auto deploy:
-  - `NOEMA_AWS_REGION` (usually `ap-northeast-3`)
-  - `NOEMA_SITE_BUCKET` (stack output `SiteBucketName`)
-  - `NOEMA_NOTEBOOK_BUCKET` (stack output `NotebookBucketName`)
-  - `NOEMA_NOTEBOOKS_TABLE` (stack output `NotebooksTableName`)
-  - `NOEMA_CLOUDFRONT_DISTRIBUTION_ID` (stack output `CloudFrontDistributionId`)
-  - `NOEMA_STACK_STAGE` (`dev` or `prod`)
+- 自動デプロイに必要な GitHub Environment 変数:
+  - `NOEMA_AWS_REGION`（通常は `ap-northeast-3`）
+  - `NOEMA_SITE_BUCKET`（stack output `SiteBucketName`）
+  - `NOEMA_NOTEBOOK_BUCKET`（stack output `NotebookBucketName`）
+  - `NOEMA_NOTEBOOKS_TABLE`（stack output `NotebooksTableName`）
+  - `NOEMA_CLOUDFRONT_DISTRIBUTION_ID`（stack output `CloudFrontDistributionId`）
+  - `NOEMA_STACK_STAGE`（`dev` または `prod`）
   - `NOEMA_FRONTEND_URL`
   - `NOEMA_GITHUB_REF_PATTERN`
   - `NOEMA_GITHUB_ENVIRONMENT_NAME`
 
-## Incident: Q&A delayed
+## インシデント: Q&A が遅延している
 
-1. Verify SQS backlog.
-2. Inspect worker Lambda logs.
-3. If retries exhausted, inspect DLQ messages.
-4. Requeue failed messages after fix.
-5. Check alarm state for `*-qa-queue-backlog` and `*-qa-dlq-messages`.
+1. SQS backlog を確認する。
+2. worker Lambda のログを見る。
+3. retry が尽きている場合は DLQ message を確認する。
+4. 修正後、失敗 message を再投入する。
+5. `*-qa-queue-backlog` と `*-qa-dlq-messages` のアラーム状態を見る。
 
-## Incident: login failures
+## インシデント: login 失敗
 
-1. Check Cognito user pool health.
-2. Verify callback URLs and app client settings.
-3. Verify JWT audience/issuer in API Gateway authorizer.
-4. Confirm Cognito domain output `CognitoDomain` is active.
+1. Cognito user pool の状態を確認する。
+2. callback URL と app client 設定を確認する。
+3. API Gateway authorizer の JWT audience/issuer を確認する。
+4. Cognito domain output `CognitoDomain` が有効であることを確認する。
 
-## Incident: static content missing
+## インシデント: 静的コンテンツが見つからない
 
-1. Check S3 object keys for notebooks/site.
-2. Invalidate CloudFront cache.
-3. Re-run deploy-app workflow.
+1. notebook/site の S3 object key を確認する。
+2. CloudFront cache を invalidate する。
+3. deploy-app workflow を再実行する。
 
-## Rollback
+## ロールバック
 
-1. Re-deploy previous known-good commit.
-2. Re-run app deploy workflow for previous artifact.
-3. If infra broke, run `cdk deploy` from previous infra commit.
+1. 直近で動作確認済みの commit を再デプロイする。
+2. 以前の artifact に対して app deploy workflow を再実行する。
+3. infra が壊れた場合は、以前の infra commit から `cdk deploy` を実行する。
 
-## Key stack outputs
+## 主要 stack output
 
 - `CloudFrontDomainName`
 - `CloudFrontDistributionId`
@@ -119,4 +120,4 @@ Notes:
 - `NotebooksTableName`
 - `AlarmTopicArn`
 - `CloudWatchDashboardName`
-- `GitHubDeployRoleArn` (optional)
+- `GitHubDeployRoleArn`（任意）

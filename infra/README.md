@@ -1,19 +1,19 @@
 # Noema Infra
 
-This directory contains the AWS CDK stack for Noema.
+このディレクトリには、Noema の AWS CDK スタックがあります。
 
-The stack is intentionally biased toward low fixed cost:
+このスタックは、固定費を低く抑えることを意図して設計しています。
 
-- serverless compute
-- pay-per-request databases and queues
-- optional monitoring features
-- low-cost defaults for retention, versioning, and backups
+- サーバーレスコンピュート
+- リクエスト課金のデータベースとキュー
+- 任意で有効化する監視機能
+- 保存期間、バージョニング、バックアップの低コスト既定値
 
-## Infrastructure Flow
+## インフラ構成
 
 ```mermaid
 flowchart TD
-  A["Learner browser"] --> B["CloudFront"]
+  A["学習者のブラウザ"] --> B["CloudFront"]
   B --> C["S3 site bucket"]
   B --> D["S3 notebook bucket"]
   A --> E["Cognito"]
@@ -28,30 +28,30 @@ flowchart TD
   L --> M["Bedrock or OpenAI"]
 ```
 
-## Cost Profile
+## コスト方針
 
-By default, the stack now avoids several always-on extras:
+既定では、常時コストがかかりやすい機能を避けます。
 
-- DynamoDB point-in-time recovery: disabled
-- S3 bucket versioning: disabled
-- access-log DynamoDB writes: disabled
-- CloudWatch alarms and dashboard: disabled
-- SNS alarm topic: disabled
-- Lambda log retention: 7 days
+- DynamoDB point-in-time recovery: 無効
+- S3 bucket versioning: 無効
+- access-log DynamoDB writes: 無効
+- CloudWatch alarms and dashboard: 無効
+- SNS alarm topic: 無効
+- Lambda log retention: 7日
 
-Enable those only when you need stronger ops visibility or rollback protection.
+運用可視性やロールバック保護を強める必要がある場合だけ有効化します。
 
-## Typical Deploy Flow
+## 典型的なデプロイの流れ
 
 ```mermaid
 flowchart LR
-  A["Update app or infra code"] --> B["cdk synth"]
+  A["アプリまたはインフラコードを更新"] --> B["cdk synth"]
   B --> C["cdk deploy"]
-  C --> D["CloudFormation updates AWS resources"]
-  D --> E["Frontend and API serve new behavior"]
+  C --> D["CloudFormation が AWS リソースを更新"]
+  D --> E["Frontend と API が新しい挙動を配信"]
 ```
 
-## Minimal Commands
+## 最小コマンド
 
 ```bash
 cd infra
@@ -64,9 +64,9 @@ npm run synth
 npm run deploy -- --require-approval never -c frontendUrl=https://your-frontend-domain
 ```
 
-## Optional Flags
+## 任意フラグ
 
-Turn operational features back on only when needed:
+運用機能は必要な場合だけ有効にします。
 
 ```bash
 npm run deploy -- --require-approval never \
@@ -77,15 +77,15 @@ npm run deploy -- --require-approval never \
   -c enableAccessLogs=true
 ```
 
-Useful extra flags:
+よく使う追加フラグ:
 
 - `-c qaModelProvider=bedrock`
 - `-c qaModelProvider=openai`
 - `-c createGithubDeployRole=true`
 - `-c cognitoDomainPrefix=...`
 
-## Notes
+## 注意点
 
-- Current production depends on Cognito, API Gateway, Lambda, DynamoDB, S3, CloudFront, and SQS.
-- Monitoring and audit-heavy features are optional.
-- If you only need the app to run cheaply, leave the optional flags off.
+- 現在の production は Cognito、API Gateway、Lambda、DynamoDB、S3、CloudFront、SQS に依存します。
+- 監視や監査ログを厚くする機能は任意です。
+- 低コストでアプリを動かすだけなら、任意フラグは無効のままにします。

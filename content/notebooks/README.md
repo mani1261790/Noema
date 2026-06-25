@@ -1,18 +1,17 @@
-# Notebook Layout
+# ノートブック構成
 
-- `core/python/`: Python fundamentals.
-- `core/machine-learning/`: Machine learning section.
-- `core/deep-learning/`: Deep learning section.
-- `core/reinforcement-learning/`: Reinforcement learning section.
-- `core/llm/`: LLM section.
-- `core/deep-generative-models/`: Generative models section.
-- `core/world-models/`: World models section.
+- `core/python/`: Python 基礎
+- `core/machine-learning/`: 機械学習セクション
+- `core/deep-learning/`: 深層学習セクション
+- `core/reinforcement-learning/`: 強化学習セクション
+- `core/llm/`: LLM セクション
+- `core/deep-generative-models/`: 生成モデルセクション
+- `core/world-models/`: 世界モデルセクション
 
-Public catalog notebooks should be Noema-authored core lessons unless an imported
-course is explicitly being prepared with attribution, review, and adaptation.
+公開カタログに載せる notebook は、Noema が制作した中核教材を基本とします。外部コースを取り込む場合は、出典表示、レビュー、Noema の学習順に合わせた再構成が明示的に進んでいるものだけを扱います。
 
-Math authoring rules:
+数式の記述ルール:
 
-- Inline math: `$...$`
-- Display math: `$$...$$`
-- `\(...\)` and `\[...\]` are also supported, but for manual edits prefer dollar delimiters.
+- インライン数式: `$...$`
+- 独立した数式: `$$...$$`
+- `\(...\)` と `\[...\]` も対応していますが、手で編集する場合はドル区切りを優先します。
