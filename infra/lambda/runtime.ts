@@ -854,7 +854,16 @@ function jstDayKey(now: Date) {
   return `${year}-${month}-${date}`;
 }
 
-async function acquireBedrockDailySlot(scopeUserId: string) {
+function isConditionalCheckFailed(error: unknown) {
+  const candidate = error as { name?: unknown; message?: unknown };
+  return candidate?.name === "ConditionalCheckFailedException" || String(candidate?.message ?? error).includes("ConditionalCheckFailed");
+}
+
+async function acquireBedrockDailySlot(scopeUserId: string, amount = 1) {
+  const slots = Math.max(1, Math.floor(amount));
+  if (slots > BEDROCK_DAILY_LIMIT) {
+    throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
+  }
   const now = new Date();
   const dayStart = jstDayStart(now);
   const dayKey = `DAY#${jstDayKey(now)}`;
@@ -867,12 +876,12 @@ async function acquireBedrockDailySlot(scopeUserId: string) {
         requestAt: dayKey
       },
       UpdateExpression: "SET expiresAt = :expiresAt, usageCount = if_not_exists(usageCount, :zero) + :inc",
-      ConditionExpression: "attribute_not_exists(usageCount) OR usageCount < :limit",
+      ConditionExpression: "attribute_not_exists(usageCount) OR usageCount <= :available",
       ExpressionAttributeValues: {
         ":expiresAt": expiresAt,
         ":zero": 0,
-        ":inc": 1,
-        ":limit": BEDROCK_DAILY_LIMIT
+        ":inc": slots,
+        ":available": BEDROCK_DAILY_LIMIT - slots
       },
       ReturnValues: "ALL_NEW"
     })
@@ -882,7 +891,8 @@ async function acquireBedrockDailySlot(scopeUserId: string) {
   return Math.max(0, BEDROCK_DAILY_LIMIT - usageCount);
 }
 
-async function releaseBedrockDailySlot(scopeUserId: string) {
+async function releaseBedrockDailySlot(scopeUserId: string, amount = 1) {
+  const slots = Math.max(1, Math.floor(amount));
   const dayKey = `DAY#${jstDayKey(new Date())}`;
   await ddb
     .send(
@@ -893,10 +903,10 @@ async function releaseBedrockDailySlot(scopeUserId: string) {
           requestAt: dayKey
         },
         UpdateExpression: "SET usageCount = if_not_exists(usageCount, :zero) - :dec",
-        ConditionExpression: "attribute_exists(usageCount) AND usageCount > :zero",
+        ConditionExpression: "attribute_exists(usageCount) AND usageCount >= :dec",
         ExpressionAttributeValues: {
           ":zero": 0,
-          ":dec": 1
+          ":dec": slots
         }
       })
     )
@@ -2694,8 +2704,7 @@ export async function submitNotebookAssessmentAttempt(notebookId: string, answer
       questionId: question.id,
       selectedChoiceId,
       correct: selectedChoiceId === question.correctChoiceId,
-      explanation: question.explanation,
-      correctChoiceId: question.correctChoiceId
+      explanation: question.explanation
     };
   });
   const score = results.reduce((sum, result) => sum + (result.correct ? 1 : 0), 0);
@@ -2872,23 +2881,6 @@ export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapte
   if (validationError) throw new Error(validationError);
   const sanitizedAnswers = sanitizeChapterFinalAnswerMap(answers);
 
-  // Cost guard: a single attempt fans out to one Bedrock grading call per question in the
-  // worker, so an unbounded submit loop could run up the bill. Gate attempt creation behind
-  // the same sliding-window rate limit and per-user daily Bedrock budget used by chat/Q&A.
-  const adminUser = isAdmin(user);
-  if (!adminUser) {
-    await assertQuestionRateLimitAvailable(user.userId);
-    try {
-      await acquireBedrockDailySlot(`bedrock:${user.userId}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("ConditionalCheckFailed")) {
-        throw new Error("本日の採点回数の上限に達しました。時間をおいて再度お試しください。");
-      }
-      throw error;
-    }
-  }
-
   const attemptId = crypto.randomUUID();
   const createdAt = nowIso();
   const modelId = resolveBedrockModelId("", "grade final assessment", JSON.stringify(assessment).slice(0, 3000));
@@ -2904,6 +2896,23 @@ export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapte
     feedback: "",
     pointResults: []
   }));
+  const bedrockSlotCount = tasks.length;
+
+  // Cost guard: the worker performs one Bedrock grading call per task. Reserve that same
+  // number of daily slots before queueing so the stored daily budget matches actual calls.
+  const adminUser = isAdmin(user);
+  if (!adminUser) {
+    await assertQuestionRateLimitAvailable(user.userId);
+    await recordQuestionRateLimitUsage(user.userId);
+    try {
+      await acquireBedrockDailySlot(`bedrock:${user.userId}`, bedrockSlotCount);
+    } catch (error) {
+      if (isConditionalCheckFailed(error)) {
+        throw new Error(`Bedrock daily limit exceeded (${BEDROCK_DAILY_LIMIT}/day).`);
+      }
+      throw error;
+    }
+  }
 
   try {
     await ddb.send(
@@ -2935,24 +2944,20 @@ export async function createChapterFinalAssessmentAttempt(user: AuthUser, chapte
         }
       })
     );
-
-    await sqs.send(
-      new SendMessageCommand({
-        QueueUrl: QA_QUEUE_URL,
-        MessageBody: JSON.stringify({ gradingAttemptId: attemptId })
-      })
-    );
   } catch (error) {
-    // Roll back the consumed daily Bedrock slot if the attempt never made it onto the queue.
+    // If the attempt record was never created, no worker can consume the reserved slots.
     if (!adminUser) {
-      await releaseBedrockDailySlot(`bedrock:${user.userId}`);
+      await releaseBedrockDailySlot(`bedrock:${user.userId}`, bedrockSlotCount);
     }
     throw error;
   }
 
-  if (!adminUser) {
-    await recordQuestionRateLimitUsage(user.userId);
-  }
+  await sqs.send(
+    new SendMessageCommand({
+      QueueUrl: QA_QUEUE_URL,
+      MessageBody: JSON.stringify({ gradingAttemptId: attemptId })
+    })
+  );
 
   return {
     attemptId,

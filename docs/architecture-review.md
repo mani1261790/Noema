@@ -16,7 +16,7 @@
 |---|---|---|
 | コスト設計 | ◎ | 全サーバーレス、アイドル≈$0、月$5–15。LLMにレート/日次上限あり |
 | 認証の設計境界 | ○ | プラットフォームJWT検証＋PKCE＋サーバー側admin。土台は正しい |
-| セキュリティ実装 | 🔴 | 未認証で答え漏洩・LLM費用青天井の2件が稼働中 |
+| セキュリティ実装 | 🔴 | 精査時点で未認証の答え漏洩・LLM費用青天井が稼働中（本PRで封鎖） |
 | インフラ運用性 | △ | 過剰設計、監視デフォルトOFF、バス係数1 |
 | アーキ構造 | 🔴 | フロント＆API二重実装、本番デッドコード、8,057行の単一ファイル |
 | コード品質(lib) | ○ | `src/lib/*` はリポジトリ随一。型・サニタイズ・fallback良好 |
@@ -30,14 +30,14 @@
 
 ### 1. 採点APIが未認証で答えを漏洩
 - 該当: `infra/lambda/runtime.ts`（notebook-check 採点レスポンス / chapter-final 取得）、`infra/lib/noema-stack.ts`（該当ルートにJWT authorizer 未付与）
-- 内容: `POST /api/assessments/notebooks/{id}/attempts` と `GET /api/assessments/chapters/{id}/final` が
+- 内容: 精査時点では `POST /api/assessments/notebooks/{id}/attempts` と `GET /api/assessments/chapters/{id}/final` が
   **未認証**で `correctChoiceId`（正解）・`explanation` を返す。ログイン不要で全教材の答えをスクレイプ可能。
-- 修正: 該当ルートにJWT必須化、かつ採点レスポンスから正解情報を除去。**工数 S**
+- 修正: 該当ルートにJWT必須化、かつ採点レスポンスから正解情報を除去。**本PRで対応**
 
 ### 2. chapter-final 採点の LLM 費用が青天井
 - 該当: `infra/lambda/runtime.ts`（`createChapterFinalAssessmentAttempt` → 採点ジョブが問題数ぶん `callBedrock`）
-- 内容: レート制限も日次上限もなく、提出1回でBedrockを問題数ぶん呼ぶ。ループ提出で無制限課金。
-- 修正: 既存の `assertQuestionRateLimitAvailable` ＋ `acquireBedrockDailySlot` を適用、問題数上限も設定。**工数 S–M**
+- 内容: 精査時点ではレート制限も日次上限もなく、提出1回でBedrockを問題数ぶん呼ぶ。ループ提出で無制限課金。
+- 修正: 既存の `assertQuestionRateLimitAvailable` ＋ `acquireBedrockDailySlot` を適用し、問題数ぶんのBedrock枠を提出前に確保。**本PRで対応**
 
 ### 3. 本番デッドコードの削除
 - 該当: `src/app/api/*`（Next.js API ルート群）
@@ -54,9 +54,9 @@
 - 修正: Vitest 導入。壊れやすい所（auth token 解決・LLM パース・assessment 整合性）からピン留め。**工数 M**
 
 ### 5. コンテンツCIがPRで走っていない
-- `ci.yml` は typecheck/lint/build のみ。`check:assessment-integrity` は deploy 後、
-  `check:notebook-code` / `isolated-run` はどのワークフローでも自動実行されていない。
-- 修正: これらを `ci.yml` の `pull_request` に移設（`python3` セットアップ込み）。**工数 S**
+- 本PR前の `ci.yml` は typecheck/lint/build のみ。`check:assessment-integrity` は deploy 後、
+  `check:notebook-code` / `isolated-run` はどのワークフローでも自動実行されていなかった。
+- 修正: `check:catalog` / `check:assessment-integrity` / `check:notebook-code` を `ci.yml` の `pull_request` に追加（`python3` セットアップ込み）。**本PRで対応**
 
 ### 6. 破壊的ジェネレータの凍結
 - 該当: `scripts/generate-curriculum-shell.ts` / `scripts/author-curriculum.ts`

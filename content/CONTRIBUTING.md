@@ -38,7 +38,7 @@
 
 理論メンバーは **Colab か Jupyter で書くだけ** でよい。Git 化は窓口担当が引き受ける。
 
-```
+```text
 1. 担当ノートを Colab で開く（catalog.json の colabUrl から開ける）
 2. 中身を編集（執筆 or 監査・修正）
 3. 「変更したノート（.ipynb）」と「変更点の要約」を窓口担当へ共有
@@ -192,7 +192,7 @@
 
 **原則: 正本は1つ、残りは配信先。** 同じ記事を複数箇所で別々に手管理しない。
 
-```
+```text
 正本（Single Source of Truth）
 └─ content/blog/*.md   ← 理論部門はここに .md を書くだけ（.ipynb と同じ窓口フロー、PR化は Mani）
         ├─ 配信① Noema サイト /blog で描画         … SEO一体・自前ホスト
