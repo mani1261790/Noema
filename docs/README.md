@@ -15,6 +15,7 @@
 - [data-model.md](./data-model.md): MVP 時点のデータモデル
 - [data-model-v2.md](./data-model-v2.md): データモデル再設計メモ
 - [content-sources.md](./content-sources.md): 教材ソースとライセンス管理ルール
+- [glossary.md](./glossary.md): 用語チップス辞書の管理ルール
 
 ## 運用
 

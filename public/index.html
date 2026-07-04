@@ -61,6 +61,7 @@
       --code-fg: #d8e8ff;
       --code-border: rgba(116, 171, 232, .26);
       --brand-font: "Space Grotesk", "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
+      --sidebar-width: 300px;
       --assistant-width: 400px;
       --mobile-dock-button-size: 46px;
       --mobile-dock-gap: 6px;
@@ -259,7 +260,7 @@
     .shell {
       height: 100%;
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr) auto auto;
+      grid-template-columns: var(--sidebar-width) auto minmax(0, 1fr) auto auto;
       gap: 10px;
       position: relative;
       z-index: 1;
@@ -272,14 +273,6 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
-    }
-
-    .sidebar-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
     }
 
     .sidebar h1 {
@@ -294,7 +287,6 @@
       text-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 24%, transparent);
     }
 
-    .sidebar-collapse-btn,
     .sidebar-expand-btn {
       width: 38px;
       height: 38px;
@@ -304,7 +296,6 @@
       justify-content: center;
     }
 
-    .sidebar-collapse-btn svg,
     .sidebar-expand-btn svg {
       width: 18px;
       height: 18px;
@@ -328,16 +319,12 @@
     }
 
     body.sidebar-collapsed .shell {
-      grid-template-columns: 0 minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto auto;
     }
 
-    body.sidebar-collapsed .sidebar {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      transform: translateX(-12px);
-      padding: 0;
-      overflow: hidden;
+    body.sidebar-collapsed .sidebar,
+    body.sidebar-collapsed .sidebar-resizer {
+      display: none;
     }
 
     body.sidebar-collapsed .sidebar-expand-btn {
@@ -2045,6 +2032,10 @@
 
     .resizer.visible { display: block; }
 
+    .sidebar-resizer {
+      display: block;
+    }
+
     aside.assistant {
       width: var(--assistant-width);
       min-width: 320px;
@@ -3128,14 +3119,7 @@
   <main class="layout">
     <div class="shell" id="shell" data-nosnippet>
       <aside class="sidebar glass-strong" id="sidebar-desktop">
-        <div class="sidebar-head">
-          <h1><a class="brand-link" id="brand-home" href="/">Noema</a></h1>
-          <button class="button-ghost sidebar-collapse-btn" id="sidebar-collapse" type="button" aria-label="サイドバーを閉じる" title="サイドバーを閉じる">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 6L9 12L15 18"></path>
-            </svg>
-          </button>
-        </div>
+        <h1><a class="brand-link" id="brand-home" href="/">Noema</a></h1>
         <label class="search">
           <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7"></circle>
@@ -3159,6 +3143,8 @@
           <path d="M4 17H20"></path>
         </svg>
       </button>
+
+      <div class="resizer sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
 
       <section class="main glass-strong">
         <div class="mobile-controls">
@@ -3329,7 +3315,6 @@
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
       const CHAPTER_FINAL_DRAFT_KEY_PREFIX = "noema_chapter_final_drafts_v1";
-      const SIDEBAR_COLLAPSED_KEY = "noema_sidebar_collapsed_v1";
       const GLOSSARY_URL = "/glossary.json";
       const CHAPTER_PROGRESSIVE_UNLOCK_AFTER_ID = "reinforcement-learning";
       const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
@@ -3339,6 +3324,9 @@
       const KATEX_CSS_HREF = "/katex/katex.min.css";
       // MathJax v3 is Apache-2.0 licensed.
       const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
+      const SIDEBAR_MIN_WIDTH = 240;
+      const SIDEBAR_MAX_WIDTH = 460;
+      const SIDEBAR_CLOSE_THRESHOLD = 180;
       const ASSISTANT_MIN_WIDTH = 320;
       const ASSISTANT_MAX_WIDTH = 700;
       const ASSISTANT_CLOSE_THRESHOLD = 220;
@@ -3361,6 +3349,9 @@
         selectedContext: null,
         chatOpen: false,
         sidebarCollapsed: false,
+        sidebarResizing: false,
+        sidebarStartX: 0,
+        sidebarStartWidth: 300,
         chatView: "messages",
         chatSessionId: "",
         chatHistorySessions: [],
@@ -3392,8 +3383,8 @@
         sidebarMobileList: document.getElementById("sidebar-mobile-list"),
         sidebarSearch: document.getElementById("sidebar-search"),
         sidebarDesktop: document.getElementById("sidebar-desktop"),
-        sidebarCollapse: document.getElementById("sidebar-collapse"),
         sidebarExpand: document.getElementById("sidebar-expand"),
+        sidebarResizer: document.getElementById("sidebar-resizer"),
         headerTitle: document.getElementById("header-title"),
         headerTitleSelect: document.getElementById("header-title-select"),
         downloadBtn: document.getElementById("download-btn"),
@@ -4866,40 +4857,19 @@
         return window.innerWidth <= 960;
       }
 
-      function readSidebarCollapsed() {
-        try {
-          return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
-        } catch {
-          return false;
-        }
-      }
-
-      function writeSidebarCollapsed(collapsed) {
-        try {
-          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
-        } catch {}
-      }
-
-      function setSidebarCollapsed(collapsed, options = {}) {
-        const next = Boolean(collapsed) && !isCompactMobileView();
-        state.sidebarCollapsed = next;
-        document.body.classList.toggle("sidebar-collapsed", next);
+      function setSidebarOpen(open) {
+        const closed = !Boolean(open) && !isCompactMobileView();
+        state.sidebarCollapsed = closed;
+        document.body.classList.toggle("sidebar-collapsed", closed);
         if (el.sidebarDesktop) {
-          el.sidebarDesktop.setAttribute("aria-hidden", next ? "true" : "false");
-        }
-        if (el.sidebarCollapse) {
-          el.sidebarCollapse.setAttribute("aria-expanded", next ? "false" : "true");
+          el.sidebarDesktop.setAttribute("aria-hidden", closed ? "true" : "false");
         }
         if (el.sidebarExpand) {
-          el.sidebarExpand.setAttribute("aria-expanded", next ? "false" : "true");
+          el.sidebarExpand.setAttribute("aria-expanded", closed ? "false" : "true");
         }
-        if (!options.skipPersist) {
-          writeSidebarCollapsed(next);
+        if (closed) {
+          document.documentElement.style.setProperty("--sidebar-width", `${SIDEBAR_MIN_WIDTH}px`);
         }
-      }
-
-      function restoreSidebarCollapsed() {
-        setSidebarCollapsed(readSidebarCollapsed(), { skipPersist: true });
       }
 
       function renderPlaygroundSidebarControls() {
@@ -8058,6 +8028,34 @@
         syncChatFabState();
       }
 
+      function startSidebarResize(event) {
+        if (window.innerWidth <= 960 || state.sidebarCollapsed) return;
+        state.sidebarResizing = true;
+        state.sidebarStartX = event.clientX;
+        state.sidebarStartWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width")) || 300;
+        document.body.style.userSelect = "none";
+      }
+
+      function onSidebarResize(event) {
+        if (!state.sidebarResizing) return;
+        const diff = event.clientX - state.sidebarStartX;
+        const rawWidth = state.sidebarStartWidth + diff;
+        if (rawWidth <= SIDEBAR_CLOSE_THRESHOLD) {
+          document.documentElement.style.setProperty("--sidebar-width", `${SIDEBAR_MIN_WIDTH}px`);
+          setSidebarOpen(false);
+          stopSidebarResize();
+          return;
+        }
+        const next = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, rawWidth));
+        document.documentElement.style.setProperty("--sidebar-width", `${next}px`);
+      }
+
+      function stopSidebarResize() {
+        if (!state.sidebarResizing) return;
+        state.sidebarResizing = false;
+        document.body.style.userSelect = "";
+      }
+
       function startResize(event) {
         if (window.innerWidth <= 960 || !state.chatOpen) return;
         state.resizing = true;
@@ -8164,7 +8162,7 @@
       }
 
       async function init() {
-        restoreSidebarCollapsed();
+        setSidebarOpen(true);
         updateAuthState();
         renderMessages();
 
@@ -8203,12 +8201,8 @@
         renderSidebar();
       });
 
-      el.sidebarCollapse.addEventListener("click", function () {
-        setSidebarCollapsed(true);
-      });
-
       el.sidebarExpand.addEventListener("click", function () {
-        setSidebarCollapsed(false);
+        setSidebarOpen(true);
       });
 
       el.brandHome.addEventListener("click", function (event) {
@@ -8489,20 +8483,23 @@
 
       window.addEventListener("scroll", removeActiveGlossaryTooltip, true);
 
+      el.sidebarResizer.addEventListener("mousedown", startSidebarResize);
       el.resizer.addEventListener("mousedown", startResize);
+      window.addEventListener("mousemove", onSidebarResize);
       window.addEventListener("mousemove", onResize);
+      window.addEventListener("mouseup", stopSidebarResize);
       window.addEventListener("mouseup", stopResize);
+      window.addEventListener("mouseleave", stopSidebarResize);
       window.addEventListener("mouseleave", stopResize);
 
       window.addEventListener("resize", function () {
         if (window.innerWidth <= 960) {
-          setSidebarCollapsed(false, { skipPersist: true });
+          setSidebarOpen(true);
           el.resizer.classList.remove("visible");
           if (state.chatOpen) {
             openMobileChatOverlay();
           }
         } else {
-          setSidebarCollapsed(readSidebarCollapsed(), { skipPersist: true });
           closeMobileChatOverlay();
           el.assistantPanel.classList.toggle("hidden", !state.chatOpen);
           el.resizer.classList.toggle("visible", state.chatOpen);
