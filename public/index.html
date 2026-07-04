@@ -272,6 +272,14 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+    }
+
+    .sidebar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .sidebar h1 {
@@ -284,6 +292,58 @@
       line-height: 1.15;
       color: var(--text);
       text-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .sidebar-collapse-btn,
+    .sidebar-expand-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-collapse-btn svg,
+    .sidebar-expand-btn svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sidebar-expand-btn {
+      position: fixed;
+      top: max(18px, calc(env(safe-area-inset-top) + 12px));
+      left: max(18px, calc(env(safe-area-inset-left) + 12px));
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-6px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    body.sidebar-collapsed .shell {
+      grid-template-columns: 0 minmax(0, 1fr) auto auto;
+    }
+
+    body.sidebar-collapsed .sidebar {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(-12px);
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body.sidebar-collapsed .sidebar-expand-btn {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
     }
 
     .brand-link {
@@ -598,6 +658,68 @@
       border-color: color-mix(in oklab, var(--accent) 68%, white);
       background: linear-gradient(145deg, color-mix(in oklab, var(--accent) 80%, white), color-mix(in oklab, var(--accent-strong) 88%, black));
       box-shadow: 0 10px 20px color-mix(in oklab, var(--accent) 30%, transparent);
+    }
+
+    .glossary-term {
+      border: 0;
+      border-bottom: 1px dotted color-mix(in oklab, var(--accent) 72%, white);
+      background: color-mix(in oklab, var(--accent) 13%, transparent);
+      color: color-mix(in oklab, var(--text) 92%, white);
+      border-radius: 5px;
+      padding: 0 3px;
+      font: inherit;
+      cursor: help;
+      text-align: inherit;
+    }
+
+    .glossary-term:hover,
+    .glossary-term:focus-visible,
+    .glossary-term.is-active {
+      outline: none;
+      color: #fff;
+      background: color-mix(in oklab, var(--accent) 34%, transparent);
+      border-bottom-color: color-mix(in oklab, var(--accent) 82%, white);
+    }
+
+    .glossary-tooltip {
+      position: fixed;
+      z-index: 1200;
+      width: min(340px, calc(100vw - 28px));
+      max-height: min(360px, calc(100vh - 28px));
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid var(--glass-edge);
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 50%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-strong) 96%, #071225);
+      color: var(--text);
+      box-shadow: 0 22px 44px rgba(2, 7, 16, .46), inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 70%, transparent);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      padding: 12px 14px;
+    }
+
+    .glossary-tooltip-title {
+      display: block;
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .glossary-tooltip-copy {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.7;
+      color: color-mix(in oklab, var(--text) 86%, var(--muted));
+    }
+
+    .glossary-tooltip-math {
+      margin: 10px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid var(--glass-edge-soft);
+      overflow-x: auto;
+      font-size: 12px;
     }
 
     .sidebar-footer {
@@ -2723,6 +2845,8 @@
         height: 100dvh;
       }
       .sidebar { display: none; }
+      .sidebar-expand-btn { display: none !important; }
+      body.sidebar-collapsed .shell { grid-template-columns: 1fr; }
       .resizer { display: none !important; }
       aside.assistant { display: none; }
       .mobile-controls { display: flex; }
@@ -3004,7 +3128,14 @@
   <main class="layout">
     <div class="shell" id="shell" data-nosnippet>
       <aside class="sidebar glass-strong" id="sidebar-desktop">
-        <h1><a class="brand-link" id="brand-home" href="/">Noema</a></h1>
+        <div class="sidebar-head">
+          <h1><a class="brand-link" id="brand-home" href="/">Noema</a></h1>
+          <button class="button-ghost sidebar-collapse-btn" id="sidebar-collapse" type="button" aria-label="サイドバーを閉じる" title="サイドバーを閉じる">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 6L9 12L15 18"></path>
+            </svg>
+          </button>
+        </div>
         <label class="search">
           <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7"></circle>
@@ -3020,6 +3151,14 @@
           <a class="button-ghost is-hidden" id="admin-link" href="/admin.html">管理画面</a>
         </div>
       </aside>
+
+      <button class="button-ghost sidebar-expand-btn" id="sidebar-expand" type="button" aria-label="サイドバーを開く" title="サイドバーを開く" data-nosnippet>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7H20"></path>
+          <path d="M4 12H20"></path>
+          <path d="M4 17H20"></path>
+        </svg>
+      </button>
 
       <section class="main glass-strong">
         <div class="mobile-controls">
@@ -3190,6 +3329,9 @@
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
       const CHAPTER_FINAL_DRAFT_KEY_PREFIX = "noema_chapter_final_drafts_v1";
+      const SIDEBAR_COLLAPSED_KEY = "noema_sidebar_collapsed_v1";
+      const GLOSSARY_URL = "/glossary.json";
+      const CHAPTER_PROGRESSIVE_UNLOCK_AFTER_ID = "reinforcement-learning";
       const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
       const KEEP_LATEST_REVISIONS = 10;
       const CONFLICT_RETENTION_DAYS = 30;
@@ -3218,6 +3360,7 @@
         selectedSection: "",
         selectedContext: null,
         chatOpen: false,
+        sidebarCollapsed: false,
         chatView: "messages",
         chatSessionId: "",
         chatHistorySessions: [],
@@ -3248,6 +3391,9 @@
         sidebarList: document.getElementById("sidebar-list"),
         sidebarMobileList: document.getElementById("sidebar-mobile-list"),
         sidebarSearch: document.getElementById("sidebar-search"),
+        sidebarDesktop: document.getElementById("sidebar-desktop"),
+        sidebarCollapse: document.getElementById("sidebar-collapse"),
+        sidebarExpand: document.getElementById("sidebar-expand"),
         headerTitle: document.getElementById("header-title"),
         headerTitleSelect: document.getElementById("header-title-select"),
         downloadBtn: document.getElementById("download-btn"),
@@ -3298,6 +3444,8 @@
       let highlightPromise = null;
       let katexCssEnsurePromise = null;
       let mathJaxPromise = null;
+      let glossaryPromise = null;
+      let activeGlossaryTooltip = null;
       const preloadedNotebookPackages = new Set();
       const blockHighlightTimers = new WeakMap();
 
@@ -4049,6 +4197,7 @@
         const currentStore = readLearningProgressStore();
         currentStore.notebooks[trimmedNotebookId] = normalizedRecord;
         setLearningProgressStore(currentStore);
+        renderSidebar();
         if (state.activeNotebook && state.activeNotebook.id === trimmedNotebookId) {
           renderNotebookCompletionControl(trimmedNotebookId);
         } else if (!state.activeNotebook) {
@@ -4081,6 +4230,7 @@
           }
 
           setLearningProgressStore(payload);
+          renderSidebar();
           if (state.activeNotebook && state.activeNotebook.id === trimmedNotebookId) {
             renderNotebookCompletionControl(trimmedNotebookId);
           } else if (!state.activeNotebook) {
@@ -4138,7 +4288,11 @@
           visits: Math.max(1, Number(existing.visits || 0) + 1),
           lastVisitedAt: new Date().toISOString(),
           completed: Boolean(existing.completed),
-          completedAt: existing.completed ? String(existing.completedAt || new Date().toISOString()) : ""
+          completedAt: existing.completed ? String(existing.completedAt || new Date().toISOString()) : "",
+          checkPassed: Boolean(existing.checkPassed || existing.completed),
+          checkPassedAt: existing.checkPassed || existing.completed ? String(existing.checkPassedAt || existing.completedAt || "") : "",
+          checkBestScore: Math.max(0, Number(existing.checkBestScore || 0)),
+          checkAttempts: Math.max(0, Number(existing.checkAttempts || 0))
         };
         await saveLearningProgressRecord(notebookId, nextRecord);
       }
@@ -4164,7 +4318,11 @@
           visits: Math.max(0, Number(existing.visits || 0)),
           lastVisitedAt: String(existing.lastVisitedAt || nowIso),
           completed: Boolean(completed),
-          completedAt: completed ? nowIso : ""
+          completedAt: completed ? nowIso : "",
+          checkPassed: Boolean(completed || existing.checkPassed),
+          checkPassedAt: completed || existing.checkPassed ? String(existing.checkPassedAt || nowIso) : "",
+          checkBestScore: Math.max(0, Number(existing.checkBestScore || 0)),
+          checkAttempts: Math.max(0, Number(existing.checkAttempts || 0))
         };
         await saveLearningProgressRecord(notebookId, nextRecord);
       }
@@ -4260,6 +4418,43 @@
         if (!notebooks.length) return false;
         const allNotebookChecksPassed = notebooks.every((notebook) => completedNotebookSet.has(notebook.id));
         return allNotebookChecksPassed && isChapterFinalPassed(chapter.id);
+      }
+
+      function noemaChaptersInOrder() {
+        return notebookList().filter((chapter) => chapterSourceGroup(chapter) === "noema");
+      }
+
+      function completedNotebookIdSet() {
+        const progressStore = readLearningProgressStore();
+        return new Set(
+          Object.keys(progressStore.notebooks || {}).filter((id) => Boolean(progressStore.notebooks[id]?.completed))
+        );
+      }
+
+      function unlockedNoemaChapterIdSet() {
+        const chapters = noemaChaptersInOrder();
+        const unlockGateIndex = chapters.findIndex((chapter) => chapter.id === CHAPTER_PROGRESSIVE_UNLOCK_AFTER_ID);
+        const completedSet = completedNotebookIdSet();
+        const unlocked = new Set();
+
+        chapters.forEach((chapter, index) => {
+          if (unlockGateIndex < 0 || index <= unlockGateIndex) {
+            unlocked.add(chapter.id);
+            return;
+          }
+
+          const previousChapter = chapters[index - 1];
+          if (previousChapter && unlocked.has(previousChapter.id) && isChapterCompleted(previousChapter, completedSet)) {
+            unlocked.add(chapter.id);
+          }
+        });
+
+        return unlocked;
+      }
+
+      function isSidebarChapterUnlocked(chapter, unlockedNoemaIds) {
+        if (!chapter || chapterSourceGroup(chapter) !== "noema") return true;
+        return unlockedNoemaIds.has(chapter.id);
       }
 
       function formatRelativeVisitTime(isoString) {
@@ -4671,6 +4866,42 @@
         return window.innerWidth <= 960;
       }
 
+      function readSidebarCollapsed() {
+        try {
+          return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+        } catch {
+          return false;
+        }
+      }
+
+      function writeSidebarCollapsed(collapsed) {
+        try {
+          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+        } catch {}
+      }
+
+      function setSidebarCollapsed(collapsed, options = {}) {
+        const next = Boolean(collapsed) && !isCompactMobileView();
+        state.sidebarCollapsed = next;
+        document.body.classList.toggle("sidebar-collapsed", next);
+        if (el.sidebarDesktop) {
+          el.sidebarDesktop.setAttribute("aria-hidden", next ? "true" : "false");
+        }
+        if (el.sidebarCollapse) {
+          el.sidebarCollapse.setAttribute("aria-expanded", next ? "false" : "true");
+        }
+        if (el.sidebarExpand) {
+          el.sidebarExpand.setAttribute("aria-expanded", next ? "false" : "true");
+        }
+        if (!options.skipPersist) {
+          writeSidebarCollapsed(next);
+        }
+      }
+
+      function restoreSidebarCollapsed() {
+        setSidebarCollapsed(readSidebarCollapsed(), { skipPersist: true });
+      }
+
       function renderPlaygroundSidebarControls() {
         const visible = state.loggedIn;
         const showMobilePrivileged = !isCompactMobileView();
@@ -5078,6 +5309,7 @@
 
       function buildSidebarHtml(forMobile) {
         const query = state.query.trim().toLowerCase();
+        const unlockedNoemaIds = unlockedNoemaChapterIdSet();
         const libraries = sidebarLibraries()
           .map((library) => ({
             ...library,
@@ -5085,6 +5317,7 @@
               .map((section) => ({
                 ...section,
                 chapters: section.chapters
+                  .filter((chapter) => isSidebarChapterUnlocked(chapter, unlockedNoemaIds))
                   .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
                   .filter((chapter) => chapter.notebooks.length > 0)
               }))
@@ -6385,6 +6618,7 @@
             }
           }
           stabilizeInlineMath(el.notebookContent);
+          await applyGlossaryTerms(el.notebookContent);
           state.sectionIds = extractSectionIds(el.notebookContent);
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
@@ -7008,6 +7242,181 @@
 
       function renderRichTextWithLineBreaks(source) {
         return renderInlineRichText(source).replace(/\n/g, "<br>");
+      }
+
+      function normalizeGlossaryEntries(rawEntries) {
+        if (!Array.isArray(rawEntries)) return [];
+        return rawEntries
+          .map((entry, index) => {
+            const item = entry && typeof entry === "object" ? entry : {};
+            const term = String(item.term || "").trim();
+            if (!term) return null;
+            const aliases = Array.isArray(item.aliases)
+              ? item.aliases.map((alias) => String(alias || "").trim()).filter(Boolean)
+              : [];
+            const labels = Array.from(new Set([term, ...aliases])).sort((a, b) => b.length - a.length);
+            return {
+              id: String(item.id || `term-${index}`),
+              term,
+              labels,
+              description: String(item.description || "").trim(),
+              math: Array.isArray(item.math)
+                ? item.math.map((value) => String(value || "").trim()).filter(Boolean)
+                : String(item.math || "").trim()
+                  ? [String(item.math || "").trim()]
+                  : []
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.labels[0].length - a.labels[0].length);
+      }
+
+      async function loadGlossaryEntries() {
+        if (!glossaryPromise) {
+          glossaryPromise = fetch(GLOSSARY_URL, { cache: "no-cache" })
+            .then(async (response) => {
+              if (!response.ok) return [];
+              return normalizeGlossaryEntries(await response.json());
+            })
+            .catch(() => []);
+        }
+        return glossaryPromise;
+      }
+
+      function isGlossaryExcludedNode(node) {
+        const parent = node && node.parentElement;
+        if (!parent) return true;
+        return Boolean(
+          parent.closest(
+            "script,style,textarea,pre,code,a,button,select,input,option,math,svg,.katex,.glossary-term,.assessment-panel"
+          )
+        );
+      }
+
+      function isAsciiWordChar(ch) {
+        return /[A-Za-z0-9_]/.test(String(ch || ""));
+      }
+
+      function isGlossaryMatchBoundary(text, start, length, label) {
+        if (!/^[A-Za-z0-9_ -]+$/.test(label)) return true;
+        return !isAsciiWordChar(text[start - 1]) && !isAsciiWordChar(text[start + length]);
+      }
+
+      function findGlossaryMatch(text, entries, startIndex) {
+        const lowerText = text.toLocaleLowerCase();
+        let best = null;
+        for (const entry of entries) {
+          for (const label of entry.labels) {
+            const lowerLabel = label.toLocaleLowerCase();
+            let index = lowerText.indexOf(lowerLabel, startIndex);
+            while (index >= 0 && !isGlossaryMatchBoundary(text, index, label.length, label)) {
+              index = lowerText.indexOf(lowerLabel, index + 1);
+            }
+            if (index < 0) continue;
+            if (!best || index < best.index || (index === best.index && label.length > best.label.length)) {
+              best = { entry, label, index };
+            }
+          }
+        }
+        return best;
+      }
+
+      function annotateGlossaryTextNode(textNode, entries) {
+        const text = textNode.nodeValue || "";
+        if (!text.trim()) return;
+        let cursor = 0;
+        const fragment = document.createDocumentFragment();
+        let changed = false;
+
+        while (cursor < text.length) {
+          const match = findGlossaryMatch(text, entries, cursor);
+          if (!match) break;
+          if (match.index > cursor) {
+            fragment.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+          }
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "glossary-term";
+          button.dataset.glossaryId = match.entry.id;
+          button.textContent = text.slice(match.index, match.index + match.label.length);
+          fragment.appendChild(button);
+          cursor = match.index + match.label.length;
+          changed = true;
+        }
+
+        if (!changed) return;
+        if (cursor < text.length) {
+          fragment.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+        textNode.replaceWith(fragment);
+      }
+
+      async function applyGlossaryTerms(container) {
+        const entries = await loadGlossaryEntries();
+        if (!entries.length || !container) return;
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            return isGlossaryExcludedNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        const textNodes = [];
+        while (walker.nextNode()) {
+          textNodes.push(walker.currentNode);
+        }
+        textNodes.forEach((node) => annotateGlossaryTextNode(node, entries));
+      }
+
+      function removeActiveGlossaryTooltip() {
+        if (activeGlossaryTooltip) {
+          activeGlossaryTooltip.remove();
+          activeGlossaryTooltip = null;
+        }
+        document.querySelectorAll(".glossary-term.is-active").forEach((node) => node.classList.remove("is-active"));
+      }
+
+      function positionGlossaryTooltip(trigger, tooltip) {
+        const rect = trigger.getBoundingClientRect();
+        const gap = 8;
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let left = rect.left;
+        let top = rect.bottom + gap;
+        if (left + tooltipRect.width > window.innerWidth - 14) {
+          left = Math.max(14, window.innerWidth - tooltipRect.width - 14);
+        }
+        if (top + tooltipRect.height > window.innerHeight - 14) {
+          top = Math.max(14, rect.top - tooltipRect.height - gap);
+        }
+        tooltip.style.left = `${Math.max(14, left)}px`;
+        tooltip.style.top = `${Math.max(14, top)}px`;
+      }
+
+      async function showGlossaryTooltip(trigger) {
+        const glossaryId = trigger && trigger.dataset ? String(trigger.dataset.glossaryId || "") : "";
+        if (!glossaryId) return;
+        const entries = await loadGlossaryEntries();
+        const entry = entries.find((item) => item.id === glossaryId);
+        if (!entry) return;
+
+        removeActiveGlossaryTooltip();
+        trigger.classList.add("is-active");
+        const tooltip = document.createElement("div");
+        tooltip.className = "glossary-tooltip";
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.innerHTML = `
+          <strong class="glossary-tooltip-title">${escapeHtml(entry.term)}</strong>
+          ${entry.description ? `<p class="glossary-tooltip-copy">${escapeHtmlWithLineBreaks(entry.description)}</p>` : ""}
+          ${
+            entry.math.length
+              ? `<div class="glossary-tooltip-math">${entry.math.map((tex) => `<div>\\[${escapeHtml(tex)}\\]</div>`).join("")}</div>`
+              : ""
+          }
+        `;
+        document.body.appendChild(tooltip);
+        activeGlossaryTooltip = tooltip;
+        positionGlossaryTooltip(trigger, tooltip);
+        await renderMathFallback(tooltip);
+        positionGlossaryTooltip(trigger, tooltip);
       }
 
       function normalizeCodeLanguage(raw) {
@@ -7755,6 +8164,7 @@
       }
 
       async function init() {
+        restoreSidebarCollapsed();
         updateAuthState();
         renderMessages();
 
@@ -7791,6 +8201,14 @@
       el.sidebarSearch.addEventListener("input", function (event) {
         state.query = event.target.value || "";
         renderSidebar();
+      });
+
+      el.sidebarCollapse.addEventListener("click", function () {
+        setSidebarCollapsed(true);
+      });
+
+      el.sidebarExpand.addEventListener("click", function () {
+        setSidebarCollapsed(false);
       });
 
       el.brandHome.addEventListener("click", function (event) {
@@ -8022,6 +8440,55 @@
         }
       });
 
+      el.notebookContent.addEventListener("mouseover", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        if (trigger && el.notebookContent.contains(trigger)) {
+          void showGlossaryTooltip(trigger);
+        }
+      });
+
+      el.notebookContent.addEventListener("mouseout", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        const related = event.relatedTarget;
+        if (!trigger || !el.notebookContent.contains(trigger)) return;
+        if (related && related.closest && related.closest(".glossary-tooltip")) return;
+        removeActiveGlossaryTooltip();
+      });
+
+      el.notebookContent.addEventListener("focusin", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        if (trigger && el.notebookContent.contains(trigger)) {
+          void showGlossaryTooltip(trigger);
+        }
+      });
+
+      el.notebookContent.addEventListener("click", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        if (!trigger || !el.notebookContent.contains(trigger)) return;
+        event.preventDefault();
+        void showGlossaryTooltip(trigger);
+      });
+
+      document.addEventListener("pointerdown", function (event) {
+        const target = event.target;
+        if (
+          target &&
+          target.closest &&
+          (target.closest(".glossary-tooltip") || target.closest(".glossary-term"))
+        ) {
+          return;
+        }
+        removeActiveGlossaryTooltip();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          removeActiveGlossaryTooltip();
+        }
+      });
+
+      window.addEventListener("scroll", removeActiveGlossaryTooltip, true);
+
       el.resizer.addEventListener("mousedown", startResize);
       window.addEventListener("mousemove", onResize);
       window.addEventListener("mouseup", stopResize);
@@ -8029,11 +8496,13 @@
 
       window.addEventListener("resize", function () {
         if (window.innerWidth <= 960) {
+          setSidebarCollapsed(false, { skipPersist: true });
           el.resizer.classList.remove("visible");
           if (state.chatOpen) {
             openMobileChatOverlay();
           }
         } else {
+          setSidebarCollapsed(readSidebarCollapsed(), { skipPersist: true });
           closeMobileChatOverlay();
           el.assistantPanel.classList.toggle("hidden", !state.chatOpen);
           el.resizer.classList.toggle("visible", state.chatOpen);
