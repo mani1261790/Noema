@@ -519,11 +519,64 @@
       border-color: color-mix(in oklab, var(--accent) 26%, var(--border));
     }
 
+    .chapter-toggle:disabled {
+      cursor: default;
+    }
+
+    .chapter-locked {
+      opacity: .72;
+    }
+
+    .chapter-toggle-locked {
+      color: color-mix(in oklab, var(--muted) 88%, var(--text));
+      border-style: dashed;
+      background:
+        linear-gradient(152deg, color-mix(in oklab, var(--glass-highlight) 24%, transparent), transparent 60%),
+        color-mix(in oklab, var(--panel-soft) 46%, transparent);
+    }
+
+    .chapter-toggle-locked:hover {
+      background:
+        linear-gradient(152deg, color-mix(in oklab, var(--glass-highlight) 24%, transparent), transparent 60%),
+        color-mix(in oklab, var(--panel-soft) 46%, transparent);
+      border-color: color-mix(in oklab, var(--glass-edge-soft) 76%, transparent);
+    }
+
+    .chapter-title-wrap {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
     .chapter-title {
       flex: 1 1 auto;
       min-width: 0;
       font-weight: 700;
       letter-spacing: .01em;
+    }
+
+    .chapter-lock-hint {
+      font-size: 11px;
+      line-height: 1.45;
+      color: color-mix(in oklab, var(--muted) 92%, white);
+      font-weight: 500;
+    }
+
+    .chapter-lock-badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      color: color-mix(in oklab, var(--muted) 86%, white);
+      background: color-mix(in oklab, var(--panel-soft) 62%, transparent);
+      white-space: nowrap;
     }
 
     .chapter-arrow {
@@ -5035,9 +5088,17 @@
               .map((section) => ({
                 ...section,
                 chapters: section.chapters
-                  .filter((chapter) => isSidebarChapterUnlocked(chapter, unlockedNoemaIds))
-                  .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
-                  .filter((chapter) => chapter.notebooks.length > 0)
+                  .map((chapter) => {
+                    const unlocked = isSidebarChapterUnlocked(chapter, unlockedNoemaIds);
+                    const chapterTitleMatches = !query || String(chapter.title || "").toLowerCase().includes(query);
+                    if (!unlocked) {
+                      return chapterTitleMatches ? { ...chapter, notebooks: [], locked: true } : null;
+                    }
+
+                    const notebooks = chapter.notebooks.filter((nb) => matchNotebook(nb, query));
+                    return notebooks.length > 0 ? { ...chapter, notebooks, locked: false } : null;
+                  })
+                  .filter(Boolean)
               }))
               .filter((section) => section.chapters.length > 0)
           }))
@@ -5053,6 +5114,20 @@
               .map((section) => {
                 const chaptersHtml = section.chapters
                   .map((chapter) => {
+                    if (chapter.locked) {
+                      return `
+                        <section class="chapter chapter-locked glass-soft">
+                          <button class="chapter-toggle chapter-toggle-locked" type="button" disabled aria-disabled="true">
+                            <span class="chapter-title-wrap">
+                              <span class="chapter-title">${escapeHtml(chapter.title)}</span>
+                              <span class="chapter-lock-hint">前の章を完了すると解放されます</span>
+                            </span>
+                            <span class="chapter-lock-badge">未解放</span>
+                          </button>
+                        </section>
+                      `;
+                    }
+
                     const expanded = Boolean(state.openChapters[chapter.id]);
                     const items = expanded
                       ? `<div class="chapter-items">${chapter.notebooks
