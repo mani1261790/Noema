@@ -519,64 +519,11 @@
       border-color: color-mix(in oklab, var(--accent) 26%, var(--border));
     }
 
-    .chapter-toggle:disabled {
-      cursor: default;
-    }
-
-    .chapter-locked {
-      opacity: .72;
-    }
-
-    .chapter-toggle-locked {
-      color: color-mix(in oklab, var(--muted) 88%, var(--text));
-      border-style: dashed;
-      background:
-        linear-gradient(152deg, color-mix(in oklab, var(--glass-highlight) 24%, transparent), transparent 60%),
-        color-mix(in oklab, var(--panel-soft) 46%, transparent);
-    }
-
-    .chapter-toggle-locked:hover {
-      background:
-        linear-gradient(152deg, color-mix(in oklab, var(--glass-highlight) 24%, transparent), transparent 60%),
-        color-mix(in oklab, var(--panel-soft) 46%, transparent);
-      border-color: color-mix(in oklab, var(--glass-edge-soft) 76%, transparent);
-    }
-
-    .chapter-title-wrap {
-      display: grid;
-      gap: 3px;
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-
     .chapter-title {
       flex: 1 1 auto;
       min-width: 0;
       font-weight: 700;
       letter-spacing: .01em;
-    }
-
-    .chapter-lock-hint {
-      font-size: 11px;
-      line-height: 1.45;
-      color: color-mix(in oklab, var(--muted) 92%, white);
-      font-weight: 500;
-    }
-
-    .chapter-lock-badge {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
-      padding: 3px 7px;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .06em;
-      color: color-mix(in oklab, var(--muted) 86%, white);
-      background: color-mix(in oklab, var(--panel-soft) 62%, transparent);
-      white-space: nowrap;
     }
 
     .chapter-arrow {
@@ -636,6 +583,27 @@
       background: color-mix(in oklab, var(--panel-soft) 48%, transparent);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
+    }
+
+    .chapter-future-note {
+      border-radius: 11px;
+      border: 1px dashed color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
+      padding: 10px 12px;
+      color: color-mix(in oklab, var(--muted) 94%, white);
+      background:
+        linear-gradient(152deg, color-mix(in oklab, var(--glass-highlight) 22%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 44%, transparent);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .chapter-future-note strong {
+      display: block;
+      margin-bottom: 2px;
+      color: color-mix(in oklab, var(--text) 78%, var(--muted));
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .02em;
     }
 
     .nb-item {
@@ -1407,13 +1375,12 @@
 
     .home-content-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr);
-      gap: 18px;
+      gap: 14px;
     }
 
     .home-panel {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .home-panel-header {
@@ -1443,12 +1410,16 @@
       gap: 8px;
     }
 
+    .home-path-list {
+      grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+    }
+
     .home-path-item {
       display: grid;
-      gap: 7px;
+      gap: 8px;
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
       border-radius: 12px;
-      padding: 11px 12px;
+      padding: 10px;
       background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
     }
 
@@ -1468,6 +1439,30 @@
       color: var(--muted);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
+    }
+
+    .home-path-copy {
+      margin: 0;
+      min-height: 3.1em;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .home-path-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: color-mix(in oklab, var(--muted) 88%, white);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .home-path-foot strong {
+      color: color-mix(in oklab, var(--text) 84%, white);
+      font-size: 12px;
+      font-weight: 800;
     }
 
     .home-path-bar {
@@ -2701,7 +2696,8 @@
         border-radius: 0;
       }
       .home-hero-shell,
-      .home-content-grid {
+      .home-content-grid,
+      .home-path-list {
         grid-template-columns: 1fr;
       }
       .home-hero-shell {
@@ -2709,6 +2705,16 @@
       }
       .home-summary-panel {
         padding: 14px;
+      }
+      .home-stage-mobile .home-path-item {
+        gap: 6px;
+        padding: 9px;
+      }
+      .home-stage-mobile .home-path-copy {
+        min-height: 0;
+      }
+      .home-stage-mobile .home-path-foot {
+        font-size: 10px;
       }
       .chapter-items { max-height: min(52vh, 460px); }
       .chat-mobile-mount .assistant {
@@ -5087,20 +5093,18 @@
             sections: library.sections
               .map((section) => ({
                 ...section,
+                hiddenChapterCount: query
+                  ? 0
+                  : section.chapters.filter((chapter) => !isSidebarChapterUnlocked(chapter, unlockedNoemaIds)).length,
                 chapters: section.chapters
+                  .filter((chapter) => isSidebarChapterUnlocked(chapter, unlockedNoemaIds))
                   .map((chapter) => {
-                    const unlocked = isSidebarChapterUnlocked(chapter, unlockedNoemaIds);
-                    const chapterTitleMatches = !query || String(chapter.title || "").toLowerCase().includes(query);
-                    if (!unlocked) {
-                      return chapterTitleMatches ? { ...chapter, notebooks: [], locked: true } : null;
-                    }
-
                     const notebooks = chapter.notebooks.filter((nb) => matchNotebook(nb, query));
-                    return notebooks.length > 0 ? { ...chapter, notebooks, locked: false } : null;
+                    return notebooks.length > 0 ? { ...chapter, notebooks } : null;
                   })
                   .filter(Boolean)
               }))
-              .filter((section) => section.chapters.length > 0)
+              .filter((section) => section.chapters.length > 0 || section.hiddenChapterCount > 0)
           }))
           .filter((library) => library.sections.length > 0);
 
@@ -5114,20 +5118,6 @@
               .map((section) => {
                 const chaptersHtml = section.chapters
                   .map((chapter) => {
-                    if (chapter.locked) {
-                      return `
-                        <section class="chapter chapter-locked glass-soft">
-                          <button class="chapter-toggle chapter-toggle-locked" type="button" disabled aria-disabled="true">
-                            <span class="chapter-title-wrap">
-                              <span class="chapter-title">${escapeHtml(chapter.title)}</span>
-                              <span class="chapter-lock-hint">前の章を完了すると解放されます</span>
-                            </span>
-                            <span class="chapter-lock-badge">未解放</span>
-                          </button>
-                        </section>
-                      `;
-                    }
-
                     const expanded = Boolean(state.openChapters[chapter.id]);
                     const items = expanded
                       ? `<div class="chapter-items">${chapter.notebooks
@@ -5157,6 +5147,9 @@
                     `;
                   })
                   .join("");
+                const futureNoteHtml = section.hiddenChapterCount
+                  ? `<p class="chapter-future-note"><strong>この先にも教材があります</strong>後続の章は、前の章を完了すると順番に表示されます。</p>`
+                  : "";
 
                 return `
                   <section class="chapter-section" data-audience-section="${section.id}">
@@ -5164,6 +5157,7 @@
                     <p class="chapter-section-description">${escapeHtml(section.description)}</p>
                     <div class="chapter-section-stack">
                       ${chaptersHtml}
+                      ${futureNoteHtml}
                     </div>
                   </section>
                 `;
@@ -5412,17 +5406,26 @@
         const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
         const progressGroupsHtml = progressGroups
           .map(
-            (group) => `
-              <li class="home-path-item">
+            (group) => {
+              const remaining = Math.max(0, group.total - group.completed);
+              return `
+                <li class="home-path-item">
                 <div class="home-path-head">
                   <strong>${escapeHtml(group.title)}</strong>
                   <span>${group.completed}/${group.total}</span>
                 </div>
+                <p class="home-path-copy">${escapeHtml(group.description)}</p>
                 <div class="home-path-bar" aria-hidden="true">
                   <span style="width:${group.percent}%"></span>
                 </div>
+                <div class="home-path-foot">
+                  <span>進捗</span>
+                  <strong>${group.percent}%</strong>
+                  <span>残り ${remaining}</span>
+                </div>
               </li>
-            `
+            `;
+            }
           )
           .join("");
 
@@ -5511,7 +5514,7 @@
               <section class="home-panel" aria-labelledby="home-path-title">
                 <div class="home-panel-header">
                   <h4 class="home-panel-title" id="home-path-title">学習パス</h4>
-                  <p class="home-panel-copy">大きな区分ごとの進み具合だけを表示します。章ごとの詳細はサイドバーで確認できます。</p>
+                  <p class="home-panel-copy">大きな区分ごとの完了数と進捗率をまとめています。次に進む教材は上のボタンから開けます。</p>
                 </div>
                 ${progressGroupsHtml ? `<ul class="home-path-list">${progressGroupsHtml}</ul>` : '<p class="home-empty-copy">教材カタログを読み込み中です。</p>'}
               </section>
