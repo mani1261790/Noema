@@ -1375,13 +1375,12 @@
 
     .home-content-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr);
-      gap: 18px;
+      gap: 14px;
     }
 
     .home-panel {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .home-panel-header {
@@ -1411,12 +1410,16 @@
       gap: 8px;
     }
 
+    .home-path-list {
+      grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+    }
+
     .home-path-item {
       display: grid;
-      gap: 7px;
+      gap: 8px;
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
       border-radius: 12px;
-      padding: 11px 12px;
+      padding: 10px;
       background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
     }
 
@@ -1436,6 +1439,30 @@
       color: var(--muted);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
+    }
+
+    .home-path-copy {
+      margin: 0;
+      min-height: 3.1em;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .home-path-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: color-mix(in oklab, var(--muted) 88%, white);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .home-path-foot strong {
+      color: color-mix(in oklab, var(--text) 84%, white);
+      font-size: 12px;
+      font-weight: 800;
     }
 
     .home-path-bar {
@@ -2669,7 +2696,8 @@
         border-radius: 0;
       }
       .home-hero-shell,
-      .home-content-grid {
+      .home-content-grid,
+      .home-path-list {
         grid-template-columns: 1fr;
       }
       .home-hero-shell {
@@ -2677,6 +2705,16 @@
       }
       .home-summary-panel {
         padding: 14px;
+      }
+      .home-stage-mobile .home-path-item {
+        gap: 6px;
+        padding: 9px;
+      }
+      .home-stage-mobile .home-path-copy {
+        min-height: 0;
+      }
+      .home-stage-mobile .home-path-foot {
+        font-size: 10px;
       }
       .chapter-items { max-height: min(52vh, 460px); }
       .chat-mobile-mount .assistant {
@@ -5368,17 +5406,26 @@
         const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
         const progressGroupsHtml = progressGroups
           .map(
-            (group) => `
-              <li class="home-path-item">
+            (group) => {
+              const remaining = Math.max(0, group.total - group.completed);
+              return `
+                <li class="home-path-item">
                 <div class="home-path-head">
                   <strong>${escapeHtml(group.title)}</strong>
                   <span>${group.completed}/${group.total}</span>
                 </div>
+                <p class="home-path-copy">${escapeHtml(group.description)}</p>
                 <div class="home-path-bar" aria-hidden="true">
                   <span style="width:${group.percent}%"></span>
                 </div>
+                <div class="home-path-foot">
+                  <span>進捗</span>
+                  <strong>${group.percent}%</strong>
+                  <span>残り ${remaining}</span>
+                </div>
               </li>
-            `
+            `;
+            }
           )
           .join("");
 
@@ -5467,7 +5514,7 @@
               <section class="home-panel" aria-labelledby="home-path-title">
                 <div class="home-panel-header">
                   <h4 class="home-panel-title" id="home-path-title">学習パス</h4>
-                  <p class="home-panel-copy">大きな区分ごとの進み具合だけを表示します。章ごとの詳細はサイドバーで確認できます。</p>
+                  <p class="home-panel-copy">大きな区分ごとの完了数と進捗率をまとめています。次に進む教材は上のボタンから開けます。</p>
                 </div>
                 ${progressGroupsHtml ? `<ul class="home-path-list">${progressGroupsHtml}</ul>` : '<p class="home-empty-copy">教材カタログを読み込み中です。</p>'}
               </section>
