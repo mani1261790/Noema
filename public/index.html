@@ -1187,29 +1187,22 @@
 
     .home-stage {
       display: grid;
-      gap: 12px;
-      margin-bottom: 14px;
+      gap: 18px;
+      max-width: 1040px;
+      margin: 0 auto 16px;
+    }
+
+    .home-stage-mobile {
+      padding-bottom: calc(var(--mobile-dock-button-size, 48px) + var(--mobile-dock-bottom, 12px) + 18px);
     }
 
     .home-hero-shell {
-      border-radius: 18px;
-      padding: 16px;
-      border: 1px solid var(--glass-edge-soft);
-      background:
-        radial-gradient(circle at 8% 10%, color-mix(in oklab, var(--glass-highlight) 68%, transparent), transparent 34%),
-        radial-gradient(circle at 86% 12%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 38%),
-        linear-gradient(150deg, color-mix(in oklab, var(--panel-soft) 82%, transparent), color-mix(in oklab, var(--panel-strong) 64%, transparent));
-      backdrop-filter: blur(18px) saturate(145%);
-      -webkit-backdrop-filter: blur(18px) saturate(145%);
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 62%, transparent);
-    }
-
-    .home-hero-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      gap: 22px;
+      align-items: center;
+      padding: 4px 2px 18px;
+      border-bottom: 1px solid var(--glass-edge-soft);
     }
 
     .home-kicker {
@@ -1224,455 +1217,226 @@
     .home-title {
       margin: 0 0 8px;
       font-family: var(--brand-font);
-      font-size: 34px;
-      line-height: 1.05;
-      letter-spacing: .02em;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.02;
+      letter-spacing: .01em;
       text-transform: uppercase;
     }
 
     .home-lead {
       margin: 0;
       color: var(--muted);
-      line-height: 1.78;
+      line-height: 1.72;
       font-size: 14px;
-      max-width: 64ch;
+      max-width: 58ch;
     }
 
-    .home-orbit {
-      position: relative;
-      width: 92px;
-      height: 92px;
-      flex: 0 0 92px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 88%, transparent);
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 70%, transparent);
-    }
-
-    .home-orbit span {
-      position: absolute;
-      border-radius: 999px;
-      border: 1px dashed color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
-      inset: 10px;
-      animation: orbit-spin 11s linear infinite;
-    }
-
-    .home-orbit span:nth-child(2) {
-      inset: 22px;
-      animation-duration: 8s;
-      animation-direction: reverse;
-    }
-
-    .home-orbit span:nth-child(3) {
-      inset: 34px;
-      animation-duration: 6s;
-    }
-
-    @keyframes orbit-spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .home-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .home-metric {
-      border-radius: 12px;
-      border: 1px solid var(--glass-edge-soft);
-      padding: 10px 12px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      column-gap: 10px;
-      background:
-        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 86%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-
-    .home-metric-label {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: .03em;
-      text-transform: uppercase;
-      min-width: 0;
-    }
-
-    .home-metric-value {
-      display: inline-flex;
-      justify-self: end;
-      text-align: right;
-      font-size: clamp(28px, 2.35vw, 38px);
-      line-height: 1;
-      font-weight: 800;
-      letter-spacing: .005em;
-      color: color-mix(in oklab, var(--text) 88%, white);
-      text-shadow: 0 8px 18px color-mix(in oklab, var(--accent) 28%, transparent);
-    }
-
-    .home-metric-value-status {
-      font-size: clamp(13px, 1.05vw, 16px);
-      line-height: 1.25;
-      font-weight: 700;
-      letter-spacing: .015em;
-      text-shadow: none;
-      max-width: 14ch;
-      white-space: normal;
-      text-wrap: balance;
-    }
-
-    .home-cta-row {
+    .home-primary-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .home-cta,
-    .home-cta-ghost {
-      min-width: 170px;
-    }
-
-    .home-recent-continue {
-      width: 100%;
-      margin-top: 4px;
-    }
-
-    .home-dashboard-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-      margin-bottom: 12px;
+      margin-top: 16px;
     }
 
-    .home-progress-card,
-    .home-section-progress-card,
-    .home-insight-card {
-      border-radius: 14px;
-      padding: 12px;
-      font-size: 13px;
-      background:
-        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 56%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 84%, transparent);
-      border: 1px solid var(--glass-edge-soft);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+    .home-primary-actions .button {
+      min-width: 190px;
+    }
+
+    .home-summary-panel {
       display: grid;
-      gap: 8px;
-    }
-
-    .home-progress-card {
-      grid-template-columns: 120px minmax(0, 1fr);
-      align-items: center;
       gap: 12px;
-    }
-
-    .home-progress-ring {
-      --progress: 0;
-      width: 108px;
-      height: 108px;
-      border-radius: 50%;
+      border-radius: 14px;
+      border: 1px solid var(--glass-edge-soft);
+      padding: 16px;
       background:
-        radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--glass-highlight) 52%, transparent), transparent 58%),
-        conic-gradient(
-          color-mix(in oklab, var(--accent) 58%, white) calc(var(--progress) * 1%),
-          color-mix(in oklab, var(--panel-strong) 68%, transparent) 0
-        );
-      display: grid;
-      place-items: center;
-      border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--glass-edge-soft));
-      box-shadow:
-        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 72%, transparent),
-        0 12px 22px color-mix(in oklab, var(--accent) 24%, transparent);
-      position: relative;
+        linear-gradient(145deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 56%, transparent);
     }
 
-    .home-progress-ring::after {
-      content: "";
-      position: absolute;
-      inset: 12px;
-      border-radius: 50%;
-      background: color-mix(in oklab, var(--panel-soft) 92%, transparent);
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
-    }
-
-    .home-progress-ring span {
-      position: relative;
-      z-index: 1;
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: .01em;
-      text-shadow: 0 7px 14px color-mix(in oklab, var(--accent) 22%, transparent);
-    }
-
-    .home-progress-meta strong {
-      display: block;
-      font-size: 16px;
-      letter-spacing: .01em;
-      margin-bottom: 2px;
-    }
-
-    .home-progress-meta p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.68;
-    }
-
-    .home-section-progress-title {
+    .home-summary-head {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 4px;
+      align-items: center;
+      gap: 14px;
     }
 
-    .home-section-progress-title strong {
-      font-size: 14px;
+    .home-summary-label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
       font-weight: 700;
     }
 
-    .home-section-progress-title span {
-      font-size: 11px;
+    .home-summary-value {
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1;
+      font-weight: 800;
+      color: color-mix(in oklab, var(--text) 88%, white);
+    }
+
+    .home-summary-meta {
+      margin: 0;
       color: var(--muted);
-      letter-spacing: .04em;
-      text-transform: uppercase;
-    }
-
-    .home-section-progress-list {
-      display: grid;
-      gap: 8px;
-      max-height: min(37vh, 280px);
-      overflow: auto;
-      padding-right: 2px;
-    }
-
-    .home-section-progress-item {
-      display: grid;
-      gap: 6px;
-    }
-
-    .home-section-progress-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: baseline;
-      gap: 10px;
-      font-size: 12px;
-    }
-
-    .home-section-progress-head strong {
-      font-size: 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      letter-spacing: .01em;
-    }
-
-    .home-section-progress-head span {
-      color: var(--muted);
-      font-variant-numeric: tabular-nums;
-      font-size: 11px;
-    }
-
-    .home-section-progress-track {
-      height: 9px;
-      border-radius: 999px;
-      background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 76%, transparent);
-      overflow: hidden;
-    }
-
-    .home-section-progress-fill {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background:
-        linear-gradient(90deg, color-mix(in oklab, var(--accent) 62%, white), color-mix(in oklab, var(--accent) 45%, transparent));
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 66%, transparent);
-    }
-
-    .home-insight-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .home-progress-groups {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .home-progress-group {
-      border-radius: 16px;
-      padding: 12px;
-      border: 1px solid var(--glass-edge-soft);
-      background:
-        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 86%, transparent);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      display: grid;
-      gap: 10px;
-    }
-
-    .home-progress-group-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: start;
-      gap: 12px;
-    }
-
-    .home-progress-group-header strong {
-      display: block;
-      font-size: 16px;
-      line-height: 1.35;
-      letter-spacing: .01em;
-    }
-
-    .home-progress-group-header p {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 12px;
+      font-size: 13px;
       line-height: 1.6;
     }
 
-    .home-progress-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 74px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
-      background: color-mix(in oklab, var(--accent) 12%, transparent);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .03em;
-      color: color-mix(in oklab, var(--accent) 74%, white);
-    }
-
-    .home-progress-bar {
-      height: 10px;
+    .home-summary-bar {
+      height: 12px;
       border-radius: 999px;
       overflow: hidden;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 86%, transparent);
       background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
     }
 
-    .home-progress-bar > span {
+    .home-summary-bar span {
       display: block;
+      width: var(--progress);
       height: 100%;
       border-radius: inherit;
-      background:
-        linear-gradient(90deg, color-mix(in oklab, var(--accent) 68%, white), color-mix(in oklab, var(--accent-strong) 74%, black));
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 66%, transparent);
+      background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 68%, white), color-mix(in oklab, var(--accent-strong) 72%, black));
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 68%, transparent);
     }
 
-    .home-progress-group-stats {
+    .home-summary-next {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      gap: 4px;
+      padding-top: 2px;
     }
 
-    .home-progress-stat {
+    .home-summary-next span {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .home-summary-next strong {
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .home-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .home-stat {
+      flex: 1 1 150px;
+      min-width: 0;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
       border-radius: 12px;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
-      padding: 8px 10px;
-      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
+      padding: 10px 12px;
+      background: color-mix(in oklab, var(--panel-soft) 76%, transparent);
+      display: grid;
+      gap: 3px;
+    }
+
+    .home-stat strong {
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    .home-stat span {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .home-content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr);
+      gap: 18px;
+    }
+
+    .home-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .home-panel-header {
       display: grid;
       gap: 4px;
     }
 
-    .home-progress-stat-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--muted);
+    .home-panel-title {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.35;
     }
 
-    .home-progress-stat-value {
-      font-size: 16px;
-      font-weight: 800;
-      line-height: 1.15;
-      color: color-mix(in oklab, var(--text) 90%, white);
-    }
-
-    .home-progress-chapters {
-      display: grid;
-      gap: 8px;
-    }
-
-    .home-progress-chapter {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 8px 12px;
-      align-items: center;
-    }
-
-    .home-progress-chapter strong {
-      font-size: 12px;
-      line-height: 1.45;
-      min-width: 0;
-    }
-
-    .home-progress-chapter span {
-      font-size: 11px;
-      color: var(--muted);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .home-progress-chapter-bar {
-      grid-column: 1 / -1;
-      height: 8px;
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 78%, transparent);
-      background: color-mix(in oklab, var(--panel-strong) 68%, transparent);
-    }
-
-    .home-progress-chapter-bar span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background:
-        linear-gradient(90deg, color-mix(in oklab, var(--accent) 58%, white), color-mix(in oklab, var(--accent-strong) 62%, black));
-    }
-
-    .home-insight-label {
-      font-size: 11px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .home-insight-title {
-      font-size: 15px;
-      line-height: 1.45;
-      letter-spacing: .01em;
-    }
-
-    .home-insight-copy {
+    .home-panel-copy {
       margin: 0;
       color: var(--muted);
-      line-height: 1.7;
+      font-size: 13px;
+      line-height: 1.65;
     }
 
+    .home-path-list,
     .home-recent-list {
       list-style: none;
       margin: 0;
       padding: 0;
       display: grid;
-      gap: 6px;
-      max-height: min(24vh, 190px);
-      overflow: auto;
+      gap: 8px;
+    }
+
+    .home-path-item {
+      display: grid;
+      gap: 7px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      border-radius: 12px;
+      padding: 11px 12px;
+      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
+    }
+
+    .home-path-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .home-path-head strong {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .home-path-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .home-path-bar {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 78%, transparent);
+      background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
+    }
+
+    .home-path-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 62%, white), color-mix(in oklab, var(--accent-strong) 68%, black));
+    }
+
+    .home-empty-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
     }
 
     .home-recent-item {
@@ -1682,31 +1446,27 @@
     .home-recent-link {
       width: 100%;
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
-      border-radius: 10px;
-      padding: 8px 10px;
-      background:
-        linear-gradient(140deg, color-mix(in oklab, var(--glass-highlight) 38%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 85%, transparent);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
       color: inherit;
       text-align: left;
       cursor: pointer;
-      transition: border-color .18s ease, transform .18s ease, background .18s ease;
+      transition: border-color .18s ease, background .18s ease;
       display: grid;
       gap: 2px;
     }
 
     .home-recent-link:hover {
       border-color: color-mix(in oklab, var(--accent) 40%, var(--glass-edge-soft));
-      transform: translateY(-1px);
-      background:
-        linear-gradient(140deg, color-mix(in oklab, var(--accent) 18%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      background: color-mix(in oklab, var(--accent) 10%, var(--panel-soft));
     }
 
     .home-recent-main {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: .01em;
+      line-height: 1.45;
     }
 
     .home-recent-sub {
@@ -2887,27 +2647,15 @@
         padding: 12px;
         border-radius: 0;
       }
-      .home-dashboard-grid,
-      .home-insight-grid,
-      .home-progress-group-stats {
+      .home-hero-shell,
+      .home-content-grid {
         grid-template-columns: 1fr;
       }
-      .home-hero-top { flex-direction: column; }
-      .home-orbit { display: none; }
-      .home-metrics { grid-template-columns: 1fr; }
-      .home-progress-card {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        text-align: center;
+      .home-hero-shell {
+        gap: 16px;
       }
-      .home-progress-meta p {
-        max-width: 28ch;
-      }
-      .home-section-progress-list {
-        max-height: min(28vh, 230px);
-      }
-      .home-recent-list {
-        max-height: min(20vh, 170px);
+      .home-summary-panel {
+        padding: 14px;
       }
       .chapter-items { max-height: min(52vh, 460px); }
       .chat-mobile-mount .assistant {
@@ -2988,15 +2736,15 @@
       }
 
       .home-hero-shell {
-        padding: 12px;
+        gap: 14px;
       }
 
       .home-title {
         font-size: 28px;
       }
 
-      .home-cta,
-      .home-cta-ghost {
+      .home-primary-actions .button {
+        width: 100%;
         min-width: 0;
       }
 
@@ -3047,8 +2795,8 @@
       }
 
       .home-lead,
-      .home-progress-meta p,
-      .home-insight-copy,
+      .home-panel-copy,
+      .home-empty-copy,
       .reader-prose p {
         font-size: 13px;
       }
@@ -5543,8 +5291,8 @@
         const assistantStateLabel = state.loggedIn ? "有効" : "ログインで有効化";
         const isMobileHome = isCompactMobileView();
         const heroLead = isMobileHome
-          ? "学習履歴を確認して、次のノートへ移動できます。"
-          : "学習の進み具合を確認しながら、ノート学習を進められます。";
+          ? "次に開く教材と進捗だけを確認できます。"
+          : "次にやる教材、全体の進み具合、最近の履歴を一画面で確認できます。";
 
         const notebookMeta = new Map();
         chapters.forEach((chapter) => {
@@ -5561,9 +5309,6 @@
         const visitedNotebookIds = trackedNotebookIds.filter((id) => notebookMeta.has(id));
         const completedNotebookIds = visitedNotebookIds.filter((id) => Boolean(progressStore.notebooks[id]?.completed));
         const completedNotebookSet = new Set(completedNotebookIds);
-        const completedCount = completedNotebookIds.length;
-        const completionPercentRaw = notebookCount > 0 ? (completedCount / notebookCount) * 100 : 0;
-        const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
 
         const beginnerSection = notebookSections().find((section) => section.id === "beginner");
         const advancedSection = notebookSections().find((section) => section.id === "advanced");
@@ -5586,54 +5331,24 @@
           completedNotebookSet
         );
         const progressGroups = [beginnerProgress, advancedProgress, externalProgress].filter((group) => group.total > 0);
+        const totalLearningUnits = progressGroups.reduce((sum, group) => sum + group.total, 0);
+        const completedLearningUnits = progressGroups.reduce((sum, group) => sum + group.completed, 0);
+        const completionPercentRaw = totalLearningUnits > 0 ? (completedLearningUnits / totalLearningUnits) * 100 : 0;
+        const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
         const progressGroupsHtml = progressGroups
-          .map((group) => {
-            const chapterBars = group.chapterSummaries
-              .map(
-                (chapter) => `
-                  <article class="home-progress-chapter">
-                    <strong>${escapeHtml(chapter.title)}</strong>
-                    <span>${chapter.completed}/${chapter.total}${chapter.finalPassed ? " final" : ""}</span>
-                    <div class="home-progress-chapter-bar">
-                      <span style="width:${chapter.percent}%"></span>
-                    </div>
-                  </article>
-                `
-              )
-              .join("");
-
-            return `
-              <article class="home-progress-group glass-soft">
-                <div class="home-progress-group-header">
-                  <div>
-                    <strong>${escapeHtml(group.title)}</strong>
-                    <p>${escapeHtml(group.description)}</p>
-                  </div>
-                  <span class="home-progress-pill">${group.percent}%</span>
+          .map(
+            (group) => `
+              <li class="home-path-item">
+                <div class="home-path-head">
+                  <strong>${escapeHtml(group.title)}</strong>
+                  <span>${group.completed}/${group.total}</span>
                 </div>
-                <div class="home-progress-bar">
+                <div class="home-path-bar" aria-hidden="true">
                   <span style="width:${group.percent}%"></span>
                 </div>
-                <div class="home-progress-group-stats">
-                  <article class="home-progress-stat">
-                    <span class="home-progress-stat-label">Completed</span>
-                    <span class="home-progress-stat-value">${group.completed}/${group.total}</span>
-                  </article>
-                  <article class="home-progress-stat">
-                    <span class="home-progress-stat-label">Chapters</span>
-                    <span class="home-progress-stat-value">${group.chapterCount}</span>
-                  </article>
-                  <article class="home-progress-stat">
-                    <span class="home-progress-stat-label">Remaining</span>
-                    <span class="home-progress-stat-value">${Math.max(0, group.total - group.completed)}</span>
-                  </article>
-                </div>
-                <div class="home-progress-chapters">
-                  ${chapterBars}
-                </div>
-              </article>
-            `;
-          })
+              </li>
+            `
+          )
           .join("");
 
         const recentNotebookHtml = visitedNotebookIds
@@ -5665,82 +5380,67 @@
         const nextNotebookLabel = nextNotebook
           ? `${nextNotebook.title}`
           : "すべての教材を閲覧済みです";
+        const recentPanelHtml =
+          recentNotebookHtml || !isMobileHome
+            ? `
+              <section class="home-panel" aria-labelledby="home-recent-title">
+                <div class="home-panel-header">
+                  <h4 class="home-panel-title" id="home-recent-title">最近開いた教材</h4>
+                  <p class="home-panel-copy">直近の履歴からすぐに戻れます。</p>
+                </div>
+                ${
+                  recentNotebookHtml
+                    ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
+                    : '<p class="home-empty-copy">まだ履歴がありません。最初の教材を開くとここに表示されます。</p>'
+                }
+              </section>
+            `
+            : "";
 
         el.notebookContent.innerHTML = `
           <section class="home-stage ${isMobileHome ? "home-stage-mobile" : ""}">
-            <section class="home-hero-shell glass-soft">
-              <div class="home-hero-top">
-                <div>
-                  <p class="home-kicker">${isMobileHome ? "Noema Mobile Learning" : "Noema Learning Hub"}</p>
-                  <h3 class="home-title">教材トップ</h3>
-                  <p class="home-lead">${heroLead}</p>
+            <section class="home-hero-shell">
+              <div>
+                <p class="home-kicker">${isMobileHome ? "Noema Mobile" : "Noema Learning Hub"}</p>
+                <h3 class="home-title">教材トップ</h3>
+                <p class="home-lead">${heroLead}</p>
+                <div class="home-primary-actions">
+                  <button class="button" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
                 </div>
-                <div class="home-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
               </div>
-              <section class="home-dashboard-grid">
-                <article class="home-progress-card glass-soft">
-                  <div class="home-progress-ring" style="--progress:${completionPercent}">
-                    <span>${completionPercent}%</span>
+              <aside class="home-summary-panel" aria-label="学習進捗">
+                <div class="home-summary-head">
+                  <div>
+                    <span class="home-summary-label">Progress</span>
+                    <strong class="home-summary-value">${completionPercent}%</strong>
                   </div>
-                  <div class="home-progress-meta">
-                    <strong>進捗率</strong>
-                    <p>${completedCount}/${notebookCount} notebooks completed</p>
-                  </div>
-                </article>
-                <article class="home-section-progress-card glass-soft">
-                  <div class="home-section-progress-title">
-                    <strong>学習マップ</strong>
-                    <span>${chapterCount} sections</span>
-                  </div>
-                  <div class="home-section-progress-list">
-                    ${progressGroups.map((group) => {
-                      return `
-                        <article class="home-section-progress-item">
-                          <div class="home-section-progress-head">
-                            <strong>${escapeHtml(group.title)}</strong>
-                            <span>${group.completed}/${group.total}</span>
-                          </div>
-                          <div class="home-section-progress-track">
-                            <span class="home-section-progress-fill" style="width:${group.percent}%"></span>
-                          </div>
-                        </article>
-                      `;
-                    }).join("")}
-                  </div>
-                </article>
+                  <p class="home-summary-meta">${completedLearningUnits}/${totalLearningUnits || notebookCount} 完了</p>
+                </div>
+                <div class="home-summary-bar" style="--progress:${completionPercent}%">
+                  <span></span>
+                </div>
+                <div class="home-summary-next">
+                  <span>Next</span>
+                  <strong>${escapeHtml(nextNotebookLabel)}</strong>
+                </div>
+              </aside>
+            </section>
+
+            <ul class="home-stats" aria-label="教材概要">
+              <li class="home-stat"><strong>${chapterCount}</strong><span>Sections</span></li>
+              <li class="home-stat"><strong>${notebookCount}</strong><span>Notebooks</span></li>
+              <li class="home-stat"><strong>${escapeHtml(assistantStateLabel)}</strong><span>Assistant</span></li>
+            </ul>
+
+            <section class="home-content-grid">
+              <section class="home-panel" aria-labelledby="home-path-title">
+                <div class="home-panel-header">
+                  <h4 class="home-panel-title" id="home-path-title">学習パス</h4>
+                  <p class="home-panel-copy">大きな区分ごとの進み具合だけを表示します。章ごとの詳細はサイドバーで確認できます。</p>
+                </div>
+                ${progressGroupsHtml ? `<ul class="home-path-list">${progressGroupsHtml}</ul>` : '<p class="home-empty-copy">教材カタログを読み込み中です。</p>'}
               </section>
-              <section class="home-progress-groups">
-                ${progressGroupsHtml}
-              </section>
-              <div class="home-metrics">
-                <article class="home-metric">
-                  <span class="home-metric-label">Sections</span>
-                  <span class="home-metric-value">${chapterCount}</span>
-                </article>
-                <article class="home-metric">
-                  <span class="home-metric-label">Notebooks</span>
-                  <span class="home-metric-value">${notebookCount}</span>
-                </article>
-                <article class="home-metric">
-                  <span class="home-metric-label">Assistant</span>
-                  <span class="home-metric-value home-metric-value-status">${assistantStateLabel}</span>
-                </article>
-              </div>
-              <section class="home-insight-grid">
-                <article class="home-insight-card glass-soft">
-                  <span class="home-insight-label">Next Notebook</span>
-                  <strong class="home-insight-title">${escapeHtml(nextNotebookLabel)}</strong>
-                  <button class="button home-recent-continue" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
-                </article>
-                <article class="home-insight-card glass-soft">
-                  <span class="home-insight-label">Recent Activity</span>
-                  ${
-                    recentNotebookHtml
-                      ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
-                      : '<p class="home-insight-copy">まだ進捗データがありません。最初の教材を開くと履歴が表示されます。</p>'
-                  }
-                </article>
-              </section>
+              ${recentPanelHtml}
             </section>
           </section>
         `;
