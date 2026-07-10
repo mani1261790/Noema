@@ -79,7 +79,7 @@ npm run deploy:dry-run
 - `develop`へのpushだけがtrigger
 - `main`、feature branch、Pull Requestはdeployしない
 - 手動実行も`develop` refだけを許可
-- GitHub Environment `development`でもbranchを`develop`に限定
+- GitHub Deployments / Environmentsは使わない
 - repository secret `CLOUDFLARE_API_TOKEN`を使用
 - 公開ゲート、ブログ、Studioの順にdeploy
 
