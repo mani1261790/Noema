@@ -66,9 +66,9 @@ npm run deploy:dry-run
 
 - workflow: `.github/workflows/deploy-development.yml`
 - trigger: `develop`へのpushのうち、`vnext/**`またはworkflow自体が変わった場合
-- GitHub Environment: `development`（deploy可能branchを`develop`に限定）
 - Secret: repository secret `CLOUDFLARE_API_TOKEN`
 - concurrency: 新しいdeployを優先し、進行中の古いdevelop deployはcancel
+- GitHub Deploymentsは使わず、実行結果はActionsとCloudflare Workersのversion履歴で確認
 
 詳しい初期設定、確認方法、rollbackは [開発環境デプロイ](docs/development-deployment.md) を参照してください。
 

@@ -7,7 +7,7 @@
 - 自動デプロイ元は `develop` だけです。
 - `main`、feature branch、Pull Requestからはデプロイしません。
 - 手動実行も `develop` ref以外ではjobをskipします。
-- GitHub Environment `development` 側でもdeployment branchを`develop`だけに制限します。
+- GitHub Deployments / Environmentsは使いません。branch triggerとjob条件の両方で`develop`だけに制限します。
 - 連続してmergeされた場合は、古い実行をcancelして最新の`develop`を優先します。
 - `noema-learn.uk`は公開承認まで公開ゲートで404を返します。
 
@@ -21,7 +21,7 @@ GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 | Studio | `noema-studio` | <https://noema-studio.mani1261790.workers.dev> |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（期待値404） |
 
-ブログとStudioの`workers.dev` URLには、最後に成功した`develop` deploymentが表示されます。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。
+ブログとStudioの`workers.dev` URLには、最後に成功した`develop`のCloudflare Worker versionが表示されます。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。
 
 ## 自動デプロイの流れ
 
@@ -60,13 +60,7 @@ gh secret set CLOUDFLARE_API_TOKEN --repo mani1261790/Noema
 
 Cloudflare側では対象accountのWorkers編集と、`noema-learn.uk` zoneのWorker Route編集に必要な最小権限へ限定します。
 
-### Environment
-
-- 名前: `development`
-- deployment branch policy: `develop`のみ
-- environment URL: ブログの`workers.dev` URL
-
-Secretはrepository levelに置き、environmentには複製しません。
+GitHub Environmentは作成しません。Secretはrepository levelだけに置き、GitHub Deploymentsの履歴も生成しません。
 
 ## 変更を確認する手順
 
@@ -98,7 +92,7 @@ VITE_PUBLIC_SITE_URL=https://noema-learn.mani1261790.workers.dev npm run deploy:
 VITE_PUBLIC_SITE_URL=https://noema-learn.mani1261790.workers.dev npm run deploy:studio
 ```
 
-手動実行後も、正となるcommitを`develop`へmergeしてGitHub deployment履歴と実体を一致させます。
+手動実行後も、正となるcommitを`develop`へmergeしてActionsの実行履歴とCloudflare上のversionを一致させます。
 
 ## Rollback
 
@@ -115,7 +109,7 @@ VITE_PUBLIC_SITE_URL=https://noema-learn.mani1261790.workers.dev npm run deploy:
 
 - 公開ゲートからWorker Routeを外す
 - ブログWorkerへcustom domainまたはrouteを設定する
-- production用Environmentとworkflowを新設する
+- production用workflowを新設する
 - SEO、security、mobile、LLM assistantの受入確認を行う
 
 `develop`向けworkflowをそのまま本番公開workflowへ転用しません。
