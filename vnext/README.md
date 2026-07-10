@@ -40,15 +40,19 @@ npm run deploy:dry-run
 
 ## Cloudflareへのデプロイ
 
-公開ブログはCloudflare Workers上のAstro SSRアプリ、Studioは静的アセットを配信する別Workerとしてデプロイします。
+ブログはCloudflare Workers上のAstro SSRアプリ、Studioは静的アセットを配信する別Workerとしてデプロイします。開発中は公開ゲートWorkerが本番ホスト名を遮断します。
 
 - ブログWorker: `noema-learn`
-- 本番URL: `https://noema-learn.uk`
-- 本番ルート: `noema-learn.uk/*`
+- 開発確認URL: `https://noema-learn.mani1261790.workers.dev`
+- 公開ゲートWorker: `noema-public-gate`
+- 非公開ルート: `noema-learn.uk/*`（全リクエストへ404）
 - Studio Worker: `noema-studio`（MVPでは`workers.dev` URLのみ）
 - CloudflareアカウントID: `2ea670c2a6ff28e248ef084adf095e8b`
 
-既存DNSレコードは変更しません。CloudflareのWorker Routeがリクエストを先に受ける構成なので、切り戻し時にはRouteを外すだけで現在のCloudFrontオリジンへ戻せます。
+既存DNSレコードは変更しません。CloudflareのWorker Routeがリクエストを先に受け、公開ゲートだけを実行します。ブログ本体はWorker Routeを持たず、`workers.dev`でのみ確認できます。
+
+> [!IMPORTANT]
+> 開発中のブログは公開しません。`noema-learn.uk`への全リクエストは `noema-public-gate` が404を返します。公開時は、公開承認を得た別PRでゲートからRouteを外し、ブログWorkerへRouteを移します。
 
 ### ローカルから手動デプロイ
 
@@ -67,15 +71,16 @@ npm run deploy:dry-run
 
 ```bash
 cd vnext
+npm run deploy:gate
 VITE_PUBLIC_SITE_URL=https://noema-learn.uk npm run deploy:blog
 VITE_PUBLIC_SITE_URL=https://noema-learn.uk npm run deploy:studio
 ```
 
-ブログのデプロイは`noema-learn.uk/*`を新しいWorkerへ切り替えます。通常はGitHub Actionsを使用し、手動デプロイは障害対応または初期確認に限定します。
+ゲートを最初にデプロイすることで、後続のブログ・Studioデプロイ中も本番ホスト名を公開しません。通常はGitHub Actionsを使用し、手動デプロイは障害対応または初期確認に限定します。
 
 ### GitHub Actionsの初期設定
 
-`.github/workflows/deploy-vnext.yml` は`main`へのvNext変更時、または手動実行時に両Workerをデプロイします。GitHubの`production` environmentへ `CLOUDFLARE_API_TOKEN` を一度だけ登録してください。
+`.github/workflows/deploy-vnext.yml` は`main`へのvNext変更時、または手動実行時に公開ゲート、ブログ、Studioの3 Workerをデプロイします。GitHubの`production` environmentへ `CLOUDFLARE_API_TOKEN` を一度だけ登録してください。
 
 1. Cloudflare Dashboardでプロフィールメニューから **My Profile** → **API Tokens** を開く。
 2. **Create Token** を選び、**Edit Cloudflare Workers** テンプレートを使用する。
@@ -92,7 +97,7 @@ gh secret list --env production
 
 ### ロールバック
 
-Workerコードだけを一つ前へ戻す場合は、Cloudflare DashboardのWorkerデプロイ履歴からロールバックします。Cloudflare Workerから既存AWS配信へ完全に戻す場合は、**Workers & Pages** → `noema-learn` → **Settings** → **Domains & Routes** で `noema-learn.uk/*` のRouteだけを削除します。DNSレコードとAWS側のリソースは、移行完了を確認するまで削除しません。
+ゲートの誤変更は `noema-public-gate` のデプロイ履歴からロールバックします。公開を再開する場合はDashboardで直接変更せず、公開承認を得たPRでRouteの所有をゲートからブログへ移します。DNSレコードとAWS側のリソースは、移行完了を確認するまで削除しません。
 
 Studioへ独自ドメインを付ける場合は、後続作業で `studio.noema-learn.uk` とCloudflare Accessを設定します。
 
