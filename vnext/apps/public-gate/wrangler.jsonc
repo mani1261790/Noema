@@ -1,11 +1,18 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "noema-learn",
+  "name": "noema-public-gate",
+  "main": "src/index.ts",
   "account_id": "2ea670c2a6ff28e248ef084adf095e8b",
   "compatibility_date": "2026-07-10",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "preview_urls": true,
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "noema-learn.uk/*",
+      "zone_name": "noema-learn.uk"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {
