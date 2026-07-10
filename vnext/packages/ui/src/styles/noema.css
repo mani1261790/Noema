@@ -1,0 +1,135 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light;
+  --noema-content-width: 86rem;
+  --noema-reading-width: 48rem;
+  --noema-border: var(--color-neutral-solid-gray-200);
+  --noema-muted: var(--color-neutral-solid-gray-600);
+  --noema-surface-subtle: var(--color-primitive-blue-50);
+}
+
+html {
+  background: var(--color-neutral-white);
+  color: var(--color-neutral-black);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 20rem;
+  background: var(--color-neutral-white);
+  color: var(--color-neutral-black);
+  font-family: var(--font-family-sans);
+  font-size: 1rem;
+  line-height: 1.75;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+.noema-container {
+  width: min(calc(100% - 3rem), var(--noema-content-width));
+  margin-inline: auto;
+}
+
+.noema-reading-container {
+  width: min(calc(100% - 3rem), var(--noema-reading-width));
+  margin-inline: auto;
+}
+
+.noema-skip-link {
+  position: fixed;
+  z-index: 1000;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  padding: 0.75rem 1rem;
+  transform: translateY(-200%);
+  background: var(--color-neutral-white);
+  color: var(--color-primitive-blue-1000);
+  border: 2px solid currentColor;
+}
+
+.noema-skip-link:focus {
+  transform: translateY(0);
+}
+
+.noema-section-heading {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+.noema-muted {
+  color: var(--noema-muted);
+}
+
+.noema-icon {
+  display: inline-block;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  vertical-align: middle;
+}
+
+.noema-empty-state {
+  padding: 2rem;
+  border: 1px solid var(--noema-border);
+  border-left: 0.5rem solid var(--color-key-900);
+}
+
+.noema-visually-hidden {
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 48rem) {
+  .noema-container,
+  .noema-reading-container {
+    width: min(calc(100% - 2rem), var(--noema-content-width));
+  }
+
+  body {
+    line-height: 1.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
