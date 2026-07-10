@@ -1,24 +1,24 @@
-# Noema Data Model (Current + Migration)
+# Noema データモデル（現状 + 移行）
 
-This document reflects the real implementation and the next migration step.
+このドキュメントは、現在の実装と次の移行ステップを整理します。
 
-## Current situation
+## 現状
 
-Data is split across:
+データは次の場所に分かれています。
 
 Cognito
 identity
 
 DynamoDB
-questions, answers, rate limits
+questions, answers, rate limits（質問、回答、レート制限）
 
 S3
 notebook html
 
 localStorage
-progress, playground drafts, chapter-final answer drafts, api keys
+progress, playground drafts, chapter-final answer drafts, api keys（進捗、playground 下書き、chapter final 下書き、API key）
 
-## Current ER diagram
+## 現在の ER 図
 
 ```mermaid
 erDiagram
@@ -33,9 +33,9 @@ erDiagram
   CHAPTER ||--o{ LOCAL_FINAL_DRAFT : browser
 ```
 
-## Target
+## 目標
 
-Move only progress to AWS
+学習進捗だけを AWS へ移します。
 
 ```mermaid
 erDiagram
@@ -43,19 +43,20 @@ erDiagram
   NOTEBOOK ||--o{ NOTEBOOK_PROGRESS : tracked_by
 ```
 
-## Table design
+## テーブル設計
 
 PK userId
 SK NOTEBOOK#<id>
 
-Fields
+フィールド:
+
 visits
 completed
 completedAt
 
-## Migration
+## 移行手順
 
-1 read localStorage
-2 send to API
-3 store in DynamoDB
-4 switch reads
+1. localStorage を読む
+2. API に送る
+3. DynamoDB に保存する
+4. 読み取り元を切り替える

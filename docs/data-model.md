@@ -1,11 +1,11 @@
-# Noema Data Model (MVP)
+# Noema データモデル（MVP）
 
-## 1. DynamoDB Tables
+## 1. DynamoDB テーブル
 
 ## users
 
 - PK: `USER#<userId>`
-- Attributes:
+- 属性:
 - `email`
 - `role` (`admin` | `member`)
 - `createdAt`
@@ -15,7 +15,7 @@
 
 - PK: `NOTEBOOK#<notebookId>`
 - SK: `META`
-- Attributes:
+- 属性:
 - `title`
 - `chapter`
 - `order`
@@ -33,7 +33,7 @@
 - GSI1SK: `createdAt`
 - GSI2PK: `NOTEBOOK#<notebookId>`
 - GSI2SK: `createdAt`
-- Attributes:
+- 属性:
 - `userId`
 - `notebookId`
 - `sectionId`
@@ -46,7 +46,7 @@
 
 - PK: `QUESTION#<questionId>`
 - SK: `ANSWER#v1`
-- Attributes:
+- 属性:
 - `answerText`
 - `sourceReferences` (json)
 - `tokensPrompt`
@@ -59,7 +59,7 @@
 
 - PK: `QHASH#<questionHash>`
 - SK: `NOTEBOOK#<notebookId>#SECTION#<sectionId>`
-- Attributes:
+- 属性:
 - `questionId`
 - `answerSnapshot`
 - `expiresAt` (TTL)
@@ -68,14 +68,14 @@
 
 - PK: `LOG#<date>`
 - SK: `<timestamp>#<type>#<id>`
-- Attributes:
+- 属性:
 - `actorId`
 - `action`
 - `payload`
 
-## 2. Retrieval Index
+## 2. 検索インデックス
 
-OpenSearch または pgvector を利用。
+OpenSearch または pgvector を利用します。
 
 1ドキュメント（チャンク）例:
 
@@ -92,9 +92,9 @@ OpenSearch または pgvector を利用。
 
 - キー: `normalized(questionText) + notebookId + sectionId`
 - TTL: 7日（初期値）
-- 高頻度質問は TTL 延長
+- 高頻度質問は TTL を延長
 
 ## 4. 監査・分析
 
 - CloudWatch Logs: API/Lambda 監査
-- Athena or OpenSearch Dashboards: 学習統計とアクセス分析
+- Athena または OpenSearch Dashboards: 学習統計とアクセス分析

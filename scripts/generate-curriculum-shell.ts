@@ -431,7 +431,42 @@ async function writeCatalogFile() {
   await fs.writeFile(outputPath, `${JSON.stringify(catalog, null, 2)}\n`, "utf8");
 }
 
+async function countExistingNotebooks(dir: string): Promise<number> {
+  const entries = await fs
+    .readdir(dir, { withFileTypes: true })
+    .catch(() => [] as import("fs").Dirent[]);
+  let count = 0;
+  for (const entry of entries) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      count += await countExistingNotebooks(entryPath);
+    } else if (entry.isFile() && entry.name.endsWith(".ipynb")) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+// Safety guard: this script DELETES every existing .ipynb and overwrites catalog.json from
+// the hardcoded spec above. Once real curriculum exists, that wipes authored content. Refuse
+// to run when notebooks are already present unless the reset is explicitly requested.
+async function assertSafeToRegenerate() {
+  const forced = process.argv.includes("--force") || process.env.ALLOW_CURRICULUM_RESET === "1";
+  if (forced) return;
+  const notebooksDir = path.join(process.cwd(), "content", "notebooks");
+  const existing = await countExistingNotebooks(notebooksDir);
+  if (existing > 0) {
+    throw new Error(
+      `Refusing to regenerate: ${existing} notebook(s) already exist under content/notebooks.\n` +
+        "This script deletes all .ipynb files and overwrites catalog.json, destroying authored content.\n" +
+        "The .ipynb files are now the source of truth. If you really intend a full reset, re-run with\n" +
+        "  npm run generate:curriculum-shell -- --force   (or ALLOW_CURRICULUM_RESET=1)"
+    );
+  }
+}
+
 async function main() {
+  await assertSafeToRegenerate();
   await writeNotebookFiles();
   await writeCatalogFile();
 

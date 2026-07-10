@@ -7,13 +7,14 @@
     {
       "id": "q1",
       "type": "short_text",
-      "prompt": "このセクションで扱った機械学習の流れを、単回帰、重回帰、分類、時系列、特徴量設計、SQLのうち3つ以上を含めて説明してください。モデルを当てること以外に、どんな設計や確認が必要かも書いてください。",
+      "prompt": "機械学習章の流れを、単回帰、重回帰、分類、時系列、特徴量設計、SQLのうち3つ以上を含めて説明してください。『targetを決める → 使ってよい入力を決める → 評価分割を作る → 改善する』という共通ワークフローと、モデルを当てること以外に必要な設計や確認も書いてください。",
       "maxPoints": 10,
       "rubricPoints": [
         { "id": "scope", "description": "3つ以上の題材を挙げている", "points": 3, "keywords": ["単回帰", "重回帰", "分類", "時系列", "特徴量", "SQL"] },
-        { "id": "evaluation", "description": "評価分割や比較の必要性に触れている", "points": 3, "keywords": ["評価", "train", "test", "比較", "交差検証"] },
+        { "id": "workflow", "description": "target・入力・評価・改善の共通ワークフローを説明している", "points": 2, "keywords": ["target", "入力", "評価", "改善", "流れ"] },
+        { "id": "evaluation", "description": "評価分割や比較の必要性に触れている", "points": 2, "keywords": ["評価", "train", "test", "比較", "交差検証"] },
         { "id": "leakage", "description": "リークや未来情報を避ける必要性に触れている", "points": 2, "keywords": ["リーク", "未来情報", "point-in-time", "過去"] },
-        { "id": "workflow", "description": "入力、学習、評価、改善の流れが分かる", "points": 2, "keywords": ["入力", "学習", "評価", "改善", "流れ"] }
+        { "id": "design", "description": "モデル当て以外に実験設計が必要だと分かる", "points": 1, "keywords": ["ベースライン", "比較可能", "設計", "分割"] }
       ]
     },
     {

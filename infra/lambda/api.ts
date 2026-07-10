@@ -201,6 +201,20 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     return json(200, result);
   }
 
+  const user = getAuthUser(event);
+  if (!user) {
+    return json(401, { error: "Unauthorized" });
+  }
+
+  if (route === "GET /api/me") {
+    return json(200, {
+      userId: user.userId,
+      email: user.email,
+      groups: user.groups,
+      isAdmin: isAdmin(user)
+    });
+  }
+
   if (/^POST \/api\/assessments\/notebooks\/[^/]+\/attempts$/.test(route)) {
     const notebookId = assessmentNotebookIdFromEvent(event);
     const payload = parseJsonBody(event);
@@ -214,20 +228,6 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     const result = await getChapterFinalAssessment(chapterId);
     if (!result) return json(404, { error: "Assessment not found" });
     return json(200, result);
-  }
-
-  const user = getAuthUser(event);
-  if (!user) {
-    return json(401, { error: "Unauthorized" });
-  }
-
-  if (route === "GET /api/me") {
-    return json(200, {
-      userId: user.userId,
-      email: user.email,
-      groups: user.groups,
-      isAdmin: isAdmin(user)
-    });
   }
 
   if (route === "POST /api/questions") {
@@ -295,6 +295,11 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       const statusCode =
         message.includes("exceeds 2000 characters") || message.includes("must be a string") || message === "Invalid answers payload."
           ? 400
+          :
+        message.startsWith("Bedrock daily limit exceeded") ||
+        message.startsWith("Rate limit exceeded") ||
+        message.includes("本日の採点回数の上限")
+          ? 429
           :
         message === "BEDROCK_REGION is not configured." ||
         message.includes("Bedrock model is not configured") ||

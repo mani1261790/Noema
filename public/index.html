@@ -61,6 +61,7 @@
       --code-fg: #d8e8ff;
       --code-border: rgba(116, 171, 232, .26);
       --brand-font: "Space Grotesk", "Avenir Next", "SF Pro Display", "Helvetica Neue", sans-serif;
+      --sidebar-width: 300px;
       --assistant-width: 400px;
       --mobile-dock-button-size: 46px;
       --mobile-dock-gap: 6px;
@@ -259,7 +260,7 @@
     .shell {
       height: 100%;
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr) auto auto;
+      grid-template-columns: var(--sidebar-width) auto minmax(0, 1fr) auto auto;
       gap: 10px;
       position: relative;
       z-index: 1;
@@ -284,6 +285,52 @@
       line-height: 1.15;
       color: var(--text);
       text-shadow: 0 8px 20px color-mix(in oklab, var(--accent) 24%, transparent);
+    }
+
+    .sidebar-expand-btn {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-expand-btn svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sidebar-expand-btn {
+      position: fixed;
+      top: max(18px, calc(env(safe-area-inset-top) + 12px));
+      left: max(18px, calc(env(safe-area-inset-left) + 12px));
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-6px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    body.sidebar-collapsed .shell {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+
+    body.sidebar-collapsed .sidebar,
+    body.sidebar-collapsed .sidebar-resizer {
+      display: none;
+    }
+
+    body.sidebar-collapsed .sidebar-expand-btn {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
     }
 
     .brand-link {
@@ -538,6 +585,27 @@
       -webkit-backdrop-filter: blur(14px);
     }
 
+    .chapter-future-note {
+      border-radius: 11px;
+      border: 1px dashed color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
+      padding: 10px 12px;
+      color: color-mix(in oklab, var(--muted) 94%, white);
+      background:
+        linear-gradient(152deg, color-mix(in oklab, var(--glass-highlight) 22%, transparent), transparent 62%),
+        color-mix(in oklab, var(--panel-soft) 44%, transparent);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .chapter-future-note strong {
+      display: block;
+      margin-bottom: 2px;
+      color: color-mix(in oklab, var(--text) 78%, var(--muted));
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
     .nb-item {
       border: 1px solid transparent;
       border-radius: 10px;
@@ -598,6 +666,68 @@
       border-color: color-mix(in oklab, var(--accent) 68%, white);
       background: linear-gradient(145deg, color-mix(in oklab, var(--accent) 80%, white), color-mix(in oklab, var(--accent-strong) 88%, black));
       box-shadow: 0 10px 20px color-mix(in oklab, var(--accent) 30%, transparent);
+    }
+
+    .glossary-term {
+      border: 0;
+      border-bottom: 1px dotted color-mix(in oklab, var(--accent) 72%, white);
+      background: color-mix(in oklab, var(--accent) 13%, transparent);
+      color: color-mix(in oklab, var(--text) 92%, white);
+      border-radius: 5px;
+      padding: 0 3px;
+      font: inherit;
+      cursor: help;
+      text-align: inherit;
+    }
+
+    .glossary-term:hover,
+    .glossary-term:focus-visible,
+    .glossary-term.is-active {
+      outline: none;
+      color: #fff;
+      background: color-mix(in oklab, var(--accent) 34%, transparent);
+      border-bottom-color: color-mix(in oklab, var(--accent) 82%, white);
+    }
+
+    .glossary-tooltip {
+      position: fixed;
+      z-index: 1200;
+      width: min(340px, calc(100vw - 28px));
+      max-height: min(360px, calc(100vh - 28px));
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid var(--glass-edge);
+      background:
+        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 50%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-strong) 96%, #071225);
+      color: var(--text);
+      box-shadow: 0 22px 44px rgba(2, 7, 16, .46), inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 70%, transparent);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      padding: 12px 14px;
+    }
+
+    .glossary-tooltip-title {
+      display: block;
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .glossary-tooltip-copy {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.7;
+      color: color-mix(in oklab, var(--text) 86%, var(--muted));
+    }
+
+    .glossary-tooltip-math {
+      margin: 10px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid var(--glass-edge-soft);
+      overflow-x: auto;
+      font-size: 12px;
     }
 
     .sidebar-footer {
@@ -1078,29 +1208,22 @@
 
     .home-stage {
       display: grid;
-      gap: 12px;
-      margin-bottom: 14px;
+      gap: 18px;
+      max-width: 1040px;
+      margin: 0 auto 16px;
+    }
+
+    .home-stage-mobile {
+      padding-bottom: calc(var(--mobile-dock-button-size, 48px) + var(--mobile-dock-bottom, 12px) + 18px);
     }
 
     .home-hero-shell {
-      border-radius: 18px;
-      padding: 16px;
-      border: 1px solid var(--glass-edge-soft);
-      background:
-        radial-gradient(circle at 8% 10%, color-mix(in oklab, var(--glass-highlight) 68%, transparent), transparent 34%),
-        radial-gradient(circle at 86% 12%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 38%),
-        linear-gradient(150deg, color-mix(in oklab, var(--panel-soft) 82%, transparent), color-mix(in oklab, var(--panel-strong) 64%, transparent));
-      backdrop-filter: blur(18px) saturate(145%);
-      -webkit-backdrop-filter: blur(18px) saturate(145%);
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 62%, transparent);
-    }
-
-    .home-hero-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      gap: 22px;
+      align-items: center;
+      padding: 4px 2px 18px;
+      border-bottom: 1px solid var(--glass-edge-soft);
     }
 
     .home-kicker {
@@ -1115,455 +1238,253 @@
     .home-title {
       margin: 0 0 8px;
       font-family: var(--brand-font);
-      font-size: 34px;
-      line-height: 1.05;
-      letter-spacing: .02em;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.02;
+      letter-spacing: .01em;
       text-transform: uppercase;
     }
 
     .home-lead {
       margin: 0;
       color: var(--muted);
-      line-height: 1.78;
+      line-height: 1.72;
       font-size: 14px;
-      max-width: 64ch;
+      max-width: 58ch;
     }
 
-    .home-orbit {
-      position: relative;
-      width: 92px;
-      height: 92px;
-      flex: 0 0 92px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 88%, transparent);
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 70%, transparent);
-    }
-
-    .home-orbit span {
-      position: absolute;
-      border-radius: 999px;
-      border: 1px dashed color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
-      inset: 10px;
-      animation: orbit-spin 11s linear infinite;
-    }
-
-    .home-orbit span:nth-child(2) {
-      inset: 22px;
-      animation-duration: 8s;
-      animation-direction: reverse;
-    }
-
-    .home-orbit span:nth-child(3) {
-      inset: 34px;
-      animation-duration: 6s;
-    }
-
-    @keyframes orbit-spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .home-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .home-metric {
-      border-radius: 12px;
-      border: 1px solid var(--glass-edge-soft);
-      padding: 10px 12px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      column-gap: 10px;
-      background:
-        linear-gradient(148deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 86%, transparent);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-
-    .home-metric-label {
-      display: inline-flex;
-      align-items: center;
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: .03em;
-      text-transform: uppercase;
-      min-width: 0;
-    }
-
-    .home-metric-value {
-      display: inline-flex;
-      justify-self: end;
-      text-align: right;
-      font-size: clamp(28px, 2.35vw, 38px);
-      line-height: 1;
-      font-weight: 800;
-      letter-spacing: .005em;
-      color: color-mix(in oklab, var(--text) 88%, white);
-      text-shadow: 0 8px 18px color-mix(in oklab, var(--accent) 28%, transparent);
-    }
-
-    .home-metric-value-status {
-      font-size: clamp(13px, 1.05vw, 16px);
-      line-height: 1.25;
-      font-weight: 700;
-      letter-spacing: .015em;
-      text-shadow: none;
-      max-width: 14ch;
-      white-space: normal;
-      text-wrap: balance;
-    }
-
-    .home-cta-row {
+    .home-primary-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .home-cta,
-    .home-cta-ghost {
-      min-width: 170px;
-    }
-
-    .home-recent-continue {
-      width: 100%;
-      margin-top: 4px;
-    }
-
-    .home-dashboard-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-      margin-bottom: 12px;
+      margin-top: 16px;
     }
 
-    .home-progress-card,
-    .home-section-progress-card,
-    .home-insight-card {
-      border-radius: 14px;
-      padding: 12px;
-      font-size: 13px;
-      background:
-        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 56%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 84%, transparent);
-      border: 1px solid var(--glass-edge-soft);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+    .home-primary-actions .button {
+      min-width: 190px;
+    }
+
+    .home-summary-panel {
       display: grid;
-      gap: 8px;
-    }
-
-    .home-progress-card {
-      grid-template-columns: 120px minmax(0, 1fr);
-      align-items: center;
       gap: 12px;
-    }
-
-    .home-progress-ring {
-      --progress: 0;
-      width: 108px;
-      height: 108px;
-      border-radius: 50%;
+      border-radius: 14px;
+      border: 1px solid var(--glass-edge-soft);
+      padding: 16px;
       background:
-        radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--glass-highlight) 52%, transparent), transparent 58%),
-        conic-gradient(
-          color-mix(in oklab, var(--accent) 58%, white) calc(var(--progress) * 1%),
-          color-mix(in oklab, var(--panel-strong) 68%, transparent) 0
-        );
-      display: grid;
-      place-items: center;
-      border: 1px solid color-mix(in oklab, var(--accent) 34%, var(--glass-edge-soft));
-      box-shadow:
-        inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 72%, transparent),
-        0 12px 22px color-mix(in oklab, var(--accent) 24%, transparent);
-      position: relative;
+        linear-gradient(145deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 58%),
+        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 56%, transparent);
     }
 
-    .home-progress-ring::after {
-      content: "";
-      position: absolute;
-      inset: 12px;
-      border-radius: 50%;
-      background: color-mix(in oklab, var(--panel-soft) 92%, transparent);
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 92%, transparent);
-    }
-
-    .home-progress-ring span {
-      position: relative;
-      z-index: 1;
-      font-size: 24px;
-      font-weight: 800;
-      letter-spacing: .01em;
-      text-shadow: 0 7px 14px color-mix(in oklab, var(--accent) 22%, transparent);
-    }
-
-    .home-progress-meta strong {
-      display: block;
-      font-size: 16px;
-      letter-spacing: .01em;
-      margin-bottom: 2px;
-    }
-
-    .home-progress-meta p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.68;
-    }
-
-    .home-section-progress-title {
+    .home-summary-head {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 4px;
+      align-items: center;
+      gap: 14px;
     }
 
-    .home-section-progress-title strong {
-      font-size: 14px;
+    .home-summary-label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
       font-weight: 700;
     }
 
-    .home-section-progress-title span {
-      font-size: 11px;
+    .home-summary-value {
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1;
+      font-weight: 800;
+      color: color-mix(in oklab, var(--text) 88%, white);
+    }
+
+    .home-summary-meta {
+      margin: 0;
       color: var(--muted);
-      letter-spacing: .04em;
-      text-transform: uppercase;
-    }
-
-    .home-section-progress-list {
-      display: grid;
-      gap: 8px;
-      max-height: min(37vh, 280px);
-      overflow: auto;
-      padding-right: 2px;
-    }
-
-    .home-section-progress-item {
-      display: grid;
-      gap: 6px;
-    }
-
-    .home-section-progress-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: baseline;
-      gap: 10px;
-      font-size: 12px;
-    }
-
-    .home-section-progress-head strong {
-      font-size: 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      letter-spacing: .01em;
-    }
-
-    .home-section-progress-head span {
-      color: var(--muted);
-      font-variant-numeric: tabular-nums;
-      font-size: 11px;
-    }
-
-    .home-section-progress-track {
-      height: 9px;
-      border-radius: 999px;
-      background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 76%, transparent);
-      overflow: hidden;
-    }
-
-    .home-section-progress-fill {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background:
-        linear-gradient(90deg, color-mix(in oklab, var(--accent) 62%, white), color-mix(in oklab, var(--accent) 45%, transparent));
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 66%, transparent);
-    }
-
-    .home-insight-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .home-progress-groups {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .home-progress-group {
-      border-radius: 16px;
-      padding: 12px;
-      border: 1px solid var(--glass-edge-soft);
-      background:
-        linear-gradient(150deg, color-mix(in oklab, var(--glass-highlight) 46%, transparent), transparent 58%),
-        color-mix(in oklab, var(--panel-soft) 86%, transparent);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      display: grid;
-      gap: 10px;
-    }
-
-    .home-progress-group-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: start;
-      gap: 12px;
-    }
-
-    .home-progress-group-header strong {
-      display: block;
-      font-size: 16px;
-      line-height: 1.35;
-      letter-spacing: .01em;
-    }
-
-    .home-progress-group-header p {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 12px;
+      font-size: 13px;
       line-height: 1.6;
     }
 
-    .home-progress-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 74px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid color-mix(in oklab, var(--accent) 30%, var(--glass-edge-soft));
-      background: color-mix(in oklab, var(--accent) 12%, transparent);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .03em;
-      color: color-mix(in oklab, var(--accent) 74%, white);
-    }
-
-    .home-progress-bar {
-      height: 10px;
+    .home-summary-bar {
+      height: 12px;
       border-radius: 999px;
       overflow: hidden;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 86%, transparent);
       background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
     }
 
-    .home-progress-bar > span {
+    .home-summary-bar span {
       display: block;
+      width: var(--progress);
       height: 100%;
       border-radius: inherit;
-      background:
-        linear-gradient(90deg, color-mix(in oklab, var(--accent) 68%, white), color-mix(in oklab, var(--accent-strong) 74%, black));
-      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 66%, transparent);
+      background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 68%, white), color-mix(in oklab, var(--accent-strong) 72%, black));
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--glass-highlight) 68%, transparent);
     }
 
-    .home-progress-group-stats {
+    .home-summary-next {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      gap: 4px;
+      padding-top: 2px;
     }
 
-    .home-progress-stat {
+    .home-summary-next span {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .home-summary-next strong {
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .home-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .home-stat {
+      flex: 1 1 150px;
+      min-width: 0;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 82%, transparent);
       border-radius: 12px;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
-      padding: 8px 10px;
-      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
+      padding: 10px 12px;
+      background: color-mix(in oklab, var(--panel-soft) 76%, transparent);
+      display: grid;
+      gap: 3px;
+    }
+
+    .home-stat strong {
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    .home-stat span {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .home-content-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .home-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .home-panel-header {
       display: grid;
       gap: 4px;
     }
 
-    .home-progress-stat-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: var(--muted);
+    .home-panel-title {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.35;
     }
 
-    .home-progress-stat-value {
-      font-size: 16px;
-      font-weight: 800;
-      line-height: 1.15;
-      color: color-mix(in oklab, var(--text) 90%, white);
-    }
-
-    .home-progress-chapters {
-      display: grid;
-      gap: 8px;
-    }
-
-    .home-progress-chapter {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 8px 12px;
-      align-items: center;
-    }
-
-    .home-progress-chapter strong {
-      font-size: 12px;
-      line-height: 1.45;
-      min-width: 0;
-    }
-
-    .home-progress-chapter span {
-      font-size: 11px;
-      color: var(--muted);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .home-progress-chapter-bar {
-      grid-column: 1 / -1;
-      height: 8px;
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 78%, transparent);
-      background: color-mix(in oklab, var(--panel-strong) 68%, transparent);
-    }
-
-    .home-progress-chapter-bar span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background:
-        linear-gradient(90deg, color-mix(in oklab, var(--accent) 58%, white), color-mix(in oklab, var(--accent-strong) 62%, black));
-    }
-
-    .home-insight-label {
-      font-size: 11px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .home-insight-title {
-      font-size: 15px;
-      line-height: 1.45;
-      letter-spacing: .01em;
-    }
-
-    .home-insight-copy {
+    .home-panel-copy {
       margin: 0;
       color: var(--muted);
-      line-height: 1.7;
+      font-size: 13px;
+      line-height: 1.65;
     }
 
+    .home-path-list,
     .home-recent-list {
       list-style: none;
       margin: 0;
       padding: 0;
       display: grid;
-      gap: 6px;
-      max-height: min(24vh, 190px);
-      overflow: auto;
+      gap: 8px;
+    }
+
+    .home-path-list {
+      grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+    }
+
+    .home-path-item {
+      display: grid;
+      gap: 8px;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
+      border-radius: 12px;
+      padding: 10px;
+      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
+    }
+
+    .home-path-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: baseline;
+    }
+
+    .home-path-head strong {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .home-path-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .home-path-copy {
+      margin: 0;
+      min-height: 3.1em;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .home-path-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: color-mix(in oklab, var(--muted) 88%, white);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .home-path-foot strong {
+      color: color-mix(in oklab, var(--text) 84%, white);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .home-path-bar {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 78%, transparent);
+      background: color-mix(in oklab, var(--panel-strong) 72%, transparent);
+    }
+
+    .home-path-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 62%, white), color-mix(in oklab, var(--accent-strong) 68%, black));
+    }
+
+    .home-empty-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 13px;
     }
 
     .home-recent-item {
@@ -1573,31 +1494,27 @@
     .home-recent-link {
       width: 100%;
       border: 1px solid color-mix(in oklab, var(--glass-edge-soft) 84%, transparent);
-      border-radius: 10px;
-      padding: 8px 10px;
-      background:
-        linear-gradient(140deg, color-mix(in oklab, var(--glass-highlight) 38%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 85%, transparent);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: color-mix(in oklab, var(--panel-soft) 78%, transparent);
       color: inherit;
       text-align: left;
       cursor: pointer;
-      transition: border-color .18s ease, transform .18s ease, background .18s ease;
+      transition: border-color .18s ease, background .18s ease;
       display: grid;
       gap: 2px;
     }
 
     .home-recent-link:hover {
       border-color: color-mix(in oklab, var(--accent) 40%, var(--glass-edge-soft));
-      transform: translateY(-1px);
-      background:
-        linear-gradient(140deg, color-mix(in oklab, var(--accent) 18%, transparent), transparent 62%),
-        color-mix(in oklab, var(--panel-soft) 88%, transparent);
+      background: color-mix(in oklab, var(--accent) 10%, var(--panel-soft));
     }
 
     .home-recent-main {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: .01em;
+      line-height: 1.45;
     }
 
     .home-recent-sub {
@@ -1922,6 +1839,10 @@
     }
 
     .resizer.visible { display: block; }
+
+    .sidebar-resizer {
+      display: block;
+    }
 
     aside.assistant {
       width: var(--assistant-width);
@@ -2723,6 +2644,8 @@
         height: 100dvh;
       }
       .sidebar { display: none; }
+      .sidebar-expand-btn { display: none !important; }
+      body.sidebar-collapsed .shell { grid-template-columns: 1fr; }
       .resizer { display: none !important; }
       aside.assistant { display: none; }
       .mobile-controls { display: flex; }
@@ -2772,27 +2695,26 @@
         padding: 12px;
         border-radius: 0;
       }
-      .home-dashboard-grid,
-      .home-insight-grid,
-      .home-progress-group-stats {
+      .home-hero-shell,
+      .home-content-grid,
+      .home-path-list {
         grid-template-columns: 1fr;
       }
-      .home-hero-top { flex-direction: column; }
-      .home-orbit { display: none; }
-      .home-metrics { grid-template-columns: 1fr; }
-      .home-progress-card {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        text-align: center;
+      .home-hero-shell {
+        gap: 16px;
       }
-      .home-progress-meta p {
-        max-width: 28ch;
+      .home-summary-panel {
+        padding: 14px;
       }
-      .home-section-progress-list {
-        max-height: min(28vh, 230px);
+      .home-stage-mobile .home-path-item {
+        gap: 6px;
+        padding: 9px;
       }
-      .home-recent-list {
-        max-height: min(20vh, 170px);
+      .home-stage-mobile .home-path-copy {
+        min-height: 0;
+      }
+      .home-stage-mobile .home-path-foot {
+        font-size: 10px;
       }
       .chapter-items { max-height: min(52vh, 460px); }
       .chat-mobile-mount .assistant {
@@ -2873,15 +2795,15 @@
       }
 
       .home-hero-shell {
-        padding: 12px;
+        gap: 14px;
       }
 
       .home-title {
         font-size: 28px;
       }
 
-      .home-cta,
-      .home-cta-ghost {
+      .home-primary-actions .button {
+        width: 100%;
         min-width: 0;
       }
 
@@ -2932,8 +2854,8 @@
       }
 
       .home-lead,
-      .home-progress-meta p,
-      .home-insight-copy,
+      .home-panel-copy,
+      .home-empty-copy,
       .reader-prose p {
         font-size: 13px;
       }
@@ -3020,6 +2942,16 @@
           <a class="button-ghost is-hidden" id="admin-link" href="/admin.html">管理画面</a>
         </div>
       </aside>
+
+      <button class="button-ghost sidebar-expand-btn" id="sidebar-expand" type="button" aria-label="サイドバーを開く" title="サイドバーを開く" data-nosnippet>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7H20"></path>
+          <path d="M4 12H20"></path>
+          <path d="M4 17H20"></path>
+        </svg>
+      </button>
+
+      <div class="resizer sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
 
       <section class="main glass-strong">
         <div class="mobile-controls">
@@ -3190,6 +3122,8 @@
       const LEARNING_PROGRESS_KEY_PREFIX = "noema_learning_progress_v1";
       const LLM_SETTINGS_KEY_PREFIX = "noema_llm_settings_v1";
       const CHAPTER_FINAL_DRAFT_KEY_PREFIX = "noema_chapter_final_drafts_v1";
+      const GLOSSARY_URL = "/glossary.json";
+      const CHAPTER_PROGRESSIVE_UNLOCK_AFTER_ID = "reinforcement-learning";
       const PLAYGROUND_STORE_SCHEMA_VERSION = 2;
       const KEEP_LATEST_REVISIONS = 10;
       const CONFLICT_RETENTION_DAYS = 30;
@@ -3197,6 +3131,9 @@
       const KATEX_CSS_HREF = "/katex/katex.min.css";
       // MathJax v3 is Apache-2.0 licensed.
       const MATHJAX_SRC = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
+      const SIDEBAR_MIN_WIDTH = 240;
+      const SIDEBAR_MAX_WIDTH = 460;
+      const SIDEBAR_CLOSE_THRESHOLD = 180;
       const ASSISTANT_MIN_WIDTH = 320;
       const ASSISTANT_MAX_WIDTH = 700;
       const ASSISTANT_CLOSE_THRESHOLD = 220;
@@ -3218,6 +3155,10 @@
         selectedSection: "",
         selectedContext: null,
         chatOpen: false,
+        sidebarCollapsed: false,
+        sidebarResizing: false,
+        sidebarStartX: 0,
+        sidebarStartWidth: 300,
         chatView: "messages",
         chatSessionId: "",
         chatHistorySessions: [],
@@ -3248,6 +3189,9 @@
         sidebarList: document.getElementById("sidebar-list"),
         sidebarMobileList: document.getElementById("sidebar-mobile-list"),
         sidebarSearch: document.getElementById("sidebar-search"),
+        sidebarDesktop: document.getElementById("sidebar-desktop"),
+        sidebarExpand: document.getElementById("sidebar-expand"),
+        sidebarResizer: document.getElementById("sidebar-resizer"),
         headerTitle: document.getElementById("header-title"),
         headerTitleSelect: document.getElementById("header-title-select"),
         downloadBtn: document.getElementById("download-btn"),
@@ -3298,6 +3242,8 @@
       let highlightPromise = null;
       let katexCssEnsurePromise = null;
       let mathJaxPromise = null;
+      let glossaryPromise = null;
+      let activeGlossaryTooltip = null;
       const preloadedNotebookPackages = new Set();
       const blockHighlightTimers = new WeakMap();
 
@@ -4049,6 +3995,7 @@
         const currentStore = readLearningProgressStore();
         currentStore.notebooks[trimmedNotebookId] = normalizedRecord;
         setLearningProgressStore(currentStore);
+        renderSidebar();
         if (state.activeNotebook && state.activeNotebook.id === trimmedNotebookId) {
           renderNotebookCompletionControl(trimmedNotebookId);
         } else if (!state.activeNotebook) {
@@ -4081,6 +4028,7 @@
           }
 
           setLearningProgressStore(payload);
+          renderSidebar();
           if (state.activeNotebook && state.activeNotebook.id === trimmedNotebookId) {
             renderNotebookCompletionControl(trimmedNotebookId);
           } else if (!state.activeNotebook) {
@@ -4138,7 +4086,11 @@
           visits: Math.max(1, Number(existing.visits || 0) + 1),
           lastVisitedAt: new Date().toISOString(),
           completed: Boolean(existing.completed),
-          completedAt: existing.completed ? String(existing.completedAt || new Date().toISOString()) : ""
+          completedAt: existing.completed ? String(existing.completedAt || new Date().toISOString()) : "",
+          checkPassed: Boolean(existing.checkPassed || existing.completed),
+          checkPassedAt: existing.checkPassed || existing.completed ? String(existing.checkPassedAt || existing.completedAt || "") : "",
+          checkBestScore: Math.max(0, Number(existing.checkBestScore || 0)),
+          checkAttempts: Math.max(0, Number(existing.checkAttempts || 0))
         };
         await saveLearningProgressRecord(notebookId, nextRecord);
       }
@@ -4164,7 +4116,11 @@
           visits: Math.max(0, Number(existing.visits || 0)),
           lastVisitedAt: String(existing.lastVisitedAt || nowIso),
           completed: Boolean(completed),
-          completedAt: completed ? nowIso : ""
+          completedAt: completed ? nowIso : "",
+          checkPassed: Boolean(completed || existing.checkPassed),
+          checkPassedAt: completed || existing.checkPassed ? String(existing.checkPassedAt || nowIso) : "",
+          checkBestScore: Math.max(0, Number(existing.checkBestScore || 0)),
+          checkAttempts: Math.max(0, Number(existing.checkAttempts || 0))
         };
         await saveLearningProgressRecord(notebookId, nextRecord);
       }
@@ -4260,6 +4216,43 @@
         if (!notebooks.length) return false;
         const allNotebookChecksPassed = notebooks.every((notebook) => completedNotebookSet.has(notebook.id));
         return allNotebookChecksPassed && isChapterFinalPassed(chapter.id);
+      }
+
+      function noemaChaptersInOrder() {
+        return notebookList().filter((chapter) => chapterSourceGroup(chapter) === "noema");
+      }
+
+      function completedNotebookIdSet() {
+        const progressStore = readLearningProgressStore();
+        return new Set(
+          Object.keys(progressStore.notebooks || {}).filter((id) => Boolean(progressStore.notebooks[id]?.completed))
+        );
+      }
+
+      function unlockedNoemaChapterIdSet() {
+        const chapters = noemaChaptersInOrder();
+        const unlockGateIndex = chapters.findIndex((chapter) => chapter.id === CHAPTER_PROGRESSIVE_UNLOCK_AFTER_ID);
+        const completedSet = completedNotebookIdSet();
+        const unlocked = new Set();
+
+        chapters.forEach((chapter, index) => {
+          if (unlockGateIndex < 0 || index <= unlockGateIndex) {
+            unlocked.add(chapter.id);
+            return;
+          }
+
+          const previousChapter = chapters[index - 1];
+          if (previousChapter && unlocked.has(previousChapter.id) && isChapterCompleted(previousChapter, completedSet)) {
+            unlocked.add(chapter.id);
+          }
+        });
+
+        return unlocked;
+      }
+
+      function isSidebarChapterUnlocked(chapter, unlockedNoemaIds) {
+        if (!chapter || chapterSourceGroup(chapter) !== "noema") return true;
+        return unlockedNoemaIds.has(chapter.id);
       }
 
       function formatRelativeVisitTime(isoString) {
@@ -4671,6 +4664,21 @@
         return window.innerWidth <= 960;
       }
 
+      function setSidebarOpen(open) {
+        const closed = !Boolean(open) && !isCompactMobileView();
+        state.sidebarCollapsed = closed;
+        document.body.classList.toggle("sidebar-collapsed", closed);
+        if (el.sidebarDesktop) {
+          el.sidebarDesktop.setAttribute("aria-hidden", closed ? "true" : "false");
+        }
+        if (el.sidebarExpand) {
+          el.sidebarExpand.setAttribute("aria-expanded", closed ? "false" : "true");
+        }
+        if (closed) {
+          document.documentElement.style.setProperty("--sidebar-width", `${SIDEBAR_MIN_WIDTH}px`);
+        }
+      }
+
       function renderPlaygroundSidebarControls() {
         const visible = state.loggedIn;
         const showMobilePrivileged = !isCompactMobileView();
@@ -5078,17 +5086,25 @@
 
       function buildSidebarHtml(forMobile) {
         const query = state.query.trim().toLowerCase();
+        const unlockedNoemaIds = unlockedNoemaChapterIdSet();
         const libraries = sidebarLibraries()
           .map((library) => ({
             ...library,
             sections: library.sections
               .map((section) => ({
                 ...section,
+                hiddenChapterCount: query
+                  ? 0
+                  : section.chapters.filter((chapter) => !isSidebarChapterUnlocked(chapter, unlockedNoemaIds)).length,
                 chapters: section.chapters
-                  .map((chapter) => ({ ...chapter, notebooks: chapter.notebooks.filter((nb) => matchNotebook(nb, query)) }))
-                  .filter((chapter) => chapter.notebooks.length > 0)
+                  .filter((chapter) => isSidebarChapterUnlocked(chapter, unlockedNoemaIds))
+                  .map((chapter) => {
+                    const notebooks = chapter.notebooks.filter((nb) => matchNotebook(nb, query));
+                    return notebooks.length > 0 ? { ...chapter, notebooks } : null;
+                  })
+                  .filter(Boolean)
               }))
-              .filter((section) => section.chapters.length > 0)
+              .filter((section) => section.chapters.length > 0 || section.hiddenChapterCount > 0)
           }))
           .filter((library) => library.sections.length > 0);
 
@@ -5131,6 +5147,9 @@
                     `;
                   })
                   .join("");
+                const futureNoteHtml = section.hiddenChapterCount
+                  ? `<p class="chapter-future-note"><strong>この先にも教材があります</strong>後続の章は、前の章を完了すると順番に表示されます。</p>`
+                  : "";
 
                 return `
                   <section class="chapter-section" data-audience-section="${section.id}">
@@ -5138,6 +5157,7 @@
                     <p class="chapter-section-description">${escapeHtml(section.description)}</p>
                     <div class="chapter-section-stack">
                       ${chaptersHtml}
+                      ${futureNoteHtml}
                     </div>
                   </section>
                 `;
@@ -5340,8 +5360,8 @@
         const assistantStateLabel = state.loggedIn ? "有効" : "ログインで有効化";
         const isMobileHome = isCompactMobileView();
         const heroLead = isMobileHome
-          ? "学習履歴を確認して、次のノートへ移動できます。"
-          : "学習の進み具合を確認しながら、ノート学習を進められます。";
+          ? "次に開く教材と進捗だけを確認できます。"
+          : "次にやる教材、全体の進み具合、最近の履歴を一画面で確認できます。";
 
         const notebookMeta = new Map();
         chapters.forEach((chapter) => {
@@ -5358,9 +5378,6 @@
         const visitedNotebookIds = trackedNotebookIds.filter((id) => notebookMeta.has(id));
         const completedNotebookIds = visitedNotebookIds.filter((id) => Boolean(progressStore.notebooks[id]?.completed));
         const completedNotebookSet = new Set(completedNotebookIds);
-        const completedCount = completedNotebookIds.length;
-        const completionPercentRaw = notebookCount > 0 ? (completedCount / notebookCount) * 100 : 0;
-        const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
 
         const beginnerSection = notebookSections().find((section) => section.id === "beginner");
         const advancedSection = notebookSections().find((section) => section.id === "advanced");
@@ -5383,54 +5400,33 @@
           completedNotebookSet
         );
         const progressGroups = [beginnerProgress, advancedProgress, externalProgress].filter((group) => group.total > 0);
+        const totalLearningUnits = progressGroups.reduce((sum, group) => sum + group.total, 0);
+        const completedLearningUnits = progressGroups.reduce((sum, group) => sum + group.completed, 0);
+        const completionPercentRaw = totalLearningUnits > 0 ? (completedLearningUnits / totalLearningUnits) * 100 : 0;
+        const completionPercent = Math.max(0, Math.min(100, Math.round(completionPercentRaw)));
         const progressGroupsHtml = progressGroups
-          .map((group) => {
-            const chapterBars = group.chapterSummaries
-              .map(
-                (chapter) => `
-                  <article class="home-progress-chapter">
-                    <strong>${escapeHtml(chapter.title)}</strong>
-                    <span>${chapter.completed}/${chapter.total}${chapter.finalPassed ? " final" : ""}</span>
-                    <div class="home-progress-chapter-bar">
-                      <span style="width:${chapter.percent}%"></span>
-                    </div>
-                  </article>
-                `
-              )
-              .join("");
-
-            return `
-              <article class="home-progress-group glass-soft">
-                <div class="home-progress-group-header">
-                  <div>
-                    <strong>${escapeHtml(group.title)}</strong>
-                    <p>${escapeHtml(group.description)}</p>
-                  </div>
-                  <span class="home-progress-pill">${group.percent}%</span>
+          .map(
+            (group) => {
+              const remaining = Math.max(0, group.total - group.completed);
+              return `
+                <li class="home-path-item">
+                <div class="home-path-head">
+                  <strong>${escapeHtml(group.title)}</strong>
+                  <span>${group.completed}/${group.total}</span>
                 </div>
-                <div class="home-progress-bar">
+                <p class="home-path-copy">${escapeHtml(group.description)}</p>
+                <div class="home-path-bar" aria-hidden="true">
                   <span style="width:${group.percent}%"></span>
                 </div>
-                <div class="home-progress-group-stats">
-                  <article class="home-progress-stat">
-                    <span class="home-progress-stat-label">Completed</span>
-                    <span class="home-progress-stat-value">${group.completed}/${group.total}</span>
-                  </article>
-                  <article class="home-progress-stat">
-                    <span class="home-progress-stat-label">Chapters</span>
-                    <span class="home-progress-stat-value">${group.chapterCount}</span>
-                  </article>
-                  <article class="home-progress-stat">
-                    <span class="home-progress-stat-label">Remaining</span>
-                    <span class="home-progress-stat-value">${Math.max(0, group.total - group.completed)}</span>
-                  </article>
+                <div class="home-path-foot">
+                  <span>進捗</span>
+                  <strong>${group.percent}%</strong>
+                  <span>残り ${remaining}</span>
                 </div>
-                <div class="home-progress-chapters">
-                  ${chapterBars}
-                </div>
-              </article>
+              </li>
             `;
-          })
+            }
+          )
           .join("");
 
         const recentNotebookHtml = visitedNotebookIds
@@ -5462,82 +5458,67 @@
         const nextNotebookLabel = nextNotebook
           ? `${nextNotebook.title}`
           : "すべての教材を閲覧済みです";
+        const recentPanelHtml =
+          recentNotebookHtml || !isMobileHome
+            ? `
+              <section class="home-panel" aria-labelledby="home-recent-title">
+                <div class="home-panel-header">
+                  <h4 class="home-panel-title" id="home-recent-title">最近開いた教材</h4>
+                  <p class="home-panel-copy">直近の履歴からすぐに戻れます。</p>
+                </div>
+                ${
+                  recentNotebookHtml
+                    ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
+                    : '<p class="home-empty-copy">まだ履歴がありません。最初の教材を開くとここに表示されます。</p>'
+                }
+              </section>
+            `
+            : "";
 
         el.notebookContent.innerHTML = `
           <section class="home-stage ${isMobileHome ? "home-stage-mobile" : ""}">
-            <section class="home-hero-shell glass-soft">
-              <div class="home-hero-top">
-                <div>
-                  <p class="home-kicker">${isMobileHome ? "Noema Mobile Learning" : "Noema Learning Hub"}</p>
-                  <h3 class="home-title">教材トップ</h3>
-                  <p class="home-lead">${heroLead}</p>
+            <section class="home-hero-shell">
+              <div>
+                <p class="home-kicker">${isMobileHome ? "Noema Mobile" : "Noema Learning Hub"}</p>
+                <h3 class="home-title">教材トップ</h3>
+                <p class="home-lead">${heroLead}</p>
+                <div class="home-primary-actions">
+                  <button class="button" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
                 </div>
-                <div class="home-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
               </div>
-              <section class="home-dashboard-grid">
-                <article class="home-progress-card glass-soft">
-                  <div class="home-progress-ring" style="--progress:${completionPercent}">
-                    <span>${completionPercent}%</span>
+              <aside class="home-summary-panel" aria-label="学習進捗">
+                <div class="home-summary-head">
+                  <div>
+                    <span class="home-summary-label">Progress</span>
+                    <strong class="home-summary-value">${completionPercent}%</strong>
                   </div>
-                  <div class="home-progress-meta">
-                    <strong>進捗率</strong>
-                    <p>${completedCount}/${notebookCount} notebooks completed</p>
-                  </div>
-                </article>
-                <article class="home-section-progress-card glass-soft">
-                  <div class="home-section-progress-title">
-                    <strong>学習マップ</strong>
-                    <span>${chapterCount} sections</span>
-                  </div>
-                  <div class="home-section-progress-list">
-                    ${progressGroups.map((group) => {
-                      return `
-                        <article class="home-section-progress-item">
-                          <div class="home-section-progress-head">
-                            <strong>${escapeHtml(group.title)}</strong>
-                            <span>${group.completed}/${group.total}</span>
-                          </div>
-                          <div class="home-section-progress-track">
-                            <span class="home-section-progress-fill" style="width:${group.percent}%"></span>
-                          </div>
-                        </article>
-                      `;
-                    }).join("")}
-                  </div>
-                </article>
+                  <p class="home-summary-meta">${completedLearningUnits}/${totalLearningUnits || notebookCount} 完了</p>
+                </div>
+                <div class="home-summary-bar" style="--progress:${completionPercent}%">
+                  <span></span>
+                </div>
+                <div class="home-summary-next">
+                  <span>Next</span>
+                  <strong>${escapeHtml(nextNotebookLabel)}</strong>
+                </div>
+              </aside>
+            </section>
+
+            <ul class="home-stats" aria-label="教材概要">
+              <li class="home-stat"><strong>${chapterCount}</strong><span>Sections</span></li>
+              <li class="home-stat"><strong>${notebookCount}</strong><span>Notebooks</span></li>
+              <li class="home-stat"><strong>${escapeHtml(assistantStateLabel)}</strong><span>Assistant</span></li>
+            </ul>
+
+            <section class="home-content-grid">
+              <section class="home-panel" aria-labelledby="home-path-title">
+                <div class="home-panel-header">
+                  <h4 class="home-panel-title" id="home-path-title">学習パス</h4>
+                  <p class="home-panel-copy">大きな区分ごとの完了数と進捗率をまとめています。次に進む教材は上のボタンから開けます。</p>
+                </div>
+                ${progressGroupsHtml ? `<ul class="home-path-list">${progressGroupsHtml}</ul>` : '<p class="home-empty-copy">教材カタログを読み込み中です。</p>'}
               </section>
-              <section class="home-progress-groups">
-                ${progressGroupsHtml}
-              </section>
-              <div class="home-metrics">
-                <article class="home-metric">
-                  <span class="home-metric-label">Sections</span>
-                  <span class="home-metric-value">${chapterCount}</span>
-                </article>
-                <article class="home-metric">
-                  <span class="home-metric-label">Notebooks</span>
-                  <span class="home-metric-value">${notebookCount}</span>
-                </article>
-                <article class="home-metric">
-                  <span class="home-metric-label">Assistant</span>
-                  <span class="home-metric-value home-metric-value-status">${assistantStateLabel}</span>
-                </article>
-              </div>
-              <section class="home-insight-grid">
-                <article class="home-insight-card glass-soft">
-                  <span class="home-insight-label">Next Notebook</span>
-                  <strong class="home-insight-title">${escapeHtml(nextNotebookLabel)}</strong>
-                  <button class="button home-recent-continue" type="button" data-home-action="start" ${firstNotebookId ? "" : "disabled"}>${nextNotebook ? "続きを学習する" : "最初の教材を開く"}</button>
-                </article>
-                <article class="home-insight-card glass-soft">
-                  <span class="home-insight-label">Recent Activity</span>
-                  ${
-                    recentNotebookHtml
-                      ? `<ul class="home-recent-list">${recentNotebookHtml}</ul>`
-                      : '<p class="home-insight-copy">まだ進捗データがありません。最初の教材を開くと履歴が表示されます。</p>'
-                  }
-                </article>
-              </section>
+              ${recentPanelHtml}
             </section>
           </section>
         `;
@@ -6385,6 +6366,7 @@
             }
           }
           stabilizeInlineMath(el.notebookContent);
+          await applyGlossaryTerms(el.notebookContent);
           state.sectionIds = extractSectionIds(el.notebookContent);
           state.activeSection = state.sectionIds[0] || "intro";
           renderHeader();
@@ -7008,6 +6990,181 @@
 
       function renderRichTextWithLineBreaks(source) {
         return renderInlineRichText(source).replace(/\n/g, "<br>");
+      }
+
+      function normalizeGlossaryEntries(rawEntries) {
+        if (!Array.isArray(rawEntries)) return [];
+        return rawEntries
+          .map((entry, index) => {
+            const item = entry && typeof entry === "object" ? entry : {};
+            const term = String(item.term || "").trim();
+            if (!term) return null;
+            const aliases = Array.isArray(item.aliases)
+              ? item.aliases.map((alias) => String(alias || "").trim()).filter(Boolean)
+              : [];
+            const labels = Array.from(new Set([term, ...aliases])).sort((a, b) => b.length - a.length);
+            return {
+              id: String(item.id || `term-${index}`),
+              term,
+              labels,
+              description: String(item.description || "").trim(),
+              math: Array.isArray(item.math)
+                ? item.math.map((value) => String(value || "").trim()).filter(Boolean)
+                : String(item.math || "").trim()
+                  ? [String(item.math || "").trim()]
+                  : []
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.labels[0].length - a.labels[0].length);
+      }
+
+      async function loadGlossaryEntries() {
+        if (!glossaryPromise) {
+          glossaryPromise = fetch(GLOSSARY_URL, { cache: "no-cache" })
+            .then(async (response) => {
+              if (!response.ok) return [];
+              return normalizeGlossaryEntries(await response.json());
+            })
+            .catch(() => []);
+        }
+        return glossaryPromise;
+      }
+
+      function isGlossaryExcludedNode(node) {
+        const parent = node && node.parentElement;
+        if (!parent) return true;
+        return Boolean(
+          parent.closest(
+            "script,style,textarea,pre,code,a,button,select,input,option,math,svg,.katex,.glossary-term,.assessment-panel"
+          )
+        );
+      }
+
+      function isAsciiWordChar(ch) {
+        return /[A-Za-z0-9_]/.test(String(ch || ""));
+      }
+
+      function isGlossaryMatchBoundary(text, start, length, label) {
+        if (!/^[A-Za-z0-9_ -]+$/.test(label)) return true;
+        return !isAsciiWordChar(text[start - 1]) && !isAsciiWordChar(text[start + length]);
+      }
+
+      function findGlossaryMatch(text, entries, startIndex) {
+        const lowerText = text.toLocaleLowerCase();
+        let best = null;
+        for (const entry of entries) {
+          for (const label of entry.labels) {
+            const lowerLabel = label.toLocaleLowerCase();
+            let index = lowerText.indexOf(lowerLabel, startIndex);
+            while (index >= 0 && !isGlossaryMatchBoundary(text, index, label.length, label)) {
+              index = lowerText.indexOf(lowerLabel, index + 1);
+            }
+            if (index < 0) continue;
+            if (!best || index < best.index || (index === best.index && label.length > best.label.length)) {
+              best = { entry, label, index };
+            }
+          }
+        }
+        return best;
+      }
+
+      function annotateGlossaryTextNode(textNode, entries) {
+        const text = textNode.nodeValue || "";
+        if (!text.trim()) return;
+        let cursor = 0;
+        const fragment = document.createDocumentFragment();
+        let changed = false;
+
+        while (cursor < text.length) {
+          const match = findGlossaryMatch(text, entries, cursor);
+          if (!match) break;
+          if (match.index > cursor) {
+            fragment.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+          }
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "glossary-term";
+          button.dataset.glossaryId = match.entry.id;
+          button.textContent = text.slice(match.index, match.index + match.label.length);
+          fragment.appendChild(button);
+          cursor = match.index + match.label.length;
+          changed = true;
+        }
+
+        if (!changed) return;
+        if (cursor < text.length) {
+          fragment.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+        textNode.replaceWith(fragment);
+      }
+
+      async function applyGlossaryTerms(container) {
+        const entries = await loadGlossaryEntries();
+        if (!entries.length || !container) return;
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            return isGlossaryExcludedNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        const textNodes = [];
+        while (walker.nextNode()) {
+          textNodes.push(walker.currentNode);
+        }
+        textNodes.forEach((node) => annotateGlossaryTextNode(node, entries));
+      }
+
+      function removeActiveGlossaryTooltip() {
+        if (activeGlossaryTooltip) {
+          activeGlossaryTooltip.remove();
+          activeGlossaryTooltip = null;
+        }
+        document.querySelectorAll(".glossary-term.is-active").forEach((node) => node.classList.remove("is-active"));
+      }
+
+      function positionGlossaryTooltip(trigger, tooltip) {
+        const rect = trigger.getBoundingClientRect();
+        const gap = 8;
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let left = rect.left;
+        let top = rect.bottom + gap;
+        if (left + tooltipRect.width > window.innerWidth - 14) {
+          left = Math.max(14, window.innerWidth - tooltipRect.width - 14);
+        }
+        if (top + tooltipRect.height > window.innerHeight - 14) {
+          top = Math.max(14, rect.top - tooltipRect.height - gap);
+        }
+        tooltip.style.left = `${Math.max(14, left)}px`;
+        tooltip.style.top = `${Math.max(14, top)}px`;
+      }
+
+      async function showGlossaryTooltip(trigger) {
+        const glossaryId = trigger && trigger.dataset ? String(trigger.dataset.glossaryId || "") : "";
+        if (!glossaryId) return;
+        const entries = await loadGlossaryEntries();
+        const entry = entries.find((item) => item.id === glossaryId);
+        if (!entry) return;
+
+        removeActiveGlossaryTooltip();
+        trigger.classList.add("is-active");
+        const tooltip = document.createElement("div");
+        tooltip.className = "glossary-tooltip";
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.innerHTML = `
+          <strong class="glossary-tooltip-title">${escapeHtml(entry.term)}</strong>
+          ${entry.description ? `<p class="glossary-tooltip-copy">${escapeHtmlWithLineBreaks(entry.description)}</p>` : ""}
+          ${
+            entry.math.length
+              ? `<div class="glossary-tooltip-math">${entry.math.map((tex) => `<div>\\[${escapeHtml(tex)}\\]</div>`).join("")}</div>`
+              : ""
+          }
+        `;
+        document.body.appendChild(tooltip);
+        activeGlossaryTooltip = tooltip;
+        positionGlossaryTooltip(trigger, tooltip);
+        await renderMathFallback(tooltip);
+        positionGlossaryTooltip(trigger, tooltip);
       }
 
       function normalizeCodeLanguage(raw) {
@@ -7649,6 +7806,34 @@
         syncChatFabState();
       }
 
+      function startSidebarResize(event) {
+        if (window.innerWidth <= 960 || state.sidebarCollapsed) return;
+        state.sidebarResizing = true;
+        state.sidebarStartX = event.clientX;
+        state.sidebarStartWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width")) || 300;
+        document.body.style.userSelect = "none";
+      }
+
+      function onSidebarResize(event) {
+        if (!state.sidebarResizing) return;
+        const diff = event.clientX - state.sidebarStartX;
+        const rawWidth = state.sidebarStartWidth + diff;
+        if (rawWidth <= SIDEBAR_CLOSE_THRESHOLD) {
+          document.documentElement.style.setProperty("--sidebar-width", `${SIDEBAR_MIN_WIDTH}px`);
+          setSidebarOpen(false);
+          stopSidebarResize();
+          return;
+        }
+        const next = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, rawWidth));
+        document.documentElement.style.setProperty("--sidebar-width", `${next}px`);
+      }
+
+      function stopSidebarResize() {
+        if (!state.sidebarResizing) return;
+        state.sidebarResizing = false;
+        document.body.style.userSelect = "";
+      }
+
       function startResize(event) {
         if (window.innerWidth <= 960 || !state.chatOpen) return;
         state.resizing = true;
@@ -7755,6 +7940,7 @@
       }
 
       async function init() {
+        setSidebarOpen(true);
         updateAuthState();
         renderMessages();
 
@@ -7791,6 +7977,10 @@
       el.sidebarSearch.addEventListener("input", function (event) {
         state.query = event.target.value || "";
         renderSidebar();
+      });
+
+      el.sidebarExpand.addEventListener("click", function () {
+        setSidebarOpen(true);
       });
 
       el.brandHome.addEventListener("click", function (event) {
@@ -8022,13 +8212,67 @@
         }
       });
 
+      el.notebookContent.addEventListener("mouseover", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        if (trigger && el.notebookContent.contains(trigger)) {
+          void showGlossaryTooltip(trigger);
+        }
+      });
+
+      el.notebookContent.addEventListener("mouseout", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        const related = event.relatedTarget;
+        if (!trigger || !el.notebookContent.contains(trigger)) return;
+        if (related && related.closest && related.closest(".glossary-tooltip")) return;
+        removeActiveGlossaryTooltip();
+      });
+
+      el.notebookContent.addEventListener("focusin", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        if (trigger && el.notebookContent.contains(trigger)) {
+          void showGlossaryTooltip(trigger);
+        }
+      });
+
+      el.notebookContent.addEventListener("click", function (event) {
+        const trigger = event.target.closest ? event.target.closest(".glossary-term") : null;
+        if (!trigger || !el.notebookContent.contains(trigger)) return;
+        event.preventDefault();
+        void showGlossaryTooltip(trigger);
+      });
+
+      document.addEventListener("pointerdown", function (event) {
+        const target = event.target;
+        if (
+          target &&
+          target.closest &&
+          (target.closest(".glossary-tooltip") || target.closest(".glossary-term"))
+        ) {
+          return;
+        }
+        removeActiveGlossaryTooltip();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          removeActiveGlossaryTooltip();
+        }
+      });
+
+      window.addEventListener("scroll", removeActiveGlossaryTooltip, true);
+
+      el.sidebarResizer.addEventListener("mousedown", startSidebarResize);
       el.resizer.addEventListener("mousedown", startResize);
+      window.addEventListener("mousemove", onSidebarResize);
       window.addEventListener("mousemove", onResize);
+      window.addEventListener("mouseup", stopSidebarResize);
       window.addEventListener("mouseup", stopResize);
+      window.addEventListener("mouseleave", stopSidebarResize);
       window.addEventListener("mouseleave", stopResize);
 
       window.addEventListener("resize", function () {
         if (window.innerWidth <= 960) {
+          setSidebarOpen(true);
           el.resizer.classList.remove("visible");
           if (state.chatOpen) {
             openMobileChatOverlay();

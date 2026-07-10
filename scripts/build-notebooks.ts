@@ -8,7 +8,7 @@ import {
   NOTEBOOK_HIGHLIGHT_PUBLIC_DIR,
   NOTEBOOK_KATEX_PUBLIC_DIR,
   NOTEBOOK_PUBLIC_DIR,
-  listNotebookSourceFiles
+  resolveNotebookSourcePath
 } from "../src/lib/notebook-artifacts";
 
 async function clearNotebookOutputArtifacts() {
@@ -268,18 +268,15 @@ async function main() {
   await fs.access(NOTEBOOK_CATALOG_SOURCE_PATH);
   const notebookMetaMap = await buildNotebookMetaMap();
 
-  const notebookFiles = await listNotebookSourceFiles();
-
-  for (const sourcePath of notebookFiles) {
+  for (const [notebookId, pageMeta] of notebookMetaMap) {
+    const sourcePath = await resolveNotebookSourcePath(notebookId);
     const raw = await fs.readFile(sourcePath, "utf8");
     const notebook = JSON.parse(raw) as NotebookFile;
     const canonicalNotebook = canonicalizeNotebookFile(notebook);
-    const baseName = path.parse(sourcePath).name;
     const htmlFragment = notebookToHtml(canonicalNotebook);
-    const pageMeta = notebookMetaMap.get(baseName) || { title: baseName };
-    const html = wrapNotebookHtml(pageMeta, htmlFragment, `/notebooks/${baseName}.html`);
-    const htmlOutputPath = path.join(NOTEBOOK_PUBLIC_DIR, `${baseName}.html`);
-    const ipynbOutputPath = path.join(NOTEBOOK_PUBLIC_DIR, `${baseName}.ipynb`);
+    const html = wrapNotebookHtml(pageMeta, htmlFragment, `/notebooks/${notebookId}.html`);
+    const htmlOutputPath = path.join(NOTEBOOK_PUBLIC_DIR, `${notebookId}.html`);
+    const ipynbOutputPath = path.join(NOTEBOOK_PUBLIC_DIR, `${notebookId}.ipynb`);
 
     await fs.writeFile(htmlOutputPath, html, "utf8");
     await fs.writeFile(ipynbOutputPath, `${JSON.stringify(canonicalNotebook, null, 2)}\n`, "utf8");

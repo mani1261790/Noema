@@ -1,4 +1,4 @@
-# Noema System Architecture (Current)
+# Noema システムアーキテクチャ（現行）
 
 最終更新: 2026-04-27  
 このドキュメントは、現行リポジトリ実装（`src/`, `public/`, `scripts/`, `infra/`）に合わせた構成を示します。
@@ -6,7 +6,7 @@
 ## 1. 全体構成
 
 ```text
-[Learner Browser]
+[学習者のブラウザ]
   ├─ Next.js app (src/app)
   │    ├─ /               : ランディング
   │    ├─ /learn          : 教材一覧
@@ -16,13 +16,13 @@
   └─ Static app (public/index.html)
        └─ ノートブック閲覧 + 学習UI + 認証導線
 
-[Content]
+[コンテンツ]
   ├─ content/notebooks/**/*.ipynb
   ├─ content/assessments/notebook-checks/*.json
   ├─ content/assessments/chapter-finals/*.json
   └─ content/catalog.json
 
-[Build scripts]
+[ビルドスクリプト]
   ├─ scripts/build-notebooks.ts
   └─ scripts/sync-notebooks-aws.ts
 

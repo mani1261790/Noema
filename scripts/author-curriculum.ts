@@ -101,7 +101,9 @@ const QUALITY_MAX_ROUNDS = 6;
 
 const AUTHORING_SYSTEM_PROMPT = `あなたは初学者向け長編教材の著者．ユーザーの指定テーマを、学習者がつまずく順序を基準に再構成し、直観的理解から形式的理解へ段階的に導く．説明は具体例を中心に行い、専門用語や記号は必ず文脈の中で導入する．比喩は多用しすぎないこと．
 文章は箇条書きを最小限に抑え、読み物として連続した段落で構成する．ただし、本当に必要な場合には箇条書きを使っても良い．出力の冒頭に目次は不要で、自由に本文を執筆してよい．各章は理解が積み上がるようにつなげ、唐突な飛躍や前提の省略を避けること．
-体裁は左揃えのプレーンテキスト・またはコードとし、コピー＆ペーストで崩れにくい見た目を保つ．全面的にコードも説明に取り入れ、内容の理解にコードも用いるようにすること．主な対象分野はプログラミングだが、理解を助ける範囲で分野横断を許可する．その場合、できる限り説明を丁寧にし、数式などは必ず高校生でも理解できるようなものにすること．ただし対象分野については、初学者が理解できる程度の説明で構わない．
+体裁は左揃えのプレーンテキスト・またはコードとし、コピー＆ペーストで崩れにくい見た目を保つ．説明だけで済ませず、概念を確認できる短い実行コードを節ごとに置くこと．一方で、コードの羅列にせず、各セルの前後に「何を見ればよいか」「結果をどう読むか」を自然な本文で示すこと．
+主な対象分野はプログラミングだが、理解を助ける範囲で分野横断を許可する．その場合、できる限り説明を丁寧にし、数式などは必ず高校生でも理解できるようなものにすること．
+「この教材」「このノートブック」「この章の目的」といった制作側の説明を本文に出さないこと．到達点は「十分です」で弱く閉じず、読者が次に判断・実装・検証できる行動として書くこと．
 初学者（高校〜学部初年相当）を想定し、可能な限り長く、体系的に書く。`;
 
 function md(text: string): NotebookCell {
@@ -2041,14 +2043,22 @@ function runExpertCodexReview(
     findings.push("主要語彙の不足を補強");
   }
 
-  const metaWords = ["システムプロンプト", "AUTHORING_SYSTEM_PROMPT", "生成してください"];
+  const metaReplacements = [
+    ["システムプロンプト", "学習の指針"],
+    ["AUTHORING_SYSTEM_PROMPT", "学習の指針"],
+    ["生成してください", "確認してください"],
+    ["この教材", "この節"],
+    ["本教材", "この節"],
+    ["このノートブック", "この節"],
+    ["この notebook", "この節"]
+  ] as const;
   for (const cell of nb.cells) {
     if (cell.cell_type !== "markdown") continue;
     let textCell = cell.source.join("\n");
     let localChanged = false;
-    for (const word of metaWords) {
-      if (textCell.includes(word)) {
-        textCell = textCell.replaceAll(word, "学習の指針");
+    for (const [from, to] of metaReplacements) {
+      if (textCell.includes(from)) {
+        textCell = textCell.replaceAll(from, to);
         localChanged = true;
       }
     }
@@ -2141,7 +2151,42 @@ async function buildNotebookOne(
   ]);
 }
 
+async function countExistingNotebooks(dir: string): Promise<number> {
+  const entries = await fs
+    .readdir(dir, { withFileTypes: true })
+    .catch(() => [] as import("fs").Dirent[]);
+  let count = 0;
+  for (const entry of entries) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      count += await countExistingNotebooks(entryPath);
+    } else if (entry.isFile() && entry.name.endsWith(".ipynb")) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+// Safety guard: this script OVERWRITES every catalog notebook's .ipynb with procedurally
+// generated content. Once real curriculum exists, that destroys authored bodies. Refuse to
+// run when notebooks are already present unless the overwrite is explicitly requested.
+async function assertSafeToAuthor() {
+  const forced = process.argv.includes("--force") || process.env.ALLOW_CURRICULUM_RESET === "1";
+  if (forced) return;
+  const existing = await countExistingNotebooks(notebooksDir);
+  if (existing > 0) {
+    throw new Error(
+      `Refusing to author: ${existing} notebook(s) already exist under content/notebooks.\n` +
+        "This script overwrites each catalog notebook's .ipynb with generated content, destroying\n" +
+        "authored bodies. The .ipynb files are now the source of truth. If you really intend a full\n" +
+        "regeneration, re-run with:\n" +
+        "  npm run author:curriculum -- --force   (or ALLOW_CURRICULUM_RESET=1)"
+    );
+  }
+}
+
 async function main() {
+  await assertSafeToAuthor();
   await fs.mkdir(notebooksDir, { recursive: true });
   await fs.mkdir(reportsDir, { recursive: true });
 
