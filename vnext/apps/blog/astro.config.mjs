@@ -7,7 +7,12 @@ export default defineConfig({
   devToolbar: { enabled: false },
   // The npm dev script opts into Astro's native server. Production builds
   // always include the Cloudflare adapter.
-  adapter: process.env.NOEMA_LOCAL_DEV === "1" ? undefined : cloudflare(),
+  adapter: process.env.NOEMA_LOCAL_DEV === "1"
+    ? undefined
+    : cloudflare({
+        configPath: "./wrangler.jsonc",
+        imageService: "compile"
+      }),
   markdown: {
     shikiConfig: {
       theme: "github-light"

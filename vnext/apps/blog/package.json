@@ -8,7 +8,9 @@
     "check": "astro check",
     "build": "astro build",
     "build:preview": "NOEMA_PREVIEW_CONTENT=1 astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config dist/server/wrangler.json",
+    "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.1.2",

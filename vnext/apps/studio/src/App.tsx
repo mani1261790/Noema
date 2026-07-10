@@ -13,6 +13,7 @@ import {
 type Pane = "settings" | "write" | "preview";
 
 const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
 const initialArticle: ArticleFrontmatter = {
   ...previewArticles[0],
   status: "draft",
@@ -79,7 +80,7 @@ export function App() {
           <span>Noema <strong>Studio</strong></span>
         </div>
         <div className="studio-header__actions">
-          <a className="dads-button" data-size="md" data-type="outline" href="http://localhost:4321" target="_blank" rel="noreferrer">
+          <a className="dads-button" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
             公開サイトを確認 <Icon name="external" />
           </a>
           <button className="dads-button" data-size="md" data-type="solid-fill" type="button" onClick={download} disabled={!validation.success}>

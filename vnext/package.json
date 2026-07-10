@@ -13,6 +13,12 @@
     "dev:blog": "npm run dev --workspace @noema/blog",
     "dev:studio": "npm run dev --workspace @noema/studio",
     "check": "npm run check --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "deploy:dry-run": "npm run deploy:dry-run --workspace @noema/blog && npm run deploy:dry-run --workspace @noema/studio",
+    "deploy:blog": "npm run deploy --workspace @noema/blog",
+    "deploy:studio": "npm run deploy --workspace @noema/studio"
+  },
+  "devDependencies": {
+    "wrangler": "^4.110.0"
   }
 }
