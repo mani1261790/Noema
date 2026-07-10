@@ -300,4 +300,4 @@ APIキーや認証情報をIssue、PR本文、リポジトリへ貼り付けな�
 
 - [Noema UIスタイルガイド](./noema-style-guide.md)
 - [デジタル庁デザインシステムの固定コピー](./references/digital-agency-design-system/README.md)
-- [現行システムアーキテクチャ](./system-architecture.md)
+- [退役したAWS版と復元資料](https://github.com/mani1261790/Noema-AWS-Archive)
