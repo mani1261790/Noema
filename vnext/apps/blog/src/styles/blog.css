@@ -128,7 +128,8 @@ astro-dev-toolbar {
 }
 
 .article-list {
-  border-top: 1px solid var(--noema-border);
+  display: grid;
+  gap: 1rem;
 }
 
 .article-row {
@@ -137,8 +138,17 @@ astro-dev-toolbar {
   align-items: center;
   gap: 1.5rem;
   min-height: 7rem;
-  padding-block: 0.75rem;
-  border-bottom: 1px solid var(--noema-border);
+  padding: 0.75rem 1rem;
+  background: var(--color-neutral-white);
+  border: 1px solid var(--color-neutral-solid-gray-500);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.article-row:hover,
+.article-row:focus-within {
+  border-color: var(--color-key-900);
+  background: var(--color-primitive-blue-50);
 }
 
 .article-row__visual {
@@ -147,6 +157,8 @@ astro-dev-toolbar {
   height: 4.5rem;
   color: var(--color-key-700);
   border: 1px solid var(--color-key-500);
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
 .article-row__visual svg {
