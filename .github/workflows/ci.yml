@@ -19,11 +19,11 @@ jobs:
           cache: npm
           cache-dependency-path: vnext/package-lock.json
 
-      - name: Install vNext dependencies
+      - name: Install current application dependencies
         working-directory: vnext
         run: npm ci
 
-      - name: Validate vNext
+      - name: Validate current application
         working-directory: vnext
         run: npm run check
 

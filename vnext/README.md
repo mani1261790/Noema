@@ -1,31 +1,55 @@
-# Noema vNext
+# Noemaアプリケーション
 
-Markdown技術ブログとしての現行実装です。退役したNext.js/AWS版は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
+Markdown技術ブログとしての現行実装です。directory名の`vnext`は旧AWS版と並行開発していた時期の名残ですが、現在はこちらが唯一のNoema applicationです。
 
-Node.js 22.18以降が必要です。GitHub ActionsではNode.js 24を使用します。
+退役したNext.js/AWS版は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
 
-## 構成
+## 必要環境
 
-- `apps/blog`: Astroで構築する公開ブログと記事アシスタントAPI
-- `apps/studio`: React/Viteで構築するMarkdown執筆エディター
-- `packages/content`: 記事スキーマ、Markdown出力、UI確認用fixture
-- `packages/ui`: Noema共通スタイルとデジタル庁公式コードスニペット由来CSS
-- `design/concepts`: 実装照合に使用する画面コンセプト
+- Node.js 22.18以上
+- npm
+- Cloudflareへ手動deployする場合だけWrangler login
+
+GitHub ActionsではNode.js 24とWrangler 4.110.0を使います。
+
+## Workspace
+
+- `apps/blog`: Astroで構築するブログと記事アシスタントAPI
+- `apps/studio`: React/Viteで構築するMarkdown執筆Studio
+- `apps/public-gate`: `noema-learn.uk`を非公開に保つWorker
+- `packages/content`: 記事schema、Markdown出力、UI確認用fixture
+- `packages/ui`: Noema共通styleとデジタル庁公式snippet由来CSS
+- `design/concepts`: 実装照合用の画面concept
+- `design/qa`: browser確認時のcapture
 
 ## ローカル開発
 
 ```bash
 cd vnext
-npm install
+npm ci
 npm run dev:blog
+```
+
+別terminalでStudioを起動します。
+
+```bash
+cd vnext
 npm run dev:studio
 ```
 
-ブログは既定で `http://localhost:4321`、Studioは `http://localhost:4322` で起動します。
+- ブログ: `http://localhost:4321`
+- Studio: `http://localhost:4322`
 
-公開記事は `apps/blog/src/content/articles` にMarkdownとして配置します。現在のコンテンツは空で、開発時に表示される記事はすべて `packages/content` のUI確認用fixtureです。`/preview/article` は `noindex` です。
+記事は`apps/blog/src/content/articles`へMarkdownで配置します。現在の公開記事は空で、開発画面は`packages/content`のfixtureを使います。`/preview/article`は`noindex`です。
 
-記事アシスタントは読者自身のOpenAI APIキーをリクエスト中だけ使用します。APIキーと会話は永続化せず、OpenAI Responses APIへ転送するリクエストにも `store: false` を指定しています。Studioは生成したMarkdownをローカルへ書き出すだけで、公開処理は行いません。
+## 記事アシスタント
+
+読者自身のOpenAI API keyをrequest中だけ使います。
+
+- API keyと会話を永続化しない
+- OpenAI Responses APIへ`store: false`を指定する
+- 表示中の記事だけをcontextにする
+- StudioはMarkdownをlocal fileへ書き出し、直接公開しない
 
 ## 検証
 
@@ -36,73 +60,33 @@ npm run build
 npm run deploy:dry-run
 ```
 
-`deploy:dry-run` はCloudflareへの認証やアップロードを行わず、ブログとStudioのWorker成果物を検証します。
+`deploy:dry-run`はCloudflareへ認証・uploadせず、公開ゲート、ブログ、StudioのWorker成果物を検証します。
 
-## Cloudflareへのデプロイ
+## Cloudflare開発環境
 
-ブログはCloudflare Workers上のAstro SSRアプリ、Studioは静的アセットを配信する別Workerとしてデプロイします。開発中は公開ゲートWorkerが本番ホスト名を遮断します。
+| 対象 | Worker | URL |
+| --- | --- | --- |
+| ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
+| Studio | `noema-studio` | <https://noema-studio.mani1261790.workers.dev> |
+| 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（404） |
 
-- ブログWorker: `noema-learn`
-- 開発確認URL: `https://noema-learn.mani1261790.workers.dev`
-- 公開ゲートWorker: `noema-public-gate`
-- 非公開ルート: `noema-learn.uk/*`（全リクエストへ404）
-- Studio Worker: `noema-studio`（MVPでは`workers.dev` URLのみ）
-- CloudflareアカウントID: `2ea670c2a6ff28e248ef084adf095e8b`
+ブログとStudioは`workers.dev`で確認します。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
 
-既存DNSレコードは変更しません。CloudflareのWorker Routeがリクエストを先に受け、公開ゲートだけを実行します。ブログ本体はWorker Routeを持たず、`workers.dev`でのみ確認できます。
+## 自動デプロイ
 
-> [!IMPORTANT]
-> 開発中のブログは公開しません。`noema-learn.uk`への全リクエストは `noema-public-gate` が404を返します。公開時は、公開承認を得た別PRでゲートからRouteを外し、ブログWorkerへRouteを移します。
+`.github/workflows/deploy-development.yml`が`develop`の最新versionを3 Workerへdeployします。
 
-### ローカルから手動デプロイ
+- `develop`へのpushだけがtrigger
+- `main`、feature branch、Pull Requestはdeployしない
+- 手動実行も`develop` refだけを許可
+- GitHub Environment `development`でもbranchを`develop`に限定
+- repository secret `CLOUDFLARE_API_TOKEN`を使用
+- 公開ゲート、ブログ、Studioの順にdeploy
 
-最初に対象のCloudflareアカウントへログインし、dry-runを通します。
-
-```bash
-cd vnext
-npx wrangler login
-npx wrangler whoami
-npm ci
-npm run check
-npm run deploy:dry-run
-```
-
-本番へ反映する場合だけ、次を実行します。
-
-```bash
-cd vnext
-npm run deploy:gate
-VITE_PUBLIC_SITE_URL=https://noema-learn.uk npm run deploy:blog
-VITE_PUBLIC_SITE_URL=https://noema-learn.uk npm run deploy:studio
-```
-
-ゲートを最初にデプロイすることで、後続のブログ・Studioデプロイ中も本番ホスト名を公開しません。通常はGitHub Actionsを使用し、手動デプロイは障害対応または初期確認に限定します。
-
-### GitHub Actionsの初期設定
-
-`.github/workflows/deploy-vnext.yml` は`main`へのvNext変更時、または手動実行時に公開ゲート、ブログ、Studioの3 Workerをデプロイします。GitHubの`production` environmentへ `CLOUDFLARE_API_TOKEN` を一度だけ登録してください。
-
-1. Cloudflare Dashboardでプロフィールメニューから **My Profile** → **API Tokens** を開く。
-2. **Create Token** を選び、**Edit Cloudflare Workers** テンプレートを使用する。
-3. Account Resourcesを `Mani1261790@gmail.com's Account`、Zone Resourcesを `noema-learn.uk` に限定する。
-4. Tokenを作成し、その場で表示される値をコピーする。Tokenはチャットやリポジトリへ貼り付けない。
-5. リポジトリ直下で次を実行し、非表示の入力欄へTokenを貼り付けてEnterを押す。
-
-```bash
-gh secret set CLOUDFLARE_API_TOKEN --env production
-gh secret list --env production
-```
-
-最後のコマンドで名前だけが表示されれば設定完了です。GitHub Web UIを使う場合は、**Settings** → **Environments** → **production** → **Environment secrets** → **Add environment secret** から同じ名前で登録します。
-
-### ロールバック
-
-ゲートの誤変更は `noema-public-gate` のデプロイ履歴からロールバックします。公開を再開する場合はDashboardで直接変更せず、公開承認を得たPRでRouteの所有をゲートからブログへ移します。
-
-Studioへ独自ドメインを付ける場合は、後続作業で `studio.noema-learn.uk` とCloudflare Accessを設定します。
+設定、確認、手動実行、rollbackの正は [開発環境デプロイ](../docs/development-deployment.md) を参照してください。
 
 ## デザイン資料
 
-- `design/concepts`: 実装前に作成した画面コンセプト
-- `design/qa`: 実ブラウザで確認した画面キャプチャ
+- `design/concepts`: 実装前の画面concept
+- `design/qa`: 実browserで確認したcapture
 - `DESIGN_CONFORMANCE.md`: デジタル庁デザインシステムとの対応表
