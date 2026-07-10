@@ -45,6 +45,14 @@ jobs:
         working-directory: vnext
         run: npm run build
 
+      - name: Keep public hostname closed
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: vnext/apps/public-gate
+          wranglerVersion: "4.110.0"
+          command: deploy --config wrangler.jsonc
+
       - name: Deploy blog Worker
         uses: cloudflare/wrangler-action@v3
         with:
