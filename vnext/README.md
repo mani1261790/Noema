@@ -42,6 +42,8 @@ npm run dev:studio
 
 記事は`apps/blog/src/content/articles`へMarkdownで配置します。現在の公開記事は空で、開発画面は`packages/content`のfixtureを使います。`/preview/article`は`noindex`です。
 
+記事はLevel 1「体験する」、Level 2「活用する」を共通入口とし、その先を開発・理論の並列トラックへ分けます。frontmatterには`stage`、`track`、`outcome`、`prerequisites`を設定します。正は [コンテンツ・学習導線仕様](../docs/content-strategy.md) を参照してください。
+
 ## 記事アシスタント
 
 読者自身のOpenAI API keyをrequest中だけ使います。

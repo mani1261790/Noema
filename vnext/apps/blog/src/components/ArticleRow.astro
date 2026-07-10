@@ -1,5 +1,5 @@
 ---
-import type { ArticlePreview } from "@noema/content";
+import { stageLabels, stageShortLabels, trackLabels, type ArticlePreview } from "@noema/content";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
@@ -11,13 +11,17 @@ const { article } = Astro.props;
 
 <article class="article-row">
   <div class="article-row__visual" aria-hidden="true">
-    <svg viewBox="0 0 120 64">
-      <path d="M13 20h28v20H13zM79 20h28v20H79zM41 30h38M55 21l10 9-10 9" fill="none" stroke="currentColor" stroke-width="2" />
-    </svg>
+    <span>{stageShortLabels[article.stage]}</span>
+    {article.track !== "common" && <strong>{trackLabels[article.track].replace("トラック", "")}</strong>}
   </div>
   <div class="article-row__body">
     <h3><a href={article.href}>{article.title}</a></h3>
     <p>{article.excerpt}</p>
+    <ul class="article-row__meta" aria-label="記事情報">
+      <li>{stageLabels[article.stage]}</li>
+      {article.track !== "common" && <li>{trackLabels[article.track]}</li>}
+      <li>読了 {article.estimatedMinutes}分</li>
+    </ul>
   </div>
   <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
   <span class="article-row__arrow"><ArrowIcon /></span>

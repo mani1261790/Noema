@@ -6,7 +6,9 @@ import {
   previewArticleMarkdown,
   previewArticles,
   serializeArticle,
+  stageLabels,
   topicLabels,
+  trackLabels,
   type ArticleFrontmatter
 } from "@noema/content";
 
@@ -60,6 +62,14 @@ export function App() {
     setFrontmatter((current) => ({ ...current, [key]: value }));
   };
 
+  const updateStage = (stage: ArticleFrontmatter["stage"]) => {
+    setFrontmatter((current) => ({
+      ...current,
+      stage,
+      track: stage === "advanced" ? (current.track === "common" ? "development" : current.track) : "common"
+    }));
+  };
+
   const download = () => {
     const result = articleFrontmatterSchema.safeParse(frontmatter);
     if (!result.success) return;
@@ -109,21 +119,36 @@ export function App() {
           <Field id="article-description" label="概要" hint={`${frontmatter.description.length} / 180文字`}>
             <textarea id="article-description" className="dads-textarea" rows={4} value={frontmatter.description} onChange={(event) => update("description", event.target.value)} />
           </Field>
+          <Field id="article-outcome" label="この記事でできるようになること" hint={`${frontmatter.outcome.length} / 180文字`}>
+            <textarea id="article-outcome" className="dads-textarea" rows={3} value={frontmatter.outcome} onChange={(event) => update("outcome", event.target.value)} />
+          </Field>
           <Field id="article-slug" label="スラッグ" hint="半角英数字とハイフン">
             <input id="article-slug" className="dads-input-text" value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} />
           </Field>
           <div className="studio-field-row">
-            <Field id="article-difficulty" label="難易度">
-              <select id="article-difficulty" value={frontmatter.difficulty} onChange={(event) => update("difficulty", event.target.value as ArticleFrontmatter["difficulty"])}>
-                <option value="intro">はじめて</option>
-                <option value="basic">基礎</option>
-                <option value="advanced">発展</option>
+            <Field id="article-stage" label="学習段階">
+              <select id="article-stage" value={frontmatter.stage} onChange={(event) => updateStage(event.target.value as ArticleFrontmatter["stage"])}>
+                <option value="experience">{stageLabels.experience}</option>
+                <option value="practice">{stageLabels.practice}</option>
+                <option value="advanced">{stageLabels.advanced}</option>
               </select>
             </Field>
             <Field id="article-minutes" label="読了時間">
               <input id="article-minutes" className="dads-input-text" type="number" min="1" max="180" value={frontmatter.estimatedMinutes} onChange={(event) => update("estimatedMinutes", Number(event.target.value))} />
             </Field>
           </div>
+          <Field id="article-track" label="発展トラック" hint="Level 1・2では共通、発展では開発か理論を選びます">
+            <select
+              id="article-track"
+              value={frontmatter.track}
+              disabled={frontmatter.stage !== "advanced"}
+              onChange={(event) => update("track", event.target.value as ArticleFrontmatter["track"])}
+            >
+              {frontmatter.stage !== "advanced" && <option value="common">{trackLabels.common}</option>}
+              <option value="development">{trackLabels.development}</option>
+              <option value="theory">{trackLabels.theory}</option>
+            </select>
+          </Field>
           <Field id="article-topic" label="トピック">
             <select id="article-topic" value={frontmatter.topics[0]} onChange={(event) => update("topics", [event.target.value])}>
               {Object.entries(topicLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -131,6 +156,9 @@ export function App() {
           </Field>
           <Field id="article-tags" label="タグ" hint="カンマ区切り">
             <input id="article-tags" className="dads-input-text" value={frontmatter.tags.join(", ")} onChange={(event) => update("tags", event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean))} />
+          </Field>
+          <Field id="article-prerequisites" label="前提知識" hint="不要な場合は空欄、複数ある場合はカンマ区切り">
+            <input id="article-prerequisites" className="dads-input-text" value={frontmatter.prerequisites.join(", ")} onChange={(event) => update("prerequisites", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} />
           </Field>
 
           <section className="studio-validation" aria-live="polite">
@@ -156,9 +184,18 @@ export function App() {
             <span className="studio-preview__status">自動更新</span>
           </div>
           <article>
-            <div className="studio-preview__meta"><span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? frontmatter.topics[0]}</span><span>約{frontmatter.estimatedMinutes}分</span></div>
+            <div className="studio-preview__meta">
+              <span>{stageLabels[frontmatter.stage]}</span>
+              {frontmatter.track !== "common" && <span>{trackLabels[frontmatter.track]}</span>}
+              <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? frontmatter.topics[0]}</span>
+              <span>約{frontmatter.estimatedMinutes}分</span>
+            </div>
             <h1>{frontmatter.title || "タイトル未入力"}</h1>
             <p className="studio-preview__lead">{frontmatter.description}</p>
+            <section className="studio-preview__outcome">
+              <strong>この記事でできるようになること</strong>
+              <p>{frontmatter.outcome || "未入力"}</p>
+            </section>
             <div className="studio-preview__body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
           </article>
         </section>
