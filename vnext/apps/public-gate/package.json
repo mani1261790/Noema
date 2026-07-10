@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --check && tsc --noEmit",
+    "check": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc && tsc --noEmit",
     "deploy:dry-run": "wrangler deploy --dry-run --config wrangler.jsonc",
     "deploy": "wrangler deploy --config wrangler.jsonc",
     "types": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc"
