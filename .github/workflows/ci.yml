@@ -23,6 +23,10 @@ jobs:
         working-directory: vnext
         run: npm ci
 
+      - name: Audit dependencies
+        working-directory: vnext
+        run: npm audit --audit-level=high
+
       - name: Validate current application
         working-directory: vnext
         run: npm run check

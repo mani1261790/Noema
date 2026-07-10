@@ -20,9 +20,6 @@ jobs:
     if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment:
-      name: development
-      url: https://noema-learn.mani1261790.workers.dev
     env:
       VITE_PUBLIC_SITE_URL: https://noema-learn.mani1261790.workers.dev
     steps:
