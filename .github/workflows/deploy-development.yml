@@ -1,27 +1,30 @@
-name: Deploy Noema vNext to Cloudflare
+name: Deploy Noema development preview to Cloudflare
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - "vnext/**"
-      - ".github/workflows/deploy-vnext.yml"
+      - ".github/workflows/deploy-development.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-noema-vnext-production
-  cancel-in-progress: false
+  group: deploy-noema-development
+  cancel-in-progress: true
 
 jobs:
   deploy:
+    if: ${{ github.ref == 'refs/heads/develop' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: production
+    environment:
+      name: development
+      url: https://noema-learn.mani1261790.workers.dev
     env:
-      VITE_PUBLIC_SITE_URL: https://noema-learn.uk
+      VITE_PUBLIC_SITE_URL: https://noema-learn.mani1261790.workers.dev
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -37,11 +40,11 @@ jobs:
         working-directory: vnext
         run: npm ci
 
-      - name: Validate vNext
+      - name: Validate current application
         working-directory: vnext
         run: npm run check
 
-      - name: Build vNext
+      - name: Build current application
         working-directory: vnext
         run: npm run build
 

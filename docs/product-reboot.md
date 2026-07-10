@@ -1,10 +1,14 @@
-# Noema プロダクト再設計仕様（vNext）
+# Noemaプロダクト再設計仕様
 
-ステータス: 方針確定・実装前
+ステータス: MVP実装・Cloudflare開発環境運用中
 
 決定日: 2026-07-10
 
-対象: 現行の notebook 学習サービスを置き換える次期 Noema
+最終更新: 2026-07-11
+
+対象: Markdown技術ブログとしての現行Noema
+
+旧notebook/AWS版の退役、新applicationのCloudflare deployment、`develop`限定preview運用まで完了している。本書では実装済みのMVPと、公開までに残る目標を区別して記載する。
 
 ## 1. 要約
 
@@ -191,18 +195,16 @@ MVPのプロバイダーは1つに絞る。推奨は OpenAI API から開始し�
 
 ## 8. `noema-learn.uk` の移行
 
-2026-07-10時点で、このドメインのネームサーバーはすでにCloudflareで管理されている。一方、公開レスポンスのオリジンはCloudFront/S3である。したがって、ドメイン移管ではなく、同じCloudflare zone内で配信先をCloudFrontからWorker Custom Domainへ切り替える。
+2026-07-11時点でAWS版とCloudFrontは退役済みであり、ドメインのネームサーバーはCloudflareが管理している。現行applicationはCloudflare Workersへdeployされ、開発中の確認には`workers.dev`を使う。
 
-切替手順は次の通りとする。
+現在の配信状態:
 
-1. 新サイトを `*.workers.dev` または preview hostname で検証
-2. Cloudflare上で `noema-learn.uk` の現行DNS・キャッシュ設定を記録
-3. WorkerへCustom Domainを設定
-4. smoke test、リンク、SEO、チャット、モバイル表示を確認
-5. 監視期間後にAWSリソースを棚卸し
-6. 保持が必要なデータとログを退避してからAWSを廃止
+- `develop`の最新versionをブログとStudioの`workers.dev` URLへ自動deployする
+- `main`やfeature branchからはdeployしない
+- `noema-learn.uk/*`は`noema-public-gate`が404を返す
+- ブログWorkerは本番hostnameのrouteをまだ持たない
 
-Cloudflareへの切替前にAWSを削除しない。ロールバック先を残した状態で本番切替を行う。
+公開切替は、SEO、security、mobile、記事アシスタントを受入確認した後、公開ゲートからrouteを外してブログWorkerへcustom domainまたはrouteを移す別作業とする。開発preview workflowを本番公開へ流用しない。
 
 ## 9. 現行機能の扱い
 
@@ -222,7 +224,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 
 ## 10. 実装ロードマップ
 
-### Phase 0: 仕様とデザイン基盤
+### Phase 0: 仕様とデザイン基盤（完了）
 
 - 本仕様を合意する
 - デジタル庁デザインシステムを固定する
@@ -231,7 +233,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 
 完了条件: 画面一覧、コンテンツ形式、Cloudflare構成、未決定事項がレビュー済み。
 
-### Phase 1: 読めるブログシェル
+### Phase 1: 読めるブログシェル（MVP完了）
 
 - 新しいAstroアプリを作成
 - トップ、記事一覧、記事詳細、テーマ、固定ページを実装
@@ -241,7 +243,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 
 完了条件: fixture記事で主要画面を検証でき、適用可能なデジタル庁デザインシステムβ版 v2.16.0の規範に対する既知の不適合が0件である。
 
-### Phase 2: 記事アシスタント
+### Phase 2: 記事アシスタント（MVP完了）
 
 - APIキー入力UI
 - WorkerのLLM中継
@@ -250,7 +252,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 
 完了条件: キーを保存せず、表示中の記事についてのみ対話できる。
 
-### Phase 3: エディター
+### Phase 3: エディター（初期実装完了・公開連携は未実装）
 
 - 独立エディターUI
 - Cloudflare Access
@@ -260,7 +262,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 
 完了条件: ブラウザから記事PRを作成し、レビュー後に公開できる。
 
-### Phase 4: 本番切替とAWS廃止
+### Phase 4: Cloudflare移行（AWS廃止完了・一般公開は未実施）
 
 - Cloudflare preview環境で受入確認
 - `noema-learn.uk` をWorkerへ切替
@@ -268,7 +270,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 - AWSデータ棚卸し、退避、リソース廃止
 - AWS依存コードと運用文書の削除
 
-完了条件: 本番がCloudflareだけで稼働し、AWS課金対象が意図通り廃止されている。
+AWS廃止とCloudflare開発環境への移行は完了した。残る完了条件は、公開受入確認後に`noema-learn.uk`をブログWorkerへ接続することである。
 
 ## 11. 未決定事項
 
@@ -281,7 +283,7 @@ Cloudflareへの切替前にAWSを削除しない。ロールバック先を残�
 | 記事画像 | 初期はGit管理、後にR2 | R2を先に入れるとアップロード・削除・参照整合性が必要 |
 | ブランドカラー | デジタル庁の青系をNoema用に定義 | 完全コピーではなくNoemaの識別性が必要 |
 | 既存URLのリダイレクト | 主要URLのみ新サイトへ301 | notebook単位の移行先がないため一律対応方針が必要 |
-| 旧学習データ | 原則移行しない | Cognito/DynamoDBに残る個人データの保持・削除方針が必要 |
+| 旧学習データ | 解決済み: 移行せず削除 | 件数と退役結果はAWS Archiveに記録済み |
 
 ## 12. 外部アクセスが必要になる時点
 
@@ -289,15 +291,17 @@ Phase 0とローカルUI実装には追加アクセスは不要である。Cloud
 
 - 対象zoneを含むCloudflareアカウントへのアクセス
 - Workers、R2、Access、DNSを操作できるCloudflare API tokenまたは対話ログイン
-- GitHub Actionsでデプロイする場合は `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID`
+- GitHub Actionsでデプロイする場合はrepository secret `CLOUDFLARE_API_TOKEN`
 - `studio.noema-learn.uk` で利用するCloudflare Accessの許可ユーザー/メールドメイン
 - エディターからPRを作る段階ではGitHub Appの作成権限
-- AWS廃止段階では現行AWSアカウントの読み取り権限と、確認後の削除権限
+
+AWS版は退役済みのため、現行Noemaの開発にAWS accessは不要である。
 
 APIキーや認証情報をIssue、PR本文、リポジトリへ貼り付けない。
 
 ## 13. 参照
 
 - [Noema UIスタイルガイド](./noema-style-guide.md)
+- [開発環境デプロイ](./development-deployment.md)
 - [デジタル庁デザインシステムの固定コピー](./references/digital-agency-design-system/README.md)
 - [退役したAWS版と復元資料](https://github.com/mani1261790/Noema-AWS-Archive)
