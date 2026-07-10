@@ -1,14 +1,12 @@
 node_modules
-.next
 .env
 .env.local
 coverage
 .DS_Store
-tsconfig.tsbuildinfo
-infra/cdk.out
-infra/dist
 .tmp
-public/pyodide
-public/highlight
-public/katex
-public/notebooks
+
+# Local build artifacts left by the retired notebook/AWS application.
+/.next/
+/infra/
+/public/
+/tsconfig.tsbuildinfo

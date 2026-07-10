@@ -1,6 +1,6 @@
 # Noema vNext
 
-Markdown技術ブログへ移行する新実装です。現行のNext.js/AWSアプリを動かしたまま検証できるよう、ルートアプリとは分離しています。
+Markdown技術ブログとしての現行実装です。退役したNext.js/AWS版は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
 
 Node.js 22.18以降が必要です。GitHub ActionsではNode.js 24を使用します。
 
@@ -97,7 +97,7 @@ gh secret list --env production
 
 ### ロールバック
 
-ゲートの誤変更は `noema-public-gate` のデプロイ履歴からロールバックします。公開を再開する場合はDashboardで直接変更せず、公開承認を得たPRでRouteの所有をゲートからブログへ移します。DNSレコードとAWS側のリソースは、移行完了を確認するまで削除しません。
+ゲートの誤変更は `noema-public-gate` のデプロイ履歴からロールバックします。公開を再開する場合はDashboardで直接変更せず、公開承認を得たPRでRouteの所有をゲートからブログへ移します。
 
 Studioへ独自ドメインを付ける場合は、後続作業で `studio.noema-learn.uk` とCloudflare Accessを設定します。
 
