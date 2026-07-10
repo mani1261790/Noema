@@ -1,0 +1,24 @@
+---
+import type { ArticlePreview } from "@noema/content";
+import ArrowIcon from "./ArrowIcon.astro";
+
+interface Props {
+  article: ArticlePreview;
+}
+
+const { article } = Astro.props;
+---
+
+<article class="article-row">
+  <div class="article-row__visual" aria-hidden="true">
+    <svg viewBox="0 0 120 64">
+      <path d="M13 20h28v20H13zM79 20h28v20H79zM41 30h38M55 21l10 9-10 9" fill="none" stroke="currentColor" stroke-width="2" />
+    </svg>
+  </div>
+  <div class="article-row__body">
+    <h3><a href={article.href}>{article.title}</a></h3>
+    <p>{article.excerpt}</p>
+  </div>
+  <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
+  <span class="article-row__arrow"><ArrowIcon /></span>
+</article>

@@ -1,0 +1,62 @@
+name: Deploy Noema vNext to Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "vnext/**"
+      - ".github/workflows/deploy-vnext.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-noema-vnext-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      VITE_PUBLIC_SITE_URL: https://noema-learn.uk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: vnext/package-lock.json
+
+      - name: Install dependencies
+        working-directory: vnext
+        run: npm ci
+
+      - name: Validate vNext
+        working-directory: vnext
+        run: npm run check
+
+      - name: Build vNext
+        working-directory: vnext
+        run: npm run build
+
+      - name: Deploy blog Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: vnext/apps/blog
+          wranglerVersion: "4.110.0"
+          command: deploy --config dist/server/wrangler.json
+
+      - name: Deploy Studio Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: vnext/apps/studio
+          wranglerVersion: "4.110.0"
+          command: deploy --config wrangler.jsonc

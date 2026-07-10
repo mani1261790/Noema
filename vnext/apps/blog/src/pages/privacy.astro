@@ -1,0 +1,16 @@
+---
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+export const prerender = true;
+---
+
+<BaseLayout title="プライバシー | Noema">
+  <div class="noema-reading-container prose-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "プライバシー" }]} />
+    <h1>プライバシー</h1>
+    <h2>記事アシスタントのAPIキー</h2>
+    <p>入力されたOpenAI APIキーは、質問への回答を作成するリクエスト中だけ使用します。Cookie、ブラウザストレージ、Noemaのデータベース、ログには保存しません。</p>
+    <h2>質問と回答</h2>
+    <p>NoemaはMVP段階で質問履歴を永続化しません。質問、記事文脈、直前の会話は回答作成のためOpenAI APIへ送信されます。</p>
+  </div>
+</BaseLayout>

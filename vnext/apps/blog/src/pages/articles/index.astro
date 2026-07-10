@@ -1,0 +1,68 @@
+---
+import { previewArticles, topicLabels } from "@noema/content";
+import ArticleRow from "../../components/ArticleRow.astro";
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+export const prerender = true;
+const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
+const articles = showPreview ? previewArticles : [];
+---
+
+<BaseLayout title="記事を読む | Noema" description="Noemaの技術記事をテーマや難易度から探せます。">
+  <div class="noema-container listing-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "記事を読む" }]} />
+    <header class="page-heading">
+      <h1>記事を読む</h1>
+      <p>専門的な技術を、直感と具体例から理解できる記事を掲載します。</p>
+    </header>
+
+    <form id="search" class="article-search" role="search">
+      <div>
+        <label for="article-keyword">キーワード</label>
+        <input id="article-keyword" name="keyword" type="search" placeholder="記事タイトルや概要を検索" />
+      </div>
+      <div>
+        <label for="article-topic">テーマ</label>
+        <select id="article-topic" name="topic">
+          <option value="">すべてのテーマ</option>
+          {Object.entries(topicLabels).map(([slug, label]) => <option value={slug}>{label}</option>)}
+        </select>
+      </div>
+      <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">絞り込む</button>
+    </form>
+
+    <p class="article-count" data-article-count>{articles.length}件の記事</p>
+    <div class="article-list" data-article-list>
+      {articles.map((article) => <div data-article-item data-title={`${article.title} ${article.description}`} data-topic={article.topics[0]}><ArticleRow article={article} /></div>)}
+    </div>
+    <div class="noema-empty-state" data-empty-state hidden={articles.length > 0}>
+      <h2>該当する記事はありません</h2>
+      <p>条件を変えて、もう一度お試しください。</p>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>(".article-search");
+  const keyword = document.querySelector<HTMLInputElement>("#article-keyword");
+  const topic = document.querySelector<HTMLSelectElement>("#article-topic");
+  const items = [...document.querySelectorAll<HTMLElement>("[data-article-item]")];
+  const count = document.querySelector<HTMLElement>("[data-article-count]");
+  const empty = document.querySelector<HTMLElement>("[data-empty-state]");
+
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = keyword?.value.trim().toLocaleLowerCase("ja") ?? "";
+    const selectedTopic = topic?.value ?? "";
+    let visible = 0;
+    for (const item of items) {
+      const matchesText = !query || (item.dataset.title ?? "").toLocaleLowerCase("ja").includes(query);
+      const matchesTopic = !selectedTopic || item.dataset.topic === selectedTopic;
+      item.hidden = !(matchesText && matchesTopic);
+      if (!item.hidden) visible += 1;
+    }
+    if (count) count.textContent = `${visible}件の記事`;
+    if (empty) empty.hidden = visible > 0;
+  });
+</script>

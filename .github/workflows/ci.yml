@@ -6,6 +6,31 @@ on:
     branches: [main]
 
 jobs:
+  vnext-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: vnext/package-lock.json
+
+      - name: Install vNext dependencies
+        working-directory: vnext
+        run: npm ci
+
+      - name: Validate vNext
+        working-directory: vnext
+        run: npm run check
+
+      - name: Verify Cloudflare deployment bundles
+        working-directory: vnext
+        run: npm run deploy:dry-run
+
   app-checks:
     runs-on: ubuntu-latest
     steps:

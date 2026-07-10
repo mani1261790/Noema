@@ -1,0 +1,33 @@
+---
+interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: Crumb[];
+}
+
+const { items } = Astro.props;
+---
+
+<nav class="dads-breadcrumb" aria-labelledby="breadcrumb-label">
+  <span id="breadcrumb-label" class="dads-u-visually-hidden">現在位置</span>
+  <ol class="dads-breadcrumb__list">
+    {items.map((item, index) => {
+      const current = index === items.length - 1;
+      return (
+        <li class="dads-breadcrumb__item" aria-current={current ? "page" : undefined}>
+          {item.href && !current ? <a class="dads-breadcrumb__link" href={item.href}>{item.label}</a> : item.label}
+          {!current && (
+            <span class="dads-breadcrumb__separator">
+              <svg class="dads-breadcrumb__separator-icon" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M4.5 11 4 10.5l4-4-4-4 .5-.5L9 6.5 4.5 11Z" fill="currentcolor" />
+              </svg>
+            </span>
+          )}
+        </li>
+      );
+    })}
+  </ol>
+</nav>

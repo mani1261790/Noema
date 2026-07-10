@@ -4,9 +4,18 @@
 
 ## 最初に読む
 
-1. [system-architecture.md](./system-architecture.md)
-2. [openapi.yaml](./openapi.yaml)
-3. [operations/dev-loop.md](./operations/dev-loop.md)
+1. [product-reboot.md](./product-reboot.md): notebook学習サービスからMarkdown技術ブログへ移行するvNext仕様
+2. [noema-style-guide.md](./noema-style-guide.md): デジタル庁デザインシステムをNoemaへ適用するルール
+3. [system-architecture.md](./system-architecture.md): 移行前の現行構成
+4. [operations/dev-loop.md](./operations/dev-loop.md)
+
+## vNext
+
+- [product-reboot.md](./product-reboot.md): プロダクト、記事、エディター、記事アシスタント、Cloudflare移行
+- [noema-style-guide.md](./noema-style-guide.md): UI原則、利用コンポーネント、アクセシビリティ受入条件
+- [references/digital-agency-design-system](./references/digital-agency-design-system/README.md): 公式ガイドラインのバージョン固定コピー
+
+vNextは実装前の目標仕様である。下記の既存文書は、移行が完了するまで現行サービスの説明として残す。
 
 ## 実装リファレンス
 

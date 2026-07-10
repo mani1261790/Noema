@@ -1,0 +1,45 @@
+---
+import "@noema/ui/styles";
+import "../styles/blog.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+}
+
+const {
+  title = "Noema — 技術を、わかる言葉で。",
+  description = "専門的な技術を、直感と具体例から非技術者にもわかる言葉で解説する技術ブログです。",
+  noindex = false
+} = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn.uk");
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex,nofollow" />}
+    <link rel="canonical" href={canonical} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="noema-skip-link" href="#main-content">本文へ移動</a>
+    <SiteHeader currentPath={Astro.url.pathname} />
+    <main id="main-content">
+      <slot />
+    </main>
+    <SiteFooter />
+  </body>
+</html>
