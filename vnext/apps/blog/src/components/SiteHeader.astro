@@ -1,0 +1,71 @@
+---
+interface Props {
+  currentPath: string;
+}
+
+const { currentPath } = Astro.props;
+const navItems = [
+  { href: "/articles", label: "記事を読む" },
+  { href: "/topics/control-engineering", label: "テーマから探す" },
+  { href: "/about", label: "Noemaについて" }
+];
+
+const isCurrent = (href: string) => currentPath === href || currentPath.startsWith(`${href}/`);
+---
+
+<header class="site-header">
+  <div class="noema-container site-header__inner">
+    <a class="site-header__brand" href="/" aria-label="Noema ホーム">Noema</a>
+
+    <nav class="site-header__nav" aria-label="メインメニュー">
+      <ul class="site-header__nav-list">
+        {navItems.map((item) => (
+          <li>
+            <a class:list={["site-header__nav-link", { "is-current": isCurrent(item.href) }]} href={item.href} aria-current={isCurrent(item.href) ? "page" : undefined}>
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+
+    <a class="site-header__search" href="/articles#search">
+      <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m20.5 19.8-4.8-4.8a7.5 7.5 0 1 0-.7.7l4.8 4.8.7-.7ZM4 10a6 6 0 1 1 12 0 6 6 0 0 1-12 0Z" fill="currentColor" />
+      </svg>
+      サイト内検索
+    </a>
+
+    <button class="dads-hamburger-menu-button site-header__menu-button" type="button" aria-controls="mobile-navigation" aria-expanded="false">
+      <svg class="dads-hamburger-menu-button__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 18V16H21V18H3ZM3 13V11H21V13H3ZM3 8V6H21V8H3Z" fill="currentcolor" />
+      </svg>
+      <span data-menu-label>メニュー</span>
+    </button>
+  </div>
+
+  <nav id="mobile-navigation" class="site-header__mobile-nav" aria-label="モバイルメニュー" hidden>
+    <div class="noema-container">
+      <ul>
+        {navItems.map((item) => (
+          <li><a href={item.href} aria-current={isCurrent(item.href) ? "page" : undefined}>{item.label}</a></li>
+        ))}
+        <li><a href="/articles#search">サイト内検索</a></li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>(".site-header__menu-button");
+  const navigation = document.querySelector<HTMLElement>("#mobile-navigation");
+  const label = button?.querySelector<HTMLElement>("[data-menu-label]");
+
+  button?.addEventListener("click", () => {
+    if (!navigation) return;
+    const nextOpen = navigation.hidden;
+    navigation.hidden = !nextOpen;
+    button.setAttribute("aria-expanded", String(nextOpen));
+    if (label) label.textContent = nextOpen ? "閉じる" : "メニュー";
+  });
+</script>

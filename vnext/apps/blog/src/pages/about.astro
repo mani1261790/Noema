@@ -1,0 +1,22 @@
+---
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+export const prerender = true;
+---
+
+<BaseLayout title="Noemaについて | Noema">
+  <div class="noema-reading-container prose-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "Noemaについて" }]} />
+    <h1>Noemaについて</h1>
+    <p class="prose-page__lead">Noemaは、専門的な技術を、専門外の人にもわかる言葉で届ける技術ブログです。</p>
+    <h2>編集方針</h2>
+    <ul>
+      <li>「何のための技術か」から説明します。</li>
+      <li>専門用語は隠さず、最初に日常語で意味を説明します。</li>
+      <li>直感、具体例、仕組み、出典の順で理解を支えます。</li>
+      <li>記事は人が執筆し、出典と更新日を明示します。</li>
+    </ul>
+    <h2>記事アシスタント</h2>
+    <p>記事ページでは、表示中の記事についてLLMへ質問できます。APIキーは読者自身が入力し、Noemaでは保存しません。</p>
+  </div>
+</BaseLayout>
