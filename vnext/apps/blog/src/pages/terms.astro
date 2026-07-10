@@ -1,0 +1,13 @@
+---
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+export const prerender = true;
+---
+
+<BaseLayout title="利用規約 | Noema">
+  <div class="noema-reading-container prose-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "利用規約" }]} />
+    <h1>利用規約</h1>
+    <p>このページは実装確認用の規約表示領域です。公開前に運営者が正式な規約を確認し、置き換えます。</p>
+  </div>
+</BaseLayout>
