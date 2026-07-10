@@ -6,11 +6,13 @@ interface Props {
 const { currentPath } = Astro.props;
 const navItems = [
   { href: "/articles", label: "記事を読む" },
-  { href: "/topics/control-engineering", label: "テーマから探す" },
+  { href: "/#learning-paths", label: "学び方を選ぶ" },
   { href: "/about", label: "Noemaについて" }
 ];
 
-const isCurrent = (href: string) => currentPath === href || currentPath.startsWith(`${href}/`);
+const isCurrent = (href: string) => href.startsWith("/#")
+  ? currentPath === "/"
+  : currentPath === href || currentPath.startsWith(`${href}/`);
 ---
 
 <header class="site-header">

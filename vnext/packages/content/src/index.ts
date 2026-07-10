@@ -1,28 +1,49 @@
 import { z } from "zod";
 
 export const articleStatusSchema = z.enum(["draft", "published", "archived"]);
-export const articleDifficultySchema = z.enum(["intro", "basic", "advanced"]);
+export const articleStageSchema = z.enum(["experience", "practice", "advanced"]);
+export const articleTrackSchema = z.enum(["common", "development", "theory"]);
 
-export const articleFrontmatterSchema = z.object({
-  title: z.string().trim().min(1).max(100),
-  description: z.string().trim().min(1).max(180),
-  slug: z
-    .string()
-    .trim()
-    .min(1)
-    .max(100)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slugは半角英数字とハイフンで入力してください"),
-  status: articleStatusSchema.default("draft"),
-  publishedAt: z.string().date().optional(),
-  updatedAt: z.string().date(),
-  authors: z.array(z.string().trim().min(1)).min(1),
-  topics: z.array(z.string().trim().min(1)).min(1),
-  tags: z.array(z.string().trim().min(1)).default([]),
-  difficulty: articleDifficultySchema,
-  estimatedMinutes: z.number().int().min(1).max(180),
-  heroImage: z.string().trim().nullable().default(null),
-  sources: z.array(z.string().url()).default([])
-});
+export const articleFrontmatterSchema = z
+  .object({
+    title: z.string().trim().min(1).max(100),
+    description: z.string().trim().min(1).max(180),
+    slug: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slugは半角英数字とハイフンで入力してください"),
+    status: articleStatusSchema.default("draft"),
+    publishedAt: z.string().date().optional(),
+    updatedAt: z.string().date(),
+    authors: z.array(z.string().trim().min(1)).min(1),
+    topics: z.array(z.string().trim().min(1)).min(1),
+    tags: z.array(z.string().trim().min(1)).default([]),
+    stage: articleStageSchema,
+    track: articleTrackSchema,
+    outcome: z.string().trim().min(1).max(180),
+    prerequisites: z.array(z.string().trim().min(1)).default([]),
+    estimatedMinutes: z.number().int().min(1).max(180),
+    heroImage: z.string().trim().nullable().default(null),
+    sources: z.array(z.string().url()).default([])
+  })
+  .superRefine((article, context) => {
+    if (article.stage === "advanced" && article.track === "common") {
+      context.addIssue({
+        code: "custom",
+        path: ["track"],
+        message: "発展記事は開発トラックまたは理論トラックを選んでください"
+      });
+    }
+    if (article.stage !== "advanced" && article.track !== "common") {
+      context.addIssue({
+        code: "custom",
+        path: ["track"],
+        message: "Level 1・2の記事は共通トラックにしてください"
+      });
+    }
+  });
 
 export type ArticleFrontmatter = z.infer<typeof articleFrontmatterSchema>;
 
@@ -33,46 +54,79 @@ export type ArticlePreview = ArticleFrontmatter & {
 };
 
 export const topicLabels = {
-  "artificial-intelligence": "人工知能",
-  "data-science": "データサイエンス",
-  algorithms: "アルゴリズム",
-  networks: "ネットワーク",
-  security: "セキュリティ",
-  hardware: "ハードウェア",
-  "control-engineering": "制御工学"
+  "ai-tools": "AIを使う",
+  "ai-making": "AIとつくる",
+  "knowledge-work": "知識と作業環境",
+  "development-foundations": "開発の基礎",
+  "ai-mechanisms": "AIの仕組み",
+  "math-theory": "数理と理論"
 } as const;
+
+export const stageLabels = {
+  experience: "Level 1・体験する",
+  practice: "Level 2・活用する",
+  advanced: "発展"
+} as const;
+
+export const stageShortLabels = {
+  experience: "Level 1",
+  practice: "Level 2",
+  advanced: "発展"
+} as const;
+
+export const trackLabels = {
+  common: "共通",
+  development: "開発トラック",
+  theory: "理論トラック"
+} as const;
+
+export const learningPaths = [
+  {
+    key: "experience",
+    eyebrow: "Level 1",
+    title: "体験する",
+    description: "AIで目に見える成果をつくり、まず可能性を実感します。",
+    href: "/articles?stage=experience"
+  },
+  {
+    key: "practice",
+    eyebrow: "Level 2",
+    title: "活用する",
+    description: "学習や制作にAIを取り入れ、自分の目的に合わせて使います。",
+    href: "/articles?stage=practice"
+  },
+  {
+    key: "development",
+    eyebrow: "発展",
+    title: "開発トラック",
+    description: "TerminalやGitから始め、AIと一緒に仕組みをつくります。",
+    href: "/articles?stage=advanced&track=development"
+  },
+  {
+    key: "theory",
+    eyebrow: "発展",
+    title: "理論トラック",
+    description: "LLMや機械学習が動く理由を、直感から深く理解します。",
+    href: "/articles?stage=advanced&track=theory"
+  }
+] as const;
 
 export const previewArticles: ArticlePreview[] = [
   {
-    title: "なぜフィードバックで機械は安定するのか",
-    description: "身近な温度調節を手がかりに、フィードバック制御の考え方を直感から理解します。",
-    excerpt: "制御の基本を、身近な例と図から解き明かします。",
-    slug: "why-feedback-stabilizes-machines",
+    title: "NotebookLMで自分専用の資料案内役をつくる",
+    description: "手元の資料を読み込ませ、知りたいことを質問する最初の体験を案内します。",
+    excerpt: "自分の資料だけをもとに質問できる体験から、AIの使いどころを見つけます。",
+    slug: "first-notebooklm-guide",
     status: "draft",
     publishedAt: "2026-07-10",
     updatedAt: "2026-07-10",
     authors: ["Noema編集部"],
-    topics: ["control-engineering"],
-    tags: ["フィードバック", "制御"],
-    difficulty: "intro",
-    estimatedMinutes: 12,
-    heroImage: null,
-    sources: [],
-    href: "/preview/article",
-    previewOnly: true
-  },
-  {
-    title: "AIはどこまで「理解」しているのか",
-    description: "言葉の意味とパターンの違いから、AIの理解を考えます。",
-    excerpt: "言葉の意味とパターンの違いを、やさしく整理します。",
-    slug: "how-ai-understands",
-    status: "draft",
-    publishedAt: "2026-07-09",
-    updatedAt: "2026-07-09",
-    authors: ["Noema編集部"],
-    topics: ["artificial-intelligence"],
-    tags: ["AI", "言語モデル"],
-    difficulty: "intro",
+    topics: ["ai-tools"],
+    tags: ["NotebookLM", "資料整理"],
+    stage: "experience",
+    track: "common",
+    outcome: "自分の資料を使ってNotebookLMへ質問できる",
+    prerequisites: [],
     estimatedMinutes: 10,
     heroImage: null,
     sources: [],
@@ -80,18 +134,63 @@ export const previewArticles: ArticlePreview[] = [
     previewOnly: true
   },
   {
-    title: "センサーが世界を数字に変えるまで",
-    description: "現実の変化がデータになるまでの仕組みを追います。",
-    excerpt: "計測のしくみと、データになるまでの流れを追います。",
-    slug: "how-sensors-digitize-the-world",
+    title: "Codexに小さなWebページを頼んでみる",
+    description: "開発経験がなくても、対話しながら小さなページを形にする流れを体験します。",
+    excerpt: "TerminalやGitの前に、Codexと一緒につくる感覚をつかみます。",
+    slug: "first-codex-web-page",
+    status: "draft",
+    publishedAt: "2026-07-09",
+    updatedAt: "2026-07-09",
+    authors: ["Noema編集部"],
+    topics: ["ai-making"],
+    tags: ["Codex", "Web制作"],
+    stage: "practice",
+    track: "common",
+    outcome: "Codexとの対話で小さなWebページを形にできる",
+    prerequisites: ["パソコンでファイルを保存できる"],
+    estimatedMinutes: 15,
+    heroImage: null,
+    sources: [],
+    href: "/preview/article",
+    previewOnly: true
+  },
+  {
+    title: "TerminalとGitは何をしているのか",
+    description: "コマンドを暗記する前に、開発環境で起きていることを全体像から理解します。",
+    excerpt: "AIと開発するときに避けて通れない道具を、役割から整理します。",
+    slug: "terminal-and-git-overview",
     status: "draft",
     publishedAt: "2026-07-08",
     updatedAt: "2026-07-08",
     authors: ["Noema編集部"],
-    topics: ["hardware"],
-    tags: ["センサー", "計測"],
-    difficulty: "intro",
-    estimatedMinutes: 8,
+    topics: ["development-foundations"],
+    tags: ["Terminal", "Git"],
+    stage: "advanced",
+    track: "development",
+    outcome: "TerminalとGitの役割を説明し、基本操作へ進める",
+    prerequisites: ["Level 2の記事を1本以上体験している"],
+    estimatedMinutes: 18,
+    heroImage: null,
+    sources: [],
+    href: "/preview/article",
+    previewOnly: true
+  },
+  {
+    title: "LLMはなぜ次の言葉を予測できるのか",
+    description: "文章をつくるAIの内側で何が起きているかを、数式の前に直感からたどります。",
+    excerpt: "確率、文脈、学習という三つの視点から、言語モデルの仕組みへ進みます。",
+    slug: "how-llms-predict-words",
+    status: "draft",
+    publishedAt: "2026-07-07",
+    updatedAt: "2026-07-07",
+    authors: ["Noema編集部"],
+    topics: ["ai-mechanisms"],
+    tags: ["LLM", "言語モデル"],
+    stage: "advanced",
+    track: "theory",
+    outcome: "LLMが文章を生成する基本的な考え方を説明できる",
+    prerequisites: ["AIチャットを使ったことがある"],
+    estimatedMinutes: 20,
     heroImage: null,
     sources: [],
     href: "/preview/article",
@@ -100,27 +199,21 @@ export const previewArticles: ArticlePreview[] = [
 ];
 
 export const previewArticleMarkdown = `
-## まず、身近な例から
+## この記事で試すこと
 
-エアコンやお風呂の追いだきなど、多くの機械は「ちょうどよい状態」を自動で保っています。たとえば、部屋の温度を26℃に設定すると、暑ければ冷やし、冷えすぎれば冷やす力を弱めます。
+手元にある短い資料をNotebookLMへ追加し、その資料について質問する流れを確認します。
 
-この繰り返しの調整こそが、フィードバックの基本的な考え方です。
+## 資料を用意する
 
-## フィードバックとは何か
+最初は、内容を自分で把握している資料を一つ選びます。回答が資料に沿っているかを、自分で確かめられるからです。
 
-フィードバックとは、出力の結果を観測し、その情報をもとに入力を調整するしくみです。
+## 質問して確かめる
 
-> **ここが大切**
->
-> フィードバックは過去の結果から未来を予測する「学習」ではなく、今の誤差を使って今すぐ調整するしくみです。
+要約だけでなく、「どこに書かれているか」「分からない言葉をどう説明できるか」まで質問します。
 
-## なぜ安定するのか
+## 次に進む
 
-目標との差を何度も測り、その差が小さくなる方向へ操作を調整することで、外乱があっても状態を目標へ戻せます。
-
-## まとめ
-
-フィードバックは、観測・比較・調整を繰り返して、対象を望ましい状態へ近づける考え方です。
+体験できたら、日々の学習や調査へ組み込むLevel 2の記事へ進みます。
 `;
 
 export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: string): string {
@@ -139,7 +232,10 @@ export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: stri
     "topics:",
     list(frontmatter.topics),
     ...(frontmatter.tags.length ? ["tags:", list(frontmatter.tags)] : ["tags: []"]),
-    `difficulty: ${quote(frontmatter.difficulty)}`,
+    `stage: ${quote(frontmatter.stage)}`,
+    `track: ${quote(frontmatter.track)}`,
+    `outcome: ${quote(frontmatter.outcome)}`,
+    ...(frontmatter.prerequisites.length ? ["prerequisites:", list(frontmatter.prerequisites)] : ["prerequisites: []"]),
     `estimatedMinutes: ${frontmatter.estimatedMinutes}`,
     `heroImage: ${frontmatter.heroImage ? quote(frontmatter.heroImage) : "null"}`,
     ...(frontmatter.sources.length ? ["sources:", list(frontmatter.sources)] : ["sources: []"]),

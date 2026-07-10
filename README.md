@@ -1,6 +1,6 @@
 # Noema
 
-Noemaは、専門的な技術を非技術者にも分かる形で届けるMarkdown技術ブログです。公開ブログ、Markdown執筆用Studio、表示中の記事だけを文脈に質問できるLLMアシスタントをCloudflare Workers上で開発しています。
+Noemaは、AIを使う最初の体験から、開発と理論の深い理解までを支える独立したMarkdown教材サービスです。公開ブログ、Markdown執筆用Studio、表示中の記事だけを文脈に質問できるLLMアシスタントをCloudflare Workers上で開発しています。
 
 旧notebook学習サービスとAWS実装は退役済みです。コード、教材、AWS CDK、復元手順、退役記録は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
 
@@ -76,6 +76,7 @@ npm run deploy:dry-run
 
 - [ドキュメント案内](docs/README.md)
 - [プロダクト再設計仕様](docs/product-reboot.md)
+- [コンテンツ・学習導線仕様](docs/content-strategy.md)
 - [開発環境デプロイ](docs/development-deployment.md)
 - [Noema UIスタイルガイド](docs/noema-style-guide.md)
 - [デジタル庁デザインシステム固定リファレンス](docs/references/digital-agency-design-system/README.md)

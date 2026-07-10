@@ -1,49 +1,64 @@
 ---
 import MarkdownIt from "markdown-it";
-import { previewArticles, previewArticleMarkdown } from "@noema/content";
+import { previewArticles, previewArticleMarkdown, stageLabels, topicLabels, trackLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
-import FeedbackDiagram from "../../components/FeedbackDiagram.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 
 export const prerender = true;
 const article = previewArticles[0];
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-const [firstSection, ...remainingSections] = previewArticleMarkdown.trim().split("## フィードバックとは何か");
-const firstHtml = md.render(firstSection);
-const remainingHtml = md.render(`## フィードバックとは何か${remainingSections.join("## フィードバックとは何か")}`);
-const tocItems = [
-  { href: "#身近な例", label: "まず、身近な例から" },
-  { href: "#フィードバック", label: "フィードバックとは何か" },
-  { href: "#安定", label: "なぜ安定するのか" },
-  { href: "#まとめ", label: "まとめ" }
-];
+const sectionIds = ["試すこと", "資料を用意", "質問する", "次に進む"];
+const sections = previewArticleMarkdown
+  .trim()
+  .split(/^## /m)
+  .filter(Boolean)
+  .map((section, index) => {
+    const [heading, ...body] = section.split("\n");
+    return { id: sectionIds[index] ?? `section-${index + 1}`, heading, html: md.render(body.join("\n").trim()) };
+  });
+const tocItems = sections.map((section) => ({ href: `#${section.id}`, label: section.heading }));
+const topic = article.topics[0];
+const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
 
 <BaseLayout title={`${article.title} | Noema`} description={article.description} noindex>
   <div class="preview-banner" role="note">UI確認用のfixture記事です。公開コンテンツではありません。</div>
   <div class="noema-container article-page">
     <div class="article-page__main">
-      <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "制御工学", href: "/topics/control-engineering" }, { label: article.title }]} />
+      <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
       <header class="article-header">
         <h1>{article.title}</h1>
         <p>{article.description}</p>
         <dl class="article-meta">
-          <div><dt class="noema-visually-hidden">難易度</dt><dd><span class="article-meta__level">入門</span></dd></div>
+          <div><dt class="noema-visually-hidden">学習段階</dt><dd><span class="article-meta__level">{stageLabels[article.stage]}</span></dd></div>
+          {article.track !== "common" && <div><dt class="noema-visually-hidden">発展トラック</dt><dd>{trackLabels[article.track]}</dd></div>}
           <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.estimatedMinutes}分</dd></div>
           <div><dt class="noema-visually-hidden">更新日</dt><dd><time datetime={article.updatedAt}>2026年7月10日</time></dd></div>
         </dl>
       </header>
 
+      <section class="article-learning-summary" aria-labelledby="preview-outcome-heading">
+        <h2 id="preview-outcome-heading">この記事でできるようになること</h2>
+        <p>{article.outcome}</p>
+        {article.prerequisites.length > 0 && (
+          <div>
+            <h3>読む前に知っておくこと</h3>
+            <ul>{article.prerequisites.map((item) => <li>{item}</li>)}</ul>
+          </div>
+        )}
+      </section>
+
       <ArticleToc items={tocItems} />
 
       <article class="article-body">
-        <div id="身近な例" set:html={firstHtml} />
-        <div id="フィードバック" set:html={remainingHtml.split('<h2>なぜ安定するのか</h2>')[0]} />
-        <FeedbackDiagram />
-        <div id="安定" set:html={`<h2>なぜ安定するのか</h2>${remainingHtml.split('<h2>なぜ安定するのか</h2>')[1]?.split('<h2>まとめ</h2>')[0] ?? ""}`} />
-        <div id="まとめ" set:html={`<h2>まとめ</h2>${remainingHtml.split('<h2>まとめ</h2>')[1] ?? ""}`} />
+        {sections.map((section) => (
+          <section id={section.id}>
+            <h2>{section.heading}</h2>
+            <div set:html={section.html} />
+          </section>
+        ))}
         <section class="article-sources" aria-labelledby="source-heading">
           <h2 id="source-heading">この記事の出典</h2>
           <p>UI確認用fixtureのため、実際の公開時には著者が確認した出典を掲載します。</p>

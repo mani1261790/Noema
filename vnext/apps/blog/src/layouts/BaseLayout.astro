@@ -11,8 +11,8 @@ interface Props {
 }
 
 const {
-  title = "Noema — 技術を、わかる言葉で。",
-  description = "専門的な技術を、直感と具体例から非技術者にもわかる言葉で解説する技術ブログです。",
+  title = "Noema — AIを、使うところから仕組みまで。",
+  description = "AIを使う最初の体験から、開発と理論の深い理解までを支える独立した教材サービスです。",
   noindex = false
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn.uk");
@@ -26,6 +26,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex,nofollow" />}
     <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

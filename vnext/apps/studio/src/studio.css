@@ -27,6 +27,7 @@ button, input, textarea, select { font: inherit; }
 .studio-field input, .studio-field textarea, .studio-field select { box-sizing: border-box; width: 100%; border: 1px solid #767676; border-radius: .25rem; background: #fff; color: #1a1a1a; padding: .65rem .75rem; }
 .studio-field textarea { resize: vertical; }
 .studio-field select { min-height: 2.75rem; }
+.studio-field select:disabled { color: #666; background: #f2f2f2; }
 .studio-field-row { display: grid; grid-template-columns: 1fr 7rem; gap: .75rem; }
 .studio-validation { margin-top: 1.5rem; padding: 1rem; background: #f2f3ff; border-left: 4px solid #0017c1; }
 .studio-validation h2 { display: flex; gap: .45rem; align-items: center; margin: 0 0 .75rem; font-size: .9375rem; }
@@ -35,10 +36,12 @@ button, input, textarea, select { font: inherit; }
 .studio-preview { background: #f7f7f7; }
 .studio-preview__status { padding: .35rem .65rem; color: #005a24 !important; background: #e5f5e9; border-radius: 999px; font-weight: 700; }
 .studio-preview article { align-self: start; width: min(100% - 3rem, 46rem); box-sizing: border-box; margin: 2rem auto; padding: clamp(1.75rem, 4vw, 3.5rem); background: #fff; box-shadow: 0 1px 6px rgb(0 0 0 / .08); }
-.studio-preview__meta { display: flex; gap: .75rem; color: #555; font-size: .75rem; }
+.studio-preview__meta { display: flex; flex-wrap: wrap; gap: .4rem .75rem; color: #555; font-size: .75rem; }
 .studio-preview__meta span:first-child { color: #0017c1; font-weight: 700; }
 .studio-preview article > h1 { margin: 1rem 0; font-size: clamp(1.75rem, 3vw, 2.625rem); line-height: 1.35; letter-spacing: .02em; }
 .studio-preview__lead { padding-bottom: 1.5rem; border-bottom: 1px solid #d9d9d9; color: #444; line-height: 1.8; }
+.studio-preview__outcome { margin: 1.5rem 0; padding: 1rem; background: #f2f3ff; border-left: 4px solid #0017c1; }
+.studio-preview__outcome p { margin: .5rem 0 0; line-height: 1.7; }
 .studio-preview__body { line-height: 1.9; }
 .studio-preview__body h2 { margin: 2.5rem 0 1rem; padding-bottom: .65rem; border-bottom: 2px solid #0017c1; font-size: 1.5rem; }
 .studio-preview__body h3 { margin-top: 2rem; font-size: 1.2rem; }
