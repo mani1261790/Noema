@@ -87,35 +87,20 @@ astro-dev-toolbar {
   max-width: 52rem;
 }
 
-.home-hero__topic {
-  margin: 0 0 1rem;
-  color: var(--article-level-color, var(--color-neutral-solid-gray-800));
-  font-size: calc(14 / 16 * 1rem);
-  font-weight: 700;
-  line-height: 1.7;
-  letter-spacing: 0.02em;
-}
-
 .home-hero__copy h1 {
-  max-width: 20ch;
+  max-width: 18ch;
   margin: 0;
-  font-size: calc(45 / 16 * 1rem);
+  font-size: calc(48 / 16 * 1rem);
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0;
 }
 
 .home-hero__copy p {
-  margin: 1.5rem 0 2rem;
+  margin: 2rem 0 0;
   font-size: calc(17 / 16 * 1rem);
   line-height: 1.7;
   letter-spacing: 0.02em;
-}
-
-.home-hero__copy .dads-button {
-  display: inline-flex;
-  gap: 1rem;
-  text-decoration: none;
 }
 
 .home-featured {
@@ -142,7 +127,7 @@ astro-dev-toolbar {
 
 .featured-article-card:hover,
 .article-row:hover {
-  outline: 4px solid var(--color-key-900);
+  outline: 4px solid var(--article-level-color, var(--color-key-900));
   outline-offset: -1px;
 }
 
@@ -199,7 +184,7 @@ astro-dev-toolbar {
 @media (hover: hover) {
   .featured-article-card:hover .featured-article-card__title,
   .article-row:hover .article-row__title {
-    color: var(--color-key-1000);
+    color: var(--article-level-color, var(--color-key-1000));
     text-decoration-thickness: 3px;
   }
 }
@@ -254,7 +239,11 @@ astro-dev-toolbar {
 }
 
 .featured-article-card:hover .dads-card-arrow,
-.article-row:hover .dads-card-arrow,
+.article-row:hover .dads-card-arrow {
+  background: var(--article-level-color, var(--color-key-1000));
+  color: var(--color-neutral-white);
+}
+
 .topic-band__link:hover .dads-section-arrow {
   background: var(--color-key-1000);
   color: var(--color-neutral-white);
