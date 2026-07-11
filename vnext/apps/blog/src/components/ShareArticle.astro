@@ -1,0 +1,18 @@
+<div class="article-share">
+  <h2>この記事を共有</h2>
+  <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-article-url>URLをコピー</button>
+  <p data-share-status role="status" aria-live="polite"></p>
+</div>
+
+<script>
+  const copyButton = document.querySelector<HTMLButtonElement>("[data-copy-article-url]");
+  const shareStatus = document.querySelector<HTMLElement>("[data-share-status]");
+  copyButton?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      if (shareStatus) shareStatus.textContent = "URLをコピーしました。";
+    } catch {
+      if (shareStatus) shareStatus.textContent = "URLをコピーできませんでした。アドレスバーからコピーしてください。";
+    }
+  });
+</script>

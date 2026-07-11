@@ -669,6 +669,26 @@ astro-dev-toolbar {
   font-size: calc(14 / 16 * 1rem);
 }
 
+.article-share {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--noema-border);
+}
+
+.article-share h2 {
+  margin: 0 0 1rem;
+  font-size: calc(20 / 16 * 1rem);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.article-share p {
+  min-height: 1.5rem;
+  margin: 0.75rem 0 0;
+  color: var(--color-neutral-solid-gray-600);
+  font-size: calc(14 / 16 * 1rem);
+}
+
 .related-articles {
   margin-top: 5rem;
   padding-top: 3rem;
