@@ -1,6 +1,7 @@
 ---
 import { topicLabels, type ArticlePreview } from "@noema/content";
 import { getArticleApproachTone } from "../lib/articlePresentation";
+import { formatJapaneseDate } from "../lib/articles";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
@@ -20,7 +21,7 @@ const approachTone = getArticleApproachTone(article);
     <h3 class="featured-article-card__title">{article.title}</h3>
     <p class="featured-article-card__excerpt">{article.excerpt}</p>
     <div class="featured-article-card__meta">
-      <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
+      <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
       <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
     </div>
   </div>

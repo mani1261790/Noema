@@ -30,9 +30,14 @@ const articles = showPreview ? previewArticles : [];
         </select>
       </div>
       <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">絞り込む</button>
+      <button class="dads-button article-search__reset" data-size="md" data-type="outline" type="button" data-reset-search>条件を解除</button>
     </form>
 
-    <p class="article-count" data-article-count>{articles.length}件の記事</p>
+    <div class="article-search__active" data-active-filters hidden>
+      <span>選択中の条件</span>
+      <ul data-active-filter-list></ul>
+    </div>
+    <p class="article-count" data-article-count role="status" aria-live="polite">{articles.length}件の記事</p>
     <div class="article-list" data-article-list>
       {articles.map((article) => (
         <div
@@ -46,7 +51,7 @@ const articles = showPreview ? previewArticles : [];
     </div>
     <div class="noema-empty-state" data-empty-state hidden={articles.length > 0}>
       <h2>{articles.length > 0 ? "該当する記事はありません" : "記事はまだありません"}</h2>
-      {articles.length > 0 && <p>条件を変えて、もう一度お試しください。</p>}
+      {articles.length > 0 && <p>条件を解除するか、別の言葉やテーマをお試しください。</p>}
     </div>
   </div>
 </BaseLayout>
@@ -58,8 +63,11 @@ const articles = showPreview ? previewArticles : [];
   const items = [...document.querySelectorAll<HTMLElement>("[data-article-item]")];
   const count = document.querySelector<HTMLElement>("[data-article-count]");
   const empty = document.querySelector<HTMLElement>("[data-empty-state]");
+  const reset = document.querySelector<HTMLButtonElement>("[data-reset-search]");
+  const activeFilters = document.querySelector<HTMLElement>("[data-active-filters]");
+  const activeFilterList = document.querySelector<HTMLUListElement>("[data-active-filter-list]");
 
-  const applyFilters = () => {
+  const applyFilters = (updateUrl = true) => {
     const query = keyword?.value.trim().toLocaleLowerCase("ja") ?? "";
     const selectedTopic = topic?.value ?? "";
     let visible = 0;
@@ -71,19 +79,42 @@ const articles = showPreview ? previewArticles : [];
     }
     if (count) count.textContent = `${visible}件の記事`;
     if (empty) empty.hidden = visible > 0;
+    if (activeFilters && activeFilterList) {
+      activeFilterList.replaceChildren();
+      const filters = [
+        ...(query ? [`キーワード: ${keyword?.value.trim()}`] : []),
+        ...(selectedTopic && topic ? [`テーマ: ${topic.options[topic.selectedIndex]?.text ?? selectedTopic}`] : [])
+      ];
+      for (const filter of filters) {
+        const item = document.createElement("li");
+        item.textContent = filter;
+        activeFilterList.append(item);
+      }
+      activeFilters.hidden = filters.length === 0;
+    }
+    if (updateUrl) {
+      const params = new URLSearchParams();
+      if (keyword?.value.trim()) params.set("keyword", keyword.value.trim());
+      if (topic?.value) params.set("topic", topic.value);
+      window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}#search`);
+    }
   };
 
   const initialParams = new URLSearchParams(window.location.search);
   if (keyword) keyword.value = initialParams.get("keyword") ?? "";
   if (topic) topic.value = initialParams.get("topic") ?? "";
-  applyFilters();
+  applyFilters(false);
 
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
-    const params = new URLSearchParams();
-    if (keyword?.value.trim()) params.set("keyword", keyword.value.trim());
-    if (topic?.value) params.set("topic", topic.value);
-    window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}#search`);
     applyFilters();
+  });
+  keyword?.addEventListener("input", () => applyFilters());
+  topic?.addEventListener("change", () => applyFilters());
+  reset?.addEventListener("click", () => {
+    if (keyword) keyword.value = "";
+    if (topic) topic.value = "";
+    applyFilters();
+    keyword?.focus();
   });
 </script>

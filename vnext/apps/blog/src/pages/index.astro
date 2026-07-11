@@ -2,12 +2,15 @@
 import { previewArticles, topicLabels } from "@noema/content";
 import ArrowIcon from "../components/ArrowIcon.astro";
 import FeaturedArticleCard from "../components/FeaturedArticleCard.astro";
+import RecentArticleList from "../components/RecentArticleList.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { sortArticlesByDate } from "../lib/articles";
 
 export const prerender = true;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
 const articles = showPreview ? previewArticles : [];
 const featuredArticles = articles.slice(0, 4);
+const recentArticles = sortArticlesByDate(articles).slice(0, 5);
 ---
 
 <BaseLayout>
@@ -31,6 +34,18 @@ const featuredArticles = articles.slice(0, 4);
     </section>
   )}
 
+  {recentArticles.length > 0 && (
+    <section class="home-recent" aria-labelledby="recent-heading">
+      <div class="noema-container">
+        <div class="section-heading-row">
+          <h2 id="recent-heading" class="noema-section-heading">新着記事</h2>
+          <a class="dads-link" href="/articles">すべての記事を見る</a>
+        </div>
+        <RecentArticleList articles={recentArticles} />
+      </div>
+    </section>
+  )}
+
   <section id="topics" class="topic-band" aria-labelledby="topic-heading">
     <div class="noema-container">
       <h2 id="topic-heading" class="noema-section-heading">テーマから探す</h2>
@@ -41,5 +56,9 @@ const featuredArticles = articles.slice(0, 4);
       </ul>
     </div>
   </section>
+
+  <div class="noema-container home-all-articles">
+    <a class="dads-link" href="/articles">記事一覧を見る</a>
+  </div>
 
 </BaseLayout>

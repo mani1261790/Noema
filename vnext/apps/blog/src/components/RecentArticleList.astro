@@ -1,0 +1,28 @@
+---
+import { topicLabels, type ArticleSummary } from "@noema/content";
+import { formatJapaneseDate } from "../lib/articles";
+import ArrowIcon from "./ArrowIcon.astro";
+
+interface Props {
+  articles: ArticleSummary[];
+}
+
+const { articles } = Astro.props;
+---
+
+<ol class="recent-article-list">
+  {articles.map((article) => {
+    const topic = article.topics[0];
+    const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
+    return (
+      <li>
+        <a href={article.href}>
+          <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
+          <span class="recent-article-list__topic">{topicLabel}</span>
+          <span class="recent-article-list__title">{article.title}</span>
+          <span class="dads-section-arrow" aria-hidden="true"><ArrowIcon /></span>
+        </a>
+      </li>
+    );
+  })}
+</ol>
