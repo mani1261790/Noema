@@ -6,9 +6,9 @@ interface Props {
 const { items } = Astro.props;
 ---
 
-<nav class="dads-toc article-toc article-toc--desktop" aria-label="この記事の内容">
+<nav class="dads-toc article-toc article-toc--desktop" data-border="solid" aria-label="この記事の内容">
   <h2 class="dads-toc__heading">この記事の内容</h2>
-  <ol class="article-toc__list">
+  <ol class="dads-list article-toc__list">
     {items.map((item) => <li><a class="dads-link" href={item.href}>{item.label}</a></li>)}
   </ol>
 </nav>
@@ -22,7 +22,7 @@ const { items } = Astro.props;
     </svg>
   </summary>
   <nav class="dads-disclosure__content" aria-label="記事内目次">
-    <ol class="article-toc__list">
+    <ol class="dads-list article-toc__list">
       {items.map((item) => <li><a class="dads-link" href={item.href}>{item.label}</a></li>)}
     </ol>
   </nav>

@@ -10,23 +10,16 @@ const { article } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 const size = article.stage === "advanced" ? "compact" : "large";
-const accent = article.stage === "experience"
-  ? "blue"
-  : article.stage === "practice"
-    ? "green"
-    : article.track === "development"
-      ? "cyan"
-      : "purple";
 ---
 
-<article class:list={["featured-article-card", `featured-article-card--${size}`, `article-accent--${accent}`]}>
-  <p class="featured-article-card__topic">{topicLabel}</p>
-  <h3>
-    <a href={article.href}>
-      <span>{article.title}</span>
-      <ArrowIcon />
-    </a>
-  </h3>
-  <p class="featured-article-card__excerpt">{article.excerpt}</p>
-  <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
-</article>
+<a class:list={["featured-article-card", `featured-article-card--${size}`]} href={article.href}>
+  <div class="featured-article-card__body">
+    <p class="featured-article-card__topic">{topicLabel}</p>
+    <h3 class="featured-article-card__title">{article.title}</h3>
+    <p class="featured-article-card__excerpt">{article.excerpt}</p>
+    <div class="featured-article-card__meta">
+      <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
+      <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
+    </div>
+  </div>
+</a>

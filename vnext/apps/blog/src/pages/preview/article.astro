@@ -24,7 +24,6 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
 
 <BaseLayout title={`${article.title} | Noema`} description={article.description} noindex>
-  <div class="preview-banner" role="note">プレビュー表示</div>
   <div class="noema-container article-page">
     <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
