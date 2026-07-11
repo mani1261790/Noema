@@ -9,6 +9,7 @@ interface Props {
 const { article } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
+const size = article.stage === "advanced" ? "compact" : "large";
 const accent = article.stage === "experience"
   ? "blue"
   : article.stage === "practice"
@@ -18,12 +19,14 @@ const accent = article.stage === "experience"
       : "purple";
 ---
 
-<article class:list={["article-row", `article-accent--${accent}`]}>
-  <div class="article-row__body">
-    <p class="article-row__topic">{topicLabel}</p>
-    <h2><a href={article.href}>{article.title}</a></h2>
-    <p>{article.excerpt}</p>
-  </div>
+<article class:list={["featured-article-card", `featured-article-card--${size}`, `article-accent--${accent}`]}>
+  <p class="featured-article-card__topic">{topicLabel}</p>
+  <h3>
+    <a href={article.href}>
+      <span>{article.title}</span>
+      <ArrowIcon />
+    </a>
+  </h3>
+  <p class="featured-article-card__excerpt">{article.excerpt}</p>
   <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
-  <span class="article-row__arrow"><ArrowIcon /></span>
 </article>

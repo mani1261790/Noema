@@ -94,8 +94,8 @@ svg {
 
 .noema-empty-state {
   padding: 2rem;
-  border: 1px solid var(--noema-border);
-  border-left: 0.5rem solid var(--color-key-900);
+  border: 1px solid var(--color-neutral-solid-gray-500);
+  border-radius: 0.75rem;
 }
 
 .noema-visually-hidden {

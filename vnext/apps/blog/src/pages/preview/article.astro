@@ -1,6 +1,6 @@
 ---
 import MarkdownIt from "markdown-it";
-import { previewArticles, previewArticleMarkdown, stageLabels, topicLabels, trackLabels } from "@noema/content";
+import { previewArticles, previewArticleMarkdown, topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
@@ -24,7 +24,7 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
 
 <BaseLayout title={`${article.title} | Noema`} description={article.description} noindex>
-  <div class="preview-banner" role="note">UI確認用のfixture記事です。公開コンテンツではありません。</div>
+  <div class="preview-banner" role="note">プレビュー表示</div>
   <div class="noema-container article-page">
     <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
@@ -32,23 +32,10 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
         <h1>{article.title}</h1>
         <p>{article.description}</p>
         <dl class="article-meta">
-          <div><dt class="noema-visually-hidden">学習段階</dt><dd><span class="article-meta__level">{stageLabels[article.stage]}</span></dd></div>
-          {article.track !== "common" && <div><dt class="noema-visually-hidden">発展トラック</dt><dd>{trackLabels[article.track]}</dd></div>}
           <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.estimatedMinutes}分</dd></div>
           <div><dt class="noema-visually-hidden">更新日</dt><dd><time datetime={article.updatedAt}>2026年7月10日</time></dd></div>
         </dl>
       </header>
-
-      <section class="article-learning-summary" aria-labelledby="preview-outcome-heading">
-        <h2 id="preview-outcome-heading">この記事でできるようになること</h2>
-        <p>{article.outcome}</p>
-        {article.prerequisites.length > 0 && (
-          <div>
-            <h3>読む前に知っておくこと</h3>
-            <ul>{article.prerequisites.map((item) => <li>{item}</li>)}</ul>
-          </div>
-        )}
-      </section>
 
       <ArticleToc items={tocItems} />
 
@@ -59,10 +46,6 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
             <div set:html={section.html} />
           </section>
         ))}
-        <section class="article-sources" aria-labelledby="source-heading">
-          <h2 id="source-heading">この記事の出典</h2>
-          <p>UI確認用fixtureのため、実際の公開時には著者が確認した出典を掲載します。</p>
-        </section>
       </article>
     </div>
     <div class="article-page__aside">

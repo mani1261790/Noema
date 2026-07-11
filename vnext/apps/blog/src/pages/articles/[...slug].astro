@@ -1,6 +1,6 @@
 ---
 import { getCollection, render } from "astro:content";
-import { stageLabels, topicLabels, trackLabels } from "@noema/content";
+import { topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
@@ -30,22 +30,10 @@ const tocItems = headings
         <h1>{article.data.title}</h1>
         <p>{article.data.description}</p>
         <dl class="article-meta">
-          <div><dt class="noema-visually-hidden">学習段階</dt><dd><span class="article-meta__level">{stageLabels[article.data.stage]}</span></dd></div>
-          {article.data.track !== "common" && <div><dt class="noema-visually-hidden">発展トラック</dt><dd>{trackLabels[article.data.track]}</dd></div>}
           <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.data.estimatedMinutes}分</dd></div>
           <div><dt class="noema-visually-hidden">更新日</dt><dd><time datetime={article.data.updatedAt}>{article.data.updatedAt}</time></dd></div>
         </dl>
       </header>
-      <section class="article-learning-summary" aria-labelledby="article-outcome-heading">
-        <h2 id="article-outcome-heading">この記事でできるようになること</h2>
-        <p>{article.data.outcome}</p>
-        {article.data.prerequisites.length > 0 && (
-          <div>
-            <h3>読む前に知っておくこと</h3>
-            <ul>{article.data.prerequisites.map((item) => <li>{item}</li>)}</ul>
-          </div>
-        )}
-      </section>
       {tocItems.length > 0 && <ArticleToc items={tocItems} />}
       <article class="article-body"><Content /></article>
     </div>

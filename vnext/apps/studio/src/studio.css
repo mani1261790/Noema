@@ -40,7 +40,6 @@ button, input, textarea, select { font: inherit; }
 .studio-preview__meta span:first-child { color: #0017c1; font-weight: 700; }
 .studio-preview article > h1 { margin: 1rem 0; font-size: clamp(1.75rem, 3vw, 2.625rem); line-height: 1.35; letter-spacing: .02em; }
 .studio-preview__lead { padding-bottom: 1.5rem; border-bottom: 1px solid #d9d9d9; color: #444; line-height: 1.8; }
-.studio-preview__outcome { margin: 1.5rem 0; padding: 1rem; background: #f2f3ff; border-left: 4px solid #0017c1; }
 .studio-preview__outcome p { margin: .5rem 0 0; line-height: 1.7; }
 .studio-preview__body { line-height: 1.9; }
 .studio-preview__body h2 { margin: 2.5rem 0 1rem; padding-bottom: .65rem; border-bottom: 2px solid #0017c1; font-size: 1.5rem; }
