@@ -18,12 +18,12 @@ const articles = showPreview ? previewArticles : [];
     </header>
 
     <form id="search" class="article-search" role="search">
-      <div>
-        <label for="article-keyword">キーワード</label>
-        <input id="article-keyword" name="keyword" type="search" placeholder="記事タイトルや概要を検索" />
+      <div class="dads-form-control-label" data-size="md">
+        <label class="dads-form-control-label__label" for="article-keyword">キーワード</label>
+        <input class="dads-input-text__input" data-size="md" id="article-keyword" name="keyword" type="search" placeholder="記事タイトルや概要を検索" />
       </div>
-      <div>
-        <label for="article-topic">テーマ</label>
+      <div class="dads-form-control-label" data-size="md">
+        <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
         <select id="article-topic" name="topic">
           <option value="">すべてのテーマ</option>
           {Object.entries(topicLabels).map(([slug, label]) => <option value={slug}>{label}</option>)}

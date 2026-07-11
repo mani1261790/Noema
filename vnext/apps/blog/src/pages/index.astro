@@ -2,7 +2,6 @@
 import { previewArticles, topicLabels } from "@noema/content";
 import ArrowIcon from "../components/ArrowIcon.astro";
 import FeaturedArticleCard from "../components/FeaturedArticleCard.astro";
-import HeroGraphic from "../components/HeroGraphic.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 export const prerender = true;
@@ -21,7 +20,6 @@ const articles = showPreview ? previewArticles : [];
           <ArrowIcon />
         </a>
       </div>
-      <div class="home-hero__visual"><HeroGraphic /></div>
     </div>
   </section>
 
@@ -41,23 +39,10 @@ const articles = showPreview ? previewArticles : [];
       <h2 id="topic-heading" class="noema-section-heading">テーマから探す</h2>
       <ul class="topic-band__links">
         {Object.entries(topicLabels).map(([slug, label]) => (
-          <li><a href={`/topics/${slug}`}>{label}<ArrowIcon /></a></li>
+          <li><a class="topic-band__link" href={`/topics/${slug}`}>{label}<span class="dads-section-arrow" aria-hidden="true"><ArrowIcon /></span></a></li>
         ))}
       </ul>
     </div>
   </section>
 
-  <section class="home-about" aria-labelledby="first-heading">
-    <div class="noema-container home-about__inner">
-      <div>
-        <h2 id="first-heading" class="noema-section-heading">Noemaについて</h2>
-        <p>Noemaは、難しい技術の面白さを、専門外の人にもわかる言葉で届ける技術メディアです。</p>
-        <a href="/about">Noemaについて詳しく見る <ArrowIcon /></a>
-      </div>
-      <svg class="home-about__book" viewBox="0 0 220 130" role="img" aria-label="開かれた本の線画">
-        <path d="M110 110c-25-18-51-25-82-19V22c31-6 57 1 82 19v69Zm0 0c25-18 51-25 82-19V22c-31-6-57 1-82 19v69Z" fill="none" stroke="currentColor" stroke-width="2" />
-        <path d="M48 44c17-1 31 3 45 11M48 60c17-1 31 3 45 11M127 55c14-8 28-12 45-11M127 71c14-8 28-12 45-11" fill="none" stroke="currentColor" />
-      </svg>
-    </div>
-  </section>
 </BaseLayout>

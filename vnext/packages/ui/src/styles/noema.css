@@ -6,7 +6,7 @@
 
 :root {
   color-scheme: light;
-  --noema-content-width: 86rem;
+  --noema-content-width: 77.375rem;
   --noema-reading-width: 48rem;
   --noema-border: var(--color-neutral-solid-gray-200);
   --noema-muted: var(--color-neutral-solid-gray-600);
@@ -55,13 +55,17 @@ svg {
 }
 
 .noema-container {
-  width: min(calc(100% - 3rem), var(--noema-content-width));
+  width: 100%;
+  max-width: var(--noema-content-width);
   margin-inline: auto;
+  padding-inline: 1.5rem;
 }
 
 .noema-reading-container {
-  width: min(calc(100% - 3rem), var(--noema-reading-width));
+  width: 100%;
+  max-width: var(--noema-reading-width);
   margin-inline: auto;
+  padding-inline: 1.5rem;
 }
 
 .noema-skip-link {
@@ -101,9 +105,8 @@ svg {
 }
 
 .noema-empty-state {
-  padding: 2rem;
-  border: 1px solid var(--color-neutral-solid-gray-500);
-  border-radius: 0.75rem;
+  padding-block: 2rem;
+  border-top: 1px solid var(--color-neutral-solid-gray-420);
 }
 
 .noema-visually-hidden {
@@ -120,11 +123,6 @@ svg {
   .noema-section-heading {
     font-size: calc(24 / 16 * 1rem);
     letter-spacing: 0.02em;
-  }
-
-  .noema-container,
-  .noema-reading-container {
-    width: min(calc(100% - 2rem), var(--noema-content-width));
   }
 
   body {

@@ -9,21 +9,16 @@ interface Props {
 const { article } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
-const accent = article.stage === "experience"
-  ? "blue"
-  : article.stage === "practice"
-    ? "green"
-    : article.track === "development"
-      ? "cyan"
-      : "purple";
 ---
 
-<article class:list={["article-row", `article-accent--${accent}`]}>
+<a class="article-row" href={article.href}>
   <div class="article-row__body">
     <p class="article-row__topic">{topicLabel}</p>
-    <h2><a href={article.href}>{article.title}</a></h2>
-    <p>{article.excerpt}</p>
+    <h2 class="article-row__title">{article.title}</h2>
+    <p class="article-row__excerpt">{article.excerpt}</p>
+    <div class="article-row__meta">
+      <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
+      <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
+    </div>
   </div>
-  <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
-  <span class="article-row__arrow"><ArrowIcon /></span>
-</article>
+</a>

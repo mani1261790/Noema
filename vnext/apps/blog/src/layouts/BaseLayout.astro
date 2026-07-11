@@ -37,7 +37,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn
   </head>
   <body>
     <a class="noema-skip-link" href="#main-content">本文へ移動</a>
-    <SiteHeader currentPath={Astro.url.pathname} />
+    <SiteHeader />
     <main id="main-content">
       <slot />
     </main>
