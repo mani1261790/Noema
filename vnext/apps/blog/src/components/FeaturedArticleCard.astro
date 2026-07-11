@@ -1,11 +1,11 @@
 ---
-import { topicLabels, type ArticlePreview } from "@noema/content";
+import { topicLabels, type ArticleSummary } from "@noema/content";
 import { getArticleApproachTone } from "../lib/articlePresentation";
 import { formatJapaneseDate } from "../lib/articles";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
-  article: ArticlePreview;
+  article: ArticleSummary;
 }
 
 const { article } = Astro.props;

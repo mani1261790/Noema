@@ -1,12 +1,19 @@
 ---
 import { previewArticles, topicLabels } from "@noema/content";
+import { getCollection } from "astro:content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { sortArticlesByDate, toArticleSummary } from "../../lib/articles";
 
 export const prerender = true;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
-const articles = showPreview ? previewArticles : [];
+const publishedArticles = await getCollection("articles", ({ data }) => data.status === "published");
+const articles = sortArticlesByDate(publishedArticles.length > 0
+  ? publishedArticles.map(({ data }) => toArticleSummary(data))
+  : showPreview ? previewArticles : []);
+const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
+const suggestions = [...new Set([...articles.map((article) => article.title), ...tags])];
 ---
 
 <BaseLayout title="記事を読む | Noema" description="気になる言葉やテーマから、Noemaの記事を探せます。">
@@ -20,7 +27,17 @@ const articles = showPreview ? previewArticles : [];
     <form id="search" class="article-search" role="search">
       <div class="dads-form-control-label" data-size="md">
         <label class="dads-form-control-label__label" for="article-keyword">キーワード</label>
-        <input class="dads-input-text__input" data-size="md" id="article-keyword" name="keyword" type="search" placeholder="記事タイトルや概要を検索" />
+        <input class="dads-input-text__input" data-size="md" id="article-keyword" name="keyword" type="search" list="article-search-suggestions" placeholder="記事タイトル、概要、タグを検索" />
+        <datalist id="article-search-suggestions">
+          {suggestions.map((suggestion) => <option value={suggestion}></option>)}
+        </datalist>
+      </div>
+      <div class="dads-form-control-label" data-size="md">
+        <label class="dads-form-control-label__label" for="article-tag">タグ</label>
+        <select id="article-tag" name="tag">
+          <option value="">すべてのタグ</option>
+          {tags.map((tag) => <option value={tag}>{tag}</option>)}
+        </select>
       </div>
       <div class="dads-form-control-label" data-size="md">
         <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
@@ -37,18 +54,24 @@ const articles = showPreview ? previewArticles : [];
       <span>選択中の条件</span>
       <ul data-active-filter-list></ul>
     </div>
-    <p class="article-count" data-article-count role="status" aria-live="polite">{articles.length}件の記事</p>
+    <p class="article-count" data-article-count role="status" aria-live="polite" tabindex="-1">{articles.length}件の記事</p>
     <div class="article-list" data-article-list>
       {articles.map((article) => (
         <div
           data-article-item
           data-title={`${article.title} ${article.description} ${article.tags.join(" ")}`}
           data-topic={article.topics.join(" ")}
+          data-tags={article.tags.join("\n")}
         >
           <ArticleRow article={article} />
         </div>
       ))}
     </div>
+    <nav class="article-pagination" data-pagination aria-label="記事一覧のページ" hidden>
+      <button type="button" data-page-previous>前のページ</button>
+      <ol data-pagination-pages></ol>
+      <button type="button" data-page-next>次のページ</button>
+    </nav>
     <div class="noema-empty-state" data-empty-state hidden={articles.length > 0}>
       <h2>{articles.length > 0 ? "該当する記事はありません" : "記事はまだありません"}</h2>
       {articles.length > 0 && <p>条件を解除するか、別の言葉やテーマをお試しください。</p>}
@@ -60,30 +83,46 @@ const articles = showPreview ? previewArticles : [];
   const form = document.querySelector<HTMLFormElement>(".article-search");
   const keyword = document.querySelector<HTMLInputElement>("#article-keyword");
   const topic = document.querySelector<HTMLSelectElement>("#article-topic");
+  const tag = document.querySelector<HTMLSelectElement>("#article-tag");
   const items = [...document.querySelectorAll<HTMLElement>("[data-article-item]")];
   const count = document.querySelector<HTMLElement>("[data-article-count]");
   const empty = document.querySelector<HTMLElement>("[data-empty-state]");
   const reset = document.querySelector<HTMLButtonElement>("[data-reset-search]");
   const activeFilters = document.querySelector<HTMLElement>("[data-active-filters]");
   const activeFilterList = document.querySelector<HTMLUListElement>("[data-active-filter-list]");
+  const pagination = document.querySelector<HTMLElement>("[data-pagination]");
+  const pageList = document.querySelector<HTMLOListElement>("[data-pagination-pages]");
+  const previousPage = document.querySelector<HTMLButtonElement>("[data-page-previous]");
+  const nextPage = document.querySelector<HTMLButtonElement>("[data-page-next]");
+  const pageSize = 12;
+  let currentPage = 1;
 
   const applyFilters = (updateUrl = true) => {
     const query = keyword?.value.trim().toLocaleLowerCase("ja") ?? "";
     const selectedTopic = topic?.value ?? "";
-    let visible = 0;
-    for (const item of items) {
+    const selectedTag = tag?.value ?? "";
+    const filteredItems = items.filter((item) => {
       const matchesText = !query || (item.dataset.title ?? "").toLocaleLowerCase("ja").includes(query);
       const matchesTopic = !selectedTopic || (item.dataset.topic ?? "").split(" ").includes(selectedTopic);
-      item.hidden = !(matchesText && matchesTopic);
-      if (!item.hidden) visible += 1;
+      const matchesTag = !selectedTag || (item.dataset.tags ?? "").split("\n").includes(selectedTag);
+      return matchesText && matchesTopic && matchesTag;
+    });
+    const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const visibleItems = new Set(filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+    for (const item of items) {
+      item.hidden = !visibleItems.has(item);
     }
-    if (count) count.textContent = `${visible}件の記事`;
-    if (empty) empty.hidden = visible > 0;
+    if (count) count.textContent = totalPages > 1
+      ? `${filteredItems.length}件の記事（${currentPage}/${totalPages}ページ）`
+      : `${filteredItems.length}件の記事`;
+    if (empty) empty.hidden = filteredItems.length > 0;
     if (activeFilters && activeFilterList) {
       activeFilterList.replaceChildren();
       const filters = [
         ...(query ? [`キーワード: ${keyword?.value.trim()}`] : []),
-        ...(selectedTopic && topic ? [`テーマ: ${topic.options[topic.selectedIndex]?.text ?? selectedTopic}`] : [])
+        ...(selectedTopic && topic ? [`テーマ: ${topic.options[topic.selectedIndex]?.text ?? selectedTopic}`] : []),
+        ...(selectedTag ? [`タグ: ${selectedTag}`] : [])
       ];
       for (const filter of filters) {
         const item = document.createElement("li");
@@ -92,10 +131,29 @@ const articles = showPreview ? previewArticles : [];
       }
       activeFilters.hidden = filters.length === 0;
     }
+    if (pagination && pageList && previousPage && nextPage) {
+      pagination.hidden = totalPages <= 1;
+      previousPage.disabled = currentPage <= 1;
+      nextPage.disabled = currentPage >= totalPages;
+      pageList.replaceChildren();
+      for (let page = 1; page <= totalPages; page += 1) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = String(page);
+        button.dataset.page = String(page);
+        button.setAttribute("aria-label", `${page}ページ目`);
+        if (page === currentPage) button.setAttribute("aria-current", "page");
+        item.append(button);
+        pageList.append(item);
+      }
+    }
     if (updateUrl) {
       const params = new URLSearchParams();
       if (keyword?.value.trim()) params.set("keyword", keyword.value.trim());
       if (topic?.value) params.set("topic", topic.value);
+      if (tag?.value) params.set("tag", tag.value);
+      if (currentPage > 1) params.set("page", String(currentPage));
       window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}#search`);
     }
   };
@@ -103,18 +161,33 @@ const articles = showPreview ? previewArticles : [];
   const initialParams = new URLSearchParams(window.location.search);
   if (keyword) keyword.value = initialParams.get("keyword") ?? "";
   if (topic) topic.value = initialParams.get("topic") ?? "";
+  if (tag) tag.value = initialParams.get("tag") ?? "";
+  currentPage = Number.parseInt(initialParams.get("page") ?? "1", 10) || 1;
   applyFilters(false);
 
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
+    currentPage = 1;
     applyFilters();
   });
-  keyword?.addEventListener("input", () => applyFilters());
-  topic?.addEventListener("change", () => applyFilters());
+  keyword?.addEventListener("input", () => { currentPage = 1; applyFilters(); });
+  topic?.addEventListener("change", () => { currentPage = 1; applyFilters(); });
+  tag?.addEventListener("change", () => { currentPage = 1; applyFilters(); });
   reset?.addEventListener("click", () => {
     if (keyword) keyword.value = "";
     if (topic) topic.value = "";
+    if (tag) tag.value = "";
+    currentPage = 1;
     applyFilters();
     keyword?.focus();
+  });
+  previousPage?.addEventListener("click", () => { currentPage -= 1; applyFilters(); });
+  nextPage?.addEventListener("click", () => { currentPage += 1; applyFilters(); });
+  pageList?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-page]");
+    if (!button) return;
+    currentPage = Number(button.dataset.page);
+    applyFilters();
+    count?.focus();
   });
 </script>

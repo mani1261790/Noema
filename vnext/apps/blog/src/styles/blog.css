@@ -479,7 +479,7 @@ astro-dev-toolbar {
 
 .article-search {
   display: grid;
-  grid-template-columns: minmax(14rem, 2fr) minmax(10rem, 1fr) auto;
+  grid-template-columns: minmax(14rem, 2fr) repeat(2, minmax(9rem, 1fr)) auto auto;
   align-items: end;
   gap: 1.5rem;
   margin-bottom: 2rem;
@@ -522,6 +522,76 @@ astro-dev-toolbar {
   border-radius: 0.5rem;
   color: var(--color-neutral-solid-gray-900);
   line-height: 1;
+}
+
+.article-row__tags,
+.article-header__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.article-row__tags li,
+.article-header__tags a {
+  display: inline-flex;
+  padding: 0.1875rem 0.625rem;
+  border: 1px solid var(--color-neutral-solid-gray-500);
+  border-radius: 9999px;
+  color: var(--color-neutral-solid-gray-800);
+  font-size: calc(13 / 16 * 1rem);
+  line-height: 1.7;
+}
+
+.article-header__tags a {
+  color: var(--color-key-1000);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.article-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 3rem;
+}
+
+.article-pagination[hidden] {
+  display: none;
+}
+
+.article-pagination ol {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.article-pagination button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-neutral-white);
+  color: var(--color-key-1000);
+  border: 1px solid var(--color-neutral-solid-gray-600);
+  border-radius: 0.25rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.article-pagination button[aria-current="page"] {
+  background: var(--color-key-900);
+  color: var(--color-neutral-white);
+  border-color: var(--color-key-900);
+}
+
+.article-pagination button:disabled {
+  color: var(--color-neutral-solid-gray-500);
+  cursor: not-allowed;
 }
 
 .article-search select:hover {
