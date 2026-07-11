@@ -6,6 +6,7 @@ import ArticleSources from "../../components/ArticleSources.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
+import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
 
@@ -27,7 +28,7 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 const relatedArticles = findRelatedArticles(article, previewArticles);
 ---
 
-<BaseLayout title={`${article.title} | Noema`} description={article.description} noindex>
+<BaseLayout title={`${article.title} | Noema`} description={article.description} image="/og/preview.png" pageType="article" noindex>
   <div class="noema-container article-page">
     <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
@@ -53,6 +54,7 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
         ))}
       </article>
       <ArticleSources sources={article.sources} />
+      <ShareArticle />
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>

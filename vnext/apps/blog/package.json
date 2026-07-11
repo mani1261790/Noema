@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generate:og": "node scripts/generate-og-images.mjs",
+    "predev": "npm run generate:og",
     "dev": "NOEMA_LOCAL_DEV=1 astro dev",
     "check": "astro check",
+    "prebuild": "npm run generate:og",
     "build": "astro build",
     "build:preview": "NOEMA_PREVIEW_CONTENT=1 astro build",
     "preview": "astro preview",
@@ -22,7 +25,12 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
+    "@astrojs/rss": "^4.0.19",
     "@types/markdown-it": "^14.1.2",
-    "typescript": "^5.9.3"
+    "satori": "^0.26.0",
+    "sharp": "^0.35.3",
+    "typescript": "^5.9.3",
+    "wawoff2": "^2.0.1",
+    "yaml": "^2.9.0"
   }
 }

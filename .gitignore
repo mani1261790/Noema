@@ -10,3 +10,4 @@ coverage
 /infra/
 /public/
 /tsconfig.tsbuildinfo
+vnext/apps/blog/public/og/*.png
