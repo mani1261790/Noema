@@ -87,8 +87,16 @@ astro-dev-toolbar {
   max-width: 52rem;
 }
 
+.home-hero__topic {
+  margin: 0 0 1rem;
+  color: var(--color-neutral-solid-gray-800);
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+}
+
 .home-hero__copy h1 {
-  max-width: 12ch;
+  max-width: 20ch;
   margin: 0;
   font-size: calc(45 / 16 * 1rem);
   font-weight: 700;
