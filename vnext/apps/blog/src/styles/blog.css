@@ -2,7 +2,7 @@
   position: sticky;
   z-index: 40;
   inset-block-start: 0;
-  background: rgb(255 255 255 / 88%);
+  background: rgb(250 249 245 / 88%);
   backdrop-filter: blur(0.5rem);
 }
 
@@ -89,8 +89,9 @@ astro-dev-toolbar {
 
 .home-hero__topic {
   margin: 0 0 1rem;
-  color: var(--color-neutral-solid-gray-800);
+  color: var(--article-level-color, var(--color-neutral-solid-gray-800));
   font-size: calc(14 / 16 * 1rem);
+  font-weight: 700;
   line-height: 1.7;
   letter-spacing: 0.02em;
 }
@@ -133,7 +134,7 @@ astro-dev-toolbar {
   height: 100%;
   background: var(--color-neutral-white);
   color: var(--color-neutral-solid-gray-800);
-  border: 1px solid var(--color-neutral-black);
+  border: 1px solid var(--article-level-color, var(--color-neutral-black));
   border-radius: 1.5rem;
   overflow: hidden;
   text-decoration: none;
@@ -173,9 +174,9 @@ astro-dev-toolbar {
 .article-row__topic {
   grid-column: 1 / -1;
   margin: 0;
-  color: var(--color-neutral-solid-gray-800);
+  color: var(--article-level-color, var(--color-neutral-solid-gray-800));
   font-size: calc(14 / 16 * 1rem);
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1.7;
   letter-spacing: 0.02em;
 }
@@ -190,7 +191,7 @@ astro-dev-toolbar {
   line-height: 1.6;
   letter-spacing: 0.02em;
   text-decoration: underline;
-  text-decoration-color: var(--color-key-900);
+  text-decoration-color: var(--article-level-color, var(--color-key-900));
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
 }
@@ -244,6 +245,7 @@ astro-dev-toolbar {
 .dads-card-arrow {
   width: 1.5rem;
   height: 1.5rem;
+  color: var(--article-level-color, var(--color-key-1000));
 }
 
 .dads-card-arrow .noema-icon {
@@ -256,6 +258,22 @@ astro-dev-toolbar {
 .topic-band__link:hover .dads-section-arrow {
   background: var(--color-key-1000);
   color: var(--color-neutral-white);
+}
+
+.article-level--experience {
+  --article-level-color: var(--noema-level-experience);
+}
+
+.article-level--practice {
+  --article-level-color: var(--noema-level-practice);
+}
+
+.article-level--development {
+  --article-level-color: var(--noema-level-development);
+}
+
+.article-level--theory {
+  --article-level-color: var(--noema-level-theory);
 }
 
 .article-list {

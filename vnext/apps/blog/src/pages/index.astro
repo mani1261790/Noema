@@ -3,6 +3,7 @@ import { previewArticles, topicLabels } from "@noema/content";
 import ArrowIcon from "../components/ArrowIcon.astro";
 import FeaturedArticleCard from "../components/FeaturedArticleCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { getArticleLevelTone } from "../lib/articlePresentation";
 
 export const prerender = true;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
@@ -12,12 +13,13 @@ const heroTopic = heroArticle?.topics[0];
 const heroTopicLabel = heroTopic
   ? (topicLabels[heroTopic as keyof typeof topicLabels] ?? heroTopic)
   : undefined;
+const heroLevelTone = heroArticle ? getArticleLevelTone(heroArticle) : undefined;
 const featuredArticles = articles.slice(1, 5);
 ---
 
 <BaseLayout>
   {heroArticle && (
-    <section class="home-hero" aria-labelledby="hero-heading">
+    <section class:list={["home-hero", heroLevelTone && `article-level--${heroLevelTone}`]} aria-labelledby="hero-heading">
       <div class="noema-container home-hero__inner">
         <div class="home-hero__copy">
           {heroTopicLabel && <p class="home-hero__topic">{heroTopicLabel}</p>}

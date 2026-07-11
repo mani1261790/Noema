@@ -1,5 +1,6 @@
 ---
 import { topicLabels, type ArticlePreview } from "@noema/content";
+import { getArticleLevelTone } from "../lib/articlePresentation";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
@@ -9,9 +10,10 @@ interface Props {
 const { article } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
+const levelTone = getArticleLevelTone(article);
 ---
 
-<a class="article-row" href={article.href}>
+<a class:list={["article-row", `article-level--${levelTone}`]} href={article.href}>
   <div class="article-row__body">
     <p class="article-row__topic">{topicLabel}</p>
     <h2 class="article-row__title">{article.title}</h2>
