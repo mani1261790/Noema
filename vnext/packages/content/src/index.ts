@@ -233,3 +233,30 @@ export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: stri
   ];
   return lines.join("\n");
 }
+
+export async function parseArticle(source: string): Promise<{ frontmatter: ArticleFrontmatter; markdown: string }> {
+  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) {
+    throw new Error("Markdownの先頭にYAML frontmatterがありません。");
+  }
+
+  let rawFrontmatter: unknown;
+  try {
+    const { parse: parseYaml } = await import("yaml");
+    rawFrontmatter = parseYaml(match[1]);
+  } catch {
+    throw new Error("YAML frontmatterを読み取れませんでした。");
+  }
+
+  const result = articleFrontmatterSchema.safeParse(rawFrontmatter);
+  if (!result.success) {
+    const firstIssue = result.error.issues[0];
+    const field = firstIssue.path.length ? `${firstIssue.path.join(".")}: ` : "";
+    throw new Error(`${field}${firstIssue.message}`);
+  }
+
+  return {
+    frontmatter: result.data,
+    markdown: source.slice(match[0].length).trim()
+  };
+}
