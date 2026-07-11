@@ -125,11 +125,11 @@ sources:
 - 公開先: `https://noema-learn.uk`
 - 推奨する執筆先: `https://studio.noema-learn.uk`
 - 認証: Cloudflare Access
-- UI: Markdown入力、リアルタイムプレビュー、frontmatterフォーム、バリデーション結果
+- UI: Markdown入力、リアルタイムプレビュー、全frontmatter項目、既存MD読み込み、バリデーション結果
 - 公開フロー: GitHub App を介して記事ブランチと Pull Request を作成し、レビュー後に `develop` へマージ
 - 画像: Cloudflare R2 にアップロードし、記事へ参照を挿入
 
-公開済み記事の正を Git に置くことで、編集履歴、レビュー、ロールバック、ローカル編集を維持する。D1 を source of truth にしない。自動保存を実装する場合だけ、下書きの一時保存先として D1 を追加する。
+公開済み記事の正を Git に置くことで、編集履歴、レビュー、ロールバック、ローカル編集を維持する。D1 を source of truth にしない。MVPの自動保存はブラウザの`localStorage`だけを使い、端末をまたぐ下書き共有が必要になった時点で保存先を再検討する。
 
 エディターの最初の実装単位は「既存または新規Markdownを編集し、プレビューし、ファイルとして取得できる」までとする。GitHub App によるPR作成とR2画像アップロードは、その次の単位で追加できる。
 

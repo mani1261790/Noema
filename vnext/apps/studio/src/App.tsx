@@ -1,9 +1,10 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import MarkdownIt from "markdown-it";
 import {
   articleFrontmatterSchema,
   approachLabels,
+  parseArticle,
   previewArticleMarkdown,
   previewArticles,
   serializeArticle,
@@ -15,11 +16,27 @@ type Pane = "settings" | "write" | "preview";
 
 const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
+const draftStorageKey = "noema-studio-draft-v1";
 const initialArticle: ArticleFrontmatter = {
   ...previewArticles[0],
   status: "draft",
   authors: ["Noema編集部"]
 };
+
+function loadSavedDraft(): { frontmatter: ArticleFrontmatter; body: string } | null {
+  try {
+    const saved = localStorage.getItem(draftStorageKey);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved) as { frontmatter?: unknown; body?: unknown };
+    const frontmatter = articleFrontmatterSchema.safeParse(parsed.frontmatter);
+    if (!frontmatter.success || typeof parsed.body !== "string") return null;
+    return { frontmatter: frontmatter.data, body: parsed.body };
+  } catch {
+    return null;
+  }
+}
+
+const savedDraft = loadSavedDraft();
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -42,9 +59,12 @@ function Icon({ name }: { name: "download" | "external" | "check" | "warning" })
 }
 
 export function App() {
-  const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>(initialArticle);
-  const [body, setBody] = useState(previewArticleMarkdown.trim());
+  const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>(savedDraft?.frontmatter ?? initialArticle);
+  const [body, setBody] = useState(savedDraft?.body ?? previewArticleMarkdown.trim());
   const [activePane, setActivePane] = useState<Pane>("write");
+  const [saveStatus, setSaveStatus] = useState(savedDraft ? "保存した下書きを復元しました" : "下書きは自動保存されます");
+  const [operationMessage, setOperationMessage] = useState("");
+  const importInput = useRef<HTMLInputElement>(null);
   const deferredBody = useDeferredValue(body);
   const previewHtml = useMemo(
     () => DOMPurify.sanitize(markdown.render(deferredBody)),
@@ -56,6 +76,15 @@ export function App() {
     ...(/^#\s/m.test(body) ? ["本文のH1見出しは削除してください。記事タイトルがH1になります。"] : []),
     ...(frontmatter.sources.length === 0 ? ["出典がまだ登録されていません。"] : [])
   ];
+
+  useEffect(() => {
+    setSaveStatus("保存中…");
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(draftStorageKey, JSON.stringify({ frontmatter, body }));
+      setSaveStatus("このブラウザに保存済み");
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [frontmatter, body]);
 
   const update = <K extends keyof ArticleFrontmatter>(key: K, value: ArticleFrontmatter[K]) => {
     setFrontmatter((current) => ({ ...current, [key]: value }));
@@ -71,6 +100,51 @@ export function App() {
     anchor.download = `${frontmatter.slug}.md`;
     anchor.click();
     URL.revokeObjectURL(href);
+    setOperationMessage(`${frontmatter.slug}.mdを書き出しました。`);
+  };
+
+  const importMarkdown = async (file?: File) => {
+    if (!file) return;
+    try {
+      const parsed = await parseArticle(await file.text());
+      setFrontmatter(parsed.frontmatter);
+      setBody(parsed.markdown);
+      setOperationMessage(`${file.name}を読み込みました。`);
+    } catch (error) {
+      setOperationMessage(error instanceof Error ? error.message : "Markdownを読み込めませんでした。");
+    } finally {
+      if (importInput.current) importInput.current.value = "";
+    }
+  };
+
+  const resetDraft = () => {
+    if (!window.confirm("現在の入力内容を破棄して、新しい記事を作成しますか？")) return;
+    localStorage.removeItem(draftStorageKey);
+    setFrontmatter(initialArticle);
+    setBody("");
+    setOperationMessage("新しい記事を作成します。");
+  };
+
+  const updateSource = (index: number, key: "title" | "url" | "checkedAt", value: string) => {
+    update("sources", frontmatter.sources.map((source, sourceIndex) =>
+      sourceIndex === index ? { ...source, [key]: value } : source
+    ));
+  };
+
+  const issueFieldIds: Record<string, string> = {
+    title: "article-title",
+    description: "article-description",
+    slug: "article-slug",
+    status: "article-status",
+    publishedAt: "article-published-at",
+    updatedAt: "article-updated-at",
+    authors: "article-authors",
+    topics: "article-topic",
+    approach: "article-approach",
+    outcome: "article-outcome",
+    estimatedMinutes: "article-minutes",
+    heroImage: "article-hero-image",
+    sources: "article-sources"
   };
 
   return (
@@ -78,14 +152,18 @@ export function App() {
       <header className="studio-header">
         <div className="studio-brand">
           <span className="studio-brand__mark" aria-hidden="true">N</span>
-          <span>Noema <strong>Studio</strong></span>
+          <span className="studio-brand__text">Noema <strong>Studio</strong><small>{saveStatus}</small></span>
         </div>
         <div className="studio-header__actions">
-          <a className="dads-button" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
+          <input ref={importInput} hidden type="file" accept=".md,.markdown,text/markdown,text/plain" onChange={(event) => void importMarkdown(event.target.files?.[0])} />
+          <button className="dads-button studio-import-button" data-size="md" data-type="outline" type="button" onClick={() => importInput.current?.click()}>
+            <span className="studio-action-label--full">MDを読み込む</span><span className="studio-action-label--short">読込</span>
+          </button>
+          <a className="dads-button studio-public-link" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
             公開サイトを確認 <Icon name="external" />
           </a>
-          <button className="dads-button" data-size="md" data-type="solid-fill" type="button" onClick={download} disabled={!validation.success}>
-            Markdownを書き出す <Icon name="download" />
+          <button className="dads-button studio-download-button" data-size="md" data-type="solid-fill" type="button" onClick={download} disabled={!validation.success}>
+            <span className="studio-action-label--full">Markdownを書き出す</span><span className="studio-action-label--short">書出</span> <Icon name="download" />
           </button>
         </div>
       </header>
@@ -101,6 +179,7 @@ export function App() {
       <main className="studio-workspace">
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
         <aside className={`studio-settings ${activePane === "settings" ? "is-active" : ""}`} aria-label="記事設定">
+          {operationMessage && <p className="studio-operation-message" role="status">{operationMessage}</p>}
           <div className="studio-pane-title">
             <p>ARTICLE SETTINGS</p>
             <h2>記事の設定</h2>
@@ -117,6 +196,26 @@ export function App() {
           <Field id="article-slug" label="スラッグ" hint="半角英数字とハイフン">
             <input id="article-slug" className="dads-input-text" value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} />
           </Field>
+          <div className="studio-field-row studio-field-row--equal">
+            <Field id="article-status" label="公開状態">
+              <select id="article-status" value={frontmatter.status} onChange={(event) => update("status", event.target.value as ArticleFrontmatter["status"])}>
+                <option value="draft">下書き</option>
+                <option value="published">公開</option>
+                <option value="archived">非公開・保管</option>
+              </select>
+            </Field>
+            <Field id="article-authors" label="執筆者" hint="複数の場合はカンマ区切り">
+              <input id="article-authors" className="dads-input-text" value={frontmatter.authors.join(", ")} onChange={(event) => update("authors", event.target.value.split(",").map((author) => author.trim()).filter(Boolean))} />
+            </Field>
+          </div>
+          <div className="studio-field-row studio-field-row--equal">
+            <Field id="article-published-at" label="公開日" hint="公開記事では必須">
+              <input id="article-published-at" className="dads-input-text" type="date" value={frontmatter.publishedAt ?? ""} onChange={(event) => update("publishedAt", event.target.value || undefined)} />
+            </Field>
+            <Field id="article-updated-at" label="更新日">
+              <input id="article-updated-at" className="dads-input-text" type="date" value={frontmatter.updatedAt} onChange={(event) => update("updatedAt", event.target.value)} />
+            </Field>
+          </div>
           <div className="studio-field-row">
             <Field id="article-approach" label="記事タイプ">
               <select id="article-approach" value={frontmatter.approach} onChange={(event) => update("approach", event.target.value as ArticleFrontmatter["approach"])}>
@@ -138,12 +237,42 @@ export function App() {
           <Field id="article-prerequisites" label="前提知識" hint="不要な場合は空欄、複数ある場合はカンマ区切り">
             <input id="article-prerequisites" className="dads-input-text" value={frontmatter.prerequisites.join(", ")} onChange={(event) => update("prerequisites", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} />
           </Field>
+          <Field id="article-hero-image" label="記事画像" hint="サイト内パスまたは画像URL。不要な場合は空欄">
+            <input id="article-hero-image" className="dads-input-text" value={frontmatter.heroImage ?? ""} onChange={(event) => update("heroImage", event.target.value.trim() || null)} placeholder="/images/articles/example.webp" />
+          </Field>
+
+          <fieldset id="article-sources" className="studio-sources">
+            <legend>参考資料</legend>
+            {frontmatter.sources.map((source, index) => (
+              <div className="studio-source" key={index}>
+                <Field id={`article-source-title-${index}`} label={`資料 ${index + 1} の名前`}>
+                  <input id={`article-source-title-${index}`} className="dads-input-text" value={source.title} onChange={(event) => updateSource(index, "title", event.target.value)} />
+                </Field>
+                <Field id={`article-source-url-${index}`} label="URL">
+                  <input id={`article-source-url-${index}`} className="dads-input-text" type="url" value={source.url} onChange={(event) => updateSource(index, "url", event.target.value)} />
+                </Field>
+                <Field id={`article-source-date-${index}`} label="確認日">
+                  <input id={`article-source-date-${index}`} className="dads-input-text" type="date" value={source.checkedAt} onChange={(event) => updateSource(index, "checkedAt", event.target.value)} />
+                </Field>
+                <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={() => update("sources", frontmatter.sources.filter((_, sourceIndex) => sourceIndex !== index))}>この資料を削除</button>
+              </div>
+            ))}
+            <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={() => update("sources", [...frontmatter.sources, { title: "", url: "", checkedAt: new Date().toISOString().slice(0, 10) }])}>参考資料を追加</button>
+          </fieldset>
 
           <section className="studio-validation" aria-live="polite">
             <h2>{validation.success ? <Icon name="check" /> : <Icon name="warning" />} 公開前チェック</h2>
-            {!validation.success ? validation.error.issues.slice(0, 3).map((issue) => <p key={issue.path.join(".")}>{issue.message}</p>) : null}
+            {!validation.success ? validation.error.issues.slice(0, 5).map((issue) => {
+              const fieldId = issueFieldIds[String(issue.path[0])];
+              return <p key={`${issue.path.join(".")}-${issue.message}`}>{fieldId ? <a href={`#${fieldId}`}>{issue.message}</a> : issue.message}</p>;
+            }) : null}
             {warnings.map((warning) => <p key={warning}>{warning}</p>)}
             {validation.success && warnings.length === 0 ? <p>公開に必要な項目が揃っています。</p> : null}
+          </section>
+          <section className="studio-danger-zone">
+            <h2>新しい記事を作る</h2>
+            <p>現在の入力内容と、このブラウザに保存した下書きを破棄します。</p>
+            <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={resetDraft}>入力内容を破棄</button>
           </section>
         </aside>
 
@@ -165,6 +294,7 @@ export function App() {
             <div className="studio-preview__meta">
               <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? frontmatter.topics[0]}</span>
               <span>約{frontmatter.estimatedMinutes}分</span>
+              <span>{frontmatter.authors.join("、")}</span>
             </div>
             <h1>{frontmatter.title || "タイトル未入力"}</h1>
             <p className="studio-preview__lead">{frontmatter.description}</p>
