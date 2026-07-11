@@ -1,4 +1,12 @@
-import type { ArticleSummary } from "@noema/content";
+import type { ArticleFrontmatter, ArticleSummary } from "@noema/content";
+
+export function toArticleSummary(data: ArticleFrontmatter): ArticleSummary {
+  return {
+    ...data,
+    excerpt: data.description,
+    href: `/articles/${data.slug}`
+  };
+}
 
 export function formatJapaneseDate(value?: string): string {
   if (!value) return "";

@@ -44,6 +44,8 @@ npm run dev:studio
 
 記事のfrontmatterでは、話題を表す`topics`と、技術への触れ方を表す`approach`を独立して設定します。`approach`は`experience`、`practice`、`development`、`theory`の4種類で、開発と理論は並列です。加えて`outcome`、`prerequisites`を設定します。正は[コンテンツ・掲載方針](../docs/content-strategy.md)を参照してください。
 
+公開記事はホーム、記事一覧、テーマページへ自動配置されます。記事一覧ではタイトル・概要・タグのキーワード検索、テーマ・タグの絞り込み、12件単位のページ送りが使え、検索条件はURLで共有できます。
+
 ブログのbuild前に`generate:og`が実行され、公開記事ごとの1200×630 PNGを`public/og`へ生成します。生成物はGit管理せず、Cloudflareへdeployする成果物だけに含めます。
 
 Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再編集できます。入力内容はブラウザ内へ自動保存され、Markdownを書き出すまでサーバーへ送信しません。

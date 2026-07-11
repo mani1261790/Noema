@@ -42,6 +42,11 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
           {article.publishedAt && <div><dt>公開</dt><dd><time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time></dd></div>}
           <div><dt>更新</dt><dd><time datetime={article.updatedAt}>{formatJapaneseDate(article.updatedAt)}</time></dd></div>
         </dl>
+        {article.tags.length > 0 && (
+          <ul class="article-header__tags" aria-label="タグ">
+            {article.tags.map((tag) => <li><a href={`/articles?tag=${encodeURIComponent(tag)}#search`}>{tag}</a></li>)}
+          </ul>
+        )}
       </header>
 
       {article.heroImage && (

@@ -1,14 +1,18 @@
 ---
 import { previewArticles, topicLabels } from "@noema/content";
+import { getCollection } from "astro:content";
 import ArrowIcon from "../components/ArrowIcon.astro";
 import FeaturedArticleCard from "../components/FeaturedArticleCard.astro";
 import RecentArticleList from "../components/RecentArticleList.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { sortArticlesByDate } from "../lib/articles";
+import { sortArticlesByDate, toArticleSummary } from "../lib/articles";
 
 export const prerender = true;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
-const articles = showPreview ? previewArticles : [];
+const publishedArticles = await getCollection("articles", ({ data }) => data.status === "published");
+const articles = publishedArticles.length > 0
+  ? publishedArticles.map(({ data }) => toArticleSummary(data))
+  : showPreview ? previewArticles : [];
 const featuredArticles = articles.slice(0, 4);
 const recentArticles = sortArticlesByDate(articles).slice(0, 5);
 ---

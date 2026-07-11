@@ -75,6 +75,11 @@ const tocItems = headings
           {article.data.publishedAt && <div><dt>公開</dt><dd><time datetime={article.data.publishedAt}>{formatJapaneseDate(article.data.publishedAt)}</time></dd></div>}
           <div><dt>更新</dt><dd><time datetime={article.data.updatedAt}>{formatJapaneseDate(article.data.updatedAt)}</time></dd></div>
         </dl>
+        {article.data.tags.length > 0 && (
+          <ul class="article-header__tags" aria-label="タグ">
+            {article.data.tags.map((tag: string) => <li><a href={`/articles?tag=${encodeURIComponent(tag)}#search`}>{tag}</a></li>)}
+          </ul>
+        )}
       </header>
       {article.data.heroImage && (
         <figure class="article-hero-image">

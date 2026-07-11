@@ -22,6 +22,11 @@ const approachTone = getArticleApproachTone(article);
       ? <h3 class="article-row__title">{article.title}</h3>
       : <h2 class="article-row__title">{article.title}</h2>}
     <p class="article-row__excerpt">{article.excerpt}</p>
+    {article.tags.length > 0 && (
+      <ul class="article-row__tags" aria-label="タグ">
+        {article.tags.slice(0, 3).map((tag) => <li>{tag}</li>)}
+      </ul>
+    )}
     <div class="article-row__meta">
       <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
       <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
