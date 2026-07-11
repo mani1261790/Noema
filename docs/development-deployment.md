@@ -21,7 +21,7 @@ GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 | Studio | `noema-studio` | <https://noema-studio.mani1261790.workers.dev> |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（期待値404） |
 
-ブログとStudioの`workers.dev` URLには、最後に成功した`develop`のCloudflare Worker versionが表示されます。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。
+ブログとStudioの`workers.dev` URLには、最後に成功した`develop`のCloudflare Worker versionが表示されます。ブログにはUI確認用の記事fixtureも含め、記事カードと記事ページを実データ追加前から確認できるようにします。fixtureは開発previewだけのもので、本番公開用buildには含めません。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。
 
 ## 自動デプロイの流れ
 
