@@ -61,6 +61,7 @@ const { slug } = Astro.props;
     const submit = form.querySelector<HTMLButtonElement>("button[type='submit']");
     const toggle = form.querySelector<HTMLButtonElement>("[data-toggle-key]");
     const clear = form.querySelector<HTMLButtonElement>("[data-clear-conversation]");
+    const suggestions = form.querySelectorAll<HTMLButtonElement>("[data-question-suggestion]");
     const history: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     if (!keyInput || !questionInput || !status || !answer || !submit) return;
@@ -70,6 +71,13 @@ const { slug } = Astro.props;
       keyInput.type = visible ? "password" : "text";
       toggle.setAttribute("aria-pressed", String(!visible));
       toggle.setAttribute("aria-label", visible ? "APIキーを表示" : "APIキーを隠す");
+    });
+
+    suggestions.forEach((suggestion) => {
+      suggestion.addEventListener("click", () => {
+        questionInput.value = suggestion.textContent?.trim() ?? "";
+        questionInput.focus();
+      });
     });
 
     clear?.addEventListener("click", () => {
@@ -116,6 +124,24 @@ const { slug } = Astro.props;
         const paragraph = document.createElement("p");
         paragraph.textContent = payload.answer;
         answer.append(heading, paragraph);
+        if (Array.isArray(payload.references) && payload.references.length > 0) {
+          const referenceHeading = document.createElement("h4");
+          referenceHeading.textContent = "読み返す場所";
+          const referenceList = document.createElement("ul");
+          payload.references.forEach((reference: unknown) => {
+            if (!reference || typeof reference !== "object") return;
+            const id = (reference as { id?: unknown }).id;
+            const text = (reference as { text?: unknown }).text;
+            if (typeof id !== "string" || typeof text !== "string") return;
+            const item = document.createElement("li");
+            const link = document.createElement("a");
+            link.href = `#${encodeURIComponent(id)}`;
+            link.textContent = text;
+            item.append(link);
+            referenceList.append(item);
+          });
+          if (referenceList.childElementCount > 0) answer.append(referenceHeading, referenceList);
+        }
         history.push({ role: "user", content: question }, { role: "assistant", content: payload.answer });
         if (history.length > 6) history.splice(0, history.length - 6);
         questionInput.value = "";
