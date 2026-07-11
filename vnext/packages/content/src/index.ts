@@ -1,8 +1,15 @@
 import { z } from "zod";
 
 export const articleStatusSchema = z.enum(["draft", "published", "archived"]);
-export const articleStageSchema = z.enum(["experience", "practice", "advanced"]);
-export const articleTrackSchema = z.enum(["common", "development", "theory"]);
+export const articleApproachSchema = z.enum(["experience", "practice", "development", "theory"]);
+export const articleTopicSchema = z.enum([
+  "conversational-ai",
+  "research-organization",
+  "generation-creation",
+  "development-environment",
+  "data-models",
+  "mathematics"
+]);
 
 export const articleFrontmatterSchema = z
   .object({
@@ -18,31 +25,14 @@ export const articleFrontmatterSchema = z
     publishedAt: z.string().date().optional(),
     updatedAt: z.string().date(),
     authors: z.array(z.string().trim().min(1)).min(1),
-    topics: z.array(z.string().trim().min(1)).min(1),
+    topics: z.array(articleTopicSchema).min(1),
     tags: z.array(z.string().trim().min(1)).default([]),
-    stage: articleStageSchema,
-    track: articleTrackSchema,
+    approach: articleApproachSchema,
     outcome: z.string().trim().min(1).max(180),
     prerequisites: z.array(z.string().trim().min(1)).default([]),
     estimatedMinutes: z.number().int().min(1).max(180),
     heroImage: z.string().trim().nullable().default(null),
     sources: z.array(z.string().url()).default([])
-  })
-  .superRefine((article, context) => {
-    if (article.stage === "advanced" && article.track === "common") {
-      context.addIssue({
-        code: "custom",
-        path: ["track"],
-        message: "専門記事は開発または理論の分野を選んでください"
-      });
-    }
-    if (article.stage !== "advanced" && article.track !== "common") {
-      context.addIssue({
-        code: "custom",
-        path: ["track"],
-        message: "体験・活用記事の専門分野は共通にしてください"
-      });
-    }
   });
 
 export type ArticleFrontmatter = z.infer<typeof articleFrontmatterSchema>;
@@ -54,22 +44,17 @@ export type ArticlePreview = ArticleFrontmatter & {
 };
 
 export const topicLabels = {
-  "ai-tools": "AIを使う",
-  "ai-making": "AIとつくる",
-  "knowledge-work": "知識と作業環境",
-  "development-foundations": "開発の基礎",
-  "ai-mechanisms": "AIの仕組み",
-  "math-theory": "数理と理論"
-} as const;
+  "conversational-ai": "対話AI",
+  "research-organization": "情報検索・整理",
+  "generation-creation": "生成・制作",
+  "development-environment": "開発環境",
+  "data-models": "データとモデル",
+  mathematics: "数理"
+} as const satisfies Record<z.infer<typeof articleTopicSchema>, string>;
 
-export const stageLabels = {
+export const approachLabels = {
   experience: "体験",
   practice: "活用",
-  advanced: "専門"
-} as const;
-
-export const trackLabels = {
-  common: "共通",
   development: "開発",
   theory: "理論"
 } as const;
@@ -84,10 +69,9 @@ export const previewArticles: ArticlePreview[] = [
     publishedAt: "2026-07-10",
     updatedAt: "2026-07-10",
     authors: ["Noema編集部"],
-    topics: ["ai-tools"],
+    topics: ["research-organization"],
     tags: ["NotebookLM", "資料整理"],
-    stage: "experience",
-    track: "common",
+    approach: "experience",
     outcome: "自分の資料を使ってNotebookLMへ質問できる",
     prerequisites: [],
     estimatedMinutes: 10,
@@ -105,10 +89,9 @@ export const previewArticles: ArticlePreview[] = [
     publishedAt: "2026-07-09",
     updatedAt: "2026-07-09",
     authors: ["Noema編集部"],
-    topics: ["ai-making"],
+    topics: ["generation-creation"],
     tags: ["Codex", "Web制作"],
-    stage: "practice",
-    track: "common",
+    approach: "practice",
     outcome: "Codexとの対話で小さなWebページを形にできる",
     prerequisites: ["パソコンでファイルを保存できる"],
     estimatedMinutes: 15,
@@ -126,10 +109,9 @@ export const previewArticles: ArticlePreview[] = [
     publishedAt: "2026-07-08",
     updatedAt: "2026-07-08",
     authors: ["Noema編集部"],
-    topics: ["development-foundations"],
+    topics: ["development-environment"],
     tags: ["Terminal", "Git"],
-    stage: "advanced",
-    track: "development",
+    approach: "development",
     outcome: "TerminalとGitの役割を説明し、基本操作へ進める",
     prerequisites: ["AIツールを一度でも使ったことがある"],
     estimatedMinutes: 18,
@@ -147,10 +129,9 @@ export const previewArticles: ArticlePreview[] = [
     publishedAt: "2026-07-07",
     updatedAt: "2026-07-07",
     authors: ["Noema編集部"],
-    topics: ["ai-mechanisms"],
+    topics: ["data-models"],
     tags: ["LLM", "言語モデル"],
-    stage: "advanced",
-    track: "theory",
+    approach: "theory",
     outcome: "LLMが文章を生成する基本的な考え方を説明できる",
     prerequisites: ["AIチャットを使ったことがある"],
     estimatedMinutes: 20,
@@ -195,8 +176,7 @@ export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: stri
     "topics:",
     list(frontmatter.topics),
     ...(frontmatter.tags.length ? ["tags:", list(frontmatter.tags)] : ["tags: []"]),
-    `stage: ${quote(frontmatter.stage)}`,
-    `track: ${quote(frontmatter.track)}`,
+    `approach: ${quote(frontmatter.approach)}`,
     `outcome: ${quote(frontmatter.outcome)}`,
     ...(frontmatter.prerequisites.length ? ["prerequisites:", list(frontmatter.prerequisites)] : ["prerequisites: []"]),
     `estimatedMinutes: ${frontmatter.estimatedMinutes}`,

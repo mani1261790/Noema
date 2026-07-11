@@ -1,5 +1,5 @@
 ---
-import { previewArticles, topicLabels } from "@noema/content";
+import { articleTopicSchema, previewArticles, topicLabels } from "@noema/content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -12,7 +12,10 @@ export function getStaticPaths() {
 const { slug } = Astro.params;
 const { label } = Astro.props;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
-const articles = showPreview ? previewArticles.filter((article) => article.topics.includes(slug ?? "")) : [];
+const topic = articleTopicSchema.safeParse(slug);
+const articles = showPreview && topic.success
+  ? previewArticles.filter((article) => article.topics.includes(topic.data))
+  : [];
 ---
 
 <BaseLayout title={`${label}の記事 | Noema`} description={`${label}について、非技術者にもわかる言葉で解説する記事一覧です。`}>

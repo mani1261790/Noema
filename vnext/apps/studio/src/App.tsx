@@ -3,12 +3,11 @@ import DOMPurify from "dompurify";
 import MarkdownIt from "markdown-it";
 import {
   articleFrontmatterSchema,
+  approachLabels,
   previewArticleMarkdown,
   previewArticles,
   serializeArticle,
-  stageLabels,
   topicLabels,
-  trackLabels,
   type ArticleFrontmatter
 } from "@noema/content";
 
@@ -62,14 +61,6 @@ export function App() {
     setFrontmatter((current) => ({ ...current, [key]: value }));
   };
 
-  const updateStage = (stage: ArticleFrontmatter["stage"]) => {
-    setFrontmatter((current) => ({
-      ...current,
-      stage,
-      track: stage === "advanced" ? (current.track === "common" ? "development" : current.track) : "common"
-    }));
-  };
-
   const download = () => {
     const result = articleFrontmatterSchema.safeParse(frontmatter);
     if (!result.success) return;
@@ -108,6 +99,7 @@ export function App() {
       </nav>
 
       <main className="studio-workspace">
+        <h1 className="sr-only">Noema Studio 記事エディター</h1>
         <aside className={`studio-settings ${activePane === "settings" ? "is-active" : ""}`} aria-label="記事設定">
           <div className="studio-pane-title">
             <p>ARTICLE SETTINGS</p>
@@ -126,31 +118,17 @@ export function App() {
             <input id="article-slug" className="dads-input-text" value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} />
           </Field>
           <div className="studio-field-row">
-            <Field id="article-stage" label="掲載分類">
-              <select id="article-stage" value={frontmatter.stage} onChange={(event) => updateStage(event.target.value as ArticleFrontmatter["stage"])}>
-                <option value="experience">{stageLabels.experience}</option>
-                <option value="practice">{stageLabels.practice}</option>
-                <option value="advanced">{stageLabels.advanced}</option>
+            <Field id="article-approach" label="記事タイプ">
+              <select id="article-approach" value={frontmatter.approach} onChange={(event) => update("approach", event.target.value as ArticleFrontmatter["approach"])}>
+                {Object.entries(approachLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </Field>
             <Field id="article-minutes" label="読了時間">
               <input id="article-minutes" className="dads-input-text" type="number" min="1" max="180" value={frontmatter.estimatedMinutes} onChange={(event) => update("estimatedMinutes", Number(event.target.value))} />
             </Field>
           </div>
-          <Field id="article-track" label="専門分野" hint="専門記事だけ、開発または理論を選びます">
-            <select
-              id="article-track"
-              value={frontmatter.track}
-              disabled={frontmatter.stage !== "advanced"}
-              onChange={(event) => update("track", event.target.value as ArticleFrontmatter["track"])}
-            >
-              {frontmatter.stage !== "advanced" && <option value="common">{trackLabels.common}</option>}
-              <option value="development">{trackLabels.development}</option>
-              <option value="theory">{trackLabels.theory}</option>
-            </select>
-          </Field>
-          <Field id="article-topic" label="トピック">
-            <select id="article-topic" value={frontmatter.topics[0]} onChange={(event) => update("topics", [event.target.value])}>
+          <Field id="article-topic" label="テーマ" hint="記事が扱う話題を選びます">
+            <select id="article-topic" value={frontmatter.topics[0]} onChange={(event) => update("topics", [event.target.value as ArticleFrontmatter["topics"][number]])}>
               {Object.entries(topicLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </Field>

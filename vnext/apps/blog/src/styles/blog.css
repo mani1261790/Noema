@@ -119,7 +119,7 @@ astro-dev-toolbar {
   height: 100%;
   background: var(--color-neutral-white);
   color: var(--color-neutral-solid-gray-800);
-  border: 1px solid var(--article-level-color, var(--color-neutral-black));
+  border: 1px solid var(--article-approach-color, var(--color-neutral-black));
   border-radius: 1.5rem;
   overflow: hidden;
   text-decoration: none;
@@ -127,7 +127,7 @@ astro-dev-toolbar {
 
 .featured-article-card:hover,
 .article-row:hover {
-  outline: 4px solid var(--article-level-color, var(--color-key-900));
+  outline: 4px solid var(--article-approach-color, var(--color-key-900));
   outline-offset: -1px;
 }
 
@@ -159,7 +159,7 @@ astro-dev-toolbar {
 .article-row__topic {
   grid-column: 1 / -1;
   margin: 0;
-  color: var(--article-level-color, var(--color-neutral-solid-gray-800));
+  color: var(--article-approach-color, var(--color-neutral-solid-gray-800));
   font-size: calc(14 / 16 * 1rem);
   font-weight: 700;
   line-height: 1.7;
@@ -176,7 +176,7 @@ astro-dev-toolbar {
   line-height: 1.6;
   letter-spacing: 0.02em;
   text-decoration: underline;
-  text-decoration-color: var(--article-level-color, var(--color-key-900));
+  text-decoration-color: var(--article-approach-color, var(--color-key-900));
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
 }
@@ -184,7 +184,7 @@ astro-dev-toolbar {
 @media (hover: hover) {
   .featured-article-card:hover .featured-article-card__title,
   .article-row:hover .article-row__title {
-    color: var(--article-level-color, var(--color-key-1000));
+    color: var(--article-approach-color, var(--color-key-1000));
     text-decoration-thickness: 3px;
   }
 }
@@ -230,7 +230,7 @@ astro-dev-toolbar {
 .dads-card-arrow {
   width: 1.5rem;
   height: 1.5rem;
-  color: var(--article-level-color, var(--color-key-1000));
+  color: var(--article-approach-color, var(--color-key-1000));
 }
 
 .dads-card-arrow .noema-icon {
@@ -240,7 +240,7 @@ astro-dev-toolbar {
 
 .featured-article-card:hover .dads-card-arrow,
 .article-row:hover .dads-card-arrow {
-  background: var(--article-level-color, var(--color-key-1000));
+  background: var(--article-approach-color, var(--color-key-1000));
   color: var(--color-neutral-white);
 }
 
@@ -249,20 +249,20 @@ astro-dev-toolbar {
   color: var(--color-neutral-white);
 }
 
-.article-level--experience {
-  --article-level-color: var(--noema-level-experience);
+.article-approach--experience {
+  --article-approach-color: var(--noema-approach-experience);
 }
 
-.article-level--practice {
-  --article-level-color: var(--noema-level-practice);
+.article-approach--practice {
+  --article-approach-color: var(--noema-approach-practice);
 }
 
-.article-level--development {
-  --article-level-color: var(--noema-level-development);
+.article-approach--development {
+  --article-approach-color: var(--noema-approach-development);
 }
 
-.article-level--theory {
-  --article-level-color: var(--noema-level-theory);
+.article-approach--theory {
+  --article-approach-color: var(--noema-approach-theory);
 }
 
 .article-list {
