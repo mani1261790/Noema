@@ -2,9 +2,12 @@
 import MarkdownIt from "markdown-it";
 import { previewArticles, previewArticleMarkdown, topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
+import ArticleSources from "../../components/ArticleSources.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import RelatedArticles from "../../components/RelatedArticles.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
 
 export const prerender = true;
 const article = previewArticles[0];
@@ -21,6 +24,7 @@ const sections = previewArticleMarkdown
 const tocItems = sections.map((section) => ({ href: `#${section.id}`, label: section.heading }));
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
+const relatedArticles = findRelatedArticles(article, previewArticles);
 ---
 
 <BaseLayout title={`${article.title} | Noema`} description={article.description} noindex>
@@ -31,8 +35,10 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
         <h1>{article.title}</h1>
         <p>{article.description}</p>
         <dl class="article-meta">
+          <div><dt>執筆</dt><dd>{article.authors.join("、")}</dd></div>
           <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.estimatedMinutes}分</dd></div>
-          <div><dt class="noema-visually-hidden">更新日</dt><dd><time datetime={article.updatedAt}>2026年7月10日</time></dd></div>
+          {article.publishedAt && <div><dt>公開</dt><dd><time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time></dd></div>}
+          <div><dt>更新</dt><dd><time datetime={article.updatedAt}>{formatJapaneseDate(article.updatedAt)}</time></dd></div>
         </dl>
       </header>
 
@@ -46,6 +52,12 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
           </section>
         ))}
       </article>
+      <ArticleSources sources={article.sources} />
+      <RelatedArticles articles={relatedArticles} />
+      <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
+        <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
+        <a class="dads-link" href="/articles">すべての記事を見る</a>
+      </nav>
     </div>
     <div class="article-page__aside">
       <ArticleAssistant slug={article.slug} />

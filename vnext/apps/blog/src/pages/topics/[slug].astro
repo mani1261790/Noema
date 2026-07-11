@@ -1,5 +1,5 @@
 ---
-import { articleTopicSchema, previewArticles, topicLabels } from "@noema/content";
+import { articleTopicSchema, previewArticles, topicDescriptions, topicLabels } from "@noema/content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -13,17 +13,18 @@ const { slug } = Astro.params;
 const { label } = Astro.props;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
 const topic = articleTopicSchema.safeParse(slug);
+const description = topic.success ? topicDescriptions[topic.data] : "";
 const articles = showPreview && topic.success
   ? previewArticles.filter((article) => article.topics.includes(topic.data))
   : [];
 ---
 
-<BaseLayout title={`${label}の記事 | Noema`} description={`${label}について、非技術者にもわかる言葉で解説する記事一覧です。`}>
+<BaseLayout title={`${label}の記事 | Noema`} description={description}>
   <div class="noema-container listing-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "テーマから探す", href: "/#topic-heading" }, { label }]} />
     <header class="page-heading">
       <h1>{label}</h1>
-      <p>{label}の仕組みと、私たちの生活や仕事との関係を、直感と具体例から解説します。</p>
+      <p>{description}</p>
     </header>
     {articles.length > 0 ? (
       <div class="article-list">{articles.map((article) => <ArticleRow article={article} />)}</div>

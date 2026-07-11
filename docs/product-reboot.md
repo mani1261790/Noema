@@ -109,7 +109,10 @@ outcome: "この記事を読んだ後にできること"
 prerequisites: []
 estimatedMinutes: 10
 heroImage: null
-sources: []
+sources:
+  - title: "資料名"
+    url: "https://example.com/source"
+    checkedAt: "2026-07-12"
 ---
 ```
 

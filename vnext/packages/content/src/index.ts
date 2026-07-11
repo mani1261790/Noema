@@ -10,6 +10,11 @@ export const articleTopicSchema = z.enum([
   "data-models",
   "mathematics"
 ]);
+export const articleSourceSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  url: z.string().url(),
+  checkedAt: z.string().date()
+});
 
 export const articleFrontmatterSchema = z
   .object({
@@ -32,14 +37,29 @@ export const articleFrontmatterSchema = z
     prerequisites: z.array(z.string().trim().min(1)).default([]),
     estimatedMinutes: z.number().int().min(1).max(180),
     heroImage: z.string().trim().nullable().default(null),
-    sources: z.array(z.string().url()).default([])
+    sources: z.array(articleSourceSchema).default([])
+  })
+  .superRefine((article, context) => {
+    if (article.status === "published" && !article.publishedAt) {
+      context.addIssue({
+        code: "custom",
+        path: ["publishedAt"],
+        message: "公開記事には公開日が必要です"
+      });
+    }
   });
 
 export type ArticleFrontmatter = z.infer<typeof articleFrontmatterSchema>;
 
-export type ArticlePreview = ArticleFrontmatter & {
+export type ArticleSummary = Pick<
+  ArticleFrontmatter,
+  "title" | "description" | "slug" | "publishedAt" | "updatedAt" | "topics" | "tags" | "approach" | "authors"
+> & {
   excerpt: string;
   href: string;
+};
+
+export type ArticlePreview = ArticleFrontmatter & ArticleSummary & {
   previewOnly: true;
 };
 
@@ -50,6 +70,15 @@ export const topicLabels = {
   "development-environment": "開発環境",
   "data-models": "データとモデル",
   mathematics: "数理"
+} as const satisfies Record<z.infer<typeof articleTopicSchema>, string>;
+
+export const topicDescriptions = {
+  "conversational-ai": "AIとの対話は、何ができて、どこでつまずくのか。身近な使い方から、その仕組みまで見ていきます。",
+  "research-organization": "散らばった情報を、どう探し、読み、結びつけるのか。AIと情報整理の関係をひもときます。",
+  "generation-creation": "言葉や画像、Webページはどのようにつくられるのか。AIと一緒につくる過程から考えます。",
+  "development-environment": "Terminal、Git、エディター。ものをつくる裏側で働く道具と、そのつながりを整理します。",
+  "data-models": "AIは何を見て、どのように答えをつくるのか。データとモデルの関係から内側をのぞきます。",
+  mathematics: "確率やベクトルは、AIの中でどう使われるのか。数式の意味を、直感と図からたどります。"
 } as const satisfies Record<z.infer<typeof articleTopicSchema>, string>;
 
 export const approachLabels = {
@@ -76,7 +105,13 @@ export const previewArticles: ArticlePreview[] = [
     prerequisites: [],
     estimatedMinutes: 10,
     heroImage: null,
-    sources: [],
+    sources: [
+      {
+        title: "NotebookLM ヘルプ",
+        url: "https://support.google.com/notebooklm/",
+        checkedAt: "2026-07-12"
+      }
+    ],
     href: "/preview/article",
     previewOnly: true
   },
@@ -181,7 +216,16 @@ export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: stri
     ...(frontmatter.prerequisites.length ? ["prerequisites:", list(frontmatter.prerequisites)] : ["prerequisites: []"]),
     `estimatedMinutes: ${frontmatter.estimatedMinutes}`,
     `heroImage: ${frontmatter.heroImage ? quote(frontmatter.heroImage) : "null"}`,
-    ...(frontmatter.sources.length ? ["sources:", list(frontmatter.sources)] : ["sources: []"]),
+    ...(frontmatter.sources.length
+      ? [
+          "sources:",
+          ...frontmatter.sources.flatMap((source) => [
+            `  - title: ${quote(source.title)}`,
+            `    url: ${quote(source.url)}`,
+            `    checkedAt: ${quote(source.checkedAt)}`
+          ])
+        ]
+      : ["sources: []"]),
     "---",
     "",
     markdown.trim(),

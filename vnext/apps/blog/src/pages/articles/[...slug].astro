@@ -1,10 +1,13 @@
 ---
 import { getCollection, render } from "astro:content";
-import { topicLabels } from "@noema/content";
+import { topicLabels, type ArticleSummary } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
+import ArticleSources from "../../components/ArticleSources.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import RelatedArticles from "../../components/RelatedArticles.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
 
 export const prerender = true;
 
@@ -15,6 +18,18 @@ export async function getStaticPaths() {
 
 const { article } = Astro.props;
 const { Content, headings } = await render(article);
+const publishedArticles = await getCollection("articles", ({ data }) => data.status === "published");
+const summaries: ArticleSummary[] = publishedArticles.map(({ data }) => ({
+  ...data,
+  excerpt: data.description,
+  href: `/articles/${data.slug}`
+}));
+const currentSummary: ArticleSummary = {
+  ...article.data,
+  excerpt: article.data.description,
+  href: `/articles/${article.data.slug}`
+};
+const relatedArticles = findRelatedArticles(currentSummary, summaries);
 const topic = article.data.topics[0] ?? "technology";
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 const tocItems = headings
@@ -30,12 +45,20 @@ const tocItems = headings
         <h1>{article.data.title}</h1>
         <p>{article.data.description}</p>
         <dl class="article-meta">
+          <div><dt>執筆</dt><dd>{article.data.authors.join("、")}</dd></div>
           <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.data.estimatedMinutes}分</dd></div>
-          <div><dt class="noema-visually-hidden">更新日</dt><dd><time datetime={article.data.updatedAt}>{article.data.updatedAt}</time></dd></div>
+          {article.data.publishedAt && <div><dt>公開</dt><dd><time datetime={article.data.publishedAt}>{formatJapaneseDate(article.data.publishedAt)}</time></dd></div>}
+          <div><dt>更新</dt><dd><time datetime={article.data.updatedAt}>{formatJapaneseDate(article.data.updatedAt)}</time></dd></div>
         </dl>
       </header>
       {tocItems.length > 0 && <ArticleToc items={tocItems} />}
       <article class="article-body"><Content /></article>
+      <ArticleSources sources={article.data.sources} />
+      <RelatedArticles articles={relatedArticles} />
+      <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
+        <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
+        <a class="dads-link" href="/articles">すべての記事を見る</a>
+      </nav>
     </div>
     <div class="article-page__aside"><ArticleAssistant slug={article.data.slug} /></div>
   </div>

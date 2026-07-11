@@ -1,7 +1,7 @@
-import type { ArticlePreview } from "@noema/content";
+import type { ArticleSummary } from "@noema/content";
 
 export type ArticleApproachTone = "experience" | "practice" | "development" | "theory";
 
-export function getArticleApproachTone(article: ArticlePreview): ArticleApproachTone {
+export function getArticleApproachTone(article: ArticleSummary): ArticleApproachTone {
   return article.approach;
 }
