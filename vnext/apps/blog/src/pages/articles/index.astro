@@ -1,5 +1,5 @@
 ---
-import { previewArticles, stageLabels, topicLabels, trackLabels } from "@noema/content";
+import { previewArticles, topicLabels } from "@noema/content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -9,33 +9,18 @@ const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT
 const articles = showPreview ? previewArticles : [];
 ---
 
-<BaseLayout title="記事を読む | Noema" description="Noemaの記事を学習段階、発展トラック、テーマから探せます。">
+<BaseLayout title="記事を読む | Noema" description="気になる言葉やテーマから、Noemaの記事を探せます。">
   <div class="noema-container listing-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "記事を読む" }]} />
     <header class="page-heading">
       <h1>記事を読む</h1>
-      <p>まず体験する記事から、開発・理論を深く学ぶ記事まで、自分の現在地と興味から選べます。</p>
+      <p>気になる言葉やテーマから記事を探せます。</p>
     </header>
 
     <form id="search" class="article-search" role="search">
       <div>
         <label for="article-keyword">キーワード</label>
         <input id="article-keyword" name="keyword" type="search" placeholder="記事タイトルや概要を検索" />
-      </div>
-      <div>
-        <label for="article-stage">学習段階</label>
-        <select id="article-stage" name="stage">
-          <option value="">すべての段階</option>
-          {Object.entries(stageLabels).map(([value, label]) => <option value={value}>{label}</option>)}
-        </select>
-      </div>
-      <div>
-        <label for="article-track">発展トラック</label>
-        <select id="article-track" name="track">
-          <option value="">すべてのトラック</option>
-          <option value="development">{trackLabels.development}</option>
-          <option value="theory">{trackLabels.theory}</option>
-        </select>
       </div>
       <div>
         <label for="article-topic">テーマ</label>
@@ -54,16 +39,14 @@ const articles = showPreview ? previewArticles : [];
           data-article-item
           data-title={`${article.title} ${article.description} ${article.tags.join(" ")}`}
           data-topic={article.topics.join(" ")}
-          data-stage={article.stage}
-          data-track={article.track}
         >
           <ArticleRow article={article} />
         </div>
       ))}
     </div>
     <div class="noema-empty-state" data-empty-state hidden={articles.length > 0}>
-      <h2>該当する記事はありません</h2>
-      <p>条件を変えて、もう一度お試しください。</p>
+      <h2>{articles.length > 0 ? "該当する記事はありません" : "記事はまだありません"}</h2>
+      {articles.length > 0 && <p>条件を変えて、もう一度お試しください。</p>}
     </div>
   </div>
 </BaseLayout>
@@ -71,8 +54,6 @@ const articles = showPreview ? previewArticles : [];
 <script>
   const form = document.querySelector<HTMLFormElement>(".article-search");
   const keyword = document.querySelector<HTMLInputElement>("#article-keyword");
-  const stage = document.querySelector<HTMLSelectElement>("#article-stage");
-  const track = document.querySelector<HTMLSelectElement>("#article-track");
   const topic = document.querySelector<HTMLSelectElement>("#article-topic");
   const items = [...document.querySelectorAll<HTMLElement>("[data-article-item]")];
   const count = document.querySelector<HTMLElement>("[data-article-count]");
@@ -80,16 +61,12 @@ const articles = showPreview ? previewArticles : [];
 
   const applyFilters = () => {
     const query = keyword?.value.trim().toLocaleLowerCase("ja") ?? "";
-    const selectedStage = stage?.value ?? "";
-    const selectedTrack = track?.value ?? "";
     const selectedTopic = topic?.value ?? "";
     let visible = 0;
     for (const item of items) {
       const matchesText = !query || (item.dataset.title ?? "").toLocaleLowerCase("ja").includes(query);
-      const matchesStage = !selectedStage || item.dataset.stage === selectedStage;
-      const matchesTrack = !selectedTrack || item.dataset.track === selectedTrack;
       const matchesTopic = !selectedTopic || (item.dataset.topic ?? "").split(" ").includes(selectedTopic);
-      item.hidden = !(matchesText && matchesStage && matchesTrack && matchesTopic);
+      item.hidden = !(matchesText && matchesTopic);
       if (!item.hidden) visible += 1;
     }
     if (count) count.textContent = `${visible}件の記事`;
@@ -98,8 +75,6 @@ const articles = showPreview ? previewArticles : [];
 
   const initialParams = new URLSearchParams(window.location.search);
   if (keyword) keyword.value = initialParams.get("keyword") ?? "";
-  if (stage) stage.value = initialParams.get("stage") ?? "";
-  if (track) track.value = initialParams.get("track") ?? "";
   if (topic) topic.value = initialParams.get("topic") ?? "";
   applyFilters();
 
@@ -107,8 +82,6 @@ const articles = showPreview ? previewArticles : [];
     event.preventDefault();
     const params = new URLSearchParams();
     if (keyword?.value.trim()) params.set("keyword", keyword.value.trim());
-    if (stage?.value) params.set("stage", stage.value);
-    if (track?.value) params.set("track", track.value);
     if (topic?.value) params.set("topic", topic.value);
     window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}#search`);
     applyFilters();

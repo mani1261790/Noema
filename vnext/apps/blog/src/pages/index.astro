@@ -1,7 +1,7 @@
 ---
-import { learningPaths, previewArticles, topicLabels } from "@noema/content";
-import ArticleRow from "../components/ArticleRow.astro";
+import { previewArticles, topicLabels } from "@noema/content";
 import ArrowIcon from "../components/ArrowIcon.astro";
+import FeaturedArticleCard from "../components/FeaturedArticleCard.astro";
 import HeroGraphic from "../components/HeroGraphic.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
@@ -14,10 +14,10 @@ const articles = showPreview ? previewArticles : [];
   <section class="home-hero">
     <div class="noema-container home-hero__inner">
       <div class="home-hero__copy">
-        <h1>AIを、使うところから仕組みまで。</h1>
-        <p>まず試して、日々に取り入れ、作る・理解するへ。<br />Noemaは、自分の興味から学び続けるための教材サービスです。</p>
+        <h1>なんとなく気になる、から。</h1>
+        <p>AIでできること、その裏側で起きていること。<br />難しい技術の面白さを、直感と具体例からひもときます。</p>
         <a class="dads-button" data-size="lg" data-type="solid-fill" href="/articles">
-          記事を探す
+          記事を読む
           <ArrowIcon />
         </a>
       </div>
@@ -25,64 +25,18 @@ const articles = showPreview ? previewArticles : [];
     </div>
   </section>
 
-  <section id="learning-paths" class="learning-paths" aria-labelledby="learning-paths-heading">
-    <div class="noema-container">
-      <header class="learning-paths__heading">
-        <h2 id="learning-paths-heading" class="noema-section-heading">学び方を選ぶ</h2>
-        <p>最初の二つは共通の入口です。その先は、作ることと理解することのどちらからでも進めます。</p>
-      </header>
-      <div class="learning-paths__layout">
-        <section aria-labelledby="common-path-heading">
-          <h3 id="common-path-heading">共通のステップ</h3>
-          <ol class="learning-paths__list learning-paths__list--common">
-            {learningPaths.slice(0, 2).map((path) => (
-              <li>
-                <article class="learning-path-card">
-                  <span>{path.eyebrow}</span>
-                  <strong>{path.title}</strong>
-                  <p>{path.description}</p>
-                  <a class="learning-path-card__link" href={path.href}>記事を見る <ArrowIcon /></a>
-                </article>
-              </li>
-            ))}
-          </ol>
-        </section>
-        <section class="learning-paths__advanced" aria-labelledby="advanced-path-heading">
-          <h3 id="advanced-path-heading">興味に合わせて選ぶ発展トラック</h3>
-          <div class="learning-paths__list learning-paths__list--advanced">
-            {learningPaths.slice(2).map((path) => (
-              <article class="learning-path-card">
-                <span>{path.eyebrow}</span>
-                <strong>{path.title}</strong>
-                <p>{path.description}</p>
-                <a class="learning-path-card__link" href={path.href}>記事を見る <ArrowIcon /></a>
-              </article>
-            ))}
-          </div>
-          <p class="learning-paths__cross-note">両方を学びたい場合は、開発から理論へ進み、関連記事で相互に行き来できます。</p>
-        </section>
+  {articles.length > 0 && (
+    <section id="featured-articles" class="home-featured" aria-labelledby="featured-heading">
+      <div class="noema-container">
+        <h2 id="featured-heading" class="noema-section-heading">注目の記事</h2>
+        <div class="featured-article-grid">
+          {articles.slice(0, 4).map((article) => <FeaturedArticleCard article={article} />)}
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  )}
 
-  <section class="home-articles" aria-labelledby="latest-heading">
-    <div class="noema-container">
-      <h2 id="latest-heading" class="noema-section-heading">新着記事</h2>
-      {articles.length > 0 ? (
-        <div class="article-list">
-          {articles.map((article) => <ArticleRow article={article} />)}
-          <p class="preview-notice">表示中の記事はUI確認用fixtureです。公開コンテンツには含まれません。</p>
-        </div>
-      ) : (
-        <div class="noema-empty-state">
-          <h3>記事を準備しています</h3>
-          <p>人の手で丁寧に執筆した記事を、順次公開します。</p>
-        </div>
-      )}
-    </div>
-  </section>
-
-  <section class="topic-band" aria-labelledby="topic-heading">
+  <section id="topics" class="topic-band" aria-labelledby="topic-heading">
     <div class="noema-container">
       <h2 id="topic-heading" class="noema-section-heading">テーマから探す</h2>
       <ul class="topic-band__links">
@@ -96,8 +50,8 @@ const articles = showPreview ? previewArticles : [];
   <section class="home-about" aria-labelledby="first-heading">
     <div class="noema-container home-about__inner">
       <div>
-        <h2 id="first-heading" class="noema-section-heading">はじめての方へ</h2>
-        <p>Noemaは、AIを自分の興味から学び続けるための教材サービスです。専門用語を隠さず、まず日常の言葉と具体例から説明します。</p>
+        <h2 id="first-heading" class="noema-section-heading">Noemaについて</h2>
+        <p>Noemaは、難しい技術の面白さを、専門外の人にもわかる言葉で届ける技術メディアです。</p>
         <a href="/about">Noemaについて詳しく見る <ArrowIcon /></a>
       </div>
       <svg class="home-about__book" viewBox="0 0 220 130" role="img" aria-label="開かれた本の線画">

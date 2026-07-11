@@ -126,7 +126,7 @@ export function App() {
             <input id="article-slug" className="dads-input-text" value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} />
           </Field>
           <div className="studio-field-row">
-            <Field id="article-stage" label="学習段階">
+            <Field id="article-stage" label="掲載分類">
               <select id="article-stage" value={frontmatter.stage} onChange={(event) => updateStage(event.target.value as ArticleFrontmatter["stage"])}>
                 <option value="experience">{stageLabels.experience}</option>
                 <option value="practice">{stageLabels.practice}</option>
@@ -137,7 +137,7 @@ export function App() {
               <input id="article-minutes" className="dads-input-text" type="number" min="1" max="180" value={frontmatter.estimatedMinutes} onChange={(event) => update("estimatedMinutes", Number(event.target.value))} />
             </Field>
           </div>
-          <Field id="article-track" label="発展トラック" hint="Level 1・2では共通、発展では開発か理論を選びます">
+          <Field id="article-track" label="専門分野" hint="専門記事だけ、開発または理論を選びます">
             <select
               id="article-track"
               value={frontmatter.track}
@@ -185,17 +185,11 @@ export function App() {
           </div>
           <article>
             <div className="studio-preview__meta">
-              <span>{stageLabels[frontmatter.stage]}</span>
-              {frontmatter.track !== "common" && <span>{trackLabels[frontmatter.track]}</span>}
               <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? frontmatter.topics[0]}</span>
               <span>約{frontmatter.estimatedMinutes}分</span>
             </div>
             <h1>{frontmatter.title || "タイトル未入力"}</h1>
             <p className="studio-preview__lead">{frontmatter.description}</p>
-            <section className="studio-preview__outcome">
-              <strong>この記事でできるようになること</strong>
-              <p>{frontmatter.outcome || "未入力"}</p>
-            </section>
             <div className="studio-preview__body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
           </article>
         </section>

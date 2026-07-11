@@ -1,6 +1,6 @@
 # Noema
 
-Noemaは、AIを使う最初の体験から、開発と理論の深い理解までを支える独立したMarkdown教材サービスです。公開ブログ、Markdown執筆用Studio、表示中の記事だけを文脈に質問できるLLMアシスタントをCloudflare Workers上で開発しています。
+Noemaは、AIでできることと、その仕組みを、直感と具体例からひもとく独立した技術メディアです。公開ブログ、Markdown執筆用Studio、表示中の記事だけを文脈に質問できるLLMアシスタントをCloudflare Workers上で開発しています。
 
 旧notebook学習サービスとAWS実装は退役済みです。コード、教材、AWS CDK、復元手順、退役記録は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
 

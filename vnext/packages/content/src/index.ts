@@ -33,14 +33,14 @@ export const articleFrontmatterSchema = z
       context.addIssue({
         code: "custom",
         path: ["track"],
-        message: "発展記事は開発トラックまたは理論トラックを選んでください"
+        message: "専門記事は開発または理論の分野を選んでください"
       });
     }
     if (article.stage !== "advanced" && article.track !== "common") {
       context.addIssue({
         code: "custom",
         path: ["track"],
-        message: "Level 1・2の記事は共通トラックにしてください"
+        message: "体験・活用記事の専門分野は共通にしてください"
       });
     }
   });
@@ -63,53 +63,16 @@ export const topicLabels = {
 } as const;
 
 export const stageLabels = {
-  experience: "Level 1・体験する",
-  practice: "Level 2・活用する",
-  advanced: "発展"
-} as const;
-
-export const stageShortLabels = {
-  experience: "Level 1",
-  practice: "Level 2",
-  advanced: "発展"
+  experience: "体験",
+  practice: "活用",
+  advanced: "専門"
 } as const;
 
 export const trackLabels = {
   common: "共通",
-  development: "開発トラック",
-  theory: "理論トラック"
+  development: "開発",
+  theory: "理論"
 } as const;
-
-export const learningPaths = [
-  {
-    key: "experience",
-    eyebrow: "Level 1",
-    title: "体験する",
-    description: "AIで目に見える成果をつくり、まず可能性を実感します。",
-    href: "/articles?stage=experience"
-  },
-  {
-    key: "practice",
-    eyebrow: "Level 2",
-    title: "活用する",
-    description: "学習や制作にAIを取り入れ、自分の目的に合わせて使います。",
-    href: "/articles?stage=practice"
-  },
-  {
-    key: "development",
-    eyebrow: "発展",
-    title: "開発トラック",
-    description: "TerminalやGitから始め、AIと一緒に仕組みをつくります。",
-    href: "/articles?stage=advanced&track=development"
-  },
-  {
-    key: "theory",
-    eyebrow: "発展",
-    title: "理論トラック",
-    description: "LLMや機械学習が動く理由を、直感から深く理解します。",
-    href: "/articles?stage=advanced&track=theory"
-  }
-] as const;
 
 export const previewArticles: ArticlePreview[] = [
   {
@@ -168,7 +131,7 @@ export const previewArticles: ArticlePreview[] = [
     stage: "advanced",
     track: "development",
     outcome: "TerminalとGitの役割を説明し、基本操作へ進める",
-    prerequisites: ["Level 2の記事を1本以上体験している"],
+    prerequisites: ["AIツールを一度でも使ったことがある"],
     estimatedMinutes: 18,
     heroImage: null,
     sources: [],
@@ -213,7 +176,7 @@ export const previewArticleMarkdown = `
 
 ## 次に進む
 
-体験できたら、日々の学習や調査へ組み込むLevel 2の記事へ進みます。
+気になった使い方があれば、日々の調査や作業でも試してみましょう。
 `;
 
 export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: string): string {

@@ -25,7 +25,7 @@ const articles = showPreview ? previewArticles.filter((article) => article.topic
     {articles.length > 0 ? (
       <div class="article-list">{articles.map((article) => <ArticleRow article={article} />)}</div>
     ) : (
-      <div class="noema-empty-state"><h2>記事を準備しています</h2><p>このテーマの記事は、著者による執筆と確認が完了し次第公開します。</p></div>
+      <div class="noema-empty-state"><h2>記事はまだありません</h2></div>
     )}
   </div>
 </BaseLayout>
