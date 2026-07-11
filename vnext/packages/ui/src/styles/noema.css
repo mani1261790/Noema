@@ -6,30 +6,77 @@
 
 :root {
   color-scheme: light;
+  --color-key-50: #e3f2ef;
+  --color-key-100: #cbe7e3;
+  --color-key-200: #a8d7d1;
+  --color-key-300: #7ec2ba;
+  --color-key-400: #55aaa2;
+  --color-key-500: #2f928b;
+  --color-key-600: #147d77;
+  --color-key-700: #006f69;
+  --color-key-800: #08716c;
+  --color-key-900: #00645f;
+  --color-key-1000: #004f4b;
+  --color-key-1100: #004440;
+  --color-key-1200: #003c39;
   --noema-content-width: 77.375rem;
   --noema-reading-width: 48rem;
   --noema-border: var(--color-neutral-solid-gray-200);
   --noema-muted: var(--color-neutral-solid-gray-600);
-  --noema-surface-subtle: var(--color-primitive-blue-50);
+  --noema-background: #faf9f5;
+  --noema-surface: #ffffff;
+  --noema-surface-subtle: #e3f2ef;
+  --noema-text: #1c2422;
+  --noema-link: #00645f;
+  --noema-link-hover: #004f4b;
+  --noema-link-visited: #6b4e71;
+  --noema-link-active: #a84c00;
+  --noema-accent: #a84c00;
+  --noema-level-experience: #9a4b00;
+  --noema-level-practice: #00645f;
+  --noema-level-development: #4355a5;
+  --noema-level-theory: #7a3e87;
 }
 
 html {
-  background: var(--color-neutral-white);
-  color: var(--color-neutral-black);
+  background: var(--noema-background);
+  color: var(--noema-text);
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-width: 20rem;
-  background: var(--color-neutral-white);
-  color: var(--color-neutral-black);
+  background: var(--noema-background);
+  color: var(--noema-text);
   font-family: var(--font-family-sans);
   font-size: calc(16 / 16 * 1rem);
   line-height: 1.75;
   letter-spacing: 0.02em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+:where(a):any-link,
+.dads-link:any-link {
+  color: var(--noema-link);
+}
+
+:where(a):visited,
+.dads-link:visited {
+  color: var(--noema-link-visited);
+}
+
+@media (hover: hover) {
+  :where(a):hover,
+  .dads-link:hover {
+    color: var(--noema-link-hover);
+  }
+}
+
+:where(a):active,
+.dads-link:active {
+  color: var(--noema-link-active);
 }
 
 button,
