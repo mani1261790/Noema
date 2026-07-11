@@ -9,18 +9,19 @@ import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
+import { extractArticleHeadings } from "../../lib/article-assistant";
 
 export const prerender = true;
 const article = previewArticles[0];
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
-const sectionIds = ["試すこと", "資料を用意", "質問する", "次に進む"];
+const articleHeadings = extractArticleHeadings(previewArticleMarkdown);
 const sections = previewArticleMarkdown
   .trim()
   .split(/^## /m)
   .filter(Boolean)
   .map((section, index) => {
     const [heading, ...body] = section.split("\n");
-    return { id: sectionIds[index] ?? `section-${index + 1}`, heading, html: md.render(body.join("\n").trim()) };
+    return { id: articleHeadings[index]?.id ?? `section-${index + 1}`, heading, html: md.render(body.join("\n").trim()) };
   });
 const tocItems = sections.map((section) => ({ href: `#${section.id}`, label: section.heading }));
 const topic = article.topics[0];

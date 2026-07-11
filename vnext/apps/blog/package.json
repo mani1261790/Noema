@@ -20,6 +20,7 @@
     "@noema/content": "0.1.0",
     "@noema/ui": "0.1.0",
     "astro": "^7.0.7",
+    "github-slugger": "^2.0.0",
     "markdown-it": "^14.3.0",
     "zod": "^4.4.3"
   },

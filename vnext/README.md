@@ -55,6 +55,7 @@ Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再�
 - API keyと会話を永続化しない
 - OpenAI Responses APIへ`store: false`を指定する
 - 表示中の記事だけをcontextにする
+- 回答をStructured Outputsで検証し、根拠にした記事内見出しへのリンクを表示する
 - StudioはMarkdownをlocal fileへ書き出し、直接公開しない
 
 ## 検証
