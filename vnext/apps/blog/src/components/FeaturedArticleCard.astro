@@ -1,6 +1,6 @@
 ---
 import { topicLabels, type ArticlePreview } from "@noema/content";
-import { getArticleLevelTone } from "../lib/articlePresentation";
+import { getArticleApproachTone } from "../lib/articlePresentation";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
@@ -10,11 +10,11 @@ interface Props {
 const { article } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
-const size = article.stage === "advanced" ? "compact" : "large";
-const levelTone = getArticleLevelTone(article);
+const size = article.approach === "experience" || article.approach === "practice" ? "large" : "compact";
+const approachTone = getArticleApproachTone(article);
 ---
 
-<a class:list={["featured-article-card", `featured-article-card--${size}`, `article-level--${levelTone}`]} href={article.href}>
+<a class:list={["featured-article-card", `featured-article-card--${size}`, `article-approach--${approachTone}`]} href={article.href}>
   <div class="featured-article-card__body">
     <p class="featured-article-card__topic">{topicLabel}</p>
     <h3 class="featured-article-card__title">{article.title}</h3>

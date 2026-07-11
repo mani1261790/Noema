@@ -101,11 +101,10 @@ updatedAt: "2026-07-10"
 authors:
   - "author-id"
 topics:
-  - "ai-tools"
+  - "research-organization"
 tags:
   - "NotebookLM"
-stage: "experience" # experience | practice | advanced
-track: "common" # common | development | theory
+approach: "experience" # experience | practice | development | theory
 outcome: "この記事を読んだ後にできること"
 prerequisites: []
 estimatedMinutes: 10
@@ -114,7 +113,7 @@ sources: []
 ---
 ```
 
-ビルド時に frontmatter のスキーマ、段階とトラックの組み合わせ、slug の重複、内部リンク、見出し階層、画像の代替テキストを検証する。Markdown は安全な HTML に変換し、見出しIDと目次を決定的に生成する。
+ビルド時にfrontmatterのスキーマ、slugの重複、内部リンク、見出し階層、画像の代替テキストを検証する。`topics`は記事の話題、`approach`は体験・活用・開発・理論という触れ方を表し、互いに独立して設定する。Markdownは安全なHTMLに変換し、見出しIDと目次を決定的に生成する。
 
 ## 5. 執筆エディター
 

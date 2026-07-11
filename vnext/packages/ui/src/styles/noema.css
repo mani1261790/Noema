@@ -32,10 +32,10 @@
   --noema-link-visited: #6b4e71;
   --noema-link-active: #a84c00;
   --noema-accent: #a84c00;
-  --noema-level-experience: #9a4b00;
-  --noema-level-practice: #00645f;
-  --noema-level-development: #4355a5;
-  --noema-level-theory: #7a3e87;
+  --noema-approach-experience: #9a4b00;
+  --noema-approach-practice: #00645f;
+  --noema-approach-development: #4355a5;
+  --noema-approach-theory: #7a3e87;
 }
 
 html {

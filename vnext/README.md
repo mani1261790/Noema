@@ -42,7 +42,7 @@ npm run dev:studio
 
 記事は`apps/blog/src/content/articles`へMarkdownで配置します。現在の公開記事は空で、開発画面は`packages/content`のfixtureを使います。`/preview/article`は`noindex`です。
 
-記事はLevel 1「体験する」、Level 2「活用する」を共通入口とし、その先を開発・理論の並列トラックへ分けます。frontmatterには`stage`、`track`、`outcome`、`prerequisites`を設定します。正は [コンテンツ・学習導線仕様](../docs/content-strategy.md) を参照してください。
+記事のfrontmatterでは、話題を表す`topics`と、技術への触れ方を表す`approach`を独立して設定します。`approach`は`experience`、`practice`、`development`、`theory`の4種類で、開発と理論は並列です。加えて`outcome`、`prerequisites`を設定します。正は[コンテンツ・掲載方針](../docs/content-strategy.md)を参照してください。
 
 ## 記事アシスタント
 

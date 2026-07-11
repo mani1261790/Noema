@@ -7,7 +7,7 @@
 1. [開発環境デプロイ](./development-deployment.md): `develop`限定deploy、確認URL、GitHub設定、rollback
 2. [アプリケーションREADME](../vnext/README.md): workspace構成、local development、build
 3. [プロダクト再設計仕様](./product-reboot.md): product、記事、Studio、記事アシスタント、Cloudflare構成
-4. [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、内部分類、テーマ、OIF表記方針
+4. [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、記事タイプ、テーマ、OIF表記方針
 
 ## UIとデザイン
 
