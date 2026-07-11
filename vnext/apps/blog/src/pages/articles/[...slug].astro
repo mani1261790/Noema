@@ -76,6 +76,11 @@ const tocItems = headings
           <div><dt>更新</dt><dd><time datetime={article.data.updatedAt}>{formatJapaneseDate(article.data.updatedAt)}</time></dd></div>
         </dl>
       </header>
+      {article.data.heroImage && (
+        <figure class="article-hero-image">
+          <img src={article.data.heroImage.src} alt={article.data.heroImage.alt} />
+        </figure>
+      )}
       {tocItems.length > 0 && <ArticleToc items={tocItems} />}
       <article class="article-body"><Content /></article>
       <ArticleSources sources={article.data.sources} />

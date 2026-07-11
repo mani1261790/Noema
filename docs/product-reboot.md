@@ -108,7 +108,9 @@ approach: "experience" # experience | practice | development | theory
 outcome: "この記事を読んだ後にできること"
 prerequisites: []
 estimatedMinutes: 10
-heroImage: null
+heroImage:
+  src: "/images/articles/example.webp"
+  alt: "画像から得られる情報を説明する代替テキスト"
 sources:
   - title: "資料名"
     url: "https://example.com/source"

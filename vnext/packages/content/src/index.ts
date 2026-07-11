@@ -15,6 +15,10 @@ export const articleSourceSchema = z.object({
   url: z.string().url(),
   checkedAt: z.string().date()
 });
+export const articleImageSchema = z.object({
+  src: z.string().trim().min(1),
+  alt: z.string().trim().min(1).max(240)
+});
 
 export const articleFrontmatterSchema = z
   .object({
@@ -36,7 +40,7 @@ export const articleFrontmatterSchema = z
     outcome: z.string().trim().min(1).max(180),
     prerequisites: z.array(z.string().trim().min(1)).default([]),
     estimatedMinutes: z.number().int().min(1).max(180),
-    heroImage: z.string().trim().nullable().default(null),
+    heroImage: articleImageSchema.nullable().default(null),
     sources: z.array(articleSourceSchema).default([])
   })
   .superRefine((article, context) => {
@@ -53,7 +57,7 @@ export type ArticleFrontmatter = z.infer<typeof articleFrontmatterSchema>;
 
 export type ArticleSummary = Pick<
   ArticleFrontmatter,
-  "title" | "description" | "slug" | "publishedAt" | "updatedAt" | "topics" | "tags" | "approach" | "authors"
+  "title" | "description" | "slug" | "publishedAt" | "updatedAt" | "topics" | "tags" | "approach" | "authors" | "heroImage"
 > & {
   excerpt: string;
   href: string;
@@ -104,7 +108,10 @@ export const previewArticles: ArticlePreview[] = [
     outcome: "自分の資料を使ってNotebookLMへ質問できる",
     prerequisites: [],
     estimatedMinutes: 10,
-    heroImage: null,
+    heroImage: {
+      src: "/images/articles/notebooklm-sources.svg",
+      alt: "複数の資料が一つのノートに集まり、質問と回答へつながる関係を示した図"
+    },
     sources: [
       {
         title: "NotebookLM ヘルプ",
@@ -215,7 +222,13 @@ export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: stri
     `outcome: ${quote(frontmatter.outcome)}`,
     ...(frontmatter.prerequisites.length ? ["prerequisites:", list(frontmatter.prerequisites)] : ["prerequisites: []"]),
     `estimatedMinutes: ${frontmatter.estimatedMinutes}`,
-    `heroImage: ${frontmatter.heroImage ? quote(frontmatter.heroImage) : "null"}`,
+    ...(frontmatter.heroImage
+      ? [
+          "heroImage:",
+          `  src: ${quote(frontmatter.heroImage.src)}`,
+          `  alt: ${quote(frontmatter.heroImage.alt)}`
+        ]
+      : ["heroImage: null"]),
     ...(frontmatter.sources.length
       ? [
           "sources:",

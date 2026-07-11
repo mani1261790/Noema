@@ -238,8 +238,21 @@ export function App() {
             <input id="article-prerequisites" className="dads-input-text" value={frontmatter.prerequisites.join(", ")} onChange={(event) => update("prerequisites", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} />
           </Field>
           <Field id="article-hero-image" label="記事画像" hint="サイト内パスまたは画像URL。不要な場合は空欄">
-            <input id="article-hero-image" className="dads-input-text" value={frontmatter.heroImage ?? ""} onChange={(event) => update("heroImage", event.target.value.trim() || null)} placeholder="/images/articles/example.webp" />
+            <input
+              id="article-hero-image"
+              className="dads-input-text"
+              value={frontmatter.heroImage?.src ?? ""}
+              onChange={(event) => update("heroImage", event.target.value.trim()
+                ? { src: event.target.value.trim(), alt: frontmatter.heroImage?.alt ?? "" }
+                : null)}
+              placeholder="/images/articles/example.webp"
+            />
           </Field>
+          {frontmatter.heroImage && (
+            <Field id="article-hero-image-alt" label="記事画像の代替テキスト" hint="画像から得られる情報を簡潔に説明します">
+              <textarea id="article-hero-image-alt" className="dads-textarea" rows={3} value={frontmatter.heroImage.alt} onChange={(event) => update("heroImage", { ...frontmatter.heroImage!, alt: event.target.value })} />
+            </Field>
+          )}
 
           <fieldset id="article-sources" className="studio-sources">
             <legend>参考資料</legend>
@@ -291,6 +304,7 @@ export function App() {
             <span className="studio-preview__status">自動更新</span>
           </div>
           <article>
+            {frontmatter.heroImage && <img className="studio-preview__hero-image" src={frontmatter.heroImage.src} alt={frontmatter.heroImage.alt} />}
             <div className="studio-preview__meta">
               <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? frontmatter.topics[0]}</span>
               <span>約{frontmatter.estimatedMinutes}分</span>
