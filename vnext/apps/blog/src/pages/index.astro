@@ -7,28 +7,37 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 export const prerender = true;
 const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
 const articles = showPreview ? previewArticles : [];
+const heroArticle = articles[0];
+const heroTopic = heroArticle?.topics[0];
+const heroTopicLabel = heroTopic
+  ? (topicLabels[heroTopic as keyof typeof topicLabels] ?? heroTopic)
+  : undefined;
+const featuredArticles = articles.slice(1, 5);
 ---
 
 <BaseLayout>
-  <section class="home-hero">
-    <div class="noema-container home-hero__inner">
-      <div class="home-hero__copy">
-        <h1>なんとなく気になる、から。</h1>
-        <p>AIでできること、その裏側で起きていること。<br />難しい技術の面白さを、直感と具体例からひもときます。</p>
-        <a class="dads-button" data-size="lg" data-type="solid-fill" href="/articles">
-          記事を読む
-          <ArrowIcon />
-        </a>
+  {heroArticle && (
+    <section class="home-hero" aria-labelledby="hero-heading">
+      <div class="noema-container home-hero__inner">
+        <div class="home-hero__copy">
+          {heroTopicLabel && <p class="home-hero__topic">{heroTopicLabel}</p>}
+          <h1 id="hero-heading">{heroArticle.title}</h1>
+          <p>{heroArticle.excerpt}</p>
+          <a class="dads-button" data-size="lg" data-type="solid-fill" href={heroArticle.href}>
+            この記事を読む
+            <ArrowIcon />
+          </a>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  )}
 
-  {articles.length > 0 && (
+  {featuredArticles.length > 0 && (
     <section id="featured-articles" class="home-featured" aria-labelledby="featured-heading">
       <div class="noema-container">
         <h2 id="featured-heading" class="noema-section-heading">注目の記事</h2>
         <div class="featured-article-grid">
-          {articles.slice(0, 4).map((article) => <FeaturedArticleCard article={article} />)}
+          {featuredArticles.map((article) => <FeaturedArticleCard article={article} />)}
         </div>
       </div>
     </section>
