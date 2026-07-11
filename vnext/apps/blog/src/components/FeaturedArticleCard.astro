@@ -16,6 +16,11 @@ const approachTone = getArticleApproachTone(article);
 ---
 
 <a class:list={["featured-article-card", `featured-article-card--${size}`, `article-approach--${approachTone}`]} href={article.href}>
+  {size === "large" && article.heroImage && (
+    <div class="featured-article-card__image">
+      <img src={article.heroImage.src} alt={article.heroImage.alt} width="1200" height="675" loading="lazy" />
+    </div>
+  )}
   <div class="featured-article-card__body">
     <p class="featured-article-card__topic">{topicLabel}</p>
     <h3 class="featured-article-card__title">{article.title}</h3>

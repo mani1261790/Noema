@@ -43,6 +43,12 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
         </dl>
       </header>
 
+      {article.heroImage && (
+        <figure class="article-hero-image">
+          <img src={article.heroImage.src} alt={article.heroImage.alt} />
+        </figure>
+      )}
+
       <ArticleToc items={tocItems} />
 
       <article class="article-body">
