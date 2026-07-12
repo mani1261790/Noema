@@ -13,7 +13,7 @@ const { articles } = Astro.props;
   <section class="related-articles" aria-labelledby="related-articles-heading">
     <h2 id="related-articles-heading" class="noema-section-heading">もう少し気になるなら</h2>
     <div class="article-list">
-      {articles.map((article) => <ArticleRow article={article} headingLevel={3} />)}
+      {articles.map((article) => <ArticleRow article={article} headingLevel={3} compact />)}
     </div>
   </section>
 )}
