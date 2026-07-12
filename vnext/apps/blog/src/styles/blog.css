@@ -98,14 +98,17 @@ astro-dev-toolbar {
 }
 
 .site-search-panel__inner {
-  padding-block: 1.25rem 1.5rem;
+  padding-block: 0.75rem 1rem;
 }
 
 .site-search-form {
-  max-width: 48rem;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  align-items: end;
+  gap: 0.5rem;
+  max-width: 36rem;
 }
 
-.site-search-form__box,
 .article-search__primary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -113,7 +116,6 @@ astro-dev-toolbar {
   gap: 0.75rem;
 }
 
-.site-search-form__input,
 .article-search__input {
   position: relative;
   display: flex;
@@ -121,7 +123,6 @@ astro-dev-toolbar {
   min-width: 0;
 }
 
-.site-search-form__input .noema-icon,
 .article-search__input .noema-icon {
   position: absolute;
   z-index: 1;
@@ -131,18 +132,78 @@ astro-dev-toolbar {
   pointer-events: none;
 }
 
-.site-search-form__input input,
 .article-search__input input {
   width: 100%;
   padding-inline-start: 3.25rem;
 }
 
-.site-search-form__support,
 .article-search__support {
   margin: 0.5rem 0 0;
   color: var(--color-neutral-solid-gray-600);
   font-size: calc(14 / 16 * 1rem);
   line-height: 1.7;
+}
+
+.site-search-form__submit {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  background: transparent;
+  color: var(--color-key-1000);
+  border: 0;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.site-search-form__submit .noema-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.site-search-form__submit:hover {
+  background: var(--color-key-50);
+}
+
+.site-search-form__submit:focus-visible {
+  outline: 4px solid var(--color-neutral-black);
+  outline-offset: 2px;
+  background: var(--color-primitive-yellow-300);
+  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+}
+
+.site-search-form__input input:focus-visible {
+  outline: 0;
+  border-bottom: 3px solid var(--color-neutral-black);
+  box-shadow: 0 3px 0 var(--color-primitive-yellow-300);
+}
+
+.site-search-form__input {
+  display: block;
+  min-width: 0;
+}
+
+.site-search-form__input input {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0.5rem 0.25rem;
+  background: transparent;
+  color: var(--color-neutral-solid-gray-900);
+  border: 0;
+  border-bottom: 1px solid var(--color-neutral-solid-gray-900);
+  border-radius: 0;
+  font: inherit;
+}
+
+.site-search-form__input input:hover {
+  border-bottom-color: var(--color-key-1000);
+  border-bottom-width: 2px;
+}
+
+.site-search-form__input input::placeholder {
+  color: var(--color-neutral-solid-gray-600);
+  opacity: 1;
 }
 
 @media (hover: hover) {
