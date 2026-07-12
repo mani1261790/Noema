@@ -25,29 +25,52 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
     </header>
 
     <form id="search" class="article-search" role="search">
-      <div class="dads-form-control-label" data-size="md">
-        <label class="dads-form-control-label__label" for="article-keyword">キーワード</label>
-        <input class="dads-input-text__input" data-size="md" id="article-keyword" name="keyword" type="search" list="article-search-suggestions" placeholder="記事タイトル、概要、タグを検索" />
+      <div class="article-search__primary">
+        <label class="article-search__input">
+          <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" />
+          </svg>
+          <span class="noema-visually-hidden">記事を検索</span>
+          <input class="dads-input-text__input" data-size="md" id="article-keyword" name="keyword" type="search" list="article-search-suggestions" aria-describedby="article-search-support" autocomplete="off" />
+        </label>
         <datalist id="article-search-suggestions">
           {suggestions.map((suggestion) => <option value={suggestion}></option>)}
         </datalist>
+        <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">検索</button>
       </div>
-      <div class="dads-form-control-label" data-size="md">
-        <label class="dads-form-control-label__label" for="article-tag">タグ</label>
-        <select id="article-tag" name="tag">
-          <option value="">すべてのタグ</option>
-          {tags.map((tag) => <option value={tag}>{tag}</option>)}
-        </select>
-      </div>
-      <div class="dads-form-control-label" data-size="md">
-        <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
-        <select id="article-topic" name="topic">
-          <option value="">すべてのテーマ</option>
-          {Object.entries(topicLabels).map(([slug, label]) => <option value={slug}>{label}</option>)}
-        </select>
-      </div>
-      <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">絞り込む</button>
-      <button class="dads-button article-search__reset" data-size="md" data-type="outline" type="button" data-reset-search>条件を解除</button>
+      <p id="article-search-support" class="article-search__support">タイトル、概要、タグから検索できます。</p>
+      <details class="article-search__detail dads-disclosure" data-filter-details>
+        <summary class="dads-disclosure__summary">
+          <svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" fill="currentColor" />
+            <circle class="dads-disclosure__icon-circle" cx="12" cy="12" r="8" fill="currentColor" />
+            <path class="dads-disclosure__icon-triangle" d="M17 10H7l5 5 5-5Z" fill="white" />
+          </svg>
+          テーマ・タグで絞り込む
+        </summary>
+        <div class="article-search__detail-content dads-disclosure__content">
+          <div class="article-search__filters">
+            <div class="dads-form-control-label" data-size="md">
+              <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
+              <select id="article-topic" name="topic">
+                <option value="">すべてのテーマ</option>
+                {Object.entries(topicLabels).map(([slug, label]) => <option value={slug}>{label}</option>)}
+              </select>
+            </div>
+            <div class="dads-form-control-label" data-size="md">
+              <label class="dads-form-control-label__label" for="article-tag">タグ</label>
+              <select id="article-tag" name="tag">
+                <option value="">すべてのタグ</option>
+                {tags.map((tag) => <option value={tag}>{tag}</option>)}
+              </select>
+            </div>
+          </div>
+          <div class="article-search__detail-actions">
+            <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">この条件で絞り込む</button>
+            <button class="dads-button article-search__reset" data-size="sm" data-type="text" type="button" data-reset-search>検索条件をクリア</button>
+          </div>
+        </div>
+      </details>
     </form>
 
     <div class="article-search__active" data-active-filters hidden>
@@ -90,6 +113,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
   const reset = document.querySelector<HTMLButtonElement>("[data-reset-search]");
   const activeFilters = document.querySelector<HTMLElement>("[data-active-filters]");
   const activeFilterList = document.querySelector<HTMLUListElement>("[data-active-filter-list]");
+  const filterDetails = document.querySelector<HTMLDetailsElement>("[data-filter-details]");
   const pagination = document.querySelector<HTMLElement>("[data-pagination]");
   const pageList = document.querySelector<HTMLOListElement>("[data-pagination-pages]");
   const previousPage = document.querySelector<HTMLButtonElement>("[data-page-previous]");
@@ -162,6 +186,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
   if (keyword) keyword.value = initialParams.get("keyword") ?? "";
   if (topic) topic.value = initialParams.get("topic") ?? "";
   if (tag) tag.value = initialParams.get("tag") ?? "";
+  if (filterDetails && (topic?.value || tag?.value)) filterDetails.open = true;
   currentPage = Number.parseInt(initialParams.get("page") ?? "1", 10) || 1;
   applyFilters(false);
 
@@ -170,9 +195,6 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
     currentPage = 1;
     applyFilters();
   });
-  keyword?.addEventListener("input", () => { currentPage = 1; applyFilters(); });
-  topic?.addEventListener("change", () => { currentPage = 1; applyFilters(); });
-  tag?.addEventListener("change", () => { currentPage = 1; applyFilters(); });
   reset?.addEventListener("click", () => {
     if (keyword) keyword.value = "";
     if (topic) topic.value = "";
