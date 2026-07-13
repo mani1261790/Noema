@@ -9,6 +9,10 @@
 3. [プロダクト再設計仕様](./product-reboot.md): product、記事、Studio、記事アシスタント、Cloudflare構成
 4. [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、記事タイプ、テーマ、OIF表記方針
 
+## 背景・意思決定
+
+- [サービス方針MTG記録](./service-planning-mtg.md): 現行の形に作り直した背景、ターゲット2階層、開発方針の決定、未決事項
+
 ## UIとデザイン
 
 - [Noema UIスタイルガイド](./noema-style-guide.md): デジタル庁デザインシステムをNoemaへ適用するrule
