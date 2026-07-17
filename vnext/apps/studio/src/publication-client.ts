@@ -17,6 +17,7 @@ const ARTICLE_SUBMISSIONS_PATH = "/api/article-submissions";
 const ARTICLE_SUBMISSION_CANCELLATIONS_PATH =
   "/api/article-submission-cancellations";
 const PUBLICATION_LOCK_NAME = "noema-studio-publication-v1";
+export const PUBLICATION_POST_TIMEOUT_MS = 30_000;
 const MAX_API_RESPONSE_BYTES = 64 * 1024;
 const MAX_STORED_ATTEMPT_BYTES = STUDIO_ARTICLE_MAX_SERIALIZED_BYTES * 4;
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
@@ -533,29 +534,22 @@ async function postPublicationAttempt(
   const fetcher = options.fetcher ?? defaultPublicationFetch;
 
   let response: Response;
-  try {
-    response = await fetcher(path, {
-      body: JSON.stringify(requestBody),
-      credentials: "same-origin",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json"
-      },
-      method: "POST",
-      signal: options.signal
-    });
-  } catch (error) {
-    return outcomeUnknown(
-      pendingAttempt,
-      operation,
-      requestFailure(error, options.signal),
-      options.storage
-    );
-  }
-
   let body: unknown;
   try {
-    body = await readBoundedJson(response);
+    ({ body, response } = await runBoundedPublicationPost(
+      fetcher,
+      path,
+      {
+        body: JSON.stringify(requestBody),
+        credentials: "same-origin",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json"
+        },
+        method: "POST"
+      },
+      options.signal
+    ));
   } catch (error) {
     return outcomeUnknown(
       pendingAttempt,
@@ -586,12 +580,7 @@ async function postPublicationAttempt(
       status: { kind: "succeeded", result }
     };
     if (!persistPublicationAttempt(options.storage, attempt)) {
-      return {
-        attempt,
-        error: storageUnavailable(),
-        ok: false,
-        outcomeUnknown: false
-      };
+      return statusPersistenceFailure(pendingAttempt, options.storage);
     }
     return { attempt, ok: true, result };
   }
@@ -611,7 +600,9 @@ async function postPublicationAttempt(
     request,
     status: { error, kind: "failed", operation }
   };
-  persistPublicationAttempt(options.storage, attempt);
+  if (!persistPublicationAttempt(options.storage, attempt)) {
+    return statusPersistenceFailure(pendingAttempt, options.storage);
+  }
   return {
     attempt,
     error,
@@ -630,8 +621,32 @@ function outcomeUnknown(
     ...pendingAttempt,
     status: { error, kind: "outcomeUnknown", operation }
   };
-  persistPublicationAttempt(storage, attempt);
+  if (!persistPublicationAttempt(storage, attempt)) {
+    return statusPersistenceFailure(pendingAttempt, storage);
+  }
   return { attempt, error, ok: false, outcomeUnknown: true };
+}
+
+function statusPersistenceFailure(
+  lastVerifiedPendingAttempt: PendingPublicationAttempt,
+  storage: PublicationStorage
+): PublicationActionResult {
+  const stored = readStoredAttempt(storage);
+  // The pending attempt was verified before POST. If the terminal write also
+  // makes storage unreadable, retain that in-memory safety hold so the editor
+  // cannot become writable while the server outcome may already exist.
+  const attempt = stored.kind === "valid" &&
+    sameAttempt(stored.attempt, lastVerifiedPendingAttempt)
+    ? stored.attempt
+    : lastVerifiedPendingAttempt;
+  return {
+    attempt,
+    error: storageUnavailable(),
+    ok: false,
+    outcomeUnknown:
+      attempt.status.kind === "pending" ||
+      attempt.status.kind === "outcomeUnknown"
+  };
 }
 
 function parsePublicationCapabilities(
@@ -1002,6 +1017,50 @@ function parseStoredSuccess(
   return null;
 }
 
+async function runBoundedPublicationPost(
+  fetcher: PublicationFetcher,
+  input: string,
+  init: Omit<PublicationFetchInit, "signal">,
+  callerSignal?: AbortSignal
+): Promise<{ body: unknown; response: Response }> {
+  if (callerSignal?.aborted) throw publicationRequestAbortCause();
+
+  const controller = new AbortController();
+  let rejectBoundary: (reason: Error) => void = () => undefined;
+  const boundary = new Promise<never>((_resolve, reject) => {
+    rejectBoundary = reject;
+  });
+  const abortFromCaller = () => {
+    const error = publicationRequestAbortCause();
+    rejectBoundary(error);
+    if (!controller.signal.aborted) {
+      controller.abort(callerSignal?.reason ?? error);
+    }
+  };
+  callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  const timeoutId = globalThis.setTimeout(() => {
+    const error = publicationRequestTimeoutCause();
+    rejectBoundary(error);
+    if (!controller.signal.aborted) controller.abort(error);
+  }, PUBLICATION_POST_TIMEOUT_MS);
+
+  try {
+    const request = (async () => {
+      const response = await fetcher(input, {
+        ...init,
+        signal: controller.signal
+      });
+      const body = await readBoundedJson(response);
+      return { body, response };
+    })();
+    return await Promise.race([request, boundary]);
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  }
+}
+
 async function readBoundedJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type");
   if (
@@ -1059,6 +1118,18 @@ function requestFailure(
   signal?: AbortSignal
 ): PublicationClientError {
   if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "TimeoutError"
+  ) {
+    return {
+      code: "request_timeout",
+      message: "サーバーから時間内に応答がありませんでした。内容を変更せずに再確認してください。",
+      retryable: true
+    };
+  }
+  if (
     signal?.aborted ||
     (typeof error === "object" &&
       error !== null &&
@@ -1076,6 +1147,18 @@ function requestFailure(
     message: "通信できませんでした。接続を確認して再試行してください。",
     retryable: true
   };
+}
+
+function publicationRequestAbortCause(): Error {
+  const error = new Error("Publication request aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function publicationRequestTimeoutCause(): Error {
+  const error = new Error("Publication request timed out");
+  error.name = "TimeoutError";
+  return error;
 }
 
 function defaultPublicationFetch(

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   PUBLICATION_ATTEMPT_STORAGE_KEY,
+  PUBLICATION_POST_TIMEOUT_MS,
   cancelArticleSubmission,
   clearPublicationAttempt,
   clearPublicationAttemptSafely,
@@ -36,7 +37,83 @@ class MemoryStorage implements PublicationStorage {
   }
 }
 
-function articleInput() {
+class StatusWriteFailingStorage extends MemoryStorage {
+  private statusWritesBlocked = true;
+  writeCount = 0;
+
+  setItem(key: string, value: string): void {
+    this.writeCount += 1;
+    if (this.statusWritesBlocked && this.writeCount > 1) {
+      throw new Error("status write blocked");
+    }
+    super.setItem(key, value);
+  }
+
+  recover(): void {
+    this.statusWritesBlocked = false;
+  }
+}
+
+class TerminalWriteAndReadFailingStorage extends MemoryStorage {
+  private recovered = false;
+  writeCount = 0;
+
+  getItem(key: string): string | null {
+    if (!this.recovered && this.writeCount > 1) {
+      throw new Error("status read blocked");
+    }
+    return super.getItem(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.writeCount += 1;
+    if (!this.recovered && this.writeCount > 1) {
+      throw new Error("status write blocked");
+    }
+    super.setItem(key, value);
+  }
+
+  recover(): void {
+    this.recovered = true;
+  }
+}
+
+class ReplacingStatusWriteStorage extends MemoryStorage {
+  writeCount = 0;
+
+  constructor(private readonly replacement: PublicationAttempt) {
+    super();
+  }
+
+  setItem(key: string, value: string): void {
+    this.writeCount += 1;
+    if (this.writeCount > 1) {
+      super.setItem(key, JSON.stringify(this.replacement));
+      return;
+    }
+    super.setItem(key, value);
+  }
+}
+
+class TrackingLockRunner {
+  held = false;
+  releaseCount = 0;
+
+  async run<T>(callback: () => Promise<T>): Promise<T> {
+    this.held = true;
+    try {
+      return await callback();
+    } finally {
+      this.held = false;
+      this.releaseCount += 1;
+    }
+  }
+}
+
+function articleInput(): {
+  frontmatter: PublicationAttempt["request"]["frontmatter"];
+  markdown: string;
+} {
   return {
     frontmatter: {
       title: "Publication client",
@@ -391,6 +468,259 @@ describe("article submission attempts", () => {
       expect(loadPublicationAttempt(storage)).toEqual(result.attempt);
     }
   );
+
+  it("bounds a never-settling POST and releases the publication lock", async () => {
+    vi.useFakeTimers();
+    try {
+      const storage = new MemoryStorage();
+      const lockRunner = new TrackingLockRunner();
+      let postSignal: AbortSignal | undefined;
+      const { fetcher, mock } = asFetch((_input, init) => {
+        postSignal = init.signal;
+        return new Promise<Response>(() => undefined);
+      });
+
+      const pendingResult = createArticleSubmission(articleInput(), {
+        createSubmissionId: fixedSubmissionId,
+        fetcher,
+        lockRunner,
+        storage
+      });
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(lockRunner.held).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(PUBLICATION_POST_TIMEOUT_MS);
+      const result = await pendingResult;
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("Expected a bounded timeout result");
+      expect(result.error.code).toBe("request_timeout");
+      expect(result.outcomeUnknown).toBe(true);
+      expect(result.attempt?.status).toMatchObject({
+        kind: "outcomeUnknown",
+        operation: "create"
+      });
+      expect(loadPublicationAttempt(storage)).toEqual(result.attempt);
+      expect(postSignal?.aborted).toBe(true);
+      expect(lockRunner.held).toBe(false);
+      expect(lockRunner.releaseCount).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the deadline active while reading the POST response body", async () => {
+    vi.useFakeTimers();
+    try {
+      const storage = new MemoryStorage();
+      const lockRunner = new TrackingLockRunner();
+      const { fetcher } = asFetch(async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull() {
+              return new Promise<void>(() => undefined);
+            }
+          }),
+          { headers: { "content-type": "application/json" }, status: 202 }
+        )
+      );
+
+      const pendingResult = createArticleSubmission(articleInput(), {
+        createSubmissionId: fixedSubmissionId,
+        fetcher,
+        lockRunner,
+        storage
+      });
+      await vi.advanceTimersByTimeAsync(PUBLICATION_POST_TIMEOUT_MS);
+      const result = await pendingResult;
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("Expected a bounded body timeout result");
+      expect(result.error.code).toBe("request_timeout");
+      expect(result.outcomeUnknown).toBe(true);
+      expect(lockRunner.held).toBe(false);
+      expect(lockRunner.releaseCount).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("composes a caller abort with the POST deadline and releases the lock", async () => {
+    vi.useFakeTimers();
+    try {
+      const storage = new MemoryStorage();
+      const callerController = new AbortController();
+      const lockRunner = new TrackingLockRunner();
+      let postSignal: AbortSignal | undefined;
+      const { fetcher, mock } = asFetch((_input, init) => {
+        postSignal = init.signal;
+        return new Promise<Response>(() => undefined);
+      });
+
+      const pendingResult = createArticleSubmission(articleInput(), {
+        createSubmissionId: fixedSubmissionId,
+        fetcher,
+        lockRunner,
+        signal: callerController.signal,
+        storage
+      });
+      expect(mock).toHaveBeenCalledTimes(1);
+      expect(lockRunner.held).toBe(true);
+
+      callerController.abort();
+      const result = await pendingResult;
+
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("Expected a caller-aborted result");
+      expect(result.error.code).toBe("request_aborted");
+      expect(result.outcomeUnknown).toBe(true);
+      expect(postSignal).not.toBe(callerController.signal);
+      expect(postSignal?.aborted).toBe(true);
+      expect(lockRunner.held).toBe(false);
+      expect(lockRunner.releaseCount).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["succeeded", "failed", "outcomeUnknown"] as const)(
+    "returns the persisted pending state when the %s status write fails",
+    async (statusKind) => {
+      const storage = new StatusWriteFailingStorage();
+      const { fetcher } = asFetch(async () => {
+        if (statusKind === "succeeded") {
+          return jsonResponse(successBody("open"), 202);
+        }
+        if (statusKind === "failed") {
+          return jsonResponse(
+            {
+              error: {
+                code: "article_already_exists",
+                message: "記事はすでに存在します。",
+                retryable: false
+              }
+            },
+            409
+          );
+        }
+        throw new Error("response lost");
+      });
+
+      const result = await createArticleSubmission(articleInput(), {
+        createSubmissionId: fixedSubmissionId,
+        fetcher,
+        storage
+      });
+      const persisted = loadPublicationAttempt(storage);
+
+      expect(storage.writeCount).toBe(2);
+      expect(persisted?.status).toEqual({
+        kind: "pending",
+        operation: "create"
+      });
+      expect(result).toEqual({
+        attempt: persisted,
+        error: {
+          code: "storage_unavailable",
+          message: "公開操作をこのブラウザに保存できませんでした。",
+          retryable: false
+        },
+        ok: false,
+        outcomeUnknown: true
+      });
+    }
+  );
+
+  it("retains a pending safety hold and retries after storage recovers", async () => {
+    const storage = new TerminalWriteAndReadFailingStorage();
+    const firstFetch = asFetch(async () =>
+      jsonResponse(successBody("open"), 202)
+    );
+    const first = await createArticleSubmission(articleInput(), {
+      createSubmissionId: fixedSubmissionId,
+      fetcher: firstFetch.fetcher,
+      storage
+    });
+    if (first.ok || !first.attempt) {
+      throw new Error("Expected the persisted pending attempt");
+    }
+    expect(first.error.code).toBe("storage_unavailable");
+    expect(first.attempt.status).toEqual({
+      kind: "pending",
+      operation: "create"
+    });
+    expect(first.outcomeUnknown).toBe(true);
+
+    storage.recover();
+    const retryFetch = asFetch(async () =>
+      jsonResponse(successBody("open"), 202)
+    );
+    const retried = await retryPublicationAttempt(first.attempt, {
+      fetcher: retryFetch.fetcher,
+      storage
+    });
+
+    expect(retried.ok).toBe(true);
+    expect(retryFetch.mock).toHaveBeenCalledTimes(1);
+    expect(loadPublicationAttempt(storage)).toEqual(retried.attempt);
+  });
+
+  it("retains the exact pending hold when a status write is replaced", async () => {
+    const input = articleInput();
+    const replacement: PublicationAttempt = {
+      request: {
+        version: 1,
+        operation: "create_article",
+        submissionId: OTHER_SUBMISSION_ID,
+        frontmatter: input.frontmatter,
+        markdown: input.markdown
+      },
+      status: {
+        kind: "succeeded",
+        result: { outcome: "cancelled" }
+      },
+      version: 1
+    };
+    const storage = new ReplacingStatusWriteStorage(replacement);
+    const firstFetch = asFetch(async () =>
+      jsonResponse(successBody("open"), 202)
+    );
+
+    const first = await createArticleSubmission(input, {
+      createSubmissionId: fixedSubmissionId,
+      fetcher: firstFetch.fetcher,
+      storage
+    });
+
+    expect(first.ok).toBe(false);
+    if (first.ok || !first.attempt) {
+      throw new Error("Expected the original pending safety hold");
+    }
+    expect(first.attempt.request.submissionId).toBe(SUBMISSION_ID);
+    expect(first.attempt.status).toEqual({
+      kind: "pending",
+      operation: "create"
+    });
+    expect(first.outcomeUnknown).toBe(true);
+    expect(loadPublicationAttempt(storage)).toEqual(replacement);
+
+    const retryFetch = asFetch(async () =>
+      jsonResponse(successBody("open"), 202)
+    );
+    const retried = await retryPublicationAttempt(first.attempt, {
+      fetcher: retryFetch.fetcher,
+      storage
+    });
+
+    expect(retried.ok).toBe(false);
+    if (retried.ok) throw new Error("Expected the changed-attempt guard");
+    expect(retried.error.code).toBe("publication_attempt_changed");
+    expect(retried.attempt).toEqual(replacement);
+    expect(retryFetch.mock).not.toHaveBeenCalled();
+  });
 
   it("loads and retries a stable request without generating a new UUID", async () => {
     const storage = new MemoryStorage();
