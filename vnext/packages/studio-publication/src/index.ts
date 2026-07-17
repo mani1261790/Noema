@@ -28,7 +28,8 @@ const submissionIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
 const gitObjectIdPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
-const unsafeControlPattern = /[\u0000\u202a-\u202e\u2066-\u2069]/u;
+const unsafeControlPattern =
+  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const rootArticleImagePattern = /^\/images\/articles\/[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
 
 function isSafeHttpsUrl(value: string): boolean {
@@ -310,7 +311,7 @@ function preparationError(
 }
 
 async function sha256(value: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
   return `sha256:${hex}`;
 }
@@ -588,15 +589,23 @@ const slugClaimSchema = z.strictObject({
   requestSha256: z.string().regex(digestPattern),
 });
 
+/** Runtime adapters use these schemas when claims cross a durable RPC/storage boundary. */
+export const articleSubmissionClaimSchema = claimSchema;
+export const articleSlugClaimSchema = slugClaimSchema;
+
 const articleInventoryEntrySchema = z.strictObject({
   path: z.string().min(1).max(300),
   contentSha256: z.string().regex(digestPattern),
 });
 
+const articleSlugInventoryEntrySchema = z.strictObject({
+  path: z.string().min(1).max(300),
+});
+
 const baseStateSchema = z.strictObject({
   headSha: z.string().regex(gitObjectIdPattern),
   targetPath: articleInventoryEntrySchema.nullable(),
-  articlesWithSlug: z.array(articleInventoryEntrySchema).max(100),
+  articlesWithSlug: z.array(articleSlugInventoryEntrySchema).max(100),
 });
 
 const commitMetadataSchema = metadataSchema.extend({
@@ -654,6 +663,8 @@ const pullRequestSchema = z
     }
   });
 
+export const articleSubmissionPullRequestSchema = pullRequestSchema;
+
 function observationSchema<T extends z.ZodType>(valueSchema: T) {
   return z.discriminatedUnion("state", [
     z.strictObject({ state: z.literal("known"), value: valueSchema }),
@@ -669,9 +680,23 @@ export const articleSubmissionSnapshotSchema = z.strictObject({
   pullRequests: observationSchema(z.array(pullRequestSchema).max(20)),
 });
 
+const cancellationArtifactsSchema = z.strictObject({
+  branchExists: z.boolean(),
+  pullRequestCount: z.number().int().min(0).max(100),
+});
+
+export const articleSubmissionCancellationSnapshotSchema = z.strictObject({
+  claim: observationSchema(claimSchema.nullable()),
+  slugClaim: observationSchema(slugClaimSchema.nullable()),
+  artifacts: observationSchema(cancellationArtifactsSchema),
+});
+
 export type ArticleSubmissionClaim = z.infer<typeof claimSchema>;
 export type ArticleSlugClaim = z.infer<typeof slugClaimSchema>;
 export type ArticleSubmissionSnapshot = z.infer<typeof articleSubmissionSnapshotSchema>;
+export type ArticleSubmissionCancellationSnapshot = z.infer<
+  typeof articleSubmissionCancellationSnapshotSchema
+>;
 export type ArticleSubmissionPullRequest = z.infer<typeof pullRequestSchema>;
 export type ArticleSubmissionCommitMetadata = z.infer<typeof commitMetadataSchema>;
 
@@ -703,7 +728,12 @@ export type ArticleSubmissionDecision =
       action: "record_initial_commit";
       initialCommit: { sha: string; baseSha: string };
     }
-  | { ok: true; kind: "act"; action: "create_draft_pull_request" }
+  | {
+      ok: true;
+      kind: "act";
+      action: "create_draft_pull_request";
+      expectedClaim: ArticleSubmissionClaim;
+    }
   | { ok: true; kind: "act"; action: "record_pull_request"; pullRequestNumber: number }
   | {
       ok: true;
@@ -1078,7 +1108,7 @@ export async function reconcileArticleSubmission(
       base.targetPath !== null &&
       matchingArticles.length === 1 &&
       base.articlesWithSlug.length === 1 &&
-      base.targetPath.contentSha256 === matchingArticles[0].contentSha256
+      matchingArticles[0].path === base.targetPath.path
     ) {
       return {
         ok: true,
@@ -1186,7 +1216,12 @@ export async function reconcileArticleSubmission(
     };
   }
 
-  return { ok: true, kind: "act", action: "create_draft_pull_request" };
+  return {
+    ok: true,
+    kind: "act",
+    action: "create_draft_pull_request",
+    expectedClaim: claim,
+  };
 }
 
 export function reconcileArticleSubmissionCancellation(
@@ -1214,7 +1249,7 @@ export function reconcileArticleSubmissionCancellation(
     );
   }
 
-  const parsedSnapshot = articleSubmissionSnapshotSchema.safeParse(rawSnapshot);
+  const parsedSnapshot = articleSubmissionCancellationSnapshotSchema.safeParse(rawSnapshot);
   if (!parsedSnapshot.success) {
     return decisionError(
       "invalid_submission_snapshot",
@@ -1225,12 +1260,7 @@ export function reconcileArticleSubmissionCancellation(
   }
 
   const snapshot = parsedSnapshot.data;
-  if (
-    snapshot.claim.state === "unavailable" ||
-    snapshot.slugClaim.state === "unavailable" ||
-    snapshot.branch.state === "unavailable" ||
-    snapshot.pullRequests.state === "unavailable"
-  ) {
+  if (snapshot.claim.state === "unavailable") {
     return decisionError(
       "observation_unavailable",
       "cancelに必要な送信状態を取得できませんでした。再確認してから続行します。",
@@ -1239,9 +1269,6 @@ export function reconcileArticleSubmissionCancellation(
   }
 
   const claim = snapshot.claim.value;
-  const slugClaim = snapshot.slugClaim.value;
-  const branch = snapshot.branch.value;
-  const pullRequests = snapshot.pullRequests.value;
   if (
     !claim ||
     claim.intent.submissionId !== parsedRequest.data.submissionId ||
@@ -1253,6 +1280,22 @@ export function reconcileArticleSubmissionCancellation(
     );
   }
 
+  if (
+    snapshot.slugClaim.state === "unavailable" ||
+    snapshot.artifacts.state === "unavailable"
+  ) {
+    return decisionError(
+      "observation_unavailable",
+      "cancelに必要な送信状態を取得できませんでした。再確認してから続行します。",
+      true,
+    );
+  }
+
+  const slugClaim = snapshot.slugClaim.value;
+  const artifacts = snapshot.artifacts.value;
+  const hasGitHubArtifacts =
+    artifacts.branchExists || artifacts.pullRequestCount > 0;
+
   if (claim.terminalOutcome === "closed_unmerged") {
     return decisionError(
       "submission_cancellation_forbidden",
@@ -1261,7 +1304,7 @@ export function reconcileArticleSubmissionCancellation(
   }
 
   if (claim.terminalOutcome === "cancelled") {
-    if (branch !== null || pullRequests.length > 0) {
+    if (hasGitHubArtifacts) {
       return decisionError(
         "submission_artifact_conflict",
         "cancelled claimにGitHub artifactが存在するためslug予約を解放できません。",
@@ -1294,8 +1337,7 @@ export function reconcileArticleSubmissionCancellation(
     claim.refCreationStarted ||
     claim.initialCommit !== null ||
     claim.pullRequestNumber !== null ||
-    branch !== null ||
-    pullRequests.length > 0
+    hasGitHubArtifacts
   ) {
     return decisionError(
       "submission_cancellation_forbidden",

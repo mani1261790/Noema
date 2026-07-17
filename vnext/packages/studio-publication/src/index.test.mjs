@@ -155,6 +155,15 @@ function reservedSnapshot(plan, overrides = {}) {
   };
 }
 
+function cancellationSnapshot(plan, overrides = {}) {
+  return {
+    claim: known(claimFor(plan)),
+    slugClaim: known(slugClaimFor(plan)),
+    artifacts: known({ branchExists: false, pullRequestCount: 0 }),
+    ...overrides,
+  };
+}
+
 describe("prepareArticleSubmission", () => {
   it("derives a fixed create-only Draft PR plan from article content only", async () => {
     const plan = await validPlan();
@@ -255,17 +264,22 @@ describe("prepareArticleSubmission", () => {
     assert.equal(badPrincipal.error.code, "invalid_submission_context");
   });
 
-  it("rejects empty, oversized, and bidi-controlled Markdown", async () => {
+  it("rejects empty, oversized, and controlled Markdown", async () => {
     const empty = await prepareArticleSubmission(validRequest({ markdown: " \n\t " }), principal);
     const oversized = await prepareArticleSubmission(
       validRequest({ markdown: "あ".repeat(Math.floor(STUDIO_ARTICLE_MAX_MARKDOWN_BYTES / 3) + 1) }),
       principal,
     );
     const controlled = await prepareArticleSubmission(validRequest({ markdown: "本文\u202e" }), principal);
+    const c0Controlled = await prepareArticleSubmission(
+      validRequest({ markdown: `本文\u0001` }),
+      principal,
+    );
 
     assert.equal(empty.ok, false);
     assert.equal(oversized.ok, false);
     assert.equal(controlled.ok, false);
+    assert.equal(c0Controlled.ok, false);
   });
 
   it("rejects executable Markdown HTML and unsafe destinations", async () => {
@@ -368,7 +382,7 @@ describe("prepareArticleSubmission", () => {
 describe("reconcileArticleSubmissionCancellation", () => {
   it("accepts only the fixed cancellation request shape", async () => {
     const plan = await validPlan();
-    const snapshot = reservedSnapshot(plan);
+    const snapshot = cancellationSnapshot(plan);
     const extraFields = reconcileArticleSubmissionCancellation(
       validCancellationRequest({
         repository: "attacker/repo",
@@ -397,18 +411,18 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const recordDecision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, { claim: known(activeClaim) }),
+      cancellationSnapshot(plan, { claim: known(activeClaim) }),
     );
     const cancelledClaim = { ...activeClaim, terminalOutcome: "cancelled" };
     const releaseDecision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, { claim: known(cancelledClaim) }),
+      cancellationSnapshot(plan, { claim: known(cancelledClaim) }),
     );
     const doneDecision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(cancelledClaim),
         slugClaim: known(null),
       }),
@@ -436,7 +450,7 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const decision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(cancelledClaim),
         slugClaim: known(
           slugClaimFor(plan, { submissionId: "3746d644-f5fb-44f0-8795-277e05d5e151" }),
@@ -449,24 +463,17 @@ describe("reconcileArticleSubmissionCancellation", () => {
 
   it("never interprets a required cancellation observation as absence", async () => {
     const plan = await validPlan();
-    for (const key of ["claim", "slugClaim", "branch", "pullRequests"]) {
+    for (const key of ["claim", "slugClaim", "artifacts"]) {
       const decision = reconcileArticleSubmissionCancellation(
         validCancellationRequest(),
         principal,
-        reservedSnapshot(plan, { [key]: unavailable() }),
+        cancellationSnapshot(plan, { [key]: unavailable() }),
       );
       assert.equal(decision.ok, false, key);
       assert.equal(decision.error.code, "observation_unavailable", key);
       assert.equal(decision.error.retryable, true, key);
     }
 
-    const baseUnavailable = reconcileArticleSubmissionCancellation(
-      validCancellationRequest(),
-      principal,
-      reservedSnapshot(plan, { base: unavailable() }),
-    );
-    assert.equal(baseUnavailable.ok, true);
-    assert.equal(baseUnavailable.action, "record_terminal_outcome");
   });
 
   it("does not disclose or cancel another principal's claim", async () => {
@@ -474,12 +481,12 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const missing = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, { claim: known(null), slugClaim: known(null) }),
+      cancellationSnapshot(plan, { claim: known(null), slugClaim: known(null) }),
     );
     const otherPrincipal = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       { principalId: "access-subject:author-2" },
-      reservedSnapshot(plan),
+      cancellationSnapshot(plan),
     );
 
     for (const decision of [missing, otherPrincipal]) {
@@ -492,10 +499,10 @@ describe("reconcileArticleSubmissionCancellation", () => {
   it("forbids cancellation after any GitHub milestone or artifact appears", async () => {
     const plan = await validPlan();
     const snapshots = [
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(claimFor(plan, { initialCommit: { sha: initialCommitSha, baseSha } })),
       }),
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(
           claimFor(plan, {
             initialCommit: { sha: initialCommitSha, baseSha },
@@ -503,8 +510,12 @@ describe("reconcileArticleSubmissionCancellation", () => {
           }),
         ),
       }),
-      reservedSnapshot(plan, { branch: known(branchFor(plan)) }),
-      reservedSnapshot(plan, { pullRequests: known([pullRequestFor(plan)]) }),
+      cancellationSnapshot(plan, {
+        artifacts: known({ branchExists: true, pullRequestCount: 0 }),
+      }),
+      cancellationSnapshot(plan, {
+        artifacts: known({ branchExists: false, pullRequestCount: 1 }),
+      }),
     ];
 
     for (const snapshot of snapshots) {
@@ -526,7 +537,7 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const cancelDecision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      snapshot,
+      cancellationSnapshot(plan, { claim: known(activeClaim) }),
     );
 
     assert.deepEqual(startDecision, {
@@ -543,7 +554,7 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const cancelAfterStart = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, { claim: known(startedClaim) }),
+      cancellationSnapshot(plan, { claim: known(startedClaim) }),
     );
     const createAfterStart = await reconcileArticleSubmission(
       plan,
@@ -562,14 +573,14 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const active = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         slugClaim: known(slugClaimFor(plan, { requestSha256: "sha256:" + "f".repeat(64) })),
       }),
     );
     const cancelled = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(claimFor(plan, { terminalOutcome: "cancelled" })),
         slugClaim: known(slugClaimFor(plan, { requestSha256: "sha256:" + "f".repeat(64) })),
       }),
@@ -622,17 +633,17 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const branchDecision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(cancelledClaim),
-        branch: known(branchFor(plan)),
+        artifacts: known({ branchExists: true, pullRequestCount: 0 }),
       }),
     );
     const pullRequestDecision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(cancelledClaim),
-        pullRequests: known([pullRequestFor(plan)]),
+        artifacts: known({ branchExists: false, pullRequestCount: 1 }),
       }),
     );
 
@@ -652,10 +663,9 @@ describe("reconcileArticleSubmissionCancellation", () => {
     const decision = reconcileArticleSubmissionCancellation(
       validCancellationRequest(),
       principal,
-      reservedSnapshot(plan, {
+      cancellationSnapshot(plan, {
         claim: known(closedClaim),
-        branch: known(null),
-        pullRequests: known([pullRequestFor(plan, { state: "closed", draft: false })]),
+        artifacts: known({ branchExists: false, pullRequestCount: 1 }),
       }),
     );
 
@@ -819,7 +829,14 @@ describe("reconcileArticleSubmission", () => {
       reservedSnapshot(plan, { claim: known(claim), branch: known(branchFor(plan)) }),
     );
 
-    assert.deepEqual(decision, { ok: true, kind: "act", action: "create_draft_pull_request" });
+    assert.deepEqual(decision, {
+      ok: true,
+      kind: "act",
+      action: "create_draft_pull_request",
+      expectedClaim: claimFor(plan, {
+        initialCommit: { sha: initialCommitSha, baseSha },
+      }),
+    });
   });
 
   it("records a discovered PR number after a lost create response", async () => {
@@ -881,7 +898,11 @@ describe("reconcileArticleSubmission", () => {
       plan,
       reservedSnapshot(plan, {
         claim: known(claim),
-        base: known({ headSha: "c".repeat(40), targetPath: article, articlesWithSlug: [article] }),
+        base: known({
+          headSha: "c".repeat(40),
+          targetPath: article,
+          articlesWithSlug: [{ path: article.path }],
+        }),
         pullRequests: known([
           pullRequestFor(plan, {
             state: "merged",
@@ -1001,7 +1022,7 @@ describe("reconcileArticleSubmission", () => {
 
   it("rejects any target-path or duplicate-slug article already on develop", async () => {
     const plan = await validPlan();
-    const collision = { path: "vnext/apps/blog/src/content/articles/other-name.md", contentSha256: "sha256:" + "d".repeat(64) };
+    const collision = { path: "vnext/apps/blog/src/content/articles/other-name.md" };
     const decision = await reconcileArticleSubmission(plan, {
       claim: known(null),
       slugClaim: known(null),
@@ -1133,9 +1154,7 @@ describe("reconcileArticleSubmission", () => {
         base: known({
           headSha: "d".repeat(40),
           targetPath: { path: plan.article.path, contentSha256: "sha256:" + "e".repeat(64) },
-          articlesWithSlug: [
-            { path: plan.article.path, contentSha256: "sha256:" + "e".repeat(64) },
-          ],
+          articlesWithSlug: [{ path: plan.article.path }],
         }),
         branch: known(null),
         pullRequests: known([
