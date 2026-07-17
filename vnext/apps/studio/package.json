@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test test/*.test.mjs",
-    "build": "tsc -b && vite build",
-    "check": "tsc -b --pretty false",
+    "dev:worker": "npm run build && wrangler dev --local --config wrangler.jsonc",
+    "types": "wrangler types worker/worker-configuration.d.ts --config wrangler.jsonc --strict-vars=false",
+    "test": "node --test test/*.test.mjs && npm run test:worker",
+    "test:worker": "npm run types && vite build && vitest run",
+    "build": "npm run types && tsc -b && vite build",
+    "check": "npm run types && tsc -b --pretty false && tsc --noEmit -p test/tsconfig.json --pretty false",
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config wrangler.jsonc",
     "deploy": "node scripts/require-public-site-url.mjs && npm run build && wrangler deploy --config wrangler.jsonc"
   },
@@ -15,16 +18,19 @@
     "@noema/content": "0.1.0",
     "@noema/ui": "0.1.0",
     "dompurify": "^3.4.11",
+    "jose": "^6.2.3",
     "markdown-it": "^14.3.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.5",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "typescript": "^5.9.3",
-    "vite": "^8.1.4"
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }

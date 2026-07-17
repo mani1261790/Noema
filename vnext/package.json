@@ -12,8 +12,9 @@
   "scripts": {
     "dev:blog": "npm run dev --workspace @noema/blog",
     "dev:studio": "npm run dev --workspace @noema/studio",
-    "check": "npm run check --workspaces --if-present",
+    "dev:studio:worker": "npm run dev:worker --workspace @noema/studio",
     "test": "npm run test --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "deploy:dry-run": "npm run deploy:dry-run --workspace @noema/public-gate && npm run deploy:dry-run --workspace @noema/blog && npm run deploy:dry-run --workspace @noema/studio",
     "deploy:gate": "npm run deploy --workspace @noema/public-gate",
@@ -21,6 +22,7 @@
     "deploy:studio": "npm run deploy --workspace @noema/studio"
   },
   "devDependencies": {
+    "@types/node": "^24.13.3",
     "wrangler": "^4.110.0"
   }
 }

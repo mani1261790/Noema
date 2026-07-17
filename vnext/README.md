@@ -40,6 +40,15 @@ npm run dev:studio
 - ブログ: `http://localhost:4321`
 - Studio: `http://localhost:4322`
 
+`dev:studio`はUI編集用のViteだけを起動し、Worker APIや`.dev.vars`は読みません。公開APIを含む統合確認では、Studioをproduction buildしてWranglerで配信します。
+
+```bash
+cd vnext
+npm run dev:studio:worker
+```
+
+既定URLは`http://localhost:8787`です。ローカルのmutation境界を確認する場合は、`.dev.vars`の`STUDIO_ALLOWED_ORIGIN`もこのoriginへ合わせます。
+
 記事は`apps/blog/src/content/articles`へMarkdownで配置します。現在の公開記事は空で、開発画面は`packages/content`のfixtureを使います。`/preview/article`は`noindex`です。
 
 記事のfrontmatterでは、話題を表す`topics`と、技術への触れ方を表す`approach`を独立して設定します。`approach`は`experience`、`practice`、`development`、`theory`の4種類で、開発と理論は並列です。加えて`outcome`、`prerequisites`を設定します。正は[コンテンツ・掲載方針](../docs/content-strategy.md)を参照してください。
@@ -56,6 +65,20 @@ Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再�
 
 Studioのプレビューでは、`/`から始まる記事画像、本文画像、リンクを公開ブログのURLに対して解決します。記事ファイル相対の参照と本文内の見出しリンクは書き換えません。公開ブログのURLはbuild時の`VITE_PUBLIC_SITE_URL`で指定し、未指定のローカル開発では`http://localhost:4321`を使います。手動でStudioをdeployする場合は、localhostを埋め込まないようにこの環境変数を必須とします。
 
+## Studio公開API境界
+
+Studio Workerは`/api/*`だけを静的SPAより先に処理します。現段階では、Cloudflare Access認証を検証する境界だけを提供し、GitHubやR2への書き込みは行いません。
+
+- `GET /api/publication-capabilities`: Access設定がなければidentityを返さず503、認証できれば最小identityと`state: disabled`、`code: github_app_not_configured`、`submissionMode: create_only`を返す
+- `POST /api/article-submissions`: 固定allowed originと認証を確認した後も`503 github_app_not_configured`を返す
+- その他の`/api/*`: JSONの404を返し、StudioのHTMLへフォールバックしない
+
+capabilitiesのidentityは検証済みJWTからserver側で導出します。将来のsubmission requestにemailやsubjectを含めず、`requestedBy`も必ずJWTから決定します。`subject`はCloudflare Accessのopaqueな識別子であり、GitHub user、記事の`authors`、画面表示名には流用しません。
+
+`wrangler.jsonc`の`ACCESS_TEAM_DOMAIN`、`ACCESS_POLICY_AUD`、`STUDIO_ALLOWED_ORIGIN`は意図的に空で、deploy直後のAPIはfail-closedです。この3値のdeploy時source of truthは現在の`wrangler.jsonc`であり、Dashboardの手動変更やローカル専用の`.dev.vars`では有効化できません。実環境を有効にする変更では、review可能なrepository設定として3値の注入方法を追加し、先に`studio.noema-learn.uk`を保護するCloudflare Access applicationと許可policyを作成します。team domainは`<team>.cloudflareaccess.com`または同じHTTPS URLを受け付けます。コード上のJWT検証が存在しても、Accessの外部設定が完了したことにはなりません。
+
+Wrangler統合確認用の実値はGit管理しない`.dev.vars`へ置きます。`Cf-Access-Jwt-Assertion`だけを認証入力として使い、`CF_Authorization` cookie単体、JWT、将来のGitHub秘密鍵をログやリポジトリへ残しません。実際のGitHub書き込みを有効にする前に、custom hostnameのAccess policyを実環境で受入確認し、`workers.dev`とpreview URLを無効化または同等に保護します。現在は新規記事のDraft PRだけを次の対象とし、既存記事はStudioで編集・Markdown出力できてもAPI送信対象にはしません。
+
 ## 記事アシスタント
 
 読者自身のOpenAI API keyをrequest中だけ使います。
@@ -70,6 +93,7 @@ Studioのプレビューでは、`/`から始まる記事画像、本文画像�
 
 ```bash
 cd vnext
+npm test
 npm run check
 npm test
 npm run build

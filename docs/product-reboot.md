@@ -137,6 +137,8 @@ Studioとビルドは同じvalidatorを使い、raw HTML、危険なURL scheme�
 
 エディターの最初の実装単位は「既存または新規Markdownを編集し、プレビューし、ファイルとして取得できる」までとする。GitHub App によるPR作成とR2画像アップロードは、その次の単位で追加できる。
 
+公開連携の第2実装単位として、Studio WorkerにCloudflare Access JWTを検証するAPI境界を設ける。`/api/*`はSPAへフォールバックさせず、`Cf-Access-Jwt-Assertion`のRS256署名、issuer、application audience、有効期限、not-beforeを検証する。cookieだけの認証は受け付けない。Access設定がない場合はidentityを返さず503とし、Access認証が有効でGitHub Appだけが未設定の場合はcapabilitiesを`state: disabled`、`code: github_app_not_configured`として返す。記事送信APIは固定したStudio origin以外を認証処理前に拒否し、認証後もfail-closedで外部書き込みを行わない。
+
 ## 6. 記事アシスタント
 
 ### 6.1 MVPの動作
@@ -265,15 +267,17 @@ MVPのプロバイダーは1つに絞る。推奨は OpenAI API から開始し�
 
 完了条件: キーを保存せず、表示中の記事についてのみ対話できる。
 
-### Phase 3: エディター（初期実装完了・公開連携は未実装）
+### Phase 3: エディター（公開API境界まで実装・GitHub/R2連携は未実装）
 
 - 独立エディターUI
-- Cloudflare Access
+- Cloudflare Access JWT検証境界（実環境のAccess application/policyは未設定）
 - Markdownプレビューとスキーマ検証
-- GitHub PR作成
-- R2画像アップロード
+- GitHub PR作成（未実装）
+- R2画像アップロード（未実装）
 
 完了条件: ブラウザから記事PRを作成し、レビュー後に公開できる。
+
+現時点のAPIは完了条件を満たした公開機能ではない。GitHub Appを接続する前に、`studio.noema-learn.uk`のAccess application、許可policy、team domain、application AUD、固定allowed originを設定し、`workers.dev`とpreview URLを迂回経路にしないことを実環境で確認する。次のPR作成単位は新規記事だけを扱うcreate-onlyのDraft PRとし、既存記事の更新はbase/blob SHAを使う競合検出を設計してから追加する。
 
 ### Phase 4: Cloudflare移行（AWS廃止完了・一般公開は未実施）
 
@@ -292,7 +296,7 @@ AWS廃止とCloudflare開発環境への移行は完了した。残る完了条�
 | 項目 | 推奨 | 選択肢・影響 |
 | --- | --- | --- |
 | MVPのLLMプロバイダー | OpenAIのみ | 複数対応はUI、エラー、モデル管理が増える |
-| エディターの初回範囲 | 編集・プレビュー・ファイル出力 | 初回からGitHub PRまで入れると認証と権限設計が増える |
+| エディターの次回範囲 | create-onlyのDraft PR作成 | 既存記事の編集には期待するbase/blob SHAと競合処理が別途必要 |
 | 記事画像 | 初期はGit管理、後にR2 | R2を先に入れるとアップロード・削除・参照整合性が必要 |
 | ブランドカラー | デジタル庁の青系をNoema用に定義 | 完全コピーではなくNoemaの識別性が必要 |
 | 既存URLのリダイレクト | 主要URLのみ新サイトへ301 | notebook単位の移行先がないため一律対応方針が必要 |
