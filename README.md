@@ -9,8 +9,10 @@ Noemaは、AIでできることと、その仕組みを、直感と具体例か�
 | 対象 | URL | 状態 |
 | --- | --- | --- |
 | ブログ | <https://noema-learn.mani1261790.workers.dev> | `develop`の最新versionを自動deploy |
-| Studio | <https://noema-studio.mani1261790.workers.dev> | `develop`の最新versionを自動deploy |
+| Studio | <https://studio.noema-learn.uk> | Cloudflare Accessで執筆者だけに公開 |
 | 公開予定domain | <https://noema-learn.uk> | 公開ゲートが404を返すため非公開 |
+
+Studioで作成した新規記事は、GitHub Appが`develop`向けDraft Pull Requestとして送信します。レビュー・マージ後、GitHub ActionsがMarkdownからブログをbuildして開発環境へ反映します。Studioとブログの接続、各URLの役割、旧Studio URLを閉じた理由は [Studio・ブログ接続ガイド](docs/studio-blog-connectivity.md) を参照してください。
 
 `develop`へのmergeでのみCloudflare deploymentが動きます。`main`へのpushではdeployしません。手動実行も`develop`以外ではjobを開始しません。
 
@@ -75,6 +77,7 @@ npm run deploy:dry-run
 ## ドキュメント
 
 - [ドキュメント案内](docs/README.md)
+- [Studio・ブログ接続ガイド](docs/studio-blog-connectivity.md)
 - [プロダクト再設計仕様](docs/product-reboot.md)
 - [コンテンツ・学習導線仕様](docs/content-strategy.md)
 - [開発環境デプロイ](docs/development-deployment.md)

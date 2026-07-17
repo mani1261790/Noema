@@ -212,14 +212,15 @@ MVPのプロバイダーは1つに絞る。推奨は OpenAI API から開始し�
 
 ## 8. `noema-learn.uk` の移行
 
-2026-07-11時点でAWS版とCloudFrontは退役済みであり、ドメインのネームサーバーはCloudflareが管理している。現行applicationはCloudflare Workersへdeployされ、開発中の確認には`workers.dev`を使う。
+AWS版とCloudFrontは退役済みであり、ドメインのネームサーバーはCloudflareが管理している。現行applicationはCloudflare Workersへdeployされ、ブログは`workers.dev`、StudioはCloudflare Accessで保護されたcustom domainで確認する。
 
 現在の配信状態:
 
-- `develop`の最新versionをブログとStudioの`workers.dev` URLへ自動deployする
+- `develop`の最新versionをブログの`workers.dev` URLとStudioのcustom domainへ自動deployする
 - `main`やfeature branchからはdeployしない
 - `noema-learn.uk/*`は`noema-public-gate`が404を返す
 - ブログWorkerは本番hostnameのrouteをまだ持たない
+- Studio Workerの`workers.dev`とpreview URLは無効化し、Accessを通らない入口を作らない
 
 公開切替は、SEO、security、mobile、記事アシスタントを受入確認した後、公開ゲートからrouteを外してブログWorkerへcustom domainまたはrouteを移す別作業とする。開発preview workflowを本番公開へ流用しない。
 
@@ -269,17 +270,17 @@ MVPのプロバイダーは1つに絞る。推奨は OpenAI API から開始し�
 
 完了条件: キーを保存せず、表示中の記事についてのみ対話できる。
 
-### Phase 3: エディター（公開API境界まで実装・GitHub/R2連携は未実装）
+### Phase 3: エディター（新規記事のGitHub連携まで実装・R2連携は未実装）
 
 - 独立エディターUI
-- Cloudflare Access JWT検証境界（実環境のAccess application/policyは未設定）
+- Cloudflare Access JWT検証境界（実環境のAccess application/policy設定済み）
 - Markdownプレビューとスキーマ検証
-- GitHub PR作成（未実装）
+- GitHub Appによる新規記事のcreate-only Draft PR作成（実装・実環境設定済み）
 - R2画像アップロード（未実装）
 
 完了条件: ブラウザから記事PRを作成し、レビュー後に公開できる。
 
-現時点のAPIは完了条件を満たした公開機能ではない。GitHub Appを接続する前に、`studio.noema-learn.uk`のAccess application、許可policy、team domain、application AUD、固定allowed originを設定し、`workers.dev`とpreview URLを迂回経路にしないことを実環境で確認する。次のPR作成単位は新規記事だけを扱うcreate-onlyのDraft PRとし、既存記事の更新はbase/blob SHAを使う競合検出を設計してから追加する。
+`studio.noema-learn.uk`のAccess application、本人限定policy、team domain、application AUD、固定allowed originは設定済みで、`workers.dev`とpreview URLも無効化している。GitHub Appは対象repositoryだけに導入し、新規記事をcreate-onlyのDraft PRとして`develop`へ提案する。既存記事のAPI更新は未実装であり、base/blob SHAを使う競合検出を設計してから追加する。
 
 ### Phase 4: Cloudflare移行（AWS廃止完了・一般公開は未実施）
 
@@ -322,6 +323,7 @@ APIキーや認証情報をIssue、PR本文、リポジトリへ貼り付けな�
 
 - [Noema UIスタイルガイド](./noema-style-guide.md)
 - [コンテンツ・学習導線仕様](./content-strategy.md)
+- [Studio・ブログ接続ガイド](./studio-blog-connectivity.md)
 - [開発環境デプロイ](./development-deployment.md)
 - [デジタル庁デザインシステムの固定コピー](./references/digital-agency-design-system/README.md)
 - [退役したAWS版と復元資料](https://github.com/mani1261790/Noema-AWS-Archive)
