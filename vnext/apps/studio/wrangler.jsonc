@@ -3,7 +3,7 @@
   "name": "noema-studio",
   "main": "worker/index.ts",
   "account_id": "2ea670c2a6ff28e248ef084adf095e8b",
-  "compatibility_date": "2026-07-10",
+  "compatibility_date": "2026-07-17",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
@@ -11,6 +11,27 @@
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_POLICY_AUD": "",
     "STUDIO_ALLOWED_ORIGIN": ""
+  },
+  "secrets": {
+    "required": [
+      "GITHUB_APP_CLIENT_ID",
+      "GITHUB_APP_INSTALLATION_ID",
+      "GITHUB_APP_PRIVATE_KEY"
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PUBLICATION_COORDINATOR",
+        "class_name": "PublicationCoordinator"
+      }
+    ]
+  },
+  "exports": {
+    "PublicationCoordinator": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
   },
   "assets": {
     "directory": "./dist",

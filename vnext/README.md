@@ -68,17 +68,22 @@ Studioのプレビューでは、`/`から始まる記事画像、本文画像�
 
 ## Studio公開API境界
 
-Studio Workerは`/api/*`だけを静的SPAより先に処理します。現段階では、Cloudflare Access認証を検証する境界だけを提供し、GitHubやR2への書き込みは行いません。
+Studio Workerは`/api/*`だけを静的SPAより先に処理します。Cloudflare Access認証、固定origin、GitHub App、repository単位のDurable Objectがすべて設定済みの場合だけ、新規記事をcreate-onlyのsubmission branchとDraft Pull Requestとして送信できます。`develop`への直接write、既存branchのupdate、force updateは行いません。
 
-- `GET /api/publication-capabilities`: Access設定がなければidentityを返さず503、認証できれば最小identityと`state: disabled`、`code: github_app_not_configured`、`submissionMode: create_only`を返す
-- `POST /api/article-submissions`: 固定allowed originと認証を確認した後も`503 github_app_not_configured`を返す
+- `GET /api/publication-capabilities`: Access設定がなければidentityを返さず503。認証後、公開runtimeを利用できれば`state: enabled`、利用できなければ`state: disabled`と`code: github_app_not_configured`を返す
+- `POST /api/article-submissions`: 固定allowed origin、Access principal、JSON media type、streaming byte上限、strict schemaを検証し、新規記事のDraft Pull Requestへ収束させる
+- `POST /api/article-submission-cancellations`: `submissionId`だけを受け付け、同じAccess principalが所有し、GitHub artifact作成前の送信だけをcancelする
 - その他の`/api/*`: JSONの404を返し、StudioのHTMLへフォールバックしない
 
-capabilitiesのidentityは検証済みJWTからserver側で導出します。将来のsubmission requestにemailやsubjectを含めず、`requestedBy`も必ずJWTから決定します。`subject`はCloudflare Accessのopaqueな識別子であり、GitHub user、記事の`authors`、画面表示名には流用しません。
+capabilitiesのidentityとsubmission principalは検証済みJWTからserver側で導出します。submission requestにemailやsubjectを含めず、送信claimのprincipalも必ずJWTから決定します。`subject`はCloudflare Accessのopaqueな識別子であり、GitHub user、記事の`authors`、画面表示名には流用しません。
+
+送信状態は`mani1261790/Noema`を名前にしたSQLite-backed Durable Objectで直列化します。各stepは全状態を再観測し、plannerが返す1操作だけを実行します。ref作成開始とcancelは同じimmutable claimへのexact compare-and-setで競合させ、GitHubの通信結果が不明な場合はbranch、commit digest、Pull Requestを再観測できるまでmilestoneを進めません。
+
+Blogの`check`と`build`は、nested directoryを含む全記事で`<slug>.md`のbasenameとfrontmatter `slug`が一致し、slugが全directoryで一意であることを検証します。記事Markdownはregular non-executable fileに限定します。Studioはこのrepository invariantを前提にGit treeからslug衝突を定数回のAPI呼び出しで判定し、exact targetが存在する場合だけblob本文を取得します。
 
 `wrangler.jsonc`の`ACCESS_TEAM_DOMAIN`、`ACCESS_POLICY_AUD`、`STUDIO_ALLOWED_ORIGIN`は意図的に空で、deploy直後のAPIはfail-closedです。この3値のdeploy時source of truthは現在の`wrangler.jsonc`であり、Dashboardの手動変更やローカル専用の`.dev.vars`では有効化できません。実環境を有効にする変更では、review可能なrepository設定として3値の注入方法を追加し、先に`studio.noema-learn.uk`を保護するCloudflare Access applicationと許可policyを作成します。team domainは`<team>.cloudflareaccess.com`または同じHTTPS URLを受け付けます。コード上のJWT検証が存在しても、Accessの外部設定が完了したことにはなりません。
 
-Wrangler統合確認用の実値はGit管理しない`.dev.vars`へ置きます。`Cf-Access-Jwt-Assertion`だけを認証入力として使い、`CF_Authorization` cookie単体、JWT、将来のGitHub秘密鍵をログやリポジトリへ残しません。実際のGitHub書き込みを有効にする前に、custom hostnameのAccess policyを実環境で受入確認し、`workers.dev`とpreview URLを無効化または同等に保護します。現在は新規記事のDraft PRだけを次の対象とし、既存記事はStudioで編集・Markdown出力できてもAPI送信対象にはしません。
+Wrangler統合確認用の実値はGit管理しない`.dev.vars`へ置きます。GitHub連携には`GITHUB_APP_CLIENT_ID`、`GITHUB_APP_INSTALLATION_ID`、`GITHUB_APP_PRIVATE_KEY`が必要で、Wranglerではrequired secretとして宣言しています。`Cf-Access-Jwt-Assertion`だけを認証入力として使い、`CF_Authorization` cookie単体、JWT、GitHub秘密鍵、installation tokenをログやリポジトリへ残しません。実際のGitHub書き込みを有効にする前に、GitHub Appを対象repositoryと`contents: write`、`pull_requests: write`だけに限定し、custom hostnameのAccess policyを実環境で受入確認し、`workers.dev`とpreview URLを無効化または同等に保護します。現在は新規記事のDraft PRだけがAPI送信対象で、既存記事はStudioで編集・Markdown出力できてもAPI送信対象にはしません。
 
 ## 記事アシスタント
 
@@ -88,7 +93,7 @@ Wrangler統合確認用の実値はGit管理しない`.dev.vars`へ置きます�
 - OpenAI Responses APIへ`store: false`を指定する
 - 表示中の記事だけをcontextにする
 - 回答をStructured Outputsで検証し、根拠にした記事内見出しへのリンクを表示する
-- StudioはMarkdownをlocal fileへ書き出し、直接公開しない
+- StudioはMarkdownをlocal fileへ書き出すかDraft Pull Requestを作成し、`develop`へ直接公開しない
 
 ## 検証
 

@@ -1,11 +1,18 @@
 import { SELF } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  STUDIO_ARTICLE_MAX_MARKDOWN_BYTES,
+  prepareArticleSubmission
+} from "@noema/studio-publication";
+import {
   AccessTokenRejectedError,
   type AccessEnvironment,
   type AccessIdentity
 } from "../worker/access";
-import { handleStudioApiRequest } from "../worker/app";
+import {
+  handleStudioApiRequest,
+  type StudioPublicationApiRuntime
+} from "../worker/app";
 import type {
   PublicationCapabilitiesResponse,
   StudioApiErrorCode,
@@ -23,6 +30,45 @@ const CONFIGURED_ENV = {
   ACCESS_TEAM_DOMAIN: "noema.cloudflareaccess.com",
   STUDIO_ALLOWED_ORIGIN: ORIGIN
 } satisfies AccessEnvironment & { STUDIO_ALLOWED_ORIGIN: string };
+
+const CONTINUE_RESULT = { ok: true, kind: "continue" } as const;
+const OPEN_PULL_REQUEST_RESULT = {
+  ok: true,
+  kind: "done",
+  outcome: "existing_pull_request",
+  pullRequest: {
+    number: 42,
+    url: "https://github.com/mani1261790/Noema/pull/42",
+    state: "open",
+    draft: true,
+    baseBranch: "develop",
+    headBranch:
+      "studio/submissions/287f0d8b-c79f-4b20-9c3d-683b0c4e643e",
+    containsInitialCommit: true,
+    mergeCommitSha: null,
+    mergeCommitReachableFromBase: false
+  }
+} as const;
+
+function publicationRuntime(
+  createResults: unknown[] = [OPEN_PULL_REQUEST_RESULT],
+  cancellationResults: unknown[] = [
+    { ok: true, kind: "done", outcome: "cancelled" }
+  ]
+): StudioPublicationApiRuntime & {
+  advanceCancellation: ReturnType<typeof vi.fn>;
+  advanceCreate: ReturnType<typeof vi.fn>;
+} {
+  return {
+    advanceCreate: vi.fn().mockImplementation(async () => createResults.shift()),
+    advanceCancellation: vi
+      .fn()
+      .mockImplementation(async () => cancellationResults.shift())
+  } as StudioPublicationApiRuntime & {
+    advanceCancellation: ReturnType<typeof vi.fn>;
+    advanceCreate: ReturnType<typeof vi.fn>;
+  };
+}
 
 beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -100,7 +146,10 @@ describe("Studio publication API", () => {
   });
 
   it("returns only minimal identity and disabled publication capabilities", async () => {
-    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const verify = vi.fn().mockResolvedValue({
+      ...IDENTITY,
+      token: "must-not-cross-the-http-boundary"
+    });
     const response = await handleStudioApiRequest(
       authenticatedRequest("/api/publication-capabilities"),
       CONFIGURED_ENV,
@@ -121,6 +170,343 @@ describe("Studio publication API", () => {
       }
     });
     expect(JSON.stringify(body)).not.toContain(TOKEN);
+    expect(JSON.stringify(body)).not.toContain("must-not-cross-the-http-boundary");
+  });
+
+  it("keeps capabilities disabled for a malformed GitHub private key", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const response = await handleStudioApiRequest(
+      authenticatedRequest("/api/publication-capabilities"),
+      {
+        ...CONFIGURED_ENV,
+        GITHUB_APP_CLIENT_ID: "Iv1.test-client-id",
+        GITHUB_APP_INSTALLATION_ID: "12345678",
+        GITHUB_APP_PRIVATE_KEY:
+          "-----BEGIN RSA PRIVATE KEY-----\nYWJj\n-----END RSA PRIVATE KEY-----",
+        PUBLICATION_COORDINATOR: {} as Env["PUBLICATION_COORDINATOR"]
+      },
+      { verifyAccessToken: verify }
+    );
+    const body = (await response.json()) as PublicationCapabilitiesResponse;
+
+    expect(body.publication.enabled).toBe(false);
+  });
+
+  it("enables publication capabilities only when a runtime is configured", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const response = await handleStudioApiRequest(
+      authenticatedRequest("/api/publication-capabilities"),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+    const body = (await response.json()) as PublicationCapabilitiesResponse;
+
+    expect(body.publication).toEqual({
+      baseBranch: "develop",
+      enabled: true,
+      reviewKind: "draft_pull_request",
+      state: "enabled",
+      submissionMode: "create_only"
+    });
+  });
+
+  it("keeps capabilities disabled on workers.dev and preview origins", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const response = await handleStudioApiRequest(
+      new Request(
+        "https://noema-studio.example.workers.dev/api/publication-capabilities",
+        { headers: { "cf-access-jwt-assertion": TOKEN } }
+      ),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+    const body = (await response.json()) as PublicationCapabilitiesResponse;
+
+    expect(body.publication).toEqual({
+      baseBranch: "develop",
+      code: "github_app_not_configured",
+      enabled: false,
+      reviewKind: "draft_pull_request",
+      state: "disabled",
+      submissionMode: "create_only"
+    });
+  });
+
+  it("runs one serialized publication step at a time until a Draft PR is ready", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime([
+      CONTINUE_RESULT,
+      OPEN_PULL_REQUEST_RESULT
+    ]);
+    const requestBody = {
+      version: 1,
+      operation: "create_article",
+      submissionId: "287f0d8b-c79f-4b20-9c3d-683b0c4e643e"
+    };
+    const response = await handleStudioApiRequest(
+      authenticatedJsonRequest("/api/article-submissions", requestBody),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ result: OPEN_PULL_REQUEST_RESULT });
+    expect(runtime.advanceCreate).toHaveBeenCalledTimes(2);
+    expect(runtime.advanceCreate).toHaveBeenNthCalledWith(
+      1,
+      requestBody,
+      IDENTITY.subject
+    );
+    expect(runtime.advanceCreate).toHaveBeenNthCalledWith(
+      2,
+      requestBody,
+      IDENTITY.subject
+    );
+  });
+
+  it("routes cancellation with only the authenticated principal and request body", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const requestBody = {
+      version: 1,
+      operation: "cancel_article_submission",
+      submissionId: "287f0d8b-c79f-4b20-9c3d-683b0c4e643e"
+    };
+    const response = await handleStudioApiRequest(
+      authenticatedJsonRequest(
+        "/api/article-submission-cancellations",
+        requestBody
+      ),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    expect(response.status).toBe(200);
+    expect(runtime.advanceCancellation).toHaveBeenCalledWith(
+      requestBody,
+      IDENTITY.subject
+    );
+    expect(runtime.advanceCreate).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on malformed or diagnostic-rich runtime results", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const diagnosticRuntime = publicationRuntime([], [
+      {
+        ok: true,
+        kind: "done",
+        outcome: "cancelled",
+        claim: { principalId: "must-not-leak" }
+      }
+    ]);
+    const malformedRuntime = publicationRuntime([undefined]);
+    const cancellation = await handleStudioApiRequest(
+      authenticatedJsonRequest("/api/article-submission-cancellations", {
+        version: 1,
+        operation: "cancel_article_submission",
+        submissionId: "287f0d8b-c79f-4b20-9c3d-683b0c4e643e"
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: diagnosticRuntime, verifyAccessToken: verify }
+    );
+    const create = await handleStudioApiRequest(
+      authenticatedJsonRequest("/api/article-submissions", {}),
+      CONFIGURED_ENV,
+      { publicationRuntime: malformedRuntime, verifyAccessToken: verify }
+    );
+    const cancellationBody = await cancellation.clone().text();
+
+    await expectApiError(cancellation, 503, "publication_unavailable");
+    await expectApiError(create, 503, "publication_unavailable");
+    expect(cancellationBody).not.toContain("must-not-leak");
+  });
+
+  it("does not encourage retries when the Durable Object is overloaded", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime: StudioPublicationApiRuntime = {
+      advanceCreate: vi.fn().mockRejectedValue({ overloaded: true }),
+      advanceCancellation: vi.fn().mockRejectedValue({ overloaded: true })
+    };
+    const response = await handleStudioApiRequest(
+      authenticatedJsonRequest("/api/article-submissions", {}),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    await expectApiError(response, 503, "publication_unavailable", false);
+  });
+
+  it("rejects wrong media types and malformed JSON before the runtime", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const wrongType = await handleStudioApiRequest(
+      new Request(`${ORIGIN}/api/article-submissions`, {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": TOKEN,
+          "content-type": "text/plain",
+          origin: ORIGIN
+        },
+        body: "{}"
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+    const invalidJson = await handleStudioApiRequest(
+      new Request(`${ORIGIN}/api/article-submissions`, {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": TOKEN,
+          "content-type": "application/json",
+          origin: ORIGIN
+        },
+        body: "{"
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    await expectApiError(wrongType, 415, "unsupported_media_type");
+    await expectApiError(invalidJson, 400, "invalid_json");
+    expect(runtime.advanceCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed UTF-8 and accepts JSON media type casing and parameters", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const invalidUtf8 = await handleStudioApiRequest(
+      new Request(`${ORIGIN}/api/article-submissions`, {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": TOKEN,
+          "content-type": "application/json",
+          origin: ORIGIN
+        },
+        body: new Uint8Array([0x7b, 0xff, 0x7d])
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+    const accepted = await handleStudioApiRequest(
+      new Request(`${ORIGIN}/api/article-submissions`, {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": TOKEN,
+          "content-type": "Application/JSON; Charset=UTF-8",
+          origin: ORIGIN
+        },
+        body: "{}"
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    await expectApiError(invalidUtf8, 400, "invalid_json");
+    expect(accepted.status).toBe(202);
+  });
+
+  it("enforces the request limit for declared and streamed body sizes", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const declared = await handleStudioApiRequest(
+      new Request(`${ORIGIN}/api/article-submissions`, {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": TOKEN,
+          "content-length": "1100000",
+          "content-type": "application/json",
+          origin: ORIGIN
+        },
+        body: "{}"
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+    const streamed = await handleStudioApiRequest(
+      authenticatedJsonRequest(
+        "/api/article-submissions",
+        "x".repeat(1_100_000),
+        true
+      ),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+    const cancelRejectingStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(1_100_000));
+      },
+      cancel() {
+        throw new Error("simulated cancellation failure");
+      }
+    });
+    const cancelRejecting = await handleStudioApiRequest(
+      new Request(`${ORIGIN}/api/article-submissions`, {
+        method: "POST",
+        headers: {
+          "cf-access-jwt-assertion": TOKEN,
+          "content-type": "application/json",
+          origin: ORIGIN
+        },
+        body: cancelRejectingStream
+      }),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    await expectApiError(declared, 413, "request_body_too_large");
+    await expectApiError(streamed, 413, "request_body_too_large");
+    await expectApiError(cancelRejecting, 413, "request_body_too_large");
+    expect(runtime.advanceCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a schema-valid request at the JSON escaping worst case", async () => {
+    const verify = vi.fn().mockResolvedValue(IDENTITY);
+    const runtime = publicationRuntime();
+    const urlPrefix = "https://example.com/";
+    const requestBody = {
+      version: 1,
+      operation: "create_article",
+      submissionId: "8feec5e6-5c3a-4c78-9c78-1ed9d708457d",
+      frontmatter: {
+        title: "JSON escaping upper-bound verification",
+        description: "Schema-valid request bodies must reach the publication runtime.",
+        slug: "json-escaping-upper-bound",
+        status: "draft",
+        updatedAt: "2026-07-17",
+        authors: ["Noema編集部"],
+        topics: ["development-environment"],
+        tags: [],
+        approach: "development",
+        outcome: "HTTP and schema size contracts remain aligned",
+        prerequisites: [],
+        estimatedMinutes: 10,
+        heroImage: null,
+        sources: Array.from({ length: 20 }, (_, index) => ({
+          title: `Source ${index}`,
+          url: `${urlPrefix}${"\\".repeat(2048 - urlPrefix.length)}`,
+          checkedAt: "2026-07-17"
+        }))
+      },
+      markdown: "\\".repeat(STUDIO_ARTICLE_MAX_MARKDOWN_BYTES)
+    };
+    const prepared = await prepareArticleSubmission(requestBody, {
+      principalId: IDENTITY.subject
+    });
+    expect(prepared.ok).toBe(true);
+    expect(new TextEncoder().encode(JSON.stringify(requestBody)).byteLength).toBeGreaterThan(
+      320 * 1024
+    );
+
+    const response = await handleStudioApiRequest(
+      authenticatedJsonRequest("/api/article-submissions", requestBody),
+      CONFIGURED_ENV,
+      { publicationRuntime: runtime, verifyAccessToken: verify }
+    );
+
+    expect(response.status).toBe(202);
+    expect(runtime.advanceCreate).toHaveBeenCalled();
   });
 
   it("keeps article submission disabled without external calls", async () => {
@@ -256,6 +642,22 @@ function authenticatedRequest(
   return new Request(`${ORIGIN}${path}`, {
     headers: requestHeaders,
     method
+  });
+}
+
+function authenticatedJsonRequest(
+  path: string,
+  value: unknown,
+  raw = false
+): Request {
+  return new Request(`${ORIGIN}${path}`, {
+    body: raw ? String(value) : JSON.stringify(value),
+    headers: {
+      "cf-access-jwt-assertion": TOKEN,
+      "content-type": "application/json; charset=utf-8",
+      origin: ORIGIN
+    },
+    method: "POST"
   });
 }
 

@@ -139,6 +139,8 @@ Studioとビルドは同じvalidatorを使い、raw HTML、危険なURL scheme�
 
 公開連携の第2実装単位として、Studio WorkerにCloudflare Access JWTを検証するAPI境界を設ける。`/api/*`はSPAへフォールバックさせず、`Cf-Access-Jwt-Assertion`のRS256署名、issuer、application audience、有効期限、not-beforeを検証する。cookieだけの認証は受け付けない。Access設定がない場合はidentityを返さず503とし、Access認証が有効でGitHub Appだけが未設定の場合はcapabilitiesを`state: disabled`、`code: github_app_not_configured`として返す。記事送信APIは固定したStudio origin以外を認証処理前に拒否し、認証後もfail-closedで外部書き込みを行わない。
 
+公開連携の第3実装単位では、固定repositoryと`develop`を対象に、新規記事だけをcreate-onlyのsubmission branchとDraft Pull Requestへ送信する。repository単位のSQLite-backed Durable ObjectでreconcileとGitHub I/Oを1操作ずつ直列化し、ref作成開始と本人cancelを同じclaimのexact compare-and-setで競合させる。通信断や再試行ではGitHub artifactを再観測し、既存refの更新、force update、`develop`への直接write、自動mergeは行わない。
+
 ## 6. 記事アシスタント
 
 ### 6.1 MVPの動作
