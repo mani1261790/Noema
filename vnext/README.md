@@ -60,15 +60,19 @@ npm run dev:studio:worker
 
 ブログのbuild前に`generate:og`が実行され、公開記事ごとの1200×630 PNGを`public/og`へ生成します。生成物はGit管理せず、Cloudflareへdeployする成果物だけに含めます。
 
-Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再編集できます。入力内容はブラウザ内へ自動保存され、Markdownを書き出すまでサーバーへ送信しません。本文のraw HTML、危険なURL scheme、H1、見出しレベルの飛び、画像alt、内部リンク形式は公開buildと共通のvalidatorで検査し、blocking errorから本文の該当行へ移動できます。リンク先記事の存在確認には全記事が必要なため、Studioでは確認待ちとして表示し、公開buildで確定します。
+Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再編集できます。入力途中で必須項目が欠けた下書きもブラウザ内へversion付きで自動保存・復元し、保存に失敗した場合はMarkdown書き出しへ誘導します。新規入力はfixtureではなく空の記事から始まり、MD読み込み、書き出し、レビュー依頼を別の操作として明示します。本文のraw HTML、危険なURL scheme、H1、見出しレベルの飛び、画像alt、内部リンク形式は公開buildと共通のvalidatorで検査し、blocking errorから該当frontmatterまたは本文行へ移動できます。リンク先記事の存在確認には全記事が必要なため、Studioでは確認待ちとして表示し、公開buildで確定します。
+
+1200 CSS px以上では設定・Markdown・プレビューを同時に表示し、それ未満では設定・本文・プレビューをキーボード操作可能なタブで1ペインずつ表示します。レビュー依頼と公開状態は色だけでなく文言でも示し、GitHub操作を通常の編集・ファイル操作から視覚的に分離します。入力と本文は16px以上、プレビュー本文は17pxとし、すべての主要タッチ対象を44px以上にします。
 
 ブログのdev・check・build開始前には、記事全体のslug重複、公開状態を含む記事リンク、記事内fragmentも検証します。raw HTMLはvalidatorで拒否してrendererでもテキストとしてescapeし、危険なリンク・画像URLは両層で拒否または無効化します。HTMLのコード例はインラインコードまたはコードフェンスへ記述してください。
 
-Studioのプレビューでは、`/`から始まる記事画像、本文画像、リンクを公開ブログのURLに対して解決します。記事ファイル相対の参照と本文内の見出しリンクは書き換えません。公開ブログのURLはbuild時の`VITE_PUBLIC_SITE_URL`で指定し、未指定のローカル開発では`http://localhost:4321`を使います。手動でStudioをdeployする場合は、localhostを埋め込まないようにこの環境変数を必須とします。
+Studioのプレビューでは、`/`から始まる記事画像、本文画像、リンクを公開ブログのURLに対して解決します。記事ファイル相対の参照と本文内の見出しリンクは書き換えません。Studioから意図せず離れないように、見出し内fragment以外の本文リンクは別タブで開きます。公開ブログのURLはbuild時の`VITE_PUBLIC_SITE_URL`で指定し、未指定のローカル開発では`http://localhost:4321`を使います。手動でStudioをdeployする場合は、localhostを埋め込まないようにこの環境変数を必須とします。
 
 ## Studio公開API境界
 
 Studio Workerは`/api/*`だけを静的SPAより先に処理します。Cloudflare Access認証、固定origin、GitHub App、repository単位のDurable Objectがすべて設定済みの場合だけ、新規記事をcreate-onlyのsubmission branchとDraft Pull Requestとして送信できます。`develop`への直接write、既存branchのupdate、force updateは行いません。
+
+Studio UIはcapabilitiesを読み取って連携の有効・無効・確認不能を区別し、有効な場合だけ確認dialogからDraft PR作成を開始します。POST前にUUID v4と正規化済みrequestをブラウザへ保存し、完了、失敗、結果不明の状態をreload後も復元します。送信中または結果確認中は入力を固定し、再試行では同じ`submissionId`と同じ本文を使います。複数タブの送信操作はWeb Locksで直列化し、保存済みattemptの完全一致を確認してから更新・削除します。cancel完了をserverから確認できた場合だけ送信記録を消して編集を再開し、不正な保存値は下書きを保持したまま明示的な修復操作で解除します。
 
 - `GET /api/publication-capabilities`: Access設定がなければidentityを返さず503。認証後、公開runtimeを利用できれば`state: enabled`、利用できなければ`state: disabled`と`code: github_app_not_configured`を返す
 - `POST /api/article-submissions`: 固定allowed origin、Access principal、JSON media type、streaming byte上限、strict schemaを検証し、新規記事のDraft Pull Requestへ収束させる

@@ -1006,7 +1006,7 @@ describe("reconcileArticleSubmission", () => {
     }
   });
 
-  it("blocks a different active claim for the same slug", async () => {
+  it("reports a pre-claim terminal error when another active submission owns the slug", async () => {
     const plan = await validPlan();
     const decision = await reconcileArticleSubmission(plan, {
       claim: known(null),
@@ -1020,7 +1020,7 @@ describe("reconcileArticleSubmission", () => {
     assert.equal(decision.error.code, "open_submission_exists");
   });
 
-  it("rejects any target-path or duplicate-slug article already on develop", async () => {
+  it("reports a pre-claim terminal error when the article already exists on develop", async () => {
     const plan = await validPlan();
     const collision = { path: "vnext/apps/blog/src/content/articles/other-name.md" };
     const decision = await reconcileArticleSubmission(plan, {
@@ -1033,6 +1033,62 @@ describe("reconcileArticleSubmission", () => {
 
     assert.equal(decision.ok, false);
     assert.equal(decision.error.code, "article_already_exists");
+  });
+
+  it("uses artifact errors for slug reservation problems after a claim exists", async () => {
+    const plan = await validPlan();
+    const missing = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, { slugClaim: known(null) }),
+    );
+    const ownedByAnotherSubmission = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        slugClaim: known(
+          slugClaimFor(plan, {
+            submissionId: "3746d644-f5fb-44f0-8795-277e05d5e151",
+          }),
+        ),
+      }),
+    );
+    const mismatchedRequest = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        slugClaim: known(
+          slugClaimFor(plan, {
+            requestSha256: `sha256:${"f".repeat(64)}`,
+          }),
+        ),
+      }),
+    );
+
+    assert.equal(missing.ok, false);
+    assert.equal(missing.error.code, "submission_artifact_missing");
+    assert.equal(ownedByAnotherSubmission.ok, false);
+    assert.equal(ownedByAnotherSubmission.error.code, "submission_artifact_conflict");
+    assert.equal(mismatchedRequest.ok, false);
+    assert.equal(mismatchedRequest.error.code, "submission_artifact_conflict");
+  });
+
+  it("uses an artifact conflict when develop changes after claim reservation", async () => {
+    const plan = await validPlan();
+    const article = {
+      path: plan.article.path,
+      contentSha256: `sha256:${"e".repeat(64)}`,
+    };
+    const decision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        base: known({
+          ...emptyBase(),
+          targetPath: article,
+          articlesWithSlug: [{ path: article.path }],
+        }),
+      }),
+    );
+
+    assert.equal(decision.ok, false);
+    assert.equal(decision.error.code, "submission_artifact_conflict");
   });
 
   it("rejects unverified markers and non-exact initial commit deltas", async () => {

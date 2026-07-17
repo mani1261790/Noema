@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export const STUDIO_ARTICLE_MAX_MARKDOWN_BYTES = 128 * 1024;
 export const STUDIO_ARTICLE_MAX_SERIALIZED_BYTES = 256 * 1024;
+export const STUDIO_ARTICLE_MAX_TOPICS = 3;
 
 export const STUDIO_PUBLICATION_TARGET = {
   repositoryOwner: "mani1261790",
@@ -112,7 +113,7 @@ const submissionImageSchema = z.strictObject({
 const submissionFrontmatterSchema = articleFrontmatterSchema
   .safeExtend({
     authors: z.array(z.string().trim().min(1).max(80)).min(1).max(5),
-    topics: z.array(articleTopicSchema).min(1).max(3),
+    topics: z.array(articleTopicSchema).min(1).max(STUDIO_ARTICLE_MAX_TOPICS),
     tags: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
     prerequisites: z.array(z.string().trim().min(1).max(120)).max(10).default([]),
     heroImage: submissionImageSchema.nullable().default(null),
@@ -1027,9 +1028,7 @@ export async function reconcileArticleSubmission(
 
   if (claim.terminalOutcome === null && !ownsSlugClaim) {
     return decisionError(
-      slugClaim && slugClaim.submissionId !== plan.intent.submissionId
-        ? "open_submission_exists"
-        : "submission_artifact_missing",
+      slugClaim ? "submission_artifact_conflict" : "submission_artifact_missing",
       "slugの送信予約が送信claimと一致しません。",
     );
   }
@@ -1161,8 +1160,8 @@ export async function reconcileArticleSubmission(
 
   if (hasBaseCollision(base)) {
     return decisionError(
-      "article_already_exists",
-      "同じslugまたはpathの記事がdevelopに存在します。",
+      "submission_artifact_conflict",
+      "送信claimの予約後に同じslugまたはpathの記事がdevelopへ追加されました。",
     );
   }
 

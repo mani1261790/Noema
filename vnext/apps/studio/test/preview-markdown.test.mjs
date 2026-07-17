@@ -49,9 +49,15 @@ test("rewrites internal links while preserving fragments and external links", ()
     "[CDN](//cdn.example/path)"
   ].join(" "));
 
-  assert.match(rendered, /href="https:\/\/blog\.example\/articles\/example"/);
-  assert.match(rendered, /href="#section"/);
-  assert.match(rendered, /href="https:\/\/example\.com\/"/);
+  assert.match(
+    rendered,
+    /href="https:\/\/blog\.example\/articles\/example" target="_blank" rel="noreferrer"/
+  );
+  assert.match(rendered, /href="#section">見出し<\/a>/);
+  assert.match(
+    rendered,
+    /href="https:\/\/example\.com\/" target="_blank" rel="noreferrer"/
+  );
   assert.match(rendered, /href="mailto:editor@example\.com"/);
   assert.match(rendered, /href="tel:\+81123456789"/);
   assert.match(rendered, /href="\/\/cdn\.example\/path"/);
