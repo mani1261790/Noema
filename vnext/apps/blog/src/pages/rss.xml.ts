@@ -1,23 +1,22 @@
 import rss from "@astrojs/rss";
-import { getCollection } from "astro:content";
+import type { APIRoute } from "astro";
+import { listPublicArticleSummaries } from "../lib/cms-publications";
 
-export const prerender = true;
-
-export async function GET(context: { site?: URL }) {
-  const articles = await getCollection("articles", ({ data }) => data.status === "published");
+export const GET: APIRoute = async ({ site }) => {
+  const articles = await listPublicArticleSummaries();
   return rss({
     title: "Noema",
     description: "AIでできることと、その仕組みを、直感と具体例からひもとく技術メディアです。",
-    site: context.site ?? new URL("https://noema-learn.uk"),
+    site: site ?? new URL("https://noema-learn.uk"),
     items: articles
-      .sort((a, b) => (b.data.publishedAt ?? b.data.updatedAt).localeCompare(a.data.publishedAt ?? a.data.updatedAt))
+      .sort((a, b) => (b.publishedAt ?? b.updatedAt).localeCompare(a.publishedAt ?? a.updatedAt))
       .map((article) => ({
-        title: article.data.title,
-        description: article.data.description,
-        pubDate: new Date(`${article.data.publishedAt ?? article.data.updatedAt}T00:00:00Z`),
-        link: `/articles/${article.data.slug}`,
-        categories: article.data.tags
+        title: article.title,
+        description: article.description,
+        pubDate: new Date(`${article.publishedAt ?? article.updatedAt}T00:00:00Z`),
+        link: `/articles/${article.slug}`,
+        categories: article.tags
       })),
     customData: "<language>ja</language>"
   });
-}
+};

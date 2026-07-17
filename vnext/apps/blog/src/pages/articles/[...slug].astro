@@ -1,6 +1,5 @@
 ---
-import { getCollection, render } from "astro:content";
-import { topicLabels, type ArticleSummary } from "@noema/content";
+import { topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleSources from "../../components/ArticleSources.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
@@ -8,31 +7,22 @@ import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
+import { findRelatedArticles, formatJapaneseDate, toArticleSummary } from "../../lib/articles";
+import { extractArticleHeadings } from "../../lib/article-assistant";
+import { getPublishedArticleBySlug, listPublicArticleSummaries } from "../../lib/cms-publications";
+import { renderArticleMarkdown } from "../../lib/runtime-markdown";
 
-export const prerender = true;
-
-export async function getStaticPaths() {
-  const articles = await getCollection("articles", ({ data }) => data.status === "published");
-  return articles.map((article) => ({ params: { slug: article.data.slug }, props: { article } }));
-}
-
-const { article } = Astro.props;
-const { Content, headings } = await render(article);
-const publishedArticles = await getCollection("articles", ({ data }) => data.status === "published");
-const summaries: ArticleSummary[] = publishedArticles.map(({ data }) => ({
-  ...data,
-  excerpt: data.description,
-  href: `/articles/${data.slug}`
-}));
-const currentSummary: ArticleSummary = {
-  ...article.data,
-  excerpt: article.data.description,
-  href: `/articles/${article.data.slug}`
-};
+const slug = Astro.params.slug ?? "";
+const article = await getPublishedArticleBySlug(slug);
+if (!article) return new Response("Not found", { status: 404 });
+const renderedHtml = renderArticleMarkdown(article.markdown);
+const headings = extractArticleHeadings(article.markdown);
+const summaries = await listPublicArticleSummaries();
+const currentSummary = toArticleSummary(article.data);
 const relatedArticles = findRelatedArticles(currentSummary, summaries);
 const canonicalUrl = new URL(`/articles/${article.data.slug}/`, Astro.site ?? "https://noema-learn.uk");
-const ogImageUrl = new URL(`/og/${article.data.slug}.png`, Astro.site ?? "https://noema-learn.uk");
+const ogImagePath = "/og/default.png";
+const ogImageUrl = new URL(ogImagePath, Astro.site ?? "https://noema-learn.uk");
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Article",
@@ -49,14 +39,14 @@ const jsonLd = {
 const topic = article.data.topics[0] ?? "technology";
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 const tocItems = headings
-  .filter((heading) => heading.depth === 2)
-  .map((heading) => ({ href: `#${heading.slug}`, label: heading.text }));
+  .map((heading) => ({ href: `#${heading.id}`, label: heading.text }));
 ---
 
 <BaseLayout
   title={`${article.data.title} | Noema`}
   description={article.data.description}
-  image={`/og/${article.data.slug}.png`}
+  noindex={article.visibility === "unlisted"}
+  image={ogImagePath}
   pageType="article"
   publishedAt={article.data.publishedAt}
   updatedAt={article.data.updatedAt}
@@ -87,7 +77,7 @@ const tocItems = headings
         </figure>
       )}
       {tocItems.length > 0 && <ArticleToc items={tocItems} />}
-      <article class="article-body"><Content /></article>
+      <article class="article-body" set:html={renderedHtml}></article>
       <ArticleSources sources={article.data.sources} />
       <ShareArticle />
       <RelatedArticles articles={relatedArticles} />

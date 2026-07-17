@@ -15,6 +15,7 @@
     "deploy": "node scripts/require-public-site-url.mjs && npm run build && wrangler deploy --config wrangler.jsonc"
   },
   "dependencies": {
+    "@noema/cms": "0.1.0",
     "@noema/content": "0.1.0",
     "@noema/studio-publication": "0.1.0",
     "@noema/ui": "0.1.0",

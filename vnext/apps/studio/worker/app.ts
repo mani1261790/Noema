@@ -28,6 +28,11 @@ import {
   createGitHubPublicationAdapter,
   type StudioPublicationStepResult
 } from "./publication-runtime";
+import {
+  handleCmsApiRequest,
+  isCmsMutation,
+  isCmsPath
+} from "./cms-api";
 
 type StudioApiEnvironment = AccessEnvironment &
   Partial<
@@ -36,6 +41,8 @@ type StudioApiEnvironment = AccessEnvironment &
       | "GITHUB_APP_CLIENT_ID"
       | "GITHUB_APP_INSTALLATION_ID"
       | "GITHUB_APP_PRIVATE_KEY"
+      | "CMS_BOOTSTRAP_ADMIN_EMAIL"
+      | "CMS_DB"
       | "PUBLICATION_COORDINATOR"
       | "STUDIO_ALLOWED_ORIGIN"
     >
@@ -78,6 +85,45 @@ export async function handleStudioApiRequest(
   dependencies: StudioApiDependencies = {}
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
+
+  if (isCmsPath(pathname)) {
+    if (!env.CMS_DB) {
+      return errorResponse(
+        503,
+        "publication_unavailable",
+        "CMSは現在利用できません。"
+      );
+    }
+
+    if (isCmsMutation(request)) {
+      const allowedOrigin = readAllowedOrigin(env.STUDIO_ALLOWED_ORIGIN);
+      if (!allowedOrigin) {
+        return errorResponse(
+          503,
+          "publication_unavailable",
+          "CMSは現在利用できません。"
+        );
+      }
+      if (!hasAllowedOrigin(request, allowedOrigin)) {
+        return errorResponse(
+          403,
+          "same_origin_required",
+          "同一オリジンからのリクエストだけを受け付けます。"
+        );
+      }
+    }
+
+    const authentication = await authenticate(request, env, dependencies);
+    if (!authentication.ok) return authentication.response;
+    return handleCmsApiRequest(
+      request,
+      {
+        CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
+        CMS_DB: env.CMS_DB
+      },
+      authentication.identity
+    );
+  }
 
   if (pathname === PUBLICATION_CAPABILITIES_PATH) {
     if (request.method !== "GET") {

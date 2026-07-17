@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { getCollection } from "astro:content";
 import { previewArticles, previewArticleMarkdown } from "@noema/content";
 import { createAnswerSchema, extractArticleHeadings, parseAssistantAnswer } from "../../lib/article-assistant";
+import { getPublishedArticleBySlug } from "../../lib/cms-publications";
 
 export const prerender = false;
 
@@ -14,7 +14,28 @@ type ChatBody = {
   slug?: unknown;
   question?: unknown;
   history?: unknown;
+  preview?: unknown;
 };
+
+type PublishedArticleLoader = typeof getPublishedArticleBySlug;
+
+export async function resolveChatArticle(
+  slug: string,
+  preview: boolean,
+  loadPublishedArticle: PublishedArticleLoader = getPublishedArticleBySlug
+) {
+  if (preview) {
+    const previewArticle = previewArticles.find((item) => item.slug === slug);
+    return previewArticle
+      ? { article: previewArticle, markdown: previewArticleMarkdown }
+      : null;
+  }
+
+  const publishedArticle = await loadPublishedArticle(slug);
+  return publishedArticle
+    ? { article: publishedArticle.data, markdown: publishedArticle.markdown }
+    : null;
+}
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -73,15 +94,11 @@ export const POST: APIRoute = async ({ request, url }) => {
 
   const slug = typeof body.slug === "string" ? body.slug.trim() : "";
   const question = typeof body.question === "string" ? body.question.trim().slice(0, 1000) : "";
-  const previewArticle = previewArticles.find((item) => item.slug === slug);
-  const publishedArticle = previewArticle
-    ? null
-    : (await getCollection("articles", ({ data }) => data.status === "published"))
-        .find((item) => item.data.slug === slug);
-  const article = previewArticle ?? publishedArticle?.data;
-  const articleMarkdown = previewArticle ? previewArticleMarkdown : publishedArticle?.body;
-  if (!article || !articleMarkdown) return json({ error: "記事が見つかりません。" }, 404);
+  const resolvedArticle = await resolveChatArticle(slug, body.preview === true);
+  if (!resolvedArticle) return json({ error: "記事が見つかりません。" }, 404);
   if (!question) return json({ error: "質問を入力してください。" }, 400);
+
+  const { article, markdown: articleMarkdown } = resolvedArticle;
 
   const history = normalizeHistory(body.history);
   const headings = extractArticleHeadings(articleMarkdown);
