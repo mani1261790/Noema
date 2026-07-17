@@ -38,13 +38,13 @@ jobs:
         working-directory: vnext
         run: npm ci
 
-      - name: Validate current application
-        working-directory: vnext
-        run: npm run check
-
       - name: Test current application
         working-directory: vnext
         run: npm test
+
+      - name: Validate current application
+        working-directory: vnext
+        run: npm run check
 
       - name: Build current application
         working-directory: vnext

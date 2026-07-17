@@ -29,13 +29,13 @@ jobs:
         working-directory: vnext
         run: npm audit --audit-level=high
 
-      - name: Validate current application
-        working-directory: vnext
-        run: npm run check
-
       - name: Test current application
         working-directory: vnext
         run: npm test
+
+      - name: Validate current application
+        working-directory: vnext
+        run: npm run check
 
       - name: Verify Cloudflare deployment bundles
         working-directory: vnext
