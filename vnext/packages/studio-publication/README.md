@@ -1,5 +1,7 @@
 # Studio publication contract
 
+> **Legacy:** このpackageは、D1 CMSへ移行する前のGitHub Draft Pull Request送信contractです。移行期間中の既存endpointを安全に保つため残していますが、現行の記事、revision、review、公開状態のsource of truthではありません。新しい記事運用は`@noema/cms`とCloudflare D1を使用します。
+
 `@noema/studio-publication`は、Noema Studioから新規記事をDraft Pull Requestとして送信または送信前にcancelする際に、入力を検証して外部I/Oの次の1操作を決めるWorker互換のdomain packageです。
 
 このpackage自身はGitHub APIを呼び出さず、secretやnetwork接続も持ちません。repository、base branch、記事path、submission branch、commit、Draft Pull Requestのmetadataはserver側で固定・導出し、clientからの上書きを受け付けません。
@@ -16,7 +18,7 @@
 
 `submissionId`はclientが一度だけ生成するUUID v4です。同じ送信の再試行では同じIDを使います。canonical Markdown全体と固定targetからserver側でrequest digestを計算し、認証済みAccess principalとともにimmutable claimへ結び付けます。同じIDで内容または送信者を差し替えた要求は、GitHubへのwrite前でも競合として停止します。
 
-claimは記事本文のsource of truthではありません。`submissionId`、slug、digestと、ref creation開始fence、初回commit SHA、Pull Request番号、terminal outcomeという単調増加の操作metadataだけを保持します。記事本文、review履歴、公開状態の正はGitとGitHubです。
+claimは記事本文のsource of truthではありません。`submissionId`、slug、digestと、ref creation開始fence、初回commit SHA、Pull Request番号、terminal outcomeという単調増加の操作metadataだけを保持します。このlegacy flowで作成済みのartifactはGitHubに残りますが、現行CMSの記事本文、revision、review履歴、公開状態の正はD1です。
 
 ## GitHub adapterの実装条件
 
