@@ -31,6 +31,10 @@ jobs:
         working-directory: vnext
         run: npm run check
 
+      - name: Test current application
+        working-directory: vnext
+        run: npm test
+
       - name: Verify Cloudflare deployment bundles
         working-directory: vnext
         run: npm run deploy:dry-run

@@ -88,7 +88,7 @@ Noemaを、Jupyter Notebookを実行するサービスから、AIでできるこ
 
 ## 4. Markdown コンテンツ仕様
 
-記事の source of truth は Git 管理された `.md` ファイルとする。MVPでは MDX を採用せず、記事から任意の JavaScript を実行できないようにする。
+記事の source of truth は Git 管理された `.md` ファイルとする。MVPでは MDX とraw HTMLを採用せず、`javascript:` や `data:` など実行可能なURL schemeも許可しない。HTMLの例を示す場合はインラインコードまたはコードフェンスへ記述する。
 
 ```yaml
 ---
@@ -118,7 +118,7 @@ sources:
 ---
 ```
 
-ビルド時にfrontmatterのスキーマ、slugの重複、内部リンク、見出し階層、画像の代替テキストを検証する。`topics`は記事の話題、`approach`は体験・活用・開発・理論という触れ方を表し、互いに独立して設定する。Markdownは安全なHTMLに変換し、見出しIDと目次を決定的に生成する。
+Studioとビルドは同じvalidatorを使い、raw HTML、危険なURL scheme、frontmatterのスキーマ、見出し階層、画像の代替テキストを検証する。Studioは編集中の記事単体で判定できる項目を即時検証し、全記事を参照できるビルドではslugの重複、記事リンク、fragmentも追加検証する。公開記事から下書き・保管記事へのリンクは公開時に到達不能になるためエラーとする。`topics`は記事の話題、`approach`は体験・活用・開発・理論という触れ方を表し、互いに独立して設定する。Markdownは安全なHTMLに変換し、見出しIDと目次を決定的に生成する。renderer側でもraw HTMLをテキストへescapeし、危険なリンク・画像URLを無効化して、検証の迂回だけで実行可能なHTMLが出力されないようにする。
 
 公開ビルドではRSS、記事ごとのOG画像、`Article`構造化データを生成する。OG画像はNode.jsのビルド前工程でPNGへ変換し、Cloudflare Workerの実行時には画像生成処理を持ち込まない。
 

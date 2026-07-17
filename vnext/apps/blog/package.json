@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "generate:og": "node scripts/generate-og-images.mjs",
-    "predev": "npm run generate:og",
+    "validate:content": "tsx scripts/validate-content.ts",
+    "test": "vitest run",
+    "predev": "npm run validate:content && npm run generate:og",
     "dev": "NOEMA_LOCAL_DEV=1 astro dev",
-    "check": "astro check",
-    "prebuild": "npm run generate:og",
+    "check": "npm run validate:content && astro check",
+    "prebuild": "npm run validate:content && npm run generate:og",
     "build": "astro build",
+    "prebuild:preview": "npm run validate:content && npm run generate:og",
     "build:preview": "NOEMA_PREVIEW_CONTENT=1 astro build",
     "preview": "astro preview",
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config dist/server/wrangler.json",
@@ -17,20 +20,25 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.1.2",
+    "@astrojs/markdown-satteri": "0.3.3",
     "@noema/content": "0.1.0",
     "@noema/ui": "0.1.0",
     "astro": "^7.0.7",
     "github-slugger": "^2.0.0",
     "markdown-it": "^14.3.0",
+    "satteri": "^0.9.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@astrojs/rss": "^4.0.19",
     "@types/markdown-it": "^14.1.2",
+    "@types/node": "^24.13.3",
     "satori": "^0.26.0",
     "sharp": "^0.35.3",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
     "wawoff2": "^2.0.1",
     "yaml": "^2.9.0"
   }

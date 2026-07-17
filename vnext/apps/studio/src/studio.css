@@ -25,6 +25,8 @@ button, input, textarea, select { font: inherit; }
 .studio-pane-title h1, .studio-pane-title h2 { margin: 0; font-size: calc(20 / 16 * 1rem); font-weight: 700; line-height: 1.5; letter-spacing: .02em; }
 .studio-pane-title--horizontal { display: flex; align-items: center; justify-content: space-between; min-height: 68px; margin: 0; padding: 0 1.5rem; border-bottom: 1px solid #d9d9d9; }
 .studio-pane-title--horizontal span { color: #666; font-size: calc(14 / 16 * 1rem); line-height: 1.3; letter-spacing: 0; }
+.studio-editor__status { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .25rem .75rem; }
+.studio-editor__status button { padding: 0; border: 0; color: #b40000; background: transparent; font-size: calc(14 / 16 * 1rem); font-weight: 700; line-height: 1.3; text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
 .studio-field { display: grid; gap: .45rem; margin-bottom: 1.15rem; }
 .studio-field__label { font-weight: 700; }
 .studio-field small { color: #666; font-size: calc(14 / 16 * 1rem); line-height: 1.3; letter-spacing: 0; }
@@ -39,8 +41,11 @@ button, input, textarea, select { font: inherit; }
 .studio-source { margin-bottom: 1rem; padding: 1rem; background: #f7f7f7; border: 1px solid #d9d9d9; }
 .studio-source .studio-field:last-of-type { margin-bottom: .75rem; }
 .studio-validation { margin-top: 1.5rem; padding: 1rem; background: #f2f2f2; border: 1px solid #7f7f7f; }
+.studio-validation:focus { outline: 3px solid var(--noema-link); outline-offset: 2px; }
 .studio-validation h2 { display: flex; gap: .45rem; align-items: center; margin: 0 0 .75rem; font-size: calc(16 / 16 * 1rem); font-weight: 700; line-height: 1.7; letter-spacing: .02em; }
 .studio-validation p { margin: .35rem 0; color: #444; font-size: calc(14 / 16 * 1rem); line-height: 1.3; letter-spacing: 0; }
+.studio-validation__error a { color: #b40000; font-weight: 700; }
+.studio-validation__warning a { color: #664d00; }
 .studio-danger-zone { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #d9d9d9; }
 .studio-danger-zone h2 { margin: 0; font-size: calc(16 / 16 * 1rem); line-height: 1.7; }
 .studio-danger-zone p { margin: .5rem 0 1rem; color: #666; font-size: calc(14 / 16 * 1rem); line-height: 1.5; }

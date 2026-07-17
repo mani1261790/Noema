@@ -13,6 +13,7 @@
     "dev:blog": "npm run dev --workspace @noema/blog",
     "dev:studio": "npm run dev --workspace @noema/studio",
     "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "deploy:dry-run": "npm run deploy:dry-run --workspace @noema/public-gate && npm run deploy:dry-run --workspace @noema/blog && npm run deploy:dry-run --workspace @noema/studio",
     "deploy:gate": "npm run deploy --workspace @noema/public-gate",
