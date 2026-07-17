@@ -980,6 +980,72 @@ describe("GitHubPublicationAdapter", () => {
     script.expectDone();
   });
 
+  it.each([
+    {
+      operation: "create_blob",
+      path: "/repos/mani1261790/Noema/git/blobs",
+    },
+    {
+      operation: "create_tree",
+      path: "/repos/mani1261790/Noema/git/trees",
+    },
+    {
+      operation: "create_commit",
+      path: "/repos/mani1261790/Noema/git/commits",
+    },
+  ])(
+    "keeps a 422 $operation failure definitive",
+    async ({ operation, path }) => {
+      const plan = await validPlan();
+      const script = new GitHubScript();
+      addToken(script);
+      script.add(
+        "GET",
+        branchRefPath(plan),
+        jsonResponse({ message: "missing" }, 404),
+      );
+      script.add(
+        "GET",
+        "/repos/mani1261790/Noema/git/ref/heads/develop",
+        baseReferenceResponse(),
+      );
+      script.add(
+        "GET",
+        `/repos/mani1261790/Noema/git/commits/${BASE_SHA}`,
+        jsonResponse(gitCommit(BASE_SHA, BASE_TREE_SHA, "Base commit", [])),
+      );
+      if (operation !== "create_blob") {
+        script.add(
+          "POST",
+          "/repos/mani1261790/Noema/git/blobs",
+          jsonResponse({ sha: ARTICLE_BLOB_SHA }, 201),
+        );
+      }
+      if (operation === "create_commit") {
+        script.add(
+          "POST",
+          "/repos/mani1261790/Noema/git/trees",
+          jsonResponse({ sha: ARTICLE_TREE_SHA }, 201),
+        );
+      }
+      script.add(
+        "POST",
+        path,
+        jsonResponse({ message: "validation failed" }, 422),
+      );
+
+      await expect(
+        adapter(script).createSubmissionRef(plan, createRefAction(plan)),
+      ).rejects.toMatchObject({
+        code: "github_request_failed",
+        operation,
+        retryable: false,
+        status: 422,
+      });
+      script.expectDone();
+    },
+  );
+
   it("re-observes a 422 ref write and accepts only the exact owned commit", async () => {
     const plan = await validPlan();
     const script = new GitHubScript();
@@ -1065,16 +1131,25 @@ describe("GitHubPublicationAdapter", () => {
     script.expectDone();
   });
 
-  it("re-observes an ambiguous PR write and proves the exact draft", async () => {
+  it.each([
+    {
+      failure: "connection-lost",
+      response: () => {
+        throw new TypeError("simulated connection loss");
+      },
+    },
+    {
+      failure: "422",
+      response: jsonResponse({ message: "already exists" }, 422),
+    },
+  ])("re-observes a $failure PR write and proves the exact draft", async ({ response }) => {
     const plan = await validPlan();
     const script = new GitHubScript();
     addToken(script);
     script.add("GET", "/repos/mani1261790/Noema/git/ref/heads/develop", baseReferenceResponse());
     addBranchObservation(script, plan);
     script.add("GET", pullRequestListPath(plan), jsonResponse([]));
-    script.add("POST", "/repos/mani1261790/Noema/pulls", () => {
-      throw new TypeError("simulated connection loss");
-    });
+    script.add("POST", "/repos/mani1261790/Noema/pulls", response);
     script.add("GET", "/repos/mani1261790/Noema/git/ref/heads/develop", baseReferenceResponse());
     addBranchObservation(script, plan);
     script.add("GET", pullRequestListPath(plan), jsonResponse([rawPullRequest(plan)]));

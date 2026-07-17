@@ -1394,7 +1394,7 @@ export class GitHubPublicationAdapter {
         throw new GitHubPublicationError(
           "github_request_failed",
           operation,
-          isRetryableStatus(status, response.headers),
+          isRetryableStatus(status, response.headers, operation),
           status
         )
       }
@@ -2165,7 +2165,11 @@ function base64UrlEncode(bytes: Uint8Array): string {
     .replace(/\//gu, "_")
 }
 
-function isRetryableStatus(status: number, headers: Headers): boolean {
+function isRetryableStatus(
+  status: number,
+  headers: Headers,
+  operation: string
+): boolean {
   const rateLimited =
     status === 403 &&
     (headers.has("retry-after") ||
@@ -2173,7 +2177,9 @@ function isRetryableStatus(status: number, headers: Headers): boolean {
   return (
     status === 408 ||
     status === 409 ||
-    status === 422 ||
+    (status === 422 &&
+      (operation === "create_submission_ref" ||
+        operation === "create_draft_pull_request")) ||
     status === 429 ||
     rateLimited ||
     status >= 500
