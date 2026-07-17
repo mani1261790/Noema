@@ -18,10 +18,12 @@ GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 | 対象 | Worker | URL |
 | --- | --- | --- |
 | ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
-| Studio | `noema-studio` | <https://noema-studio.mani1261790.workers.dev> |
+| Studio | `noema-studio` | <https://studio.noema-learn.uk>（Cloudflare Access保護） |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（期待値404） |
 
-ブログとStudioの`workers.dev` URLには、最後に成功した`develop`のCloudflare Worker versionが表示されます。ブログにはUI確認用の記事fixtureも含め、記事カードと記事ページを実データ追加前から確認できるようにします。fixtureは開発previewだけのもので、本番公開用buildには含めません。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。
+ブログの`workers.dev` URLとStudioのcustom domainには、最後に成功した`develop`のCloudflare Worker versionが表示されます。Studioの`workers.dev`とpreview URLは認証の迂回経路を残さないため無効です。旧URLを開いた際の「There is nothing here yet」は閉鎖済み入口の汎用表示であり、Studioはcustom domainを使用します。
+
+ブログにはUI確認用の記事fixtureも含め、記事カードと記事ページを実データ追加前から確認できるようにします。fixtureは開発previewだけのもので、本番公開用buildには含めません。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。Studioからブログへの記事反映は[Studio・ブログ接続ガイド](./studio-blog-connectivity.md)を参照してください。
 
 ## 自動デプロイの流れ
 
@@ -35,7 +37,7 @@ sequenceDiagram
   GH->>CF: noema-public-gateをdeploy
   GH->>CF: noema-learnをdeploy
   GH->>CF: noema-studioをdeploy
-  CF-->>Dev: workers.dev URLで確認可能
+  CF-->>Dev: ブログURLとAccess保護Studioで確認可能
 ```
 
 公開ゲートを最初にdeployするため、後続Workerの更新中も`noema-learn.uk`が開くことはありません。
@@ -67,12 +69,12 @@ GitHub Environmentは作成しません。Secretはrepository levelだけに置�
 1. feature branchで実装し、`npm run check`、`npm run build`、`npm run deploy:dry-run`を実行
 2. Pull Requestを`develop`へmerge
 3. Actionsの`Deploy Noema development preview to Cloudflare`が成功するまで待つ
-4. ブログとStudioの`workers.dev` URLを確認
+4. ブログの`workers.dev` URLとAccess保護されたStudio custom domainを確認
 5. `noema-learn.uk`が404、`Cache-Control: no-store`、`X-Robots-Tag: noindex`のままであることを確認
 
 ```bash
 curl -I https://noema-learn.mani1261790.workers.dev/
-curl -I https://noema-studio.mani1261790.workers.dev/
+curl -I https://studio.noema-learn.uk/
 curl -I https://noema-learn.uk/
 ```
 

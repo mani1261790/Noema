@@ -87,6 +87,8 @@ Blogの`check`と`build`は、nested directoryを含む全記事で`<slug>.md`�
 
 `wrangler.jsonc`の`ACCESS_TEAM_DOMAIN`、`ACCESS_POLICY_AUD`、`STUDIO_ALLOWED_ORIGIN`は、`studio.noema-learn.uk`を保護するCloudflare Access applicationと本人限定policyに対応するreview可能なproduction設定です。この3値のdeploy時source of truthは`wrangler.jsonc`であり、Dashboardの手動変更やローカル専用の`.dev.vars`では上書きしません。team domainは`<team>.cloudflareaccess.com`または同じHTTPS URLを受け付けます。Studioはcustom domainだけで公開し、`workers.dev`とpreview URLは無効化します。コード上のJWT検証に加えて、Accessの外部policyでも入口を保護します。
 
+Studio、GitHub App、Draft Pull Request、`develop`、ブログWorkerの接続関係と運用時の確認先は [Studio・ブログ接続ガイド](../docs/studio-blog-connectivity.md) を参照してください。
+
 Wrangler統合確認用の実値はGit管理しない`.dev.vars`へ置きます。GitHub連携には`GITHUB_APP_CLIENT_ID`、`GITHUB_APP_INSTALLATION_ID`、`GITHUB_APP_PRIVATE_KEY`が必要で、Wranglerではrequired secretとして宣言しています。`Cf-Access-Jwt-Assertion`だけを認証入力として使い、`CF_Authorization` cookie単体、JWT、GitHub秘密鍵、installation tokenをログやリポジトリへ残しません。実際のGitHub書き込みを有効にする前に、GitHub Appを対象repositoryと`contents: write`、`pull_requests: write`だけに限定し、custom hostnameのAccess policyを実環境で受入確認し、`workers.dev`とpreview URLを無効化または同等に保護します。現在は新規記事のDraft PRだけがAPI送信対象で、既存記事はStudioで編集・Markdown出力できてもAPI送信対象にはしません。
 
 ## 記事アシスタント

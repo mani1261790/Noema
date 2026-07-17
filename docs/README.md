@@ -4,10 +4,11 @@
 
 ## 現行実装
 
-1. [開発環境デプロイ](./development-deployment.md): `develop`限定deploy、確認URL、GitHub設定、rollback
-2. [アプリケーションREADME](../vnext/README.md): workspace構成、local development、build
-3. [プロダクト再設計仕様](./product-reboot.md): product、記事、Studio、記事アシスタント、Cloudflare構成
-4. [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、記事タイプ、テーマ、OIF表記方針
+1. [Studio・ブログ接続ガイド](./studio-blog-connectivity.md): 執筆からDraft PR、`develop`、ブログ反映までの流れ、URL、トラブル対応
+2. [開発環境デプロイ](./development-deployment.md): `develop`限定deploy、確認URL、GitHub設定、rollback
+3. [アプリケーションREADME](../vnext/README.md): workspace構成、local development、build
+4. [プロダクト再設計仕様](./product-reboot.md): product、記事、Studio、記事アシスタント、Cloudflare構成
+5. [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、記事タイプ、テーマ、OIF表記方針
 
 ## UIとデザイン
 
