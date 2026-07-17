@@ -75,7 +75,10 @@ export function App() {
     [deferredBody]
   );
   const validation = articleFrontmatterSchema.safeParse(frontmatter);
-  const bodyIssues = useMemo(() => validateArticleMarkdown(body), [body]);
+  const bodyIssues = useMemo(
+    () => validateArticleMarkdown(deferredBody),
+    [deferredBody]
+  );
   const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");
   const frontmatterErrorCount = validation.success ? 0 : validation.error.issues.length;
   const blockingErrorCount = frontmatterErrorCount + bodyErrors.length;
@@ -99,7 +102,10 @@ export function App() {
 
   const download = () => {
     const result = articleFrontmatterSchema.safeParse(frontmatter);
-    if (!result.success || bodyErrors.length > 0) return;
+    const currentBodyErrors = validateArticleMarkdown(body).filter(
+      (issue) => issue.severity === "error"
+    );
+    if (!result.success || currentBodyErrors.length > 0) return;
     const blob = new Blob([serializeArticle(result.data, body)], { type: "text/markdown;charset=utf-8" });
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
