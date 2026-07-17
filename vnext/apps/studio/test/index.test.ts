@@ -612,11 +612,15 @@ describe("Studio publication API", () => {
 
 describe("Studio Worker routing", () => {
   it("keeps API responses out of the SPA fallback", async () => {
-    const response = await SELF.fetch(`${ORIGIN}/api/publication-capabilities`, {
-      headers: { "cf-access-jwt-assertion": TOKEN }
-    });
+    const response = await SELF.fetch(
+      `${ORIGIN}/api/publication-capabilities`
+    );
 
-    await expectApiError(response.clone(), 503, "publication_unavailable");
+    await expectApiError(
+      response.clone(),
+      401,
+      "access_authentication_required"
+    );
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(await response.text()).not.toContain("<html");
   });
