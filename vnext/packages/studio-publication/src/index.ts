@@ -1027,9 +1027,7 @@ export async function reconcileArticleSubmission(
 
   if (claim.terminalOutcome === null && !ownsSlugClaim) {
     return decisionError(
-      slugClaim && slugClaim.submissionId !== plan.intent.submissionId
-        ? "open_submission_exists"
-        : "submission_artifact_missing",
+      slugClaim ? "submission_artifact_conflict" : "submission_artifact_missing",
       "slugの送信予約が送信claimと一致しません。",
     );
   }
@@ -1161,8 +1159,8 @@ export async function reconcileArticleSubmission(
 
   if (hasBaseCollision(base)) {
     return decisionError(
-      "article_already_exists",
-      "同じslugまたはpathの記事がdevelopに存在します。",
+      "submission_artifact_conflict",
+      "送信claimの予約後に同じslugまたはpathの記事がdevelopへ追加されました。",
     );
   }
 
