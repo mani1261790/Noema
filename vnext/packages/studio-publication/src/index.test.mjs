@@ -7,6 +7,7 @@ import {
   STUDIO_ARTICLE_MAX_SERIALIZED_BYTES,
   prepareArticleSubmission,
   reconcileArticleSubmission,
+  reconcileArticleSubmissionCancellation,
 } from "./index.ts";
 
 const submissionId = "287f0d8b-c79f-4b20-9c3d-683b0c4e643e";
@@ -45,6 +46,15 @@ function validRequest(overrides = {}) {
   };
 }
 
+function validCancellationRequest(overrides = {}) {
+  return {
+    version: 1,
+    operation: "cancel_article_submission",
+    submissionId,
+    ...overrides,
+  };
+}
+
 async function validPlan(requestOverrides = {}, context = principal) {
   const prepared = await prepareArticleSubmission(validRequest(requestOverrides), context);
   assert.equal(prepared.ok, true);
@@ -66,6 +76,10 @@ function claimFor(plan, overrides = {}) {
   return {
     version: 1,
     intent: plan.intent,
+    refCreationStarted:
+      "refCreationStarted" in overrides
+        ? overrides.refCreationStarted
+        : overrides.initialCommit != null,
     initialCommit: null,
     pullRequestNumber: null,
     terminalOutcome: null,
@@ -129,8 +143,10 @@ function pullRequestFor(plan, overrides = {}) {
 }
 
 function reservedSnapshot(plan, overrides = {}) {
+  const observedBranch =
+    overrides.branch?.state === "known" ? overrides.branch.value : null;
   return {
-    claim: known(claimFor(plan)),
+    claim: known(claimFor(plan, { refCreationStarted: observedBranch !== null })),
     slugClaim: known(slugClaimFor(plan)),
     base: known(emptyBase()),
     branch: known(null),
@@ -349,6 +365,322 @@ describe("prepareArticleSubmission", () => {
   });
 });
 
+describe("reconcileArticleSubmissionCancellation", () => {
+  it("accepts only the fixed cancellation request shape", async () => {
+    const plan = await validPlan();
+    const snapshot = reservedSnapshot(plan);
+    const extraFields = reconcileArticleSubmissionCancellation(
+      validCancellationRequest({
+        repository: "attacker/repo",
+        baseBranch: "main",
+        articlePath: "README.md",
+        principalId: principal.principalId,
+      }),
+      principal,
+      snapshot,
+    );
+    const invalidId = reconcileArticleSubmissionCancellation(
+      validCancellationRequest({ submissionId: "not-a-uuid" }),
+      principal,
+      snapshot,
+    );
+
+    for (const decision of [extraFields, invalidId]) {
+      assert.equal(decision.ok, false);
+      assert.equal(decision.error.code, "invalid_submission_cancellation_request");
+    }
+  });
+
+  it("records cancellation before releasing the exact slug claim", async () => {
+    const plan = await validPlan();
+    const activeClaim = claimFor(plan);
+    const recordDecision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, { claim: known(activeClaim) }),
+    );
+    const cancelledClaim = { ...activeClaim, terminalOutcome: "cancelled" };
+    const releaseDecision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, { claim: known(cancelledClaim) }),
+    );
+    const doneDecision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        slugClaim: known(null),
+      }),
+    );
+
+    assert.deepEqual(recordDecision, {
+      ok: true,
+      kind: "act",
+      action: "record_terminal_outcome",
+      outcome: "cancelled",
+      expectedClaim: activeClaim,
+    });
+    assert.deepEqual(releaseDecision, {
+      ok: true,
+      kind: "act",
+      action: "release_slug_claim",
+      slugClaim: slugClaimFor(plan),
+    });
+    assert.deepEqual(doneDecision, { ok: true, kind: "done", outcome: "cancelled" });
+  });
+
+  it("treats a reassigned slug claim as completed after cancellation", async () => {
+    const plan = await validPlan();
+    const cancelledClaim = claimFor(plan, { terminalOutcome: "cancelled" });
+    const decision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        slugClaim: known(
+          slugClaimFor(plan, { submissionId: "3746d644-f5fb-44f0-8795-277e05d5e151" }),
+        ),
+      }),
+    );
+
+    assert.deepEqual(decision, { ok: true, kind: "done", outcome: "cancelled" });
+  });
+
+  it("never interprets a required cancellation observation as absence", async () => {
+    const plan = await validPlan();
+    for (const key of ["claim", "slugClaim", "branch", "pullRequests"]) {
+      const decision = reconcileArticleSubmissionCancellation(
+        validCancellationRequest(),
+        principal,
+        reservedSnapshot(plan, { [key]: unavailable() }),
+      );
+      assert.equal(decision.ok, false, key);
+      assert.equal(decision.error.code, "observation_unavailable", key);
+      assert.equal(decision.error.retryable, true, key);
+    }
+
+    const baseUnavailable = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, { base: unavailable() }),
+    );
+    assert.equal(baseUnavailable.ok, true);
+    assert.equal(baseUnavailable.action, "record_terminal_outcome");
+  });
+
+  it("does not disclose or cancel another principal's claim", async () => {
+    const plan = await validPlan();
+    const missing = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, { claim: known(null), slugClaim: known(null) }),
+    );
+    const otherPrincipal = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      { principalId: "access-subject:author-2" },
+      reservedSnapshot(plan),
+    );
+
+    for (const decision of [missing, otherPrincipal]) {
+      assert.equal(decision.ok, false);
+      assert.equal(decision.error.code, "submission_cancellation_forbidden");
+      assert.equal(decision.error.message, "この送信をcancelできません。");
+    }
+  });
+
+  it("forbids cancellation after any GitHub milestone or artifact appears", async () => {
+    const plan = await validPlan();
+    const snapshots = [
+      reservedSnapshot(plan, {
+        claim: known(claimFor(plan, { initialCommit: { sha: initialCommitSha, baseSha } })),
+      }),
+      reservedSnapshot(plan, {
+        claim: known(
+          claimFor(plan, {
+            initialCommit: { sha: initialCommitSha, baseSha },
+            pullRequestNumber: 42,
+          }),
+        ),
+      }),
+      reservedSnapshot(plan, { branch: known(branchFor(plan)) }),
+      reservedSnapshot(plan, { pullRequests: known([pullRequestFor(plan)]) }),
+    ];
+
+    for (const snapshot of snapshots) {
+      const decision = reconcileArticleSubmissionCancellation(
+        validCancellationRequest(),
+        principal,
+        snapshot,
+      );
+      assert.equal(decision.ok, false);
+      assert.equal(decision.error.code, "submission_cancellation_forbidden");
+    }
+  });
+
+  it("makes ref creation start and cancellation compete on the same claim fence", async () => {
+    const plan = await validPlan();
+    const activeClaim = claimFor(plan);
+    const snapshot = reservedSnapshot(plan, { claim: known(activeClaim) });
+    const startDecision = await reconcileArticleSubmission(plan, snapshot);
+    const cancelDecision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      snapshot,
+    );
+
+    assert.deepEqual(startDecision, {
+      ok: true,
+      kind: "act",
+      action: "record_ref_creation_started",
+      expectedClaim: activeClaim,
+    });
+    assert.equal(cancelDecision.ok, true);
+    assert.equal(cancelDecision.action, "record_terminal_outcome");
+    assert.deepEqual(cancelDecision.expectedClaim, activeClaim);
+
+    const startedClaim = { ...activeClaim, refCreationStarted: true };
+    const cancelAfterStart = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, { claim: known(startedClaim) }),
+    );
+    const createAfterStart = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, { claim: known(startedClaim) }),
+    );
+
+    assert.equal(cancelAfterStart.ok, false);
+    assert.equal(cancelAfterStart.error.code, "submission_cancellation_forbidden");
+    assert.equal(createAfterStart.ok, true);
+    assert.equal(createAfterStart.action, "create_submission_ref");
+    assert.deepEqual(createAfterStart.expectedClaim, startedClaim);
+  });
+
+  it("fails closed for a mismatched owned slug claim", async () => {
+    const plan = await validPlan();
+    const active = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        slugClaim: known(slugClaimFor(plan, { requestSha256: "sha256:" + "f".repeat(64) })),
+      }),
+    );
+    const cancelled = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        claim: known(claimFor(plan, { terminalOutcome: "cancelled" })),
+        slugClaim: known(slugClaimFor(plan, { requestSha256: "sha256:" + "f".repeat(64) })),
+      }),
+    );
+
+    for (const decision of [active, cancelled]) {
+      assert.equal(decision.ok, false);
+      assert.equal(decision.error.code, "submission_artifact_conflict");
+    }
+  });
+
+  it("keeps cancelled claims terminal in the create reconciler", async () => {
+    const plan = await validPlan();
+    const cancelledClaim = claimFor(plan, { terminalOutcome: "cancelled" });
+    const releaseDecision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        base: unavailable(),
+      }),
+    );
+    const doneDecision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        slugClaim: known(
+          slugClaimFor(plan, { submissionId: "3746d644-f5fb-44f0-8795-277e05d5e151" }),
+        ),
+        base: unavailable(),
+      }),
+    );
+    const conflictDecision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        branch: known(branchFor(plan)),
+      }),
+    );
+
+    assert.equal(releaseDecision.ok, true);
+    assert.equal(releaseDecision.action, "release_slug_claim");
+    assert.deepEqual(doneDecision, { ok: true, kind: "done", outcome: "cancelled" });
+    assert.equal(conflictDecision.ok, false);
+    assert.equal(conflictDecision.error.code, "submission_artifact_conflict");
+  });
+
+  it("refuses slug release if a GitHub artifact appears after cancellation", async () => {
+    const plan = await validPlan();
+    const cancelledClaim = claimFor(plan, { terminalOutcome: "cancelled" });
+    const branchDecision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        branch: known(branchFor(plan)),
+      }),
+    );
+    const pullRequestDecision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        claim: known(cancelledClaim),
+        pullRequests: known([pullRequestFor(plan)]),
+      }),
+    );
+
+    for (const decision of [branchDecision, pullRequestDecision]) {
+      assert.equal(decision.ok, false);
+      assert.equal(decision.error.code, "submission_artifact_conflict");
+    }
+  });
+
+  it("does not reinterpret a closed unmerged submission as cancellable", async () => {
+    const plan = await validPlan();
+    const closedClaim = claimFor(plan, {
+      initialCommit: { sha: initialCommitSha, baseSha },
+      pullRequestNumber: 42,
+      terminalOutcome: "closed_unmerged",
+    });
+    const decision = reconcileArticleSubmissionCancellation(
+      validCancellationRequest(),
+      principal,
+      reservedSnapshot(plan, {
+        claim: known(closedClaim),
+        branch: known(null),
+        pullRequests: known([pullRequestFor(plan, { state: "closed", draft: false })]),
+      }),
+    );
+
+    assert.equal(decision.ok, false);
+    assert.equal(decision.error.code, "submission_cancellation_forbidden");
+  });
+
+  it("allows a new submission ID to reserve the slug only after release", async () => {
+    const correctedPlan = await validPlan({
+      submissionId: "3746d644-f5fb-44f0-8795-277e05d5e151",
+      markdown: "## 再送信\n\ncancel後に修正した本文です。",
+    });
+    const decision = await reconcileArticleSubmission(correctedPlan, {
+      claim: known(null),
+      slugClaim: known(null),
+      base: known(emptyBase()),
+      branch: known(null),
+      pullRequests: known([]),
+    });
+
+    assert.equal(decision.ok, true);
+    assert.equal(decision.action, "reserve_claim");
+  });
+});
+
 describe("reconcileArticleSubmission", () => {
   it("rejects mutated or deserialized plans before any action", async () => {
     const plan = await validPlan();
@@ -438,14 +770,30 @@ describe("reconcileArticleSubmission", () => {
     assert.equal(decision.slugClaim.slug, plan.article.slug);
   });
 
-  it("creates the submission commit/ref from an observed develop SHA after reservation", async () => {
+  it("records a claim fence before creating the submission commit/ref", async () => {
     const plan = await validPlan();
-    const decision = await reconcileArticleSubmission(plan, reservedSnapshot(plan));
+    const activeClaim = claimFor(plan);
+    const fenceDecision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, { claim: known(activeClaim) }),
+    );
+    const startedClaim = { ...activeClaim, refCreationStarted: true };
+    const createDecision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, { claim: known(startedClaim) }),
+    );
 
-    assert.equal(decision.ok, true);
-    assert.equal(decision.action, "create_submission_ref");
-    assert.equal(decision.baseCommitSha, baseSha);
-    assert.equal(decision.commitMetadata.baseCommitSha, baseSha);
+    assert.deepEqual(fenceDecision, {
+      ok: true,
+      kind: "act",
+      action: "record_ref_creation_started",
+      expectedClaim: activeClaim,
+    });
+    assert.equal(createDecision.ok, true);
+    assert.equal(createDecision.action, "create_submission_ref");
+    assert.equal(createDecision.baseCommitSha, baseSha);
+    assert.equal(createDecision.commitMetadata.baseCommitSha, baseSha);
+    assert.deepEqual(createDecision.expectedClaim, startedClaim);
   });
 
   it("records the exact verified initial commit before creating a PR", async () => {
@@ -589,6 +937,7 @@ describe("reconcileArticleSubmission", () => {
       kind: "act",
       action: "record_terminal_outcome",
       outcome: "closed_unmerged",
+      expectedClaim: claim,
     });
     assert.equal(releaseDecision.ok, true);
     assert.equal(releaseDecision.action, "release_slug_claim");
@@ -688,6 +1037,20 @@ describe("reconcileArticleSubmission", () => {
     assert.equal(marker.error.code, "submission_artifact_conflict");
     assert.equal(path.ok, false);
     assert.equal(path.error.code, "submission_artifact_conflict");
+  });
+
+  it("rejects a submission branch that appears before the claim fence", async () => {
+    const plan = await validPlan();
+    const decision = await reconcileArticleSubmission(
+      plan,
+      reservedSnapshot(plan, {
+        claim: known(claimFor(plan)),
+        branch: known(branchFor(plan)),
+      }),
+    );
+
+    assert.equal(decision.ok, false);
+    assert.equal(decision.error.code, "submission_artifact_conflict");
   });
 
   it("rejects descendant commits before the Draft PR exists", async () => {

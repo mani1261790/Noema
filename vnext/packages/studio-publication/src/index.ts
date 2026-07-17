@@ -195,8 +195,20 @@ export const articleSubmissionContextSchema = z.strictObject({
     .refine((value) => !/[\u0000-\u001f\u007f]/u.test(value), "principalIdが不正です"),
 });
 
+export const articleSubmissionCancellationRequestSchema = z.strictObject({
+  version: z.literal(1),
+  operation: z.literal("cancel_article_submission"),
+  submissionId: z
+    .string()
+    .regex(submissionIdPattern, "submissionIdにはUUID v4を指定してください")
+    .transform((value) => value.toLowerCase()),
+});
+
 export type ArticleSubmissionRequest = z.infer<typeof articleSubmissionRequestSchema>;
 export type ArticleSubmissionContext = z.infer<typeof articleSubmissionContextSchema>;
+export type ArticleSubmissionCancellationRequest = z.infer<
+  typeof articleSubmissionCancellationRequestSchema
+>;
 
 export interface ArticleSubmissionValidationIssue {
   path: Array<string | number>;
@@ -205,6 +217,7 @@ export interface ArticleSubmissionValidationIssue {
 
 export type ArticleSubmissionErrorCode =
   | "invalid_submission_request"
+  | "invalid_submission_cancellation_request"
   | "invalid_submission_context"
   | "invalid_submission_plan"
   | "submission_planning_failed"
@@ -213,6 +226,7 @@ export type ArticleSubmissionErrorCode =
   | "article_already_exists"
   | "open_submission_exists"
   | "submission_id_reused"
+  | "submission_cancellation_forbidden"
   | "submission_artifact_conflict"
   | "submission_artifact_missing"
   | "submission_merge_pending";
@@ -528,11 +542,19 @@ const claimSchema = z
   .strictObject({
     version: z.literal(1),
     intent: intentSchema,
+    refCreationStarted: z.boolean(),
     initialCommit: initialCommitRecordSchema.nullable(),
     pullRequestNumber: z.number().int().positive().nullable(),
-    terminalOutcome: z.literal("closed_unmerged").nullable(),
+    terminalOutcome: z.enum(["closed_unmerged", "cancelled"]).nullable(),
   })
   .superRefine((claim, context) => {
+    if (claim.initialCommit !== null && !claim.refCreationStarted) {
+      context.addIssue({
+        code: "custom",
+        path: ["initialCommit"],
+        message: "ref creation fenceなしで初回commitを記録できません",
+      });
+    }
     if (claim.pullRequestNumber !== null && claim.initialCommit === null) {
       context.addIssue({
         code: "custom",
@@ -540,11 +562,21 @@ const claimSchema = z
         message: "initialCommitなしでPull Requestを記録できません",
       });
     }
-    if (claim.terminalOutcome !== null && claim.pullRequestNumber === null) {
+    if (claim.terminalOutcome === "closed_unmerged" && claim.pullRequestNumber === null) {
       context.addIssue({
         code: "custom",
         path: ["terminalOutcome"],
         message: "Pull Requestなしでterminal outcomeを記録できません",
+      });
+    }
+    if (
+      claim.terminalOutcome === "cancelled" &&
+      (claim.refCreationStarted || claim.initialCommit !== null || claim.pullRequestNumber !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["terminalOutcome"],
+        message: "GitHub writeのfenceまたはmilestoneを持つclaimはcancelledにできません",
       });
     }
   });
@@ -654,9 +686,16 @@ export type ArticleSubmissionDecision =
   | {
       ok: true;
       kind: "act";
+      action: "record_ref_creation_started";
+      expectedClaim: ArticleSubmissionClaim;
+    }
+  | {
+      ok: true;
+      kind: "act";
       action: "create_submission_ref";
       baseCommitSha: string;
       commitMetadata: ArticleSubmissionCommitMetadata;
+      expectedClaim: ArticleSubmissionClaim;
     }
   | {
       ok: true;
@@ -666,7 +705,13 @@ export type ArticleSubmissionDecision =
     }
   | { ok: true; kind: "act"; action: "create_draft_pull_request" }
   | { ok: true; kind: "act"; action: "record_pull_request"; pullRequestNumber: number }
-  | { ok: true; kind: "act"; action: "record_terminal_outcome"; outcome: "closed_unmerged" }
+  | {
+      ok: true;
+      kind: "act";
+      action: "record_terminal_outcome";
+      outcome: "closed_unmerged" | "cancelled";
+      expectedClaim: ArticleSubmissionClaim;
+    }
   | { ok: true; kind: "act"; action: "release_slug_claim"; slugClaim: ArticleSlugClaim }
   | {
       ok: true;
@@ -681,14 +726,33 @@ export type ArticleSubmissionDecision =
       finalContentSha256: string;
       pullRequest: ArticleSubmissionPullRequest;
     }
-  | { ok: false; kind: "error"; error: ArticleSubmissionError };
+  | { ok: true; kind: "done"; outcome: "cancelled" }
+  | ArticleSubmissionFailure;
+
+export type ArticleSubmissionFailure = {
+  ok: false;
+  kind: "error";
+  error: ArticleSubmissionError;
+};
+
+export type ArticleSubmissionCancellationDecision =
+  | {
+      ok: true;
+      kind: "act";
+      action: "record_terminal_outcome";
+      outcome: "cancelled";
+      expectedClaim: ArticleSubmissionClaim;
+    }
+  | { ok: true; kind: "act"; action: "release_slug_claim"; slugClaim: ArticleSlugClaim }
+  | { ok: true; kind: "done"; outcome: "cancelled" }
+  | ArticleSubmissionFailure;
 
 function decisionError(
   code: ArticleSubmissionErrorCode,
   message: string,
   retryable = false,
   issues?: ArticleSubmissionValidationIssue[],
-): ArticleSubmissionDecision {
+): ArticleSubmissionFailure {
   return {
     ok: false,
     kind: "error",
@@ -801,7 +865,6 @@ export async function reconcileArticleSubmission(
   if (
     snapshot.claim.state === "unavailable" ||
     snapshot.slugClaim.state === "unavailable" ||
-    snapshot.base.state === "unavailable" ||
     snapshot.branch.state === "unavailable" ||
     snapshot.pullRequests.state === "unavailable"
   ) {
@@ -814,9 +877,59 @@ export async function reconcileArticleSubmission(
 
   const claim = snapshot.claim.value;
   const slugClaim = snapshot.slugClaim.value;
-  const base = snapshot.base.value;
   const branch = snapshot.branch.value;
   const pullRequests = snapshot.pullRequests.value;
+
+  if (claim?.terminalOutcome === "cancelled") {
+    if (!intentMatches(plan.intent, claim.intent)) {
+      return decisionError(
+        "submission_id_reused",
+        "同じ送信IDが異なる送信内容または送信者に使用されています。",
+      );
+    }
+    if (
+      claim.refCreationStarted ||
+      claim.initialCommit !== null ||
+      claim.pullRequestNumber !== null ||
+      branch !== null ||
+      pullRequests.length > 0
+    ) {
+      return decisionError(
+        "submission_artifact_conflict",
+        "cancelled claimにGitHub artifactまたはmilestoneが存在します。",
+      );
+    }
+    const ownsCancelledSlugClaim = Boolean(
+      slugClaim &&
+        slugClaim.slug === plan.article.slug &&
+        slugClaim.submissionId === plan.intent.submissionId &&
+        slugClaim.requestSha256 === plan.intent.requestSha256,
+    );
+    if (slugClaim?.submissionId === plan.intent.submissionId && !ownsCancelledSlugClaim) {
+      return decisionError(
+        "submission_artifact_conflict",
+        "release対象のslug claimがcancelled claimと一致しません。",
+      );
+    }
+    if (ownsCancelledSlugClaim && slugClaim) {
+      return {
+        ok: true,
+        kind: "act",
+        action: "release_slug_claim",
+        slugClaim,
+      };
+    }
+    return { ok: true, kind: "done", outcome: "cancelled" };
+  }
+
+  if (snapshot.base.state === "unavailable") {
+    return decisionError(
+      "observation_unavailable",
+      "送信状態の一部を取得できませんでした。再確認してから続行します。",
+      true,
+    );
+  }
+  const base = snapshot.base.value;
 
   if (base.targetPath && base.targetPath.path !== plan.article.path) {
     return decisionError(
@@ -854,6 +967,7 @@ export async function reconcileArticleSubmission(
       claim: {
         version: 1,
         intent: plan.intent,
+        refCreationStarted: false,
         initialCommit: null,
         pullRequestNumber: null,
         terminalOutcome: null,
@@ -991,6 +1105,7 @@ export async function reconcileArticleSubmission(
         kind: "act",
         action: "record_terminal_outcome",
         outcome: "closed_unmerged",
+        expectedClaim: claim,
       };
     }
     if (
@@ -1028,6 +1143,14 @@ export async function reconcileArticleSubmission(
         "記録済みのsubmission branchを確認できません。",
       );
     }
+    if (!claim.refCreationStarted) {
+      return {
+        ok: true,
+        kind: "act",
+        action: "record_ref_creation_started",
+        expectedClaim: claim,
+      };
+    }
     return {
       ok: true,
       kind: "act",
@@ -1037,7 +1160,15 @@ export async function reconcileArticleSubmission(
         ...plan.metadata,
         baseCommitSha: base.headSha,
       },
+      expectedClaim: claim,
     };
+  }
+
+  if (!claim.refCreationStarted) {
+    return decisionError(
+      "submission_artifact_conflict",
+      "ref creation fenceなしでsubmission branchが存在します。",
+    );
   }
 
   const branchError = validateBranchProof(plan, branch, claim.initialCommit, true);
@@ -1056,4 +1187,140 @@ export async function reconcileArticleSubmission(
   }
 
   return { ok: true, kind: "act", action: "create_draft_pull_request" };
+}
+
+export function reconcileArticleSubmissionCancellation(
+  rawRequest: unknown,
+  rawContext: unknown,
+  rawSnapshot: unknown,
+): ArticleSubmissionCancellationDecision {
+  const parsedRequest = articleSubmissionCancellationRequestSchema.safeParse(rawRequest);
+  if (!parsedRequest.success) {
+    return decisionError(
+      "invalid_submission_cancellation_request",
+      "記事送信のcancel入力を確認してください。",
+      false,
+      issuesOf(parsedRequest.error),
+    );
+  }
+
+  const parsedContext = articleSubmissionContextSchema.safeParse(rawContext);
+  if (!parsedContext.success) {
+    return decisionError(
+      "invalid_submission_context",
+      "送信者情報を確認できません。",
+      false,
+      issuesOf(parsedContext.error),
+    );
+  }
+
+  const parsedSnapshot = articleSubmissionSnapshotSchema.safeParse(rawSnapshot);
+  if (!parsedSnapshot.success) {
+    return decisionError(
+      "invalid_submission_snapshot",
+      "送信状態を安全に確認できませんでした。",
+      false,
+      issuesOf(parsedSnapshot.error),
+    );
+  }
+
+  const snapshot = parsedSnapshot.data;
+  if (
+    snapshot.claim.state === "unavailable" ||
+    snapshot.slugClaim.state === "unavailable" ||
+    snapshot.branch.state === "unavailable" ||
+    snapshot.pullRequests.state === "unavailable"
+  ) {
+    return decisionError(
+      "observation_unavailable",
+      "cancelに必要な送信状態を取得できませんでした。再確認してから続行します。",
+      true,
+    );
+  }
+
+  const claim = snapshot.claim.value;
+  const slugClaim = snapshot.slugClaim.value;
+  const branch = snapshot.branch.value;
+  const pullRequests = snapshot.pullRequests.value;
+  if (
+    !claim ||
+    claim.intent.submissionId !== parsedRequest.data.submissionId ||
+    claim.intent.principalId !== parsedContext.data.principalId
+  ) {
+    return decisionError(
+      "submission_cancellation_forbidden",
+      "この送信をcancelできません。",
+    );
+  }
+
+  if (claim.terminalOutcome === "closed_unmerged") {
+    return decisionError(
+      "submission_cancellation_forbidden",
+      "Pull Requestへ進んだ送信はcancelできません。",
+    );
+  }
+
+  if (claim.terminalOutcome === "cancelled") {
+    if (branch !== null || pullRequests.length > 0) {
+      return decisionError(
+        "submission_artifact_conflict",
+        "cancelled claimにGitHub artifactが存在するためslug予約を解放できません。",
+      );
+    }
+    const ownsSlugClaim = Boolean(
+      slugClaim &&
+        slugClaim.slug === claim.intent.slug &&
+        slugClaim.submissionId === claim.intent.submissionId &&
+        slugClaim.requestSha256 === claim.intent.requestSha256,
+    );
+    if (slugClaim?.submissionId === claim.intent.submissionId && !ownsSlugClaim) {
+      return decisionError(
+        "submission_artifact_conflict",
+        "release対象のslug claimがcancelled claimと一致しません。",
+      );
+    }
+    if (ownsSlugClaim && slugClaim) {
+      return {
+        ok: true,
+        kind: "act",
+        action: "release_slug_claim",
+        slugClaim,
+      };
+    }
+    return { ok: true, kind: "done", outcome: "cancelled" };
+  }
+
+  if (
+    claim.refCreationStarted ||
+    claim.initialCommit !== null ||
+    claim.pullRequestNumber !== null ||
+    branch !== null ||
+    pullRequests.length > 0
+  ) {
+    return decisionError(
+      "submission_cancellation_forbidden",
+      "GitHub artifactの作成が始まった送信はcancelできません。",
+    );
+  }
+
+  const ownsSlugClaim = Boolean(
+    slugClaim &&
+      slugClaim.slug === claim.intent.slug &&
+      slugClaim.submissionId === claim.intent.submissionId &&
+      slugClaim.requestSha256 === claim.intent.requestSha256,
+  );
+  if (!ownsSlugClaim) {
+    return decisionError(
+      "submission_artifact_conflict",
+      "slug予約が送信claimと一致しないためcancelできません。",
+    );
+  }
+
+  return {
+    ok: true,
+    kind: "act",
+    action: "record_terminal_outcome",
+    outcome: "cancelled",
+    expectedClaim: claim,
+  };
 }
