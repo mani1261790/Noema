@@ -16,8 +16,17 @@
   "vars": {
     "ACCESS_TEAM_DOMAIN": "falling-smoke-5c0f.cloudflareaccess.com",
     "ACCESS_POLICY_AUD": "882b7c1d2c863c9223f84857969a0bdb36b9979272e6af645d087473e0c18de9",
+    "CMS_BOOTSTRAP_ADMIN_EMAIL": "mani1261790@gmail.com",
     "STUDIO_ALLOWED_ORIGIN": "https://studio.noema-learn.uk"
   },
+  "d1_databases": [
+    {
+      "binding": "CMS_DB",
+      "database_name": "noema-cms",
+      "database_id": "1be074f8-8d97-4422-a081-5eeaadcb5cd0",
+      "migrations_dir": "migrations"
+    }
+  ],
   "secrets": {
     "required": [
       "GITHUB_APP_CLIENT_ID",
