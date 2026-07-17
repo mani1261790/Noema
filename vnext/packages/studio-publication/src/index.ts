@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export const STUDIO_ARTICLE_MAX_MARKDOWN_BYTES = 128 * 1024;
 export const STUDIO_ARTICLE_MAX_SERIALIZED_BYTES = 256 * 1024;
+export const STUDIO_ARTICLE_MAX_TOPICS = 3;
 
 export const STUDIO_PUBLICATION_TARGET = {
   repositoryOwner: "mani1261790",
@@ -112,7 +113,7 @@ const submissionImageSchema = z.strictObject({
 const submissionFrontmatterSchema = articleFrontmatterSchema
   .safeExtend({
     authors: z.array(z.string().trim().min(1).max(80)).min(1).max(5),
-    topics: z.array(articleTopicSchema).min(1).max(3),
+    topics: z.array(articleTopicSchema).min(1).max(STUDIO_ARTICLE_MAX_TOPICS),
     tags: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
     prerequisites: z.array(z.string().trim().min(1).max(120)).max(10).default([]),
     heroImage: submissionImageSchema.nullable().default(null),

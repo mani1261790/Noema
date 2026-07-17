@@ -49,6 +49,11 @@ import {
   type PublicationSuccess
 } from "./publication-client";
 import { createPreviewMarkdown, resolvePublicSiteReference } from "./preview-markdown";
+import {
+  MAX_ARTICLE_TOPICS,
+  isArticleTopicChoiceDisabled,
+  toggleArticleTopic
+} from "./topic-selection";
 
 type Pane = "settings" | "write" | "preview";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
@@ -1079,11 +1084,51 @@ export function App() {
                 </div>
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "topics", validationVisible);
-                  return <Field id="article-topic" label="テーマ" support="記事が扱う話題を選びます。" error={error}>
-                    <select id="article-topic" required {...inputA11y("article-topic", true, error)} value={frontmatter.topics[0]} onChange={(event) => update("topics", [event.target.value as ArticleFrontmatter["topics"][number]])}>
-                      {Object.entries(topicLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </Field>;
+                  return (
+                    <fieldset
+                      aria-describedby={`article-topic-support article-topic-count${error ? " article-topic-error" : ""}`}
+                      aria-errormessage={error ? "article-topic-error" : undefined}
+                      aria-invalid={error ? true : undefined}
+                      className={`studio-field studio-topic-field ${error ? "has-error" : ""}`}
+                      id="article-topic"
+                      tabIndex={-1}
+                    >
+                      <legend className="dads-form-control-label studio-field__label">
+                        <span>テーマ</span>
+                        <span className="studio-field__requirement">※必須</span>
+                      </legend>
+                      <p className="studio-field__support" id="article-topic-support">1〜{MAX_ARTICLE_TOPICS}つ選びます。最初に選んだテーマが公開画面の主テーマになり、選択内容はすべて記事に保存されます。</p>
+                      <div className="studio-topic-options">
+                        {Object.entries(topicLabels).map(([value, label]) => {
+                          const topic = value as ArticleFrontmatter["topics"][number];
+                          const selected = frontmatter.topics.includes(topic);
+                          return (
+                            <label className="studio-topic-option" htmlFor={`article-topic-${value}`} key={value}>
+                              <input
+                                aria-describedby={`article-topic-support article-topic-count${error ? " article-topic-error" : ""}`}
+                                aria-invalid={error ? true : undefined}
+                                checked={selected}
+                                disabled={isArticleTopicChoiceDisabled(frontmatter.topics, topic)}
+                                id={`article-topic-${value}`}
+                                onChange={(event) => update("topics", toggleArticleTopic(frontmatter.topics, topic, event.target.checked))}
+                                type="checkbox"
+                              />
+                              <span>{label}{selected && frontmatter.topics[0] === topic ? "（主テーマ）" : ""}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p
+                        aria-live="polite"
+                        className={frontmatter.topics.length > MAX_ARTICLE_TOPICS ? "studio-field__error" : "studio-field__counter"}
+                        id="article-topic-count"
+                      >
+                        選択中 {frontmatter.topics.length} / {MAX_ARTICLE_TOPICS}
+                        {frontmatter.topics.length > MAX_ARTICLE_TOPICS ? ` — ${MAX_ARTICLE_TOPICS}つまでに減らしてください` : ""}
+                      </p>
+                      {error ? <p className="studio-field__error" id="article-topic-error">エラー — {error}</p> : null}
+                    </fieldset>
+                  );
                 })()}
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "tags", validationVisible);

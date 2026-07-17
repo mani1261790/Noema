@@ -48,7 +48,8 @@ a {
 .studio-editor[role="tabpanel"]:focus-visible,
 .studio-preview[role="tabpanel"]:focus-visible,
 .studio-validation:focus,
-.studio-review:focus {
+.studio-review:focus,
+.studio-topic-field:focus {
   outline: 4px solid #000;
   outline-offset: 2px;
   box-shadow: 0 0 0 5px #ffdc26;
@@ -61,7 +62,7 @@ a {
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
@@ -71,7 +72,7 @@ a {
   width: 1.25rem;
   height: 1.25rem;
   fill: none;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -175,7 +176,7 @@ a {
   gap: 1rem;
   min-height: 48px;
   padding: .65rem clamp(1rem, 4vw, 2rem);
-  border-bottom: 1px solid currentColor;
+  border-bottom: 1px solid currentcolor;
   font-size: calc(14 / 16 * 1rem);
   line-height: 1.5;
 }
@@ -461,6 +462,62 @@ a {
 .studio-field.has-error textarea,
 .studio-field.has-error select {
   border: 2px solid #b40000;
+}
+
+.studio-topic-field {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.studio-topic-field .studio-field__label {
+  width: 100%;
+}
+
+.studio-topic-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+}
+
+.studio-topic-option {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: .625rem;
+  padding: .5rem .75rem;
+  border: 1px solid #767676;
+  color: #1a1a1a;
+  background: #fff;
+  cursor: pointer;
+}
+
+.studio-topic-option:has(input:checked) {
+  border-color: var(--color-key-900);
+  background: var(--color-key-50);
+  font-weight: 700;
+}
+
+.studio-topic-option:has(input:disabled) {
+  color: #767676;
+  background: #eee;
+  cursor: not-allowed;
+}
+
+.studio-field .studio-topic-option input {
+  flex: 0 0 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--color-key-900);
+}
+
+.studio-topic-field.has-error .studio-topic-option {
+  border-width: 2px;
+  border-color: #b40000;
 }
 
 .studio-field input:disabled,
@@ -1160,6 +1217,12 @@ a {
 
   .studio-dialog__actions .dads-button {
     width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .studio-topic-options {
+    grid-template-columns: 1fr;
   }
 }
 
