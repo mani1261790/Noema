@@ -37,6 +37,10 @@ export function createPreviewMarkdown(publicSiteUrl: string): MarkdownIt {
 
     if (href) {
       tokens[index].attrSet("href", resolvePublicSiteReference(href, publicSiteUrl));
+      if (!href.startsWith("#")) {
+        tokens[index].attrSet("target", "_blank");
+        tokens[index].attrSet("rel", "noreferrer");
+      }
     }
 
     return defaultLinkRule
