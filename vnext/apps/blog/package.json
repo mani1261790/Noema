@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "generate:og": "node scripts/generate-og-images.mjs",
-    "validate:content": "tsx scripts/validate-content.ts",
-    "test": "vitest run",
+    "validate:articles": "node scripts/validate-article-paths.mjs",
+    "validate:content": "tsx scripts/validate-content.ts && npm run validate:articles",
+    "test": "vitest run && node --test scripts/validate-article-paths.test.mjs",
     "predev": "npm run validate:content && npm run generate:og",
     "dev": "NOEMA_LOCAL_DEV=1 astro dev",
     "check": "npm run validate:content && astro check",
