@@ -18,6 +18,7 @@ GitHub ActionsではNode.js 24とWrangler 4.110.0を使います。
 - `apps/studio`: React/Viteで構築するMarkdown執筆Studio
 - `apps/public-gate`: `noema-learn.uk`を非公開に保つWorker
 - `packages/content`: 記事schema、Markdown出力、UI確認用fixture
+- `packages/studio-publication`: Studio記事送信の固定contract、GitHub操作計画、再試行判定
 - `packages/ui`: Noema共通styleとデジタル庁公式snippet由来CSS
 - `design/concepts`: 実装照合用の画面concept
 - `design/qa`: browser確認時のcapture
