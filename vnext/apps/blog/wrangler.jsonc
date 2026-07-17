@@ -6,6 +6,13 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
+  "d1_databases": [
+    {
+      "binding": "CMS_DB",
+      "database_name": "noema-cms",
+      "database_id": "1be074f8-8d97-4422-a081-5eeaadcb5cd0"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

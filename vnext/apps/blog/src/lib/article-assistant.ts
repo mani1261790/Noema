@@ -1,4 +1,7 @@
 import GithubSlugger from "github-slugger";
+import MarkdownIt from "markdown-it";
+
+const headingParser = new MarkdownIt({ html: false });
 
 export type ArticleHeading = {
   id: string;
@@ -12,12 +15,23 @@ export type ArticleAssistantAnswer = {
 
 export function extractArticleHeadings(markdown: string): ArticleHeading[] {
   const slugger = new GithubSlugger();
+  const headings: ArticleHeading[] = [];
 
-  return markdown
-    .split("\n")
-    .map((line) => line.match(/^##\s+(.+?)\s*#*\s*$/)?.[1]?.trim())
-    .filter((text): text is string => Boolean(text))
-    .map((text) => ({ id: slugger.slug(text), text }));
+  const tokens = headingParser.parse(markdown, {});
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type !== "heading_open") continue;
+    const text = (tokens[index + 1]?.children ?? [])
+      .filter((child) => child.type === "text" || child.type === "code_inline")
+      .map((child) => child.content)
+      .join("")
+      .trim();
+    if (!text) continue;
+    const id = slugger.slug(text);
+    if (token.tag === "h2") headings.push({ id, text });
+  }
+
+  return headings;
 }
 
 export function createAnswerSchema(headings: ArticleHeading[]) {

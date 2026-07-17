@@ -11,14 +11,12 @@ export default defineConfig({
   site: "https://noema-learn.uk",
   output: "server",
   devToolbar: { enabled: false },
-  // The npm dev script opts into Astro's native server. Production builds
-  // always include the Cloudflare adapter.
-  adapter: process.env.NOEMA_LOCAL_DEV === "1"
-    ? undefined
-    : cloudflare({
-        configPath: "./wrangler.jsonc",
-        imageService: "compile"
-      }),
+  // Keep the Cloudflare runtime active in local development so D1 bindings
+  // and `cloudflare:workers` behave exactly as they do after deployment.
+  adapter: cloudflare({
+    configPath: "./wrangler.jsonc",
+    imageService: "compile"
+  }),
   markdown: {
     // Article validation rejects raw HTML and unsafe URL schemes. Hardening the
     // renderer is a second line of defence if Astro is invoked outside scripts.

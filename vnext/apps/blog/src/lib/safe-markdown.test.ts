@@ -2,11 +2,13 @@ import { createSatteriMarkdownProcessor } from "@astrojs/markdown-satteri";
 import { extractArticleHeadingSlugs } from "@noema/content";
 import { markdownToHtml } from "satteri";
 import { describe, expect, it } from "vitest";
+import { extractArticleHeadings } from "./article-assistant";
 import {
   articleMarkdownFeatures,
   hardenArticleHtml,
   hardenArticleMarkdown,
 } from "./safe-markdown";
+import { renderArticleMarkdown } from "./runtime-markdown";
 
 const render = (source: string) =>
   markdownToHtml(source, {
@@ -80,5 +82,29 @@ describe("hardenArticleMarkdown", () => {
     expect(result.metadata.headings.map((heading) => heading.slug)).toEqual(
       extractArticleHeadingSlugs(source),
     );
+  });
+
+  it("uses the hardened renderer for CMS Markdown at request time", () => {
+    const html = renderArticleMarkdown(
+      "## 安全な本文\n\n<script>alert(1)</script> [危険](javascript:alert(2))",
+    );
+
+    expect(html).toContain('id="安全な本文"');
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(html).not.toContain("<script>");
+    expect(html).not.toMatch(/href=["']javascript:/i);
+  });
+
+  it("keeps H2 links aligned after duplicate mixed-depth headings", () => {
+    const source = "### 重複\n\n## 重複\n\n# 別見出し\n\n## 重複";
+    const html = renderArticleMarkdown(source);
+    const headings = extractArticleHeadings(source);
+
+    expect(headings).toEqual([
+      { id: "重複-1", text: "重複" },
+      { id: "重複-2", text: "重複" },
+    ]);
+    expect(html).toContain('id="重複-1"');
+    expect(html).toContain('id="重複-2"');
   });
 });

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "skipLibCheck": false,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["./src/worker-configuration.d.ts"]
+  },
+  "include": [
+    "src/lib/cms-publication-repository.ts",
+    "src/lib/cms-publications.ts",
+    "src/worker-configuration.d.ts"
+  ],
+  "exclude": ["src/env.d.ts"]
+}

@@ -1,26 +1,17 @@
 ---
-import { articleTopicSchema, previewArticles, topicDescriptions, topicLabels } from "@noema/content";
-import { getCollection } from "astro:content";
+import { articleTopicSchema, topicDescriptions, topicLabels } from "@noema/content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { toArticleSummary } from "../../lib/articles";
-
-export const prerender = true;
-export function getStaticPaths() {
-  return Object.entries(topicLabels).map(([slug, label]) => ({ params: { slug }, props: { label } }));
-}
+import { listPublicArticleSummaries } from "../../lib/cms-publications";
 
 const { slug } = Astro.params;
-const { label } = Astro.props;
-const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
 const topic = articleTopicSchema.safeParse(slug);
-const description = topic.success ? topicDescriptions[topic.data] : "";
-const publishedArticles = await getCollection("articles", ({ data }) => data.status === "published");
-const allArticles = publishedArticles.length > 0
-  ? publishedArticles.map(({ data }) => toArticleSummary(data))
-  : showPreview ? previewArticles : [];
-const articles = topic.success ? allArticles.filter((article) => article.topics.includes(topic.data)) : [];
+if (!topic.success) return new Response("Not found", { status: 404 });
+const label = topicLabels[topic.data];
+const description = topicDescriptions[topic.data];
+const allArticles = await listPublicArticleSummaries();
+const articles = allArticles.filter((article) => article.topics.includes(topic.data));
 ---
 
 <BaseLayout title={`${label}の記事 | Noema`} description={description}>

@@ -1,17 +1,12 @@
 ---
-import { previewArticles, topicLabels } from "@noema/content";
-import { getCollection } from "astro:content";
+import { topicLabels } from "@noema/content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { sortArticlesByDate, toArticleSummary } from "../../lib/articles";
+import { sortArticlesByDate } from "../../lib/articles";
+import { listPublicArticleSummaries } from "../../lib/cms-publications";
 
-export const prerender = true;
-const showPreview = import.meta.env.DEV || import.meta.env.NOEMA_PREVIEW_CONTENT === "1";
-const publishedArticles = await getCollection("articles", ({ data }) => data.status === "published");
-const articles = sortArticlesByDate(publishedArticles.length > 0
-  ? publishedArticles.map(({ data }) => toArticleSummary(data))
-  : showPreview ? previewArticles : []);
+const articles = sortArticlesByDate(await listPublicArticleSummaries());
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
 const suggestions = [...new Set([...articles.map((article) => article.title), ...tags])];
 ---
