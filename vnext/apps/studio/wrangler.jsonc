@@ -5,12 +5,18 @@
   "account_id": "2ea670c2a6ff28e248ef084adf095e8b",
   "compatibility_date": "2026-07-17",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "preview_urls": true,
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "studio.noema-learn.uk",
+      "custom_domain": true
+    }
+  ],
   "vars": {
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_POLICY_AUD": "",
-    "STUDIO_ALLOWED_ORIGIN": ""
+    "ACCESS_TEAM_DOMAIN": "falling-smoke-5c0f.cloudflareaccess.com",
+    "ACCESS_POLICY_AUD": "882b7c1d2c863c9223f84857969a0bdb36b9979272e6af645d087473e0c18de9",
+    "STUDIO_ALLOWED_ORIGIN": "https://studio.noema-learn.uk"
   },
   "secrets": {
     "required": [

@@ -85,7 +85,7 @@ capabilitiesのidentityとsubmission principalは検証済みJWTからserver側�
 
 Blogの`check`と`build`は、nested directoryを含む全記事で`<slug>.md`のbasenameとfrontmatter `slug`が一致し、slugが全directoryで一意であることを検証します。記事Markdownはregular non-executable fileに限定します。Studioはこのrepository invariantを前提にGit treeからslug衝突を定数回のAPI呼び出しで判定し、exact targetが存在する場合だけblob本文を取得します。
 
-`wrangler.jsonc`の`ACCESS_TEAM_DOMAIN`、`ACCESS_POLICY_AUD`、`STUDIO_ALLOWED_ORIGIN`は意図的に空で、deploy直後のAPIはfail-closedです。この3値のdeploy時source of truthは現在の`wrangler.jsonc`であり、Dashboardの手動変更やローカル専用の`.dev.vars`では有効化できません。実環境を有効にする変更では、review可能なrepository設定として3値の注入方法を追加し、先に`studio.noema-learn.uk`を保護するCloudflare Access applicationと許可policyを作成します。team domainは`<team>.cloudflareaccess.com`または同じHTTPS URLを受け付けます。コード上のJWT検証が存在しても、Accessの外部設定が完了したことにはなりません。
+`wrangler.jsonc`の`ACCESS_TEAM_DOMAIN`、`ACCESS_POLICY_AUD`、`STUDIO_ALLOWED_ORIGIN`は、`studio.noema-learn.uk`を保護するCloudflare Access applicationと本人限定policyに対応するreview可能なproduction設定です。この3値のdeploy時source of truthは`wrangler.jsonc`であり、Dashboardの手動変更やローカル専用の`.dev.vars`では上書きしません。team domainは`<team>.cloudflareaccess.com`または同じHTTPS URLを受け付けます。Studioはcustom domainだけで公開し、`workers.dev`とpreview URLは無効化します。コード上のJWT検証に加えて、Accessの外部policyでも入口を保護します。
 
 Wrangler統合確認用の実値はGit管理しない`.dev.vars`へ置きます。GitHub連携には`GITHUB_APP_CLIENT_ID`、`GITHUB_APP_INSTALLATION_ID`、`GITHUB_APP_PRIVATE_KEY`が必要で、Wranglerではrequired secretとして宣言しています。`Cf-Access-Jwt-Assertion`だけを認証入力として使い、`CF_Authorization` cookie単体、JWT、GitHub秘密鍵、installation tokenをログやリポジトリへ残しません。実際のGitHub書き込みを有効にする前に、GitHub Appを対象repositoryと`contents: write`、`pull_requests: write`だけに限定し、custom hostnameのAccess policyを実環境で受入確認し、`workers.dev`とpreview URLを無効化または同等に保護します。現在は新規記事のDraft PRだけがAPI送信対象で、既存記事はStudioで編集・Markdown出力できてもAPI送信対象にはしません。
 
@@ -117,10 +117,10 @@ npm run deploy:dry-run
 | 対象 | Worker | URL |
 | --- | --- | --- |
 | ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
-| Studio | `noema-studio` | <https://noema-studio.mani1261790.workers.dev> |
+| Studio | `noema-studio` | <https://studio.noema-learn.uk>（Cloudflare Access保護） |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（404） |
 
-ブログとStudioは`workers.dev`で確認します。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
+ブログは`workers.dev`で確認します。Studioはcustom domainだけを公開し、`workers.dev`とpreview URLは利用できません。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
 
 ## 自動デプロイ
 
