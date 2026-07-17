@@ -1,6 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import DOMPurify from "dompurify";
-import MarkdownIt from "markdown-it";
 import {
   articleFrontmatterSchema,
   approachLabels,
@@ -13,11 +12,12 @@ import {
   type ArticleMarkdownIssue,
   type ArticleFrontmatter
 } from "@noema/content";
+import { createPreviewMarkdown, resolvePublicSiteReference } from "./preview-markdown";
 
 type Pane = "settings" | "write" | "preview";
 
-const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
+const markdown = createPreviewMarkdown(publicSiteUrl);
 const draftStorageKey = "noema-studio-draft-v1";
 const initialArticle: ArticleFrontmatter = {
   ...previewArticles[0],
@@ -58,6 +58,39 @@ function Icon({ name }: { name: "download" | "external" | "check" | "warning" })
     warning: <><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v4m0 3v1" /></>
   };
   return <svg className="studio-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function PreviewHeroImage({ image }: { image: NonNullable<ArticleFrontmatter["heroImage"]> }) {
+  const [failed, setFailed] = useState(false);
+  const src = resolvePublicSiteReference(image.src, publicSiteUrl);
+
+  if (failed) {
+    return (
+      <div className="studio-preview__hero-error">
+        <Icon name="warning" />
+        <p role="status"><strong>記事画像を表示できません。</strong> パスまたはURLを確認してください。</p>
+        <code>{image.src}</code>
+        <button
+          className="dads-button"
+          data-size="sm"
+          data-type="outline"
+          type="button"
+          onClick={() => setFailed(false)}
+        >
+          記事画像を再読み込み
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      className="studio-preview__hero-image"
+      src={src}
+      alt={image.alt}
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export function App() {
@@ -379,7 +412,7 @@ export function App() {
             <span className="studio-preview__status">自動更新</span>
           </div>
           <article>
-            {frontmatter.heroImage && <img className="studio-preview__hero-image" src={frontmatter.heroImage.src} alt={frontmatter.heroImage.alt} />}
+            {frontmatter.heroImage && <PreviewHeroImage key={frontmatter.heroImage.src} image={frontmatter.heroImage} />}
             <div className="studio-preview__meta">
               <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? frontmatter.topics[0]}</span>
               <span>約{frontmatter.estimatedMinutes}分</span>

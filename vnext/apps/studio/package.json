@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test test/*.test.mjs",
     "build": "tsc -b && vite build",
     "check": "tsc -b --pretty false",
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config wrangler.jsonc",
-    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc"
+    "deploy": "node scripts/require-public-site-url.mjs && npm run build && wrangler deploy --config wrangler.jsonc"
   },
   "dependencies": {
     "@noema/content": "0.1.0",
