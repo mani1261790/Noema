@@ -727,7 +727,6 @@ function parsePublicationSuccess(
   if (result.ok !== true || result.kind !== "done") return null;
 
   if (
-    operation === "cancel" &&
     result.outcome === "cancelled" &&
     status === 200 &&
     hasExactKeys(result, ["kind", "ok", "outcome"])

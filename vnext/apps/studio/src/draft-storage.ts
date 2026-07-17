@@ -32,6 +32,44 @@ export interface DraftStorage {
   removeItem(key: string): void;
 }
 
+export interface BrowserStorageHost {
+  readonly localStorage?: DraftStorage;
+}
+
+export interface BrowserStorageResolution {
+  available: boolean;
+  storage: DraftStorage;
+}
+
+const unavailableBrowserStorage: DraftStorage = {
+  getItem(): never {
+    throw new Error("Browser storage is unavailable.");
+  },
+  removeItem(): never {
+    throw new Error("Browser storage is unavailable.");
+  },
+  setItem(): never {
+    throw new Error("Browser storage is unavailable.");
+  }
+};
+
+export function resolveBrowserStorage(host: BrowserStorageHost): BrowserStorageResolution {
+  try {
+    const storage = host.localStorage;
+    if (
+      !storage ||
+      typeof storage.getItem !== "function" ||
+      typeof storage.setItem !== "function" ||
+      typeof storage.removeItem !== "function"
+    ) {
+      return { available: false, storage: unavailableBrowserStorage };
+    }
+    return { available: true, storage };
+  } catch {
+    return { available: false, storage: unavailableBrowserStorage };
+  }
+}
+
 export interface StudioDraft {
   frontmatter: ArticleFrontmatter;
   body: string;

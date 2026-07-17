@@ -28,7 +28,9 @@ import {
   clearDraft,
   createBlankArticle,
   loadDraft,
-  saveDraft
+  resolveBrowserStorage,
+  saveDraft,
+  type DraftStorage
 } from "./draft-storage";
 import {
   PUBLICATION_ATTEMPT_STORAGE_KEY,
@@ -125,10 +127,12 @@ interface InitialState {
   invalidAttemptStorage: boolean;
   message: OperationMessage | null;
   saveStatus: string;
+  storage: DraftStorage;
 }
 
 function getInitialState(): InitialState {
-  const attempt = loadPublicationAttempt(localStorage);
+  const { available: storageAvailable, storage } = resolveBrowserStorage(window);
+  const attempt = loadPublicationAttempt(storage);
   if (attempt) {
     const cancelled = attempt.status.kind === "succeeded" && attempt.status.result.outcome === "cancelled";
     return {
@@ -142,18 +146,19 @@ function getInitialState(): InitialState {
           : "前回のレビュー依頼を復元しました。状態を確認するまで内容は固定されます。",
         tone: cancelled ? "success" : "info"
       },
-      saveStatus: cancelled ? "取り消した内容を復元中" : "送信内容を復元しました"
+      saveStatus: cancelled ? "取り消した内容を復元中" : "送信内容を復元しました",
+      storage
     };
   }
 
   let invalidAttemptStorage = false;
   try {
-    invalidAttemptStorage = localStorage.getItem(PUBLICATION_ATTEMPT_STORAGE_KEY) !== null;
+    invalidAttemptStorage = storage.getItem(PUBLICATION_ATTEMPT_STORAGE_KEY) !== null;
   } catch {
     // The publication client will report storage unavailability if the user submits.
   }
 
-  const loadedDraft = loadDraft(localStorage);
+  const loadedDraft = loadDraft(storage);
   if (loadedDraft.status === "restored") {
     return {
       attempt: null,
@@ -168,8 +173,9 @@ function getInitialState(): InitialState {
         : {
             text: "このブラウザに保存した下書きを復元しました。",
             tone: "success"
-          },
-      saveStatus: "保存した下書きを復元しました"
+      },
+      saveStatus: "保存した下書きを復元しました",
+      storage
     };
   }
 
@@ -178,7 +184,12 @@ function getInitialState(): InitialState {
     body: "",
     frontmatter: createBlankArticle(),
     invalidAttemptStorage,
-    message: invalidAttemptStorage
+    message: !storageAvailable
+      ? {
+          text: "このブラウザでは自動保存を利用できません。入力後はMarkdownを書き出して保管してください。",
+          tone: "error"
+        }
+      : invalidAttemptStorage
       ? {
           text: "以前の送信記録を安全に読み込めません。修復してからレビューを依頼してください。",
           tone: "error"
@@ -189,7 +200,10 @@ function getInitialState(): InitialState {
           tone: "error"
         }
       : null,
-    saveStatus: "下書きはこのブラウザに自動保存されます"
+    saveStatus: storageAvailable
+      ? "下書きはこのブラウザに自動保存されます"
+      : "自動保存を利用できません",
+    storage
   };
 }
 
@@ -397,6 +411,7 @@ function publicationOutcomeLabel(result: PublicationSuccess): string {
 
 export function App() {
   const [initialState] = useState(getInitialState);
+  const storage = initialState.storage;
   const [frontmatter, setFrontmatter] = useState(initialState.frontmatter);
   const [body, setBody] = useState(initialState.body);
   const [attempt, setAttempt] = useState<PublicationAttempt | null>(initialState.attempt);
@@ -478,7 +493,7 @@ export function App() {
     cancelledRecoveryInFlight.current = submissionId;
     setPublicationBusy(true);
 
-    const savedDraft = saveDraft(localStorage, {
+    const savedDraft = saveDraft(storage, {
       frontmatter: attempt.request.frontmatter,
       body: attempt.request.markdown
     });
@@ -492,7 +507,7 @@ export function App() {
       return;
     }
 
-    const clearedAttempt = await clearPublicationAttemptSafely(attempt, { storage: localStorage });
+    const clearedAttempt = await clearPublicationAttemptSafely(attempt, { storage });
     if (clearedAttempt.ok) {
       setAttempt(null);
       setSaveStatus("このブラウザに保存済み");
@@ -546,7 +561,7 @@ export function App() {
     if (editorLocked) return;
     setSaveStatus("保存中…");
     const timer = window.setTimeout(() => {
-      const result = saveDraft(localStorage, { frontmatter, body });
+      const result = saveDraft(storage, { frontmatter, body });
       setSaveStatus(result.ok ? "このブラウザに保存済み" : "下書きを保存できません");
       if (!result.ok) {
         setOperationMessage({
@@ -665,7 +680,7 @@ export function App() {
         : "現在の入力内容と、このブラウザに保存した下書きを破棄して、新しい記事を作成しますか？";
     if (!window.confirm(warning)) return;
     setPublicationBusy(true);
-    const clearedAttempt = await clearPublicationAttemptSafely(attempt, { storage: localStorage });
+    const clearedAttempt = await clearPublicationAttemptSafely(attempt, { storage });
     if (!clearedAttempt.ok) {
       if (clearedAttempt.attempt) {
         setAttempt(clearedAttempt.attempt);
@@ -681,7 +696,7 @@ export function App() {
       setPublicationBusy(false);
       return;
     }
-    const draftCleared = clearDraft(localStorage);
+    const draftCleared = clearDraft(storage);
     setAttempt(null);
     setFrontmatter(createBlankArticle());
     setBody("");
@@ -768,7 +783,7 @@ export function App() {
     setOperationMessage({ text: "Draft PRを準備しています…", tone: "info" });
     const result = await createArticleSubmission(
       { frontmatter, markdown: body },
-      { storage: localStorage }
+      { storage }
     );
     applyPublicationResult(result);
     setPublicationBusy(false);
@@ -778,7 +793,7 @@ export function App() {
     if (!attempt || publicationBusy) return;
     setPublicationBusy(true);
     setOperationMessage({ text: "同じ送信内容で状態を確認しています…", tone: "info" });
-    const result = await retryPublicationAttempt(attempt, { storage: localStorage });
+    const result = await retryPublicationAttempt(attempt, { storage });
     applyPublicationResult(result);
     setPublicationBusy(false);
   };
@@ -788,7 +803,7 @@ export function App() {
     if (!window.confirm("取り消しをやめて、元の内容でDraft PRの作成・状態確認を続けますか？")) return;
     setPublicationBusy(true);
     setOperationMessage({ text: "元の送信内容で状態を再確認しています…", tone: "info" });
-    const result = await resumeArticleSubmission(attempt, { storage: localStorage });
+    const result = await resumeArticleSubmission(attempt, { storage });
     applyPublicationResult(result);
     setPublicationBusy(false);
   };
@@ -797,7 +812,7 @@ export function App() {
     if (!invalidAttemptStorage || publicationBusy) return;
     if (!window.confirm("安全に読み込めない送信記録だけを削除しますか？ 現在の下書き内容は残ります。")) return;
     setPublicationBusy(true);
-    const result = await clearInvalidPublicationAttemptSafely({ storage: localStorage });
+    const result = await clearInvalidPublicationAttemptSafely({ storage });
     if (result.ok) {
       setInvalidAttemptStorage(false);
       setOperationMessage({ text: "以前の送信記録を修復しました。下書き内容はそのままです。", tone: "success" });
@@ -821,13 +836,13 @@ export function App() {
     if (!window.confirm("このレビュー依頼を取り消しますか？ GitHub側の作成が始まっている場合は取り消せません。")) return;
     setPublicationBusy(true);
     setOperationMessage({ text: "レビュー依頼を取り消しています…", tone: "info" });
-    const result = await cancelArticleSubmission(attempt, { storage: localStorage });
+    const result = await cancelArticleSubmission(attempt, { storage });
     if (result.ok && result.result.outcome === "cancelled") {
       cancelledRecoveryInFlight.current = result.attempt.request.submissionId;
     }
     applyPublicationResult(result);
     if (result.ok && result.result.outcome === "cancelled") {
-      const savedDraft = saveDraft(localStorage, {
+      const savedDraft = saveDraft(storage, {
         frontmatter: result.attempt.request.frontmatter,
         body: result.attempt.request.markdown
       });
@@ -840,7 +855,7 @@ export function App() {
         setPublicationBusy(false);
         return;
       }
-      const clearedAttempt = await clearPublicationAttemptSafely(result.attempt, { storage: localStorage });
+      const clearedAttempt = await clearPublicationAttemptSafely(result.attempt, { storage });
       if (clearedAttempt.ok) {
         setAttempt(null);
         setSaveStatus("このブラウザに保存済み");

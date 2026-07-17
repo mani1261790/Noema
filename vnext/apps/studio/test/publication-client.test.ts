@@ -289,11 +289,16 @@ describe("article submission attempts", () => {
     expect(firstSubmissionId).toHaveBeenCalledTimes(1);
   });
 
-  it("fails closed when create receives a cancellation result", async () => {
+  it("fails closed when a cancelled result contains extra fields", async () => {
     const storage = new MemoryStorage();
     const { fetcher } = asFetch(async () =>
       jsonResponse({
-        result: { kind: "done", ok: true, outcome: "cancelled" }
+        result: {
+          claim: { diagnostic: "must not cross the HTTP boundary" },
+          kind: "done",
+          ok: true,
+          outcome: "cancelled"
+        }
       })
     );
 
@@ -713,6 +718,56 @@ describe("publication cancellation and persistence", () => {
     if (!resumed.ok) throw new Error("Expected create reconciliation");
     expect(resumed.result.outcome).toBe("open");
     expect(resumed.attempt.request.submissionId).toBe(SUBMISSION_ID);
+  });
+
+  it("resume converges to cancelled when create reconciliation observes a cancelled claim", async () => {
+    const storage = new MemoryStorage();
+    const initialFetch = asFetch(async () => {
+      throw new Error("create response lost");
+    });
+    const initial = await createArticleSubmission(articleInput(), {
+      createSubmissionId: fixedSubmissionId,
+      fetcher: initialFetch.fetcher,
+      storage
+    });
+    if (initial.ok || !initial.attempt) {
+      throw new Error("Expected an unknown create attempt");
+    }
+
+    const cancelFetch = asFetch(async () => {
+      throw new Error("cancel response lost");
+    });
+    const unconfirmedCancel = await cancelArticleSubmission(initial.attempt, {
+      fetcher: cancelFetch.fetcher,
+      storage
+    });
+    if (unconfirmedCancel.ok || !unconfirmedCancel.attempt) {
+      throw new Error("Expected an unknown cancellation attempt");
+    }
+    expect(unconfirmedCancel.attempt.status).toMatchObject({
+      kind: "outcomeUnknown",
+      operation: "cancel"
+    });
+
+    const resumeFetch = asFetch(async (input) => {
+      expect(String(input)).toBe("/api/article-submissions");
+      return jsonResponse({
+        result: { kind: "done", ok: true, outcome: "cancelled" }
+      });
+    });
+    const resumed = await resumeArticleSubmission(unconfirmedCancel.attempt, {
+      fetcher: resumeFetch.fetcher,
+      storage
+    });
+
+    expect(resumed.ok).toBe(true);
+    if (!resumed.ok) throw new Error("Expected cancelled convergence");
+    expect(resumed.result).toEqual({ outcome: "cancelled" });
+    expect(resumed.attempt.status).toEqual({
+      kind: "succeeded",
+      result: { outcome: "cancelled" }
+    });
+    expect(loadPublicationAttempt(storage)).toEqual(resumed.attempt);
   });
 
   it("fails closed for invalid or unavailable storage", () => {

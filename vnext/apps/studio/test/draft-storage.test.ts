@@ -5,6 +5,7 @@ import {
   clearDraft,
   createBlankArticle,
   loadDraft,
+  resolveBrowserStorage,
   saveDraft,
   type DraftStorage,
   type StudioDraft
@@ -50,6 +51,35 @@ function incompleteDraft(): StudioDraft {
     body: "## 書きかけ\n\n本文も保存する"
   };
 }
+
+describe("resolveBrowserStorage", () => {
+  it("returns the browser storage when the host exposes it", () => {
+    const storage = new MemoryStorage();
+    expect(resolveBrowserStorage({ localStorage: storage })).toEqual({
+      available: true,
+      storage
+    });
+  });
+
+  it("contains a throwing localStorage getter and returns an unavailable adapter", () => {
+    const host = Object.defineProperty({}, "localStorage", {
+      get() {
+        throw new Error("SecurityError");
+      }
+    });
+
+    const resolved = resolveBrowserStorage(host);
+    expect(resolved.available).toBe(false);
+    expect(loadDraft(resolved.storage)).toEqual({
+      status: "invalid",
+      reason: "storage_unavailable"
+    });
+    expect(saveDraft(resolved.storage, incompleteDraft())).toEqual({
+      ok: false,
+      reason: "storage_unavailable"
+    });
+  });
+});
 
 describe("createBlankArticle", () => {
   it("creates an editor-safe blank article instead of copying preview content", () => {
