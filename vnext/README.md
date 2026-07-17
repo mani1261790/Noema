@@ -117,10 +117,10 @@ npm run deploy:dry-run
 | 対象 | Worker | URL |
 | --- | --- | --- |
 | ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
-| Studio | `noema-studio` | <https://noema-studio.mani1261790.workers.dev> |
+| Studio | `noema-studio` | <https://studio.noema-learn.uk>（Cloudflare Access保護） |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（404） |
 
-ブログとStudioは`workers.dev`で確認します。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
+ブログは`workers.dev`で確認します。Studioはcustom domainだけを公開し、`workers.dev`とpreview URLは利用できません。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
 
 ## 自動デプロイ
 
