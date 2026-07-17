@@ -1,4 +1,20 @@
 import { z } from "zod";
+import {
+  isSafeArticleMarkdownUrl,
+  isSafeHttpUrl
+} from "./article-markdown";
+
+export {
+  extractArticleHeadingSlugs,
+  isSafeArticleMarkdownUrl,
+  isSafeHttpUrl,
+  validateArticleMarkdown,
+  type ArticleMarkdownIssue,
+  type ArticleMarkdownIssueCode,
+  type ArticleMarkdownIssueSeverity,
+  type ArticleMarkdownUrlKind,
+  type ValidateArticleMarkdownOptions
+} from "./article-markdown";
 
 export const articleStatusSchema = z.enum(["draft", "published", "archived"]);
 export const articleApproachSchema = z.enum(["experience", "practice", "development", "theory"]);
@@ -12,11 +28,21 @@ export const articleTopicSchema = z.enum([
 ]);
 export const articleSourceSchema = z.object({
   title: z.string().trim().min(1).max(160),
-  url: z.string().url(),
+  url: z
+    .string()
+    .url()
+    .refine(isSafeHttpUrl, "URLはhttpまたはhttpsで入力してください"),
   checkedAt: z.string().date()
 });
 export const articleImageSchema = z.object({
-  src: z.string().trim().min(1),
+  src: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(
+      (value) => isSafeArticleMarkdownUrl(value, "image"),
+      "画像URLにはサイト内パスまたはhttp(s) URLを使用してください"
+    ),
   alt: z.string().trim().min(1).max(240)
 });
 

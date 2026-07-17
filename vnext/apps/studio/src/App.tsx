@@ -9,6 +9,8 @@ import {
   previewArticles,
   serializeArticle,
   topicLabels,
+  validateArticleMarkdown,
+  type ArticleMarkdownIssue,
   type ArticleFrontmatter
 } from "@noema/content";
 
@@ -65,17 +67,22 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState(savedDraft ? "保存した下書きを復元しました" : "下書きは自動保存されます");
   const [operationMessage, setOperationMessage] = useState("");
   const importInput = useRef<HTMLInputElement>(null);
+  const bodyInput = useRef<HTMLTextAreaElement>(null);
+  const validationSection = useRef<HTMLElement>(null);
   const deferredBody = useDeferredValue(body);
   const previewHtml = useMemo(
     () => DOMPurify.sanitize(markdown.render(deferredBody)),
     [deferredBody]
   );
   const validation = articleFrontmatterSchema.safeParse(frontmatter);
-  const warnings = [
-    ...(body.trim().length < 200 ? ["本文が短いため、公開前に内容を確認してください。"] : []),
-    ...(/^#\s/m.test(body) ? ["本文のH1見出しは削除してください。記事タイトルがH1になります。"] : []),
+  const bodyIssues = useMemo(() => validateArticleMarkdown(body), [body]);
+  const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");
+  const frontmatterErrorCount = validation.success ? 0 : validation.error.issues.length;
+  const blockingErrorCount = frontmatterErrorCount + bodyErrors.length;
+  const editorialWarnings = [
     ...(frontmatter.sources.length === 0 ? ["出典がまだ登録されていません。"] : [])
   ];
+  const canExport = validation.success && bodyErrors.length === 0;
 
   useEffect(() => {
     setSaveStatus("保存中…");
@@ -92,7 +99,7 @@ export function App() {
 
   const download = () => {
     const result = articleFrontmatterSchema.safeParse(frontmatter);
-    if (!result.success) return;
+    if (!result.success || bodyErrors.length > 0) return;
     const blob = new Blob([serializeArticle(result.data, body)], { type: "text/markdown;charset=utf-8" });
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -131,6 +138,35 @@ export function App() {
     ));
   };
 
+  const focusBodyIssue = (issue: ArticleMarkdownIssue) => {
+    setActivePane("write");
+    window.requestAnimationFrame(() => {
+      const input = bodyInput.current;
+      if (!input) return;
+
+      let start = 0;
+      for (let line = 1; line < issue.line; line += 1) {
+        const nextLine = body.indexOf("\n", start);
+        if (nextLine < 0) break;
+        start = nextLine + 1;
+      }
+      const nextLine = body.indexOf("\n", start);
+      const end = nextLine < 0 ? body.length : nextLine;
+      input.focus();
+      input.setSelectionRange(start, end);
+    });
+  };
+
+  const showValidation = () => {
+    setActivePane("settings");
+    window.requestAnimationFrame(() => {
+      validationSection.current?.focus({ preventScroll: true });
+      validationSection.current?.scrollIntoView({
+        block: "center"
+      });
+    });
+  };
+
   const issueFieldIds: Record<string, string> = {
     title: "article-title",
     description: "article-description",
@@ -162,7 +198,7 @@ export function App() {
           <a className="dads-button studio-public-link" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
             公開サイトを確認 <Icon name="external" />
           </a>
-          <button className="dads-button studio-download-button" data-size="md" data-type="solid-fill" type="button" onClick={download} disabled={!validation.success}>
+          <button className="dads-button studio-download-button" data-size="md" data-type="solid-fill" type="button" onClick={download} disabled={!canExport}>
             <span className="studio-action-label--full">Markdownを書き出す</span><span className="studio-action-label--short">書出</span> <Icon name="download" />
           </button>
         </div>
@@ -172,6 +208,8 @@ export function App() {
         {(["settings", "write", "preview"] as Pane[]).map((pane) => (
           <button key={pane} type="button" aria-current={activePane === pane ? "page" : undefined} onClick={() => setActivePane(pane)}>
             {{ settings: "設定", write: "本文", preview: "プレビュー" }[pane]}
+            {pane === "settings" && frontmatterErrorCount > 0 ? ` (${frontmatterErrorCount})` : ""}
+            {pane === "write" && bodyErrors.length > 0 ? ` (${bodyErrors.length})` : ""}
           </button>
         ))}
       </nav>
@@ -273,14 +311,25 @@ export function App() {
             <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={() => update("sources", [...frontmatter.sources, { title: "", url: "", checkedAt: new Date().toISOString().slice(0, 10) }])}>参考資料を追加</button>
           </fieldset>
 
-          <section className="studio-validation" aria-live="polite">
-            <h2>{validation.success ? <Icon name="check" /> : <Icon name="warning" />} 公開前チェック</h2>
+          <section ref={validationSection} id="article-validation" className="studio-validation" tabIndex={-1}>
+            <h2>{canExport && bodyIssues.length === 0 && editorialWarnings.length === 0 ? <Icon name="check" /> : <Icon name="warning" />} 書き出し前チェック</h2>
             {!validation.success ? validation.error.issues.slice(0, 5).map((issue) => {
               const fieldId = issueFieldIds[String(issue.path[0])];
-              return <p key={`${issue.path.join(".")}-${issue.message}`}>{fieldId ? <a href={`#${fieldId}`}>{issue.message}</a> : issue.message}</p>;
+              return (
+                <p className="studio-validation__error" key={`${issue.path.join(".")}-${issue.message}`}>
+                  {fieldId ? <a href={`#${fieldId}`}>エラー — {issue.message}</a> : <>エラー — {issue.message}</>}
+                </p>
+              );
             }) : null}
-            {warnings.map((warning) => <p key={warning}>{warning}</p>)}
-            {validation.success && warnings.length === 0 ? <p>公開に必要な項目が揃っています。</p> : null}
+            {bodyIssues.map((issue) => (
+              <p className={`studio-validation__${issue.severity}`} key={`${issue.code}-${issue.line}-${issue.message}`}>
+                <a href="#article-body" onClick={(event) => { event.preventDefault(); focusBodyIssue(issue); }}>
+                  {issue.severity === "error" ? "エラー" : "確認"} — 本文{issue.line}行: {issue.message}
+                </a>
+              </p>
+            ))}
+            {editorialWarnings.map((warning) => <p className="studio-validation__warning" key={warning}>確認 — {warning}</p>)}
+            {validation.success && bodyIssues.length === 0 && editorialWarnings.length === 0 ? <p>書き出しに必要な項目が揃っています。</p> : null}
           </section>
           <section className="studio-danger-zone">
             <h2>新しい記事を作る</h2>
@@ -292,10 +341,30 @@ export function App() {
         <section className={`studio-editor ${activePane === "write" ? "is-active" : ""}`} aria-labelledby="editor-heading">
           <div className="studio-pane-title studio-pane-title--horizontal">
             <div><p>MARKDOWN</p><h2 id="editor-heading">本文を書く</h2></div>
-            <span>{body.length.toLocaleString("ja-JP")}文字</span>
+            <div className="studio-editor__status">
+              <span>{body.length.toLocaleString("ja-JP")}文字</span>
+              {blockingErrorCount > 0 && (
+                <button type="button" onClick={showValidation} aria-controls="article-validation">
+                  書き出しエラー{blockingErrorCount}件を確認
+                </button>
+              )}
+            </div>
           </div>
           <label className="sr-only" htmlFor="article-body">Markdown本文</label>
-          <textarea id="article-body" value={body} onChange={(event) => setBody(event.target.value)} spellCheck="true" />
+          <p id="article-body-status" className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {bodyErrors.length > 0
+              ? `本文に書き出しを止めるエラーが${bodyErrors.length}件あります。`
+              : "本文に書き出しを止めるエラーはありません。"}
+          </p>
+          <textarea
+            ref={bodyInput}
+            id="article-body"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            spellCheck="true"
+            aria-invalid={bodyErrors.length > 0}
+            aria-errormessage={bodyErrors.length > 0 ? "article-body-status" : undefined}
+          />
         </section>
 
         <section className={`studio-preview ${activePane === "preview" ? "is-active" : ""}`} aria-labelledby="preview-heading">

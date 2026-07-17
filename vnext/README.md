@@ -50,7 +50,9 @@ npm run dev:studio
 
 ブログのbuild前に`generate:og`が実行され、公開記事ごとの1200×630 PNGを`public/og`へ生成します。生成物はGit管理せず、Cloudflareへdeployする成果物だけに含めます。
 
-Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再編集できます。入力内容はブラウザ内へ自動保存され、Markdownを書き出すまでサーバーへ送信しません。
+Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再編集できます。入力内容はブラウザ内へ自動保存され、Markdownを書き出すまでサーバーへ送信しません。本文のraw HTML、危険なURL scheme、H1、見出しレベルの飛び、画像alt、内部リンク形式は公開buildと共通のvalidatorで検査し、blocking errorから本文の該当行へ移動できます。リンク先記事の存在確認には全記事が必要なため、Studioでは確認待ちとして表示し、公開buildで確定します。
+
+ブログのdev・check・build開始前には、記事全体のslug重複、公開状態を含む記事リンク、記事内fragmentも検証します。raw HTMLはvalidatorで拒否してrendererでもテキストとしてescapeし、危険なリンク・画像URLは両層で拒否または無効化します。HTMLのコード例はインラインコードまたはコードフェンスへ記述してください。
 
 ## 記事アシスタント
 
@@ -67,6 +69,7 @@ Studioは既存のMarkdownを読み込み、すべてのfrontmatter項目を再�
 ```bash
 cd vnext
 npm run check
+npm test
 npm run build
 npm run deploy:dry-run
 ```
