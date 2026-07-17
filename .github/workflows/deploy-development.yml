@@ -42,6 +42,10 @@ jobs:
         working-directory: vnext
         run: npm run check
 
+      - name: Test current application
+        working-directory: vnext
+        run: npm test
+
       - name: Build current application
         working-directory: vnext
         run: npm run build
