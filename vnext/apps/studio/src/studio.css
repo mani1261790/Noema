@@ -145,6 +145,24 @@ a {
   white-space: nowrap;
 }
 
+.studio-brand__text small.is-saved {
+  color: #005a24;
+  font-weight: 700;
+}
+
+.studio-brand__text small.is-dirty,
+.studio-brand__text small.is-local,
+.studio-brand__text small.is-saving {
+  color: #6d4c00;
+  font-weight: 700;
+}
+
+.studio-brand__text small.is-conflict,
+.studio-brand__text small.is-error {
+  color: #b40000;
+  font-weight: 700;
+}
+
 .studio-header__actions {
   display: flex;
   flex: 0 0 auto;
@@ -163,10 +181,6 @@ a {
   justify-content: center;
   gap: .5rem;
   text-decoration: none;
-}
-
-.studio-action-label--short {
-  display: none;
 }
 
 .studio-notification {
@@ -238,9 +252,8 @@ a {
 }
 
 .studio-workspace {
-  display: grid;
+  display: block;
   flex: 1 1 auto;
-  grid-template-columns: minmax(19rem, 21rem) minmax(0, .95fr) minmax(0, 1.05fr);
   min-width: 0;
   min-height: 0;
 }
@@ -248,19 +261,22 @@ a {
 .studio-settings,
 .studio-editor,
 .studio-preview {
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: auto;
   background: #fff;
 }
 
-.studio-settings,
-.studio-editor {
-  border-right: 1px solid #949494;
+.studio-settings {
+  max-width: none;
+  padding: 2rem clamp(1rem, 5vw, 3rem) 4rem;
+  background: var(--noema-background);
 }
 
-.studio-settings {
-  padding: 1.5rem;
+.studio-settings > * {
+  width: min(100%, 48rem);
 }
 
 .studio-editor,
@@ -284,7 +300,6 @@ a {
   margin-bottom: 1.5rem;
 }
 
-.studio-pane-title p,
 .studio-review__eyebrow {
   margin: 0 0 .25rem;
   color: var(--color-key-900);
@@ -326,20 +341,27 @@ a {
   font-size: calc(18 / 16 * 1rem);
 }
 
-.studio-pane-title--horizontal span {
+.studio-pane-title--horizontal > div {
+  min-width: 0;
+}
+
+.studio-pane-title__context,
+.studio-pane-title--horizontal > span {
+  margin: .15rem 0 0;
   color: #555;
   font-size: calc(14 / 16 * 1rem);
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .studio-cms {
   display: grid;
   gap: 1rem;
   margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: #f7fbfb;
-  border: 1px solid #767676;
-  border-left: 6px solid var(--color-key-900);
+  padding: 1.25rem 0;
+  background: transparent;
+  border-top: 1px solid #949494;
+  border-bottom: 1px solid #949494;
 }
 
 .studio-cms__heading {
@@ -348,15 +370,6 @@ a {
   align-items: flex-start;
   justify-content: space-between;
   gap: .75rem;
-}
-
-.studio-cms__eyebrow {
-  margin: 0 0 .2rem;
-  color: var(--color-key-900);
-  font-size: calc(13 / 16 * 1rem);
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: .08em;
 }
 
 .studio-cms h2,
@@ -371,37 +384,6 @@ a {
 
 .studio-cms h3 {
   font-size: 1rem;
-}
-
-.studio-cms__save-state {
-  padding: .3rem .55rem;
-  color: #333;
-  background: #fff;
-  border: 1px solid #767676;
-  font-size: calc(13 / 16 * 1rem);
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.studio-cms__save-state.is-saved {
-  color: #003c39;
-  background: #e5f5e9;
-  border-color: #4a8f62;
-}
-
-.studio-cms__save-state.is-dirty,
-.studio-cms__save-state.is-saving,
-.studio-cms__save-state.is-local {
-  color: #4f3b00;
-  background: #fff1cc;
-  border-color: #9c7500;
-}
-
-.studio-cms__save-state.is-conflict,
-.studio-cms__save-state.is-error {
-  color: #5c0011;
-  background: #fff4f5;
-  border-color: #d83445;
 }
 
 .studio-cms__session {
@@ -558,10 +540,23 @@ a {
   border-left: 5px solid #9c7500;
 }
 
-.studio-cms__recovery-copy {
-  padding-top: .75rem;
+.studio-save-help {
   color: #555;
-  border-top: 1px solid #b4b4b4;
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.6;
+}
+
+.studio-save-help > summary {
+  min-height: 44px;
+  padding: .5rem 0;
+  color: #333;
+  font-weight: 700;
+}
+
+.studio-cms__recovery-copy {
+  margin: 0;
+  padding: .5rem 0 0 1.25rem;
+  color: #555;
 }
 
 .studio-cms__recovery-copy span {
@@ -706,7 +701,7 @@ a {
   display: grid;
   grid-template-columns: 1fr;
   gap: .5rem;
-  margin-bottom: 1.25rem;
+  margin: 0;
 }
 
 .studio-edit-lock {
@@ -1086,25 +1081,6 @@ a {
   width: 100%;
 }
 
-.studio-danger-zone {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #949494;
-}
-
-.studio-danger-zone h2 {
-  margin: 0;
-  font-size: calc(16 / 16 * 1rem);
-  line-height: 1.7;
-}
-
-.studio-danger-zone p {
-  margin: .5rem 0 1rem;
-  color: #555;
-  font-size: calc(14 / 16 * 1rem);
-  line-height: 1.6;
-}
-
 .studio-editor__status {
   display: flex;
   flex-wrap: wrap;
@@ -1161,11 +1137,10 @@ a {
 }
 
 .studio-preview__status {
-  padding: .4rem .7rem;
-  color: #005a24 !important;
-  background: #e5f5e9;
-  border: 1px solid #4a8f62;
-  border-radius: 999px;
+  padding: 0;
+  color: #555 !important;
+  background: transparent;
+  border: 0;
   font-weight: 700;
 }
 
@@ -1443,40 +1418,12 @@ a {
   }
 }
 
-@media (max-width: 1199px) {
-  .studio-workspace {
-    display: block;
-  }
-
-  .studio-settings,
-  .studio-editor,
-  .studio-preview {
-    width: 100%;
-    height: 100%;
-    border-right: 0;
-  }
-
-  .studio-settings {
-    max-width: none;
-    padding-inline: clamp(1rem, 5vw, 3rem);
-  }
-
-  .studio-settings > * {
-    width: min(100%, 48rem);
-    margin-right: auto;
-    margin-left: auto;
-  }
-
-  .studio-editor > textarea {
-    min-height: 0;
-  }
-
-  .studio-preview article {
-    width: min(100% - 2rem, 52rem);
-  }
+/* Keep every direct settings section aligned after component margin rules. */
+.studio-settings > * {
+  margin-inline: auto;
 }
 
-@media (min-width: 760px) and (max-width: 1199px) {
+@media (min-width: 760px) {
   .studio-field-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
@@ -1508,17 +1455,12 @@ a {
   }
 
   .studio-brand strong,
-  .studio-public-link,
-  .studio-action-label--full {
+  .studio-public-link {
     display: none !important;
   }
 
   .studio-brand__text {
     max-width: 8rem;
-  }
-
-  .studio-action-label--short {
-    display: inline;
   }
 
   .studio-header__actions {

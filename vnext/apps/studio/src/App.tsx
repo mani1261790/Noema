@@ -95,7 +95,7 @@ type CmsSaveState = "local" | "dirty" | "saving" | "saved" | "conflict" | "error
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
 const markdown = createPreviewMarkdown(publicSiteUrl);
 const reviewValidationSubmissionId = "00000000-0000-4000-8000-000000000000";
-const paneOrder: Pane[] = ["settings", "write", "preview"];
+const paneOrder: Pane[] = ["write", "preview", "settings"];
 const paneLabels: Record<Pane, string> = {
   settings: "設定",
   write: "本文",
@@ -474,7 +474,6 @@ export function App() {
   const [attempt, setAttempt] = useState<PublicationAttempt | null>(initialState.attempt);
   const [invalidAttemptStorage, setInvalidAttemptStorage] = useState(initialState.invalidAttemptStorage);
   const [activePane, setActivePane] = useState<Pane>("write");
-  const [compactLayout, setCompactLayout] = useState(() => window.matchMedia("(max-width: 1199px)").matches);
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
   const [capabilityState, setCapabilityState] = useState<CapabilityState>({ kind: "checking" });
@@ -497,14 +496,13 @@ export function App() {
   const [cmsMemberEmail, setCmsMemberEmail] = useState("");
   const [cmsMemberRole, setCmsMemberRole] = useState<CmsRole>("editor");
   const [cmsMemberActive, setCmsMemberActive] = useState(true);
-  const [metadataOpen, setMetadataOpen] = useState(true);
+  const [metadataOpen, setMetadataOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
   const validationSection = useRef<HTMLElement>(null);
-  const reviewSection = useRef<HTMLElement>(null);
-  const reviewButton = useRef<HTMLButtonElement>(null);
+  const legacyReviewButton = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const cancelledRecoveryInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
@@ -607,14 +605,6 @@ export function App() {
     cancelledRecoveryInFlight.current = null;
     setPublicationBusy(false);
   }, [attempt]);
-
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 1199px)");
-    const updateLayout = (event: MediaQueryListEvent) => setCompactLayout(event.matches);
-    setCompactLayout(query.matches);
-    query.addEventListener("change", updateLayout);
-    return () => query.removeEventListener("change", updateLayout);
-  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1165,16 +1155,6 @@ export function App() {
     ));
   };
 
-  const openReview = () => {
-    setActivePane("settings");
-    window.requestAnimationFrame(() => {
-      reviewSection.current?.scrollIntoView({ block: "center" });
-      const button = reviewButton.current;
-      if (button && !button.disabled) button.focus({ preventScroll: true });
-      else reviewSection.current?.focus({ preventScroll: true });
-    });
-  };
-
   const requestReview = () => {
     setValidationRequested(true);
     const currentValidation = articleSubmissionRequestSchema.safeParse({
@@ -1326,7 +1306,7 @@ export function App() {
   };
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, pane: Pane) => {
-    if (!compactLayout || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     const currentIndex = paneOrder.indexOf(pane);
     const nextIndex = event.key === "Home"
@@ -1394,20 +1374,45 @@ export function App() {
     : cmsSessionState.kind === "unavailable"
       ? "CMSに接続できません"
       : cmsSaveLabel[effectiveCmsSaveState];
+  const cmsHeaderVisualState: CmsSaveState = cmsSessionState.kind === "checking"
+    ? "saving"
+    : cmsSessionState.kind === "unavailable"
+      ? "error"
+      : effectiveCmsSaveState;
+  const cmsSaveDisabled = Boolean(
+    !cmsSession?.capabilities.canEdit ||
+    editorLocked ||
+    cmsOperationBusy ||
+    cmsSaveState === "saving" ||
+    cmsConflict ||
+    (Boolean(cmsArticle) && !cmsDirty && cmsSaveState !== "error")
+  );
+  const cmsSaveButtonLabel = cmsSaveState === "saving"
+    ? "保存中…"
+    : cmsArticle
+      ? "保存"
+      : "CMSに保存";
 
   return (
     <div className="studio-shell">
       <header className="studio-header">
         <div className="studio-brand">
           <span className="studio-brand__mark" aria-hidden="true">N</span>
-          <span className="studio-brand__text">Noema <strong>Studio</strong><small aria-live="polite">{cmsHeaderStatus}</small></span>
+          <span className="studio-brand__text">Noema <strong>Studio</strong><small className={`is-${cmsHeaderVisualState}`} aria-live="polite">{cmsHeaderStatus}</small></span>
         </div>
         <div className="studio-header__actions">
           <a className="dads-button studio-public-link" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
             公開サイト <Icon name="external" />
           </a>
-          <button className="dads-button studio-review-shortcut" data-size="md" data-type="solid-fill" type="button" onClick={openReview}>
-            <span className="studio-action-label--full">CMSワークフロー</span><span className="studio-action-label--short">CMS</span>
+          <button
+            className="dads-button studio-save-shortcut"
+            data-size="md"
+            data-type="solid-fill"
+            disabled={cmsSaveDisabled}
+            onClick={() => void saveCmsDraft(true)}
+            type="button"
+          >
+            {cmsSaveButtonLabel}
           </button>
         </div>
       </header>
@@ -1419,43 +1424,40 @@ export function App() {
         </div>
       ) : null}
 
-      {compactLayout ? (
-        <div className="studio-tabs" role="tablist" aria-label="編集画面">
-          {paneOrder.map((pane) => (
-            <button
-              aria-controls={`studio-pane-${pane}`}
-              aria-selected={activePane === pane}
-              id={`studio-tab-${pane}`}
-              key={pane}
-              onClick={() => setActivePane(pane)}
-              onKeyDown={(event) => handleTabKeyDown(event, pane)}
-              ref={(node) => { tabRefs.current[pane] = node; }}
-              role="tab"
-              tabIndex={activePane === pane ? 0 : -1}
-              type="button"
-            >
-              {paneLabels[pane]}
-              {pane === "settings" && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
-              {pane === "write" && bodyTabErrorCount > 0 ? ` (${bodyTabErrorCount})` : ""}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="studio-tabs" role="tablist" aria-label="編集画面">
+        {paneOrder.map((pane) => (
+          <button
+            aria-controls={`studio-pane-${pane}`}
+            aria-selected={activePane === pane}
+            id={`studio-tab-${pane}`}
+            key={pane}
+            onClick={() => setActivePane(pane)}
+            onKeyDown={(event) => handleTabKeyDown(event, pane)}
+            ref={(node) => { tabRefs.current[pane] = node; }}
+            role="tab"
+            tabIndex={activePane === pane ? 0 : -1}
+            type="button"
+          >
+            {paneLabels[pane]}
+            {validationVisible && pane === "settings" && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
+            {validationVisible && pane === "write" && bodyTabErrorCount > 0 ? ` (${bodyTabErrorCount})` : ""}
+          </button>
+        ))}
+      </div>
 
       <main className="studio-workspace">
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
         <aside
           aria-label="記事設定"
-          aria-labelledby={compactLayout ? "studio-tab-settings" : undefined}
+          aria-labelledby="studio-tab-settings"
           className="studio-settings"
-          hidden={compactLayout && activePane !== "settings"}
+          hidden={activePane !== "settings"}
           id="studio-pane-settings"
-          role={compactLayout ? "tabpanel" : undefined}
-          tabIndex={compactLayout ? 0 : undefined}
+          role="tabpanel"
+          tabIndex={0}
         >
           <div className="studio-pane-title">
-            <p>ARTICLE SETTINGS</p>
-            <h2>記事の設定</h2>
+            <h2>記事設定</h2>
             <span>CMSへ保存し、レビュー・承認・公開を役割ごとに進めます。</span>
           </div>
 
@@ -1463,17 +1465,10 @@ export function App() {
             aria-labelledby="cms-workflow-heading"
             className="studio-cms"
             id="cms-workflow"
-            ref={reviewSection}
             tabIndex={-1}
           >
             <div className="studio-cms__heading">
-              <div>
-                <p className="studio-cms__eyebrow">NOEMA CMS</p>
-                <h2 id="cms-workflow-heading">記事とワークフロー</h2>
-              </div>
-              <span className={`studio-cms__save-state is-${effectiveCmsSaveState}`} role="status">
-                {cmsSaveLabel[effectiveCmsSaveState]}
-              </span>
+              <h2 id="cms-workflow-heading">記事とワークフロー</h2>
             </div>
 
             {cmsSessionState.kind === "checking" ? (
@@ -1548,21 +1543,26 @@ export function App() {
               <p className="studio-cms__review-note"><strong>レビューコメント:</strong> {cmsArticle.reviewNote}</p>
             ) : null}
 
-            <fieldset className="studio-cms__visibility" disabled={!cmsSession?.capabilities.canEdit || editorLocked}>
-              <legend>公開範囲</legend>
-              {(Object.keys(cmsVisibilityLabels) as CmsVisibility[]).map((visibility) => (
-                <label key={visibility} className={visibility === "restricted" ? "is-pending" : ""}>
-                  <input
-                    checked={cmsVisibility === visibility}
-                    name="cms-visibility"
-                    onChange={() => setCmsVisibility(visibility)}
-                    type="radio"
-                    value={visibility}
-                  />
-                  <span><strong>{cmsVisibilityLabels[visibility]}</strong><small>{cmsVisibilityDescriptions[visibility]}</small></span>
-                </label>
-              ))}
-            </fieldset>
+            <details className="studio-disclosure studio-visibility-disclosure">
+              <summary>公開範囲: {cmsVisibilityLabels[cmsVisibility]}</summary>
+              <div className="studio-disclosure__content">
+                <fieldset className="studio-cms__visibility" disabled={!cmsSession?.capabilities.canEdit || editorLocked}>
+                  <legend className="sr-only">公開範囲</legend>
+                  {(Object.keys(cmsVisibilityLabels) as CmsVisibility[]).map((visibility) => (
+                    <label key={visibility} className={visibility === "restricted" ? "is-pending" : ""}>
+                      <input
+                        checked={cmsVisibility === visibility}
+                        name="cms-visibility"
+                        onChange={() => setCmsVisibility(visibility)}
+                        type="radio"
+                        value={visibility}
+                      />
+                      <span><strong>{cmsVisibilityLabels[visibility]}</strong><small>{cmsVisibilityDescriptions[visibility]}</small></span>
+                    </label>
+                  ))}
+                </fieldset>
+              </div>
+            </details>
 
             {cmsConflict ? (
               <div className="studio-cms__conflict" role="alert">
@@ -1576,23 +1576,6 @@ export function App() {
             ) : null}
 
             <div className="studio-cms__actions">
-              <button
-                className="dads-button"
-                data-size="md"
-                data-type="solid-fill"
-                disabled={
-                  !cmsSession?.capabilities.canEdit ||
-                  editorLocked ||
-                  cmsOperationBusy ||
-                  cmsSaveState === "saving" ||
-                  cmsConflict ||
-                  (Boolean(cmsArticle) && !cmsDirty && cmsSaveState !== "error")
-                }
-                onClick={() => void saveCmsDraft(true)}
-                type="button"
-              >
-                {cmsSaveState === "saving" ? "保存中…" : cmsArticle ? "今すぐ保存" : "CMSに保存"}
-              </button>
               {cmsCanRequestReview ? (
                 <button
                   className="dads-button"
@@ -1600,7 +1583,6 @@ export function App() {
                   data-type="outline"
                   disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict}
                   onClick={() => void runCmsAction("request_review")}
-                  ref={reviewButton}
                   type="button"
                 >
                   レビューを依頼
@@ -1643,7 +1625,7 @@ export function App() {
             ) : null}
             {cmsSession?.capabilities.canManageMembers ? (
               <details className="studio-cms-members">
-                <summary>CMSメンバー管理（{cmsMembers.length}人）</summary>
+                <summary>メンバー管理（{cmsMembers.length}人）</summary>
                 <div className="studio-cms-members__content">
                   <p>メールアドレスを登録すると、Cloudflare Accessで初めてログインした時に役割が有効になります。同じメールを送信すると設定を更新します。</p>
                   <form onSubmit={(event) => void saveCmsMember(event)}>
@@ -1715,14 +1697,22 @@ export function App() {
                 </div>
               </details>
             ) : null}
-            <p className="studio-cms__recovery-copy">ブラウザ保存は通信障害や競合時の復旧コピーです。共有・レビュー・公開の正本はCMSです。<span aria-live="polite">{saveStatus}</span></p>
+            <details className="studio-save-help">
+              <summary>保存の仕組み</summary>
+              <p className="studio-cms__recovery-copy">ブラウザ保存は通信障害や競合時の復旧コピーです。共有・レビュー・公開の正本はCMSです。<span aria-live="polite">{saveStatus}</span></p>
+            </details>
           </section>
 
-          <div className="studio-file-actions">
-            <input ref={importInput} hidden type="file" accept=".md,.markdown,text/markdown,text/plain" onChange={(event) => void importMarkdown(event.target.files?.[0])} />
-            <button className="dads-button" data-size="sm" data-type="outline" disabled={editorLocked} type="button" onClick={() => importInput.current?.click()}>MDを読み込む</button>
-            <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={download}>Markdownを書き出す <Icon name="download" /></button>
-          </div>
+          <details className="studio-disclosure studio-utilities">
+            <summary>Markdownの入出力</summary>
+            <div className="studio-disclosure__content">
+              <div className="studio-file-actions">
+                <input ref={importInput} aria-label="Markdownファイル" hidden type="file" accept=".md,.markdown,text/markdown,text/plain" onChange={(event) => void importMarkdown(event.target.files?.[0])} />
+                <button className="dads-button" data-size="sm" data-type="outline" disabled={editorLocked} type="button" onClick={() => importInput.current?.click()}>MDを読み込む</button>
+                <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={download}>Markdownを書き出す <Icon name="download" /></button>
+              </div>
+            </div>
+          </details>
 
           {editorLocked ? (
             <section className="studio-locked-summary" aria-labelledby="locked-summary-heading">
@@ -1781,18 +1771,8 @@ export function App() {
             })()}
 
             <details className="studio-disclosure" open={metadataOpen} onToggle={(event) => setMetadataOpen(event.currentTarget.open)}>
-              <summary>公開と分類</summary>
+              <summary>公開と分類 — {approachLabels[frontmatter.approach]} / {frontmatter.topics[0] ? topicLabels[frontmatter.topics[0]] : "テーマ未選択"}</summary>
               <div className="studio-disclosure__content">
-                <div className="studio-field" id="article-status">
-                  <span className="dads-form-control-label studio-field__label">CMSワークフロー</span>
-                  <p className="studio-field__support">
-                    記事データ内の状態は常に下書きとして保存し、レビューと公開はCMSの状態で別々に管理します。
-                  </p>
-                  <div className="studio-cms__status-pair">
-                    <span>レビュー: {cmsArticle ? cmsReviewStatusLabels[cmsArticle.reviewStatus] : "未登録"}</span>
-                    <span>公開: {cmsArticle ? cmsPublicationStatusLabels[cmsArticle.publicationStatus] : "未公開"}</span>
-                  </div>
-                </div>
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "authors", validationVisible);
                   return <Field id="article-authors" label="執筆者" support="複数の場合はカンマで区切ります。" error={error}>
@@ -1940,29 +1920,31 @@ export function App() {
             </details>
           </fieldset>
 
-          <section ref={validationSection} id="article-validation" className={`studio-validation ${blockingErrorCount > 0 ? "has-errors" : "is-ready"}`} tabIndex={-1}>
-            <h2>{blockingErrorCount === 0 ? <Icon name="check" /> : <Icon name="warning" />} 入力チェック</h2>
-            {blockingErrorCount > 0 ? <p><strong>{blockingErrorCount}件</strong>の入力を確認するとレビューへ送れます。</p> : <p>レビュー依頼に必要な項目が揃っています。</p>}
-            {validationVisible ? visibleSettingsIssues.slice(0, 10).map((issue, index) => (
-              <button className="studio-validation__issue" key={`${issue.path.join(".")}-${issue.message}-${index}`} type="button" onClick={() => focusReviewIssue(issue)}>
-                エラー — {issue.message}
-              </button>
-            )) : blockingErrorCount > 0 ? <p>レビューを依頼すると、確認が必要な項目をここに表示します。</p> : null}
-            {validationVisible && visibleSettingsIssues.length > 10 ? (
-              <p className="studio-validation__remaining">ほか{visibleSettingsIssues.length - 10}件あります。各入力欄のエラーも確認してください。</p>
-            ) : null}
-            {validationVisible ? visibleReviewIssues.filter((issue) => normalizedIssueField(issue) === "markdown" && bodyErrors.length === 0).map((issue, index) => (
-              <button className="studio-validation__issue" key={`markdown-${issue.message}-${index}`} type="button" onClick={() => focusBodyIssue()}>
-                エラー — 本文: {issue.message}
-              </button>
-            )) : null}
-            {bodyIssues.map((issue) => (
-              <button className={`studio-validation__issue ${issue.severity === "warning" ? "is-warning" : ""}`} key={`${issue.code}-${issue.line}-${issue.message}`} type="button" onClick={() => focusBodyIssue(issue)}>
-                {issue.severity === "error" ? "エラー" : "確認"} — 本文{issue.line}行: {issue.message}
-              </button>
-            ))}
-            {editorialWarnings.map((warning) => <p className="studio-validation__warning" key={warning}>確認 — {warning}</p>)}
-          </section>
+          {validationVisible ? (
+            <section ref={validationSection} id="article-validation" className={`studio-validation ${blockingErrorCount > 0 ? "has-errors" : "is-ready"}`} tabIndex={-1}>
+              <h2>{blockingErrorCount === 0 ? <Icon name="check" /> : <Icon name="warning" />} 入力チェック</h2>
+              {blockingErrorCount > 0 ? <p><strong>{blockingErrorCount}件</strong>の入力を確認するとレビューへ送れます。</p> : <p>レビュー依頼に必要な項目が揃っています。</p>}
+              {visibleSettingsIssues.slice(0, 10).map((issue, index) => (
+                <button className="studio-validation__issue" key={`${issue.path.join(".")}-${issue.message}-${index}`} type="button" onClick={() => focusReviewIssue(issue)}>
+                  エラー — {issue.message}
+                </button>
+              ))}
+              {visibleSettingsIssues.length > 10 ? (
+                <p className="studio-validation__remaining">ほか{visibleSettingsIssues.length - 10}件あります。各入力欄のエラーも確認してください。</p>
+              ) : null}
+              {visibleReviewIssues.filter((issue) => normalizedIssueField(issue) === "markdown" && bodyErrors.length === 0).map((issue, index) => (
+                <button className="studio-validation__issue" key={`markdown-${issue.message}-${index}`} type="button" onClick={() => focusBodyIssue()}>
+                  エラー — 本文: {issue.message}
+                </button>
+              ))}
+              {bodyIssues.map((issue) => (
+                <button className={`studio-validation__issue ${issue.severity === "warning" ? "is-warning" : ""}`} key={`${issue.code}-${issue.line}-${issue.message}`} type="button" onClick={() => focusBodyIssue(issue)}>
+                  {issue.severity === "error" ? "エラー" : "確認"} — 本文{issue.line}行: {issue.message}
+                </button>
+              ))}
+              {editorialWarnings.map((warning) => <p className="studio-validation__warning" key={warning}>確認 — {warning}</p>)}
+            </section>
+          ) : null}
 
           <details className="studio-legacy-review">
             <summary>移行用: 旧GitHub Draft PR連携</summary>
@@ -1992,6 +1974,7 @@ export function App() {
                 data-type="solid-fill"
                 disabled={!capabilityEnabled || publicationBusy}
                 onClick={requestReview}
+                ref={legacyReviewButton}
                 type="button"
               >
                 {publicationBusy ? "準備しています…" : "レビューを依頼"}
@@ -2061,26 +2044,24 @@ export function App() {
           </section>
           </details>
 
-          <section className="studio-danger-zone">
-            <h2>新しい記事を作る</h2>
-            <p>未保存の入力内容を確認してから、新しいCMS記事の入力へ切り替えます。</p>
-            <button className="dads-button" data-size="sm" data-type="outline" disabled={editorLocked || cmsOperationBusy} type="button" onClick={startNewCmsArticle}>新しい記事を開始</button>
-          </section>
         </aside>
 
         <section
-          aria-labelledby={compactLayout ? "studio-tab-write" : "editor-heading"}
+          aria-labelledby="studio-tab-write"
           className={`studio-editor ${editorLocked ? "has-lock" : ""}`}
-          hidden={compactLayout && activePane !== "write"}
+          hidden={activePane !== "write"}
           id="studio-pane-write"
-          role={compactLayout ? "tabpanel" : undefined}
-          tabIndex={compactLayout ? 0 : undefined}
+          role="tabpanel"
+          tabIndex={0}
         >
           <div className="studio-pane-title studio-pane-title--horizontal">
-            <div><p>MARKDOWN</p><h2 id="editor-heading">本文を書く</h2></div>
+            <div>
+              <h2 id="editor-heading">本文</h2>
+              <p className="studio-pane-title__context">{frontmatter.title || "新しい記事"}</p>
+            </div>
             <div className="studio-editor__status">
               <span>{body.length.toLocaleString("ja-JP")}文字</span>
-              {blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー{blockingErrorCount}件を確認</button> : null}
+              {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー{blockingErrorCount}件を確認</button> : null}
             </div>
           </div>
           {editorLocked ? <p className="studio-editor__lock" role="status">送信内容を固定しています。本文は選択してコピーできます。</p> : null}
@@ -2105,15 +2086,18 @@ export function App() {
         </section>
 
         <section
-          aria-labelledby={compactLayout ? "studio-tab-preview" : "preview-heading"}
+          aria-labelledby="studio-tab-preview"
           className="studio-preview"
-          hidden={compactLayout && activePane !== "preview"}
+          hidden={activePane !== "preview"}
           id="studio-pane-preview"
-          role={compactLayout ? "tabpanel" : undefined}
-          tabIndex={compactLayout ? 0 : undefined}
+          role="tabpanel"
+          tabIndex={0}
         >
           <div className="studio-pane-title studio-pane-title--horizontal">
-            <div><p>PREVIEW</p><h2 id="preview-heading">表示を確認</h2></div>
+            <div>
+              <h2 id="preview-heading">プレビュー</h2>
+              <p className="studio-pane-title__context">{frontmatter.title || "新しい記事"}</p>
+            </div>
             <span className="studio-preview__status">自動更新</span>
           </div>
           <article>
@@ -2160,7 +2144,7 @@ export function App() {
         </section>
       </main>
 
-      <dialog aria-labelledby="review-dialog-title" className="studio-dialog" ref={confirmDialog} onClose={() => reviewButton.current?.focus()}>
+      <dialog aria-labelledby="review-dialog-title" className="studio-dialog" ref={confirmDialog} onClose={() => legacyReviewButton.current?.focus()}>
         <form method="dialog">
           <p className="studio-review__eyebrow">GITHUB REVIEW</p>
           <h2 id="review-dialog-title">レビューへ送りますか？</h2>
