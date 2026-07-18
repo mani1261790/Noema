@@ -55,7 +55,8 @@ import {
   loadDraft,
   resolveBrowserStorage,
   saveDraft,
-  type DraftStorage
+  type DraftStorage,
+  type StudioDraftCmsArticle
 } from "./draft-storage";
 import {
   PUBLICATION_ATTEMPT_STORAGE_KEY,
@@ -79,8 +80,14 @@ import {
   isArticleTopicChoiceDisabled,
   toggleArticleTopic
 } from "./topic-selection";
+import { resolveCmsRecoveryState } from "./cms-recovery";
+import {
+  CmsArticleLibrary,
+  type CmsLibraryConnection
+} from "./CmsArticleLibrary";
 
 type Pane = "settings" | "write" | "preview";
+type StudioView = "articles" | "editor";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
 type CapabilityState =
   | { kind: "checking" }
@@ -115,10 +122,6 @@ function cmsContentFingerprint(
   visibility: CmsVisibility
 ): string {
   return JSON.stringify({ body, frontmatter, visibility });
-}
-
-function cmsArticleOptionLabel(article: CmsArticleSummary): string {
-  return `${article.title || "無題の記事"} — ${cmsReviewStatusLabels[article.reviewStatus]} / ${cmsPublicationStatusLabels[article.publicationStatus]}`;
 }
 
 const issueFieldIds: Record<string, string> = {
@@ -177,11 +180,20 @@ function issueControlId(issue: ArticleSubmissionValidationIssue): string | null 
 interface InitialState {
   attempt: PublicationAttempt | null;
   body: string;
+  cmsAssociationRequired: boolean;
+  cmsReference: StudioDraftCmsArticle | null;
   frontmatter: ArticleFrontmatter;
+  hasRecoveryDraft: boolean;
   invalidAttemptStorage: boolean;
   message: OperationMessage | null;
   saveStatus: string;
   storage: DraftStorage;
+}
+
+function hasMeaningfulArticleInput(frontmatter: ArticleFrontmatter, body: string): boolean {
+  if (body.trim().length > 0) return true;
+  const blank = createBlankArticle(frontmatter.updatedAt);
+  return JSON.stringify({ ...frontmatter, status: "draft" }) !== JSON.stringify(blank);
 }
 
 function getInitialState(): InitialState {
@@ -192,7 +204,10 @@ function getInitialState(): InitialState {
     return {
       attempt,
       body: attempt.request.markdown,
+      cmsAssociationRequired: false,
+      cmsReference: null,
       frontmatter: attempt.request.frontmatter,
+      hasRecoveryDraft: true,
       invalidAttemptStorage: false,
       message: {
         text: cancelled
@@ -214,21 +229,45 @@ function getInitialState(): InitialState {
 
   const loadedDraft = loadDraft(storage);
   if (loadedDraft.status === "restored") {
+    const cmsReference = loadedDraft.draft.cmsArticle ?? null;
+    const cmsAssociationRequired = loadedDraft.draft.cmsAssociation === "unknown";
+    const hasRecoveryDraft = !cmsReference && hasMeaningfulArticleInput(
+      loadedDraft.draft.frontmatter,
+      loadedDraft.draft.body
+    );
     return {
       attempt: null,
       body: loadedDraft.draft.body,
+      cmsAssociationRequired,
+      cmsReference,
       frontmatter: loadedDraft.draft.frontmatter,
+      hasRecoveryDraft,
       invalidAttemptStorage,
       message: invalidAttemptStorage
         ? {
             text: "以前の送信記録を安全に読み込めません。下書きは復元できています。",
             tone: "error"
           }
-        : {
-            text: "このブラウザに保存した下書きを復元しました。",
-            tone: "success"
-      },
-      saveStatus: "保存した下書きを復元しました",
+        : cmsReference
+          ? {
+              text: "前回編集中だったCMS記事へ再接続しています。入力内容は復旧コピーから保持しています。",
+              tone: "info"
+            }
+          : hasRecoveryDraft
+            ? {
+              text: cmsAssociationRequired
+                ? "旧Studioの復旧原稿です。元のCMS記事を選ぶか、新しい記事として続けるかを確認してください。"
+                : "このブラウザに保存した下書きを復元しました。",
+              tone: cmsAssociationRequired ? "info" : "success"
+            }
+            : null,
+      saveStatus: cmsReference
+        ? "CMS記事へ再接続中…"
+        : cmsAssociationRequired
+          ? "元の記事を確認してください"
+        : hasRecoveryDraft
+          ? "保存した下書きを復元しました"
+          : "下書きはこのブラウザに自動保存されます",
       storage
     };
   }
@@ -236,7 +275,10 @@ function getInitialState(): InitialState {
   return {
     attempt: null,
     body: "",
+    cmsAssociationRequired: false,
+    cmsReference: null,
     frontmatter: createBlankArticle(),
+    hasRecoveryDraft: false,
     invalidAttemptStorage,
     message: !storageAvailable
       ? {
@@ -473,6 +515,11 @@ export function App() {
   const [body, setBody] = useState(initialState.body);
   const [attempt, setAttempt] = useState<PublicationAttempt | null>(initialState.attempt);
   const [invalidAttemptStorage, setInvalidAttemptStorage] = useState(initialState.invalidAttemptStorage);
+  const [studioView, setStudioView] = useState<StudioView>(
+    initialState.attempt || initialState.cmsReference || initialState.hasRecoveryDraft || initialState.invalidAttemptStorage
+      ? "editor"
+      : "articles"
+  );
   const [activePane, setActivePane] = useState<Pane>("write");
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
@@ -485,8 +532,23 @@ export function App() {
   const [cmsRefresh, setCmsRefresh] = useState(0);
   const [cmsArticles, setCmsArticles] = useState<CmsArticleSummary[]>([]);
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
-  const [cmsVisibility, setCmsVisibility] = useState<CmsVisibility>("public");
-  const [cmsSaveState, setCmsSaveState] = useState<CmsSaveState>("local");
+  const [cmsRecoveryReference, setCmsRecoveryReference] = useState<StudioDraftCmsArticle | null>(
+    initialState.cmsReference
+  );
+  const [cmsAssociationRequired, setCmsAssociationRequired] = useState(
+    initialState.cmsAssociationRequired
+  );
+  const [cmsAutosavePaused, setCmsAutosavePaused] = useState(
+    Boolean(initialState.cmsReference?.autosavePaused)
+  );
+  const [openingArticleId, setOpeningArticleId] = useState<string | null>(null);
+  const [hasRecoveryDraft, setHasRecoveryDraft] = useState(initialState.hasRecoveryDraft);
+  const [cmsVisibility, setCmsVisibility] = useState<CmsVisibility>(
+    initialState.cmsReference?.visibility ?? "public"
+  );
+  const [cmsSaveState, setCmsSaveState] = useState<CmsSaveState>(
+    initialState.cmsReference ? "saving" : "local"
+  );
   const [cmsConflict, setCmsConflict] = useState(false);
   const [cmsOperationBusy, setCmsOperationBusy] = useState(false);
   const [lastCmsFingerprint, setLastCmsFingerprint] = useState<string | null>(null);
@@ -505,11 +567,35 @@ export function App() {
   const legacyReviewButton = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const cancelledRecoveryInFlight = useRef<string | null>(null);
+  const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
+  const pendingViewFocus = useRef<string | null>(null);
   const cmsContentRef = useRef({ body, frontmatter, visibility: cmsVisibility });
   const tabRefs = useRef<Record<Pane, HTMLButtonElement | null>>({ settings: null, write: null, preview: null });
   const deferredBody = useDeferredValue(body);
   cmsContentRef.current = { body, frontmatter, visibility: cmsVisibility };
+
+  const cmsDraftReference = useMemo<StudioDraftCmsArticle | null>(() => {
+    const reference = cmsRecoveryReference ?? (cmsArticle
+      ? { id: cmsArticle.id, lockVersion: cmsArticle.lockVersion }
+      : null);
+    return reference
+      ? {
+          ...reference,
+          visibility: cmsVisibility,
+          ...(cmsAutosavePaused ? { autosavePaused: true as const } : {})
+        }
+      : null;
+  }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsVisibility]);
+
+  const saveBrowserDraft = useCallback((draftFrontmatter: ArticleFrontmatter, draftBody: string) => (
+    saveDraft(storage, {
+      frontmatter: draftFrontmatter,
+      body: draftBody,
+      ...(cmsDraftReference ? { cmsArticle: cmsDraftReference } : {}),
+      ...(cmsAssociationRequired && !cmsDraftReference ? { cmsAssociation: "unknown" as const } : {})
+    })
+  ), [cmsAssociationRequired, cmsDraftReference, storage]);
 
   const previewHtml = useMemo(
     () => DOMPurify.sanitize(markdown.render(deferredBody), { ADD_ATTR: ["target"] }),
@@ -676,11 +762,24 @@ export function App() {
   }, [attemptCancelled, resumeEditingAfterCancellation]);
 
   useEffect(() => {
-    if (editorLocked) return;
+    const targetId = pendingViewFocus.current;
+    if (!targetId) return;
+    document.getElementById(targetId)?.focus();
+    pendingViewFocus.current = null;
+  }, [activePane, studioView]);
+
+  useEffect(() => {
+    const meaningfulLocalInput = hasMeaningfulArticleInput(frontmatter, body);
+    if (
+      studioView !== "editor" ||
+      editorLocked ||
+      (!cmsArticle && !meaningfulLocalInput)
+    ) return;
     setSaveStatus("復旧コピーを保存中…");
     const timer = window.setTimeout(() => {
-      const result = saveDraft(storage, { frontmatter, body });
+      const result = saveBrowserDraft(frontmatter, body);
       setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
+      if (result.ok && !cmsArticle && meaningfulLocalInput) setHasRecoveryDraft(true);
       if (!result.ok) {
         setOperationMessage({
           text: "ブラウザに復旧コピーを保存できませんでした。Markdownを書き出して内容を保管してください。",
@@ -689,7 +788,7 @@ export function App() {
       }
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [body, editorLocked, frontmatter, storage]);
+  }, [body, cmsArticle, editorLocked, frontmatter, saveBrowserDraft, studioView]);
 
   useEffect(() => {
     if (!validationRequested) return;
@@ -711,19 +810,134 @@ export function App() {
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
   }, []);
 
+  useEffect(() => {
+    if (
+      cmsSessionState.kind !== "ready" ||
+      !cmsRecoveryReference ||
+      cmsArticle ||
+      cmsRecoveryReconnectInFlight.current === cmsRecoveryReference.id
+    ) return;
+
+    const controller = new AbortController();
+    const reference = cmsRecoveryReference;
+    let current = true;
+    cmsRecoveryReconnectInFlight.current = reference.id;
+    setCmsOperationBusy(true);
+    void fetchCmsArticle(reference.id, { signal: controller.signal }).then((result) => {
+      if (!current || controller.signal.aborted) return;
+      if (!result.ok) {
+        setCmsSaveState("error");
+        setOperationMessage({
+          text: "復旧コピーを元のCMS記事へ再接続できませんでした。内容は保持しています。もう一度確認するか、記事一覧から元の記事を開いてください。",
+          tone: "error"
+        });
+        cmsRecoveryReconnectInFlight.current = null;
+        setCmsOperationBusy(false);
+        return;
+      }
+
+      const article = result.value;
+      const latest = cmsContentRef.current;
+      const recovery = resolveCmsRecoveryState({
+        article,
+        localBody: latest.body,
+        localFrontmatter: latest.frontmatter,
+        localVisibility: latest.visibility,
+        reference
+      });
+
+      setCmsArticle(article);
+      setLastCmsFingerprint(recovery.serverFingerprint);
+      setCmsConflict(recovery.conflict);
+      setCmsSaveState(recovery.saveState);
+      const keepAutosavePaused = cmsAutosavePaused && recovery.saveState === "dirty";
+      setCmsAutosavePaused(keepAutosavePaused);
+      setHasRecoveryDraft(false);
+      updateCmsArticleList(article);
+      if (!recovery.conflict) setCmsRecoveryReference(null);
+      saveDraft(storage, {
+        frontmatter: latest.frontmatter,
+        body: latest.body,
+        cmsArticle: recovery.conflict
+          ? {
+              ...reference,
+              visibility: latest.visibility,
+              ...(keepAutosavePaused ? { autosavePaused: true as const } : {})
+            }
+          : {
+              id: article.id,
+              lockVersion: article.lockVersion,
+              visibility: latest.visibility,
+              ...(keepAutosavePaused ? { autosavePaused: true as const } : {})
+            }
+      });
+      setOperationMessage({
+        text: recovery.conflict
+          ? "元の記事は別の編集者によって更新されています。入力内容は保持しました。"
+          : keepAutosavePaused
+            ? `「${article.title || "無題の記事"}」へ再接続しました。内容を確認し、「保存」でCMSへ反映してください。`
+          : `「${article.title || "無題の記事"}」へ再接続しました。`,
+        tone: recovery.conflict ? "error" : "success"
+      });
+      cmsRecoveryReconnectInFlight.current = null;
+      setCmsOperationBusy(false);
+    });
+
+    return () => {
+      current = false;
+      controller.abort();
+      if (cmsRecoveryReconnectInFlight.current === reference.id) {
+        cmsRecoveryReconnectInFlight.current = null;
+      }
+    };
+  }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, storage, updateCmsArticleList]);
+
+  const showEditor = (pane: Pane) => {
+    pendingViewFocus.current = `studio-tab-${pane}`;
+    setStudioView("editor");
+    setActivePane(pane);
+  };
+
+  const showArticleLibrary = () => {
+    if (hasMeaningfulArticleInput(frontmatter, body)) {
+      const result = saveBrowserDraft(frontmatter, body);
+      if (!cmsArticle && !cmsRecoveryReference) setHasRecoveryDraft(true);
+      setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
+      if (!result.ok) {
+        setOperationMessage({
+          text: "復旧コピーを保存できませんでした。内容はこの画面を閉じるまで保持しています。",
+          tone: "error"
+        });
+      }
+    }
+    pendingViewFocus.current = "studio-article-library-heading";
+    setStudioView("articles");
+  };
+
   const applyCmsArticle = (
     article: CmsArticleDetail,
-    options: { preserveLocalInput?: boolean } = {}
+    options: { pauseAutosave?: boolean; preserveLocalInput?: boolean } = {}
   ) => {
     const nextFrontmatter: ArticleFrontmatter = {
       ...article.currentRevision.frontmatter,
       status: "draft"
     };
     const nextBody = article.currentRevision.markdown;
+    const serverFingerprint = cmsContentFingerprint(nextFrontmatter, nextBody, article.visibility);
+    const local = cmsContentRef.current;
+    const preservedInputHasChanges = Boolean(
+      options.preserveLocalInput &&
+      cmsContentFingerprint(local.frontmatter, local.body, article.visibility) !== serverFingerprint
+    );
+    const manualSaveRequired = Boolean(options.pauseAutosave && preservedInputHasChanges);
     setCmsArticle(article);
-    setLastCmsFingerprint(cmsContentFingerprint(nextFrontmatter, nextBody, article.visibility));
-    setCmsSaveState(options.preserveLocalInput ? "dirty" : "saved");
+    setLastCmsFingerprint(serverFingerprint);
+    setCmsSaveState(preservedInputHasChanges ? "dirty" : "saved");
+    setCmsAutosavePaused(manualSaveRequired);
     setCmsConflict(false);
+    setCmsRecoveryReference(null);
+    setCmsAssociationRequired(false);
+    setHasRecoveryDraft(false);
     setPublicationIssues([]);
     setValidationRequested(false);
     updateCmsArticleList(article);
@@ -731,45 +945,94 @@ export function App() {
       setFrontmatter(nextFrontmatter);
       setBody(nextBody);
       setCmsVisibility(article.visibility);
-      saveDraft(storage, { frontmatter: nextFrontmatter, body: nextBody });
+      saveDraft(storage, {
+        frontmatter: nextFrontmatter,
+        body: nextBody,
+        cmsArticle: {
+          id: article.id,
+          lockVersion: article.lockVersion,
+          visibility: article.visibility
+        }
+      });
+    } else {
+      setCmsVisibility(article.visibility);
+      setSaveStatus("ブラウザに復旧コピーを保存済み");
+      saveDraft(storage, {
+        frontmatter: local.frontmatter,
+        body: local.body,
+        cmsArticle: {
+          id: article.id,
+          lockVersion: article.lockVersion,
+          visibility: article.visibility,
+          ...(manualSaveRequired ? { autosavePaused: true as const } : {})
+        }
+      });
     }
+    return { manualSaveRequired };
   };
 
-  const loadCmsArticle = async (articleId: string) => {
-    if (cmsOperationBusy || cmsSaveInFlight.current || articleId === cmsArticle?.id) return;
-    const hasLocalInput = body.length > 0 || JSON.stringify(frontmatter) !== JSON.stringify(createBlankArticle());
-    if ((cmsDirty || (!cmsArticle && hasLocalInput)) && !window.confirm(
+  const loadCmsArticle = async (articleId: string): Promise<boolean> => {
+    if (editorLocked || cmsOperationBusy || cmsSaveInFlight.current) return false;
+    if (articleId === cmsArticle?.id) {
+      showEditor("write");
+      return true;
+    }
+    const hasLocalInput = hasMeaningfulArticleInput(frontmatter, body);
+    const associatingRecovery = cmsAssociationRequired && !cmsArticle && hasLocalInput;
+    const articleSummary = cmsArticles.find((article) => article.id === articleId);
+    if (associatingRecovery && !window.confirm(
+      `復旧原稿を「${articleSummary?.title || "選んだ記事"}」に引き継ぎますか？ CMSへはまだ保存せず、編集画面で内容を確認できます。`
+    )) return false;
+    if (!associatingRecovery && (cmsDirty || (!cmsArticle && hasLocalInput)) && !window.confirm(
       "現在の入力内容を別の記事で置き換えますか？ 必要なら先にMarkdownを書き出してください。"
-    )) return;
+    )) return false;
     const contentBeforeLoad = cmsContentFingerprint(
       cmsContentRef.current.frontmatter,
       cmsContentRef.current.body,
       cmsContentRef.current.visibility
     );
+    setOpeningArticleId(articleId);
     setCmsOperationBusy(true);
     const result = await fetchCmsArticle(articleId);
     if (result.ok) {
       const latest = cmsContentRef.current;
       const contentAfterLoad = cmsContentFingerprint(latest.frontmatter, latest.body, latest.visibility);
       if (
+        !associatingRecovery &&
         contentAfterLoad !== contentBeforeLoad &&
         !window.confirm("記事の読込中に入力が変わりました。新しい入力を破棄して、選んだ記事を開きますか？")
       ) {
         setCmsOperationBusy(false);
-        return;
+        setOpeningArticleId(null);
+        return false;
       }
-      applyCmsArticle(result.value);
-      setOperationMessage({ text: `「${result.value.title || "無題の記事"}」を読み込みました。`, tone: "success" });
+      const application = applyCmsArticle(result.value, {
+        pauseAutosave: associatingRecovery,
+        preserveLocalInput: associatingRecovery
+      });
+      showEditor("write");
+      setOperationMessage({
+        text: associatingRecovery
+          ? application.manualSaveRequired
+            ? `復旧原稿を「${result.value.title || "無題の記事"}」に引き継ぎました。内容を確認し、「保存」でCMSへ反映してください。`
+            : `復旧原稿を「${result.value.title || "無題の記事"}」へ接続しました。CMSの最新版と同じ内容です。`
+          : `「${result.value.title || "無題の記事"}」を読み込みました。`,
+        tone: "success"
+      });
     } else {
       setOperationMessage({ text: result.error.message, tone: "error" });
     }
     setCmsOperationBusy(false);
+    setOpeningArticleId(null);
+    return result.ok;
   };
 
   const saveCmsDraft = useCallback(async (announce = true): Promise<CmsArticleDetail | null> => {
     if (
       cmsSaveInFlight.current ||
       cmsConflict ||
+      cmsRecoveryReference ||
+      cmsAssociationRequired ||
       editorLocked ||
       cmsSessionState.kind !== "ready" ||
       !cmsSessionState.session.capabilities.canEdit
@@ -820,9 +1083,22 @@ export function App() {
     }
 
     setCmsArticle(result.value);
+    setCmsRecoveryReference(null);
+    setCmsAssociationRequired(false);
+    setCmsAutosavePaused(false);
+    setHasRecoveryDraft(false);
     updateCmsArticleList(result.value);
     setLastCmsFingerprint(snapshotFingerprint);
     const latest = cmsContentRef.current;
+    saveDraft(storage, {
+      frontmatter: latest.frontmatter,
+      body: latest.body,
+      cmsArticle: {
+        id: result.value.id,
+        lockVersion: result.value.lockVersion,
+        visibility: latest.visibility
+      }
+    });
     const hasNewerLocalChanges = cmsContentFingerprint(
       latest.frontmatter,
       latest.body,
@@ -838,17 +1114,35 @@ export function App() {
       });
     }
     return result.value;
-  }, [cmsArticle, cmsConflict, cmsSessionState, editorLocked, updateCmsArticleList]);
+  }, [cmsArticle, cmsAssociationRequired, cmsConflict, cmsRecoveryReference, cmsSessionState, editorLocked, storage, updateCmsArticleList]);
+
+  const continueRecoveryAsNewArticle = () => {
+    setCmsAssociationRequired(false);
+    setCmsAutosavePaused(false);
+    const result = saveDraft(storage, { frontmatter, body });
+    setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
+    showEditor("write");
+    setOperationMessage({
+      text: result.ok
+        ? "復旧原稿を新しい記事として扱います。内容を確認し、「CMSに保存」で登録してください。"
+        : "新しい記事として続けますが、復旧コピーを保存できません。Markdownを書き出して保管してください。",
+      tone: result.ok ? "info" : "error"
+    });
+  };
 
   const startNewCmsArticle = () => {
     if (editorLocked || cmsSaveInFlight.current) return;
-    const hasLocalInput = body.length > 0 || JSON.stringify(frontmatter) !== JSON.stringify(createBlankArticle());
-    if ((cmsDirty || hasLocalInput) && !window.confirm(
+    const hasLocalInput = hasMeaningfulArticleInput(frontmatter, body);
+    if ((cmsDirty || (!cmsArticle && hasLocalInput)) && !window.confirm(
       "現在の入力内容を閉じて、新しい記事を開始しますか？ 必要なら先にCMSへ保存するかMarkdownを書き出してください。"
     )) return;
     const blank = createBlankArticle();
     clearDraft(storage);
     setCmsArticle(null);
+    setCmsRecoveryReference(null);
+    setCmsAssociationRequired(false);
+    setCmsAutosavePaused(false);
+    setHasRecoveryDraft(false);
     setFrontmatter(blank);
     setBody("");
     setCmsVisibility("public");
@@ -857,7 +1151,7 @@ export function App() {
     setCmsConflict(false);
     setPublicationIssues([]);
     setValidationRequested(false);
-    setActivePane("settings");
+    showEditor("settings");
     setOperationMessage({ text: "新しい記事を作成します。最初の保存でCMSに登録されます。", tone: "info" });
   };
 
@@ -892,6 +1186,13 @@ export function App() {
   };
 
   const runCmsAction = async (action: CmsArticleAction) => {
+    if (cmsAutosavePaused) {
+      setOperationMessage({
+        text: "復旧内容を確認し、先に「保存」でCMSへ反映してください。保存後にレビュー・公開操作を続けられます。",
+        tone: "info"
+      });
+      return;
+    }
     if (
       cmsSessionState.kind !== "ready" ||
       cmsOperationBusy ||
@@ -1031,6 +1332,7 @@ export function App() {
       !cmsArticle ||
       !cmsDirty ||
       cmsConflict ||
+      cmsAutosavePaused ||
       editorLocked ||
       cmsSaveState === "saving" ||
       cmsSaveState === "error" ||
@@ -1043,6 +1345,7 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [
     cmsArticle,
+    cmsAutosavePaused,
     cmsConflict,
     cmsDirty,
     cmsFingerprint,
@@ -1339,6 +1642,30 @@ export function App() {
   const effectiveCmsSaveState: CmsSaveState = cmsDirty && cmsSaveState === "saved"
     ? "dirty"
     : cmsSaveState;
+  const cmsWorkingArticleTitle = frontmatter.title || cmsArticle?.title || "編集中の記事";
+  const cmsLibraryWorkingStatus: { text: string; tone: "error" | "info" } | null = cmsRecoveryReference
+    ? {
+        text: cmsConflict
+          ? `「${cmsWorkingArticleTitle}」は別の編集者による更新と競合しています。入力内容はブラウザに保持しています。`
+          : cmsSaveState === "error"
+            ? `「${cmsWorkingArticleTitle}」を元のCMS記事へ再接続できません。入力内容はブラウザに保持しています。`
+            : `「${cmsWorkingArticleTitle}」を元のCMS記事へ再接続しています。`,
+        tone: cmsConflict || cmsSaveState === "error" ? "error" : "info"
+      }
+    : cmsArticle && ["dirty", "saving", "error", "conflict"].includes(effectiveCmsSaveState)
+      ? {
+          text: effectiveCmsSaveState === "dirty"
+            ? cmsAutosavePaused
+              ? `「${cmsWorkingArticleTitle}」に未保存の復旧内容があります。内容を確認し、編集画面の「保存」でCMSへ反映してください。`
+              : `「${cmsWorkingArticleTitle}」に未保存の変更があります。CMSへの自動保存を待っています。`
+            : effectiveCmsSaveState === "saving"
+              ? `「${cmsWorkingArticleTitle}」をCMSへ保存しています。`
+              : effectiveCmsSaveState === "conflict"
+                ? `「${cmsWorkingArticleTitle}」は別の編集者による更新と競合しています。入力内容はブラウザに保持しています。`
+                : `「${cmsWorkingArticleTitle}」をCMSへ保存できませんでした。入力内容はブラウザに保持しています。`,
+          tone: ["error", "conflict"].includes(effectiveCmsSaveState) ? "error" : "info"
+        }
+      : null;
   const cmsCanRequestReview = Boolean(
     cmsArticle && ["draft", "changes_requested"].includes(cmsArticle.reviewStatus)
   );
@@ -1369,21 +1696,42 @@ export function App() {
     ["public", "unlisted"].includes(cmsVisibility) &&
     !cmsDirty
   );
+  const cmsLibraryConnection: CmsLibraryConnection = cmsSessionState.kind === "checking"
+    ? { kind: "checking" }
+    : cmsSessionState.kind === "unavailable"
+      ? { kind: "unavailable", message: cmsSessionState.error.message }
+      : {
+          email: cmsSessionState.session.identity.email,
+          kind: "ready",
+          role: cmsSessionState.session.identity.role
+        };
   const cmsHeaderStatus = cmsSessionState.kind === "checking"
     ? "CMSを確認中…"
     : cmsSessionState.kind === "unavailable"
       ? "CMSに接続できません"
-      : cmsSaveLabel[effectiveCmsSaveState];
+      : cmsAssociationRequired
+        ? "保存先を選択してください"
+      : studioView === "articles"
+        ? cmsLibraryWorkingStatus
+          ? cmsSaveLabel[cmsConflict ? "conflict" : effectiveCmsSaveState]
+          : `CMSに保存済み ${cmsArticles.length}件`
+        : cmsSaveLabel[effectiveCmsSaveState];
   const cmsHeaderVisualState: CmsSaveState = cmsSessionState.kind === "checking"
     ? "saving"
     : cmsSessionState.kind === "unavailable"
       ? "error"
-      : effectiveCmsSaveState;
+      : studioView === "articles"
+        ? cmsLibraryWorkingStatus
+          ? cmsConflict ? "conflict" : effectiveCmsSaveState
+          : "saved"
+        : effectiveCmsSaveState;
   const cmsSaveDisabled = Boolean(
     !cmsSession?.capabilities.canEdit ||
     editorLocked ||
     cmsOperationBusy ||
     cmsSaveState === "saving" ||
+    cmsAssociationRequired ||
+    Boolean(cmsRecoveryReference) ||
     cmsConflict ||
     (Boolean(cmsArticle) && !cmsDirty && cmsSaveState !== "error")
   );
@@ -1404,16 +1752,29 @@ export function App() {
           <a className="dads-button studio-public-link" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
             公開サイト <Icon name="external" />
           </a>
-          <button
-            className="dads-button studio-save-shortcut"
-            data-size="md"
-            data-type="solid-fill"
-            disabled={cmsSaveDisabled}
-            onClick={() => void saveCmsDraft(true)}
-            type="button"
-          >
-            {cmsSaveButtonLabel}
-          </button>
+          {studioView === "editor" ? (
+            <>
+              <button
+                className="dads-button studio-library-shortcut"
+                data-size="md"
+                data-type="outline"
+                onClick={showArticleLibrary}
+                type="button"
+              >
+                記事一覧へ
+              </button>
+              <button
+                className="dads-button studio-save-shortcut"
+                data-size="md"
+                data-type="solid-fill"
+                disabled={cmsSaveDisabled}
+                onClick={() => void saveCmsDraft(true)}
+                type="button"
+              >
+                {cmsSaveButtonLabel}
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
 
@@ -1424,6 +1785,42 @@ export function App() {
         </div>
       ) : null}
 
+      {studioView === "articles" ? (
+        <CmsArticleLibrary
+          articles={cmsArticles}
+          busy={cmsOperationBusy || cmsSaveState === "saving"}
+          canCreate={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
+          canOpenArticles={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
+          connection={cmsLibraryConnection}
+          hasRecoveryDraft={hasRecoveryDraft && !cmsArticle}
+          onContinueRecovery={() => showEditor("write")}
+          onContinueRecoveryAsNew={continueRecoveryAsNewArticle}
+          onCreate={startNewCmsArticle}
+          onDownloadRecovery={downloadRecoveryCopy}
+          onEdit={(articleId) => { void loadCmsArticle(articleId); }}
+          onRetry={() => setCmsRefresh((current) => current + 1)}
+          openingArticleId={openingArticleId}
+          recoveryCharacterCount={body.length}
+          recoveryNeedsArticleAssociation={cmsAssociationRequired}
+          recoverySaveStatus={saveStatus}
+          recoveryTitle={frontmatter.title}
+          workingArticleStatus={cmsLibraryWorkingStatus}
+        />
+      ) : (
+        <>
+      {cmsAssociationRequired ? (
+        <section className="studio-cms-association" aria-labelledby="studio-cms-association-heading">
+          <div>
+            <p className="studio-cms-association__eyebrow">安全な復旧の確認</p>
+            <h2 id="studio-cms-association-heading">この原稿の保存先を選んでください</h2>
+            <p>以前のStudioから復元したため、既存記事か新規記事かを自動判定できません。元の記事へ戻す場合は一覧から選び、新しい原稿なら新規記事として続けます。</p>
+          </div>
+          <div className="studio-cms-association__actions">
+            <button className="dads-button" data-size="md" data-type="solid-fill" onClick={showArticleLibrary} type="button">元の記事を選ぶ</button>
+            <button className="dads-button" data-size="md" data-type="outline" onClick={continueRecoveryAsNewArticle} type="button">新しい記事として続ける</button>
+          </div>
+        </section>
+      ) : null}
       <div className="studio-tabs" role="tablist" aria-label="編集画面">
         {paneOrder.map((pane) => (
           <button
@@ -1472,7 +1869,7 @@ export function App() {
             </div>
 
             {cmsSessionState.kind === "checking" ? (
-              <p className="studio-cms__session" role="status">CMSの権限と記事一覧を確認しています…</p>
+              <p className="studio-cms__session" role="status">CMSの権限を確認しています…</p>
             ) : null}
             {cmsSessionState.kind === "unavailable" ? (
               <div className="studio-cms__unavailable" role="alert">
@@ -1490,32 +1887,10 @@ export function App() {
               </p>
             ) : null}
 
-            <div className="studio-cms__article-picker">
-              <label htmlFor="cms-article-select">編集する記事</label>
-              <select
-                disabled={!cmsSession || cmsOperationBusy || cmsSaveState === "saving" || editorLocked}
-                id="cms-article-select"
-                onChange={(event) => {
-                  if (event.target.value) void loadCmsArticle(event.target.value);
-                  else startNewCmsArticle();
-                }}
-                value={cmsArticle?.id ?? ""}
-              >
-                <option value="">新しい記事 / ブラウザの復旧原稿</option>
-                {cmsArticles.map((article) => (
-                  <option key={article.id} value={article.id}>{cmsArticleOptionLabel(article)}</option>
-                ))}
-              </select>
-              <button
-                className="dads-button"
-                data-size="sm"
-                data-type="outline"
-                disabled={!cmsSession || cmsOperationBusy || cmsSaveState === "saving" || editorLocked}
-                onClick={startNewCmsArticle}
-                type="button"
-              >
-                新しい記事
-              </button>
+            <div className="studio-cms__current-article">
+              <span>編集中の記事</span>
+              <strong>{frontmatter.title || "新しい記事"}</strong>
+              <small>{cmsArticle ? `revision ${cmsArticle.revisionNumber}` : "最初の保存でCMSに登録されます"}</small>
             </div>
 
             <div className="studio-cms__status-pair" aria-label="記事の状態">
@@ -1581,7 +1956,7 @@ export function App() {
                   className="dads-button"
                   data-size="md"
                   data-type="outline"
-                  disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict}
+                  disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict}
                   onClick={() => void runCmsAction("request_review")}
                   type="button"
                 >
@@ -1589,31 +1964,34 @@ export function App() {
                 </button>
               ) : null}
               {cmsCanReview ? (
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">
+                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">
                   承認する
                 </button>
               ) : null}
               {cmsCanRequestChanges ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict} onClick={() => void runCmsAction("request_changes")} type="button">
+                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("request_changes")} type="button">
                   修正を依頼
                 </button>
               ) : null}
               {cmsCanPublish ? (
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict} onClick={() => void runCmsAction("publish")} type="button">
+                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("publish")} type="button">
                   承認済みrevisionを公開
                 </button>
               ) : null}
               {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "published" ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">
+                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">
                   公開を終了して保管
                 </button>
               ) : null}
               {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "archived" ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">
+                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">
                   未公開へ戻す
                 </button>
               ) : null}
             </div>
+            {cmsAutosavePaused ? (
+              <p className="studio-cms__pending-message">復旧内容はまだCMSへ反映していません。内容を確認して「保存」を押すと、レビュー・公開操作を続けられます。</p>
+            ) : null}
             {cmsVisibility === "restricted" ? (
               <p className="studio-cms__pending-message">指定メンバー公開は読者認証の接続後に公開できます。原稿の保存とレビューは先に進められます。</p>
             ) : null}
@@ -2143,6 +2521,8 @@ export function App() {
           </article>
         </section>
       </main>
+        </>
+      )}
 
       <dialog aria-labelledby="review-dialog-title" className="studio-dialog" ref={confirmDialog} onClose={() => legacyReviewButton.current?.focus()}>
         <form method="dialog">

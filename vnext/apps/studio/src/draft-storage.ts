@@ -1,7 +1,9 @@
 import type { ArticleFrontmatter } from "@noema/content";
+import type { CmsVisibility } from "@noema/cms";
 
 export const DRAFT_STORAGE_KEY = "noema-studio-draft-v1";
-export const DRAFT_STORAGE_VERSION = 2;
+export const DRAFT_STORAGE_VERSION = 3;
+const PREVIOUS_DRAFT_STORAGE_VERSION = 2;
 
 const MAX_STORED_DRAFT_CHARACTERS = 1_500_000;
 const MAX_BODY_CHARACTERS = 1_048_576;
@@ -25,6 +27,7 @@ const articleTopics = new Set([
   "data-models",
   "mathematics"
 ]);
+const cmsVisibilities = new Set(["public", "unlisted", "restricted", "internal"]);
 
 export interface DraftStorage {
   getItem(key: string): string | null;
@@ -73,6 +76,15 @@ export function resolveBrowserStorage(host: BrowserStorageHost): BrowserStorageR
 export interface StudioDraft {
   frontmatter: ArticleFrontmatter;
   body: string;
+  cmsArticle?: StudioDraftCmsArticle;
+  cmsAssociation?: "unknown";
+}
+
+export interface StudioDraftCmsArticle {
+  id: string;
+  lockVersion: number;
+  visibility: CmsVisibility;
+  autosavePaused?: true;
 }
 
 export interface DraftStorageOptions {
@@ -146,16 +158,25 @@ export function loadDraft(
   if (!isRecord(value)) return { status: "invalid", reason: "invalid_data" };
 
   if (Object.hasOwn(value, "version")) {
-    if (value.version !== DRAFT_STORAGE_VERSION) {
+    if (
+      value.version !== DRAFT_STORAGE_VERSION &&
+      value.version !== PREVIOUS_DRAFT_STORAGE_VERSION
+    ) {
       return { status: "invalid", reason: "unsupported_version" };
     }
-    if (!hasOnlyKeys(value, ["version", "updatedAt", "frontmatter", "body"])) {
+    const allowedKeys = value.version === DRAFT_STORAGE_VERSION
+      ? ["version", "updatedAt", "frontmatter", "body", "cmsArticle", "cmsAssociation"]
+      : ["version", "updatedAt", "frontmatter", "body"];
+    if (!hasOnlyKeys(value, allowedKeys)) {
       return { status: "invalid", reason: "invalid_data" };
     }
     if (!isStoredTimestamp(value.updatedAt)) {
       return { status: "invalid", reason: "invalid_data" };
     }
-    const draft = parseDraft(value);
+    const parsedDraft = parseDraft(value);
+    const draft = value.version === PREVIOUS_DRAFT_STORAGE_VERSION && parsedDraft
+      ? { ...parsedDraft, cmsAssociation: "unknown" as const }
+      : parsedDraft;
     if (!draft) return { status: "invalid", reason: "invalid_data" };
     return {
       status: "restored",
@@ -195,7 +216,9 @@ export function saveDraft(
       version: DRAFT_STORAGE_VERSION,
       updatedAt,
       frontmatter: checkedDraft.frontmatter,
-      body: checkedDraft.body
+      body: checkedDraft.body,
+      ...(checkedDraft.cmsArticle ? { cmsArticle: checkedDraft.cmsArticle } : {}),
+      ...(checkedDraft.cmsAssociation ? { cmsAssociation: checkedDraft.cmsAssociation } : {})
     });
   } catch {
     return { ok: false, reason: "invalid_draft" };
@@ -228,7 +251,42 @@ export function clearDraft(
 function parseDraft(value: unknown): StudioDraft | null {
   if (!isRecord(value) || !isBoundedString(value.body, MAX_BODY_CHARACTERS)) return null;
   const frontmatter = parseFrontmatter(value.frontmatter);
-  return frontmatter ? { frontmatter, body: value.body } : null;
+  if (!frontmatter) return null;
+  const cmsArticle = value.cmsArticle === undefined
+    ? undefined
+    : parseDraftCmsArticle(value.cmsArticle);
+  if (value.cmsArticle !== undefined && !cmsArticle) return null;
+  const cmsAssociation = value.cmsAssociation === undefined
+    ? undefined
+    : value.cmsAssociation === "unknown"
+      ? value.cmsAssociation
+      : null;
+  if (cmsAssociation === null || (cmsArticle && cmsAssociation)) return null;
+  return {
+    frontmatter,
+    body: value.body,
+    ...(cmsArticle ? { cmsArticle } : {}),
+    ...(cmsAssociation ? { cmsAssociation } : {})
+  };
+}
+
+function parseDraftCmsArticle(value: unknown): StudioDraftCmsArticle | null {
+  if (!isRecord(value)) return null;
+  if (!hasOnlyKeys(value, ["id", "lockVersion", "visibility", "autosavePaused"])) return null;
+  if (!isBoundedString(value.id, 128) || value.id.length === 0) return null;
+  if (
+    typeof value.lockVersion !== "number" ||
+    !Number.isInteger(value.lockVersion) ||
+    value.lockVersion < 0
+  ) return null;
+  if (!isEnumValue(value.visibility, cmsVisibilities)) return null;
+  if (value.autosavePaused !== undefined && value.autosavePaused !== true) return null;
+  return {
+    id: value.id,
+    lockVersion: value.lockVersion,
+    visibility: value.visibility as CmsVisibility,
+    ...(value.autosavePaused === true ? { autosavePaused: true as const } : {})
+  };
 }
 
 function parseFrontmatter(value: unknown): ArticleFrontmatter | null {

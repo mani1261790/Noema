@@ -14,7 +14,7 @@ Noemaは、AIでできることと、その仕組みを、直感と具体例か�
 
 記事、revision、メンバー権限、レビュー状態、公開範囲の正本はCloudflare D1です。Studioで保存・レビュー・承認・公開すると、ブログWorkerが公開revisionをD1から読み取るため、記事公開ごとのGitHub Pull Requestや再デプロイは不要です。GitHubはcode、D1 migration、docs、必要に応じたbackupを管理します。画像はprivateなCloudflare R2へ保存する設計ですが、現在はaccountでR2が未有効のためStudioからuploadできません。
 
-- 記事を書く・レビューする・公開する: [記事が反映されるまで](docs/studio-blog-connectivity.md#記事が反映されるまで)
+- 記事を新規作成・再編集し、レビュー・公開する: [記事が反映されるまで](docs/studio-blog-connectivity.md#記事が反映されるまで)
 - メンバーを追加する: [メンバーを招待する](docs/studio-blog-connectivity.md#メンバーを招待する)
 - 公開範囲やURL、旧Studio URLを確認する: [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md)
 
