@@ -80,6 +80,23 @@ R2 bucketはaccountで未有効です。R2の有効化、bucket作成、billing�
 
 GitHub Environmentは作成しません。Secretはrepository levelだけに置き、GitHub Deploymentsの履歴も生成しません。
 
+### GitHub ActionsでWranglerが失敗する
+
+WorkflowはNode.js 24とWrangler 4.110.0を固定しています。ログにNode.js 20の廃止警告が出ても、`ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true`は設定せず、Wrangler step末尾の最初の`ERROR`とcodeを確認します。
+
+D1 migrationで次のcodeが出る場合は、Worker codeではなくAPI tokenの権限または対象accountを確認します。
+
+```text
+The given account is not valid or is not authorized to access this service [code: 7403]
+```
+
+1. Cloudflare Dashboardでtokenのresource scopeがNoemaのaccountと`noema-learn.uk` zoneを指していることを確認します。
+2. Accountの`Workers Scripts: Edit`と`D1: Edit`、対象zoneの`Workers Routes: Edit`を確認します。
+3. tokenを更新または再作成した場合は、repository secret `CLOUDFLARE_API_TOKEN`を更新します。
+4. Secret値をログへ出さず、失敗したworkflowを`develop` refで再実行します。
+
+`gh secret list`で確認できるのはSecret名と更新日時だけです。Cloudflare側の権限はCloudflare Dashboardで確認します。Migration stepが成功するまで、後続のBlog・Studio deployは実行されません。
+
 ## D1 migration
 
 Migration fileの正は `vnext/apps/studio/migrations`、database名は`noema-cms`です。Studioの`wrangler.jsonc`だけがmigration directoryを定義し、Blogのconfigは同じdatabaseへの読取bindingだけを持ちます。
@@ -104,6 +121,12 @@ npx wrangler d1 migrations apply noema-cms \
 ```
 
 Migrationの適用履歴はD1の`d1_migrations` tableでWranglerが管理します。このtableを手作業で変更したり、適用済みfileを書き換えたりしません。schemaを戻す必要がある場合も、適用履歴を削除せず新しいforward migrationを作成します。
+
+### D1 backupの現在地
+
+現在のworkflowはD1の記事を自動exportしません。GitHubにはcodeとmigrationが保存されますが、D1の最新記事本文が自動で複製されるわけではありません。「必要に応じたbackup」は、別途承認したexportを保存する場合を指します。
+
+本番公開前に、export頻度、保存先、retention、暗号化、復元testを決めます。それまではGitHubを記事データの最新backupとは扱いません。
 
 ## ローカルCMS開発
 

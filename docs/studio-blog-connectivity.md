@@ -2,6 +2,14 @@
 
 この文書は、Noema Studioで記事を作成し、複数人でレビューしてブログへ公開するまでの流れと、Cloudflare D1、R2、Access、GitHubの役割をまとめた運用ガイドです。
 
+目的から選んでください。
+
+- [記事を書く・レビューして公開する](#記事が反映されるまで)
+- [メンバーを招待する](#メンバーを招待する)
+- [roleごとの権限を確認する](#権限)
+- [公開範囲を選ぶ](#公開範囲)
+- [問題を解決する](#トラブルシューティング)
+
 ## まず使うURL
 
 | 用途 | URL | 現在の状態 |
@@ -21,7 +29,7 @@ flowchart LR
   Studio --> D1["Cloudflare D1<br/>記事・revision・権限・監査"]
   D1 --> Blog["ブログWorker<br/>公開revisionだけを読取"]
   Studio -.-> R2["Cloudflare R2<br/>private asset保管予定・upload未有効"]
-  GitHub["GitHub<br/>code・migration・docs・任意export"] --> Actions["GitHub Actions<br/>アプリをdeploy"]
+  GitHub["GitHub<br/>code・migration"] --> Actions["GitHub Actions<br/>アプリをdeploy"]
   Actions --> D1
   Actions --> Blog
   Actions --> Studio
@@ -31,19 +39,55 @@ flowchart LR
 
 GitHubはアプリケーションコード、D1 migration、運用文書、必要に応じた記事exportのbackupを管理します。ブラウザの`localStorage`は通信障害や保存競合から入力内容を救うための復旧コピーであり、共有・レビュー・公開の正本ではありません。
 
+## 2種類のフローを混ぜない
+
+| 変更するもの | 使う場所 | 反映フロー |
+| --- | --- | --- |
+| 記事本文、frontmatter、公開範囲 | Studio | Studio → D1 → ブログ。GitHub PRとWorker deployは不要 |
+| app code、D1 schema、Worker設定 | GitHub | Pull Request → `develop` → GitHub Actions → Cloudflare |
+| docs | GitHub | Pull Request → `develop`。Cloudflare deployは起動しない |
+
+Studioの「公開」は、D1のpublished revisionを開発ブログへ配信する操作です。サイト全体の本番公開とは別なので、記事を一般公開にしても、公開ゲートを外すまでは`noema-learn.uk`は404を返します。
+
 ## 記事が反映されるまで
+
+### 編集者・レビュー担当が原稿を作る
 
 1. <https://studio.noema-learn.uk>を開き、Cloudflare Accessで認証します。
 2. CMSへ招待済みのメンバーとしてStudioを開きます。最初の管理者だけは設定済みbootstrap emailから登録されます。
 3. 新しい記事を作成するか、記事一覧から既存記事を選びます。
 4. frontmatter、本文、公開範囲を編集し、プレビューと検証結果を確認します。
-5. 「CMSに保存」でD1へ新しいimmutable revisionを保存します。保存後は約1.2秒の自動保存も動作します。
-6. 編集者またはレビュー担当が「レビューを依頼」します。
-7. レビュー担当または管理者が、修正依頼か承認を行います。自分が保存した最新版をレビュー担当自身が承認することはできません。
-8. 管理者が承認済みrevisionを公開します。
-9. 開発ブログURLで反映を確認します。`noema-learn.uk`は一般公開の承認までは404のままです。
+5. 「CMSに保存」でD1へ新しいimmutable revisionを保存します。新規記事の初回保存後、既存記事では約1.2秒の自動保存も動作します。
+6. 「レビューを依頼」を選びます。入力エラーがある場合は、Studioに表示された項目を直してから再度依頼します。
+
+### レビュー担当・管理者がレビューする
+
+1. レビュー待ちの記事を開き、本文、frontmatter、公開範囲を確認します。
+2. 問題がなければ「承認する」、修正が必要ならコメントとともに「修正を依頼」を選びます。
+3. 修正依頼になった場合は、編集者が修正・保存し、もう一度レビューを依頼します。
+
+レビュー担当は、自分が保存した最新版を自分で承認できません。別のレビュー担当または管理者が承認します。
+
+### 管理者が公開する
+
+1. current revisionが承認済みであることと、公開範囲を確認します。
+2. 「承認済みrevisionを公開」を選びます。
+3. 「公開中の記事を見る」または開発ブログURLから反映を確認します。`noema-learn.uk`はサイト全体を一般公開するまでは404のままです。
 
 公開中の記事を編集すると、新しいcurrent revisionが作られますが、読者へ配信するpublished revisionは変わりません。編集内容は、もう一度レビュー、承認、公開を行った時点で初めて読者へ反映されます。
+
+公開を止める場合は、管理者が「公開を終了して保管」を選びます。「未公開へ戻す」で保管状態を解除しても自動では再公開されません。承認済みrevisionがそのままなら管理者が再公開でき、復元後に内容を変えた場合は、改めてレビュー・承認してから公開します。
+
+## メンバーを招待する
+
+管理者だけが操作できます。Cloudflare Accessの許可対象にも同じemailが含まれていることを確認してから、次を行います。
+
+1. Studioの「記事の設定」から「CMSメンバー管理」を開きます。
+2. email、role、有効・停止を設定します。
+3. 「招待・設定を保存」を選びます。
+4. 対象者がCloudflare Accessで初回loginすると、Access identityとCMS memberが結び付き、「招待待ち」から「利用開始済み」になります。
+
+同じemailをもう一度保存するとroleや有効状態を更新できます。最後の有効な管理者は停止または管理者以外へ変更できません。
 
 ## 権限
 

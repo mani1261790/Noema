@@ -4,17 +4,19 @@ Noemaは、AIでできることと、その仕組みを、直感と具体例か�
 
 旧notebook学習サービスとAWS実装は退役済みです。コード、教材、AWS CDK、復元手順、退役記録は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
 
-## 開発環境
+## 現在の利用先
 
 | 対象 | URL | 状態 |
 | --- | --- | --- |
-| ブログ | <https://noema-learn.mani1261790.workers.dev> | `develop`の最新versionを自動deploy |
+| ブログ | <https://noema-learn.mani1261790.workers.dev> | app codeは`develop`からdeploy。記事はD1から実行時に反映 |
 | Studio | <https://studio.noema-learn.uk> | Cloudflare AccessとCMS roleで執筆者だけに公開 |
 | 公開予定domain | <https://noema-learn.uk> | 公開ゲートが404を返すため非公開 |
 
 記事、revision、メンバー権限、レビュー状態、公開範囲の正本はCloudflare D1です。Studioで保存・レビュー・承認・公開すると、ブログWorkerが公開revisionをD1から読み取るため、記事公開ごとのGitHub Pull Requestや再デプロイは不要です。GitHubはcode、D1 migration、docs、必要に応じたbackupを管理します。画像はprivateなCloudflare R2へ保存する設計ですが、現在はaccountでR2が未有効のためStudioからuploadできません。
 
-詳しい編集フロー、権限、公開範囲、各URLの役割、旧Studio URLを閉じた理由は [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md) を参照してください。
+- 記事を書く・レビューする・公開する: [記事が反映されるまで](docs/studio-blog-connectivity.md#記事が反映されるまで)
+- メンバーを追加する: [メンバーを招待する](docs/studio-blog-connectivity.md#メンバーを招待する)
+- 公開範囲やURL、旧Studio URLを確認する: [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md)
 
 `develop`へのmergeでのみCloudflare deploymentが動きます。`main`へのpushではdeployしません。手動実行も`develop`以外ではjobを開始しません。
 
@@ -24,7 +26,8 @@ flowchart LR
   Studio --> D1["D1 CMS<br/>記事・revision・権限"]
   D1 --> Blog["ブログWorker<br/>公開revisionだけを配信"]
   Develop["codeをdevelopへmerge"] --> CI["check / build"]
-  CI --> Migration["D1 migration"]
+  CI --> Gate["公開ゲートを先にdeploy"]
+  Gate --> Migration["D1 migration"]
   Migration --> Deploy["Blog / Studioをdeploy"]
 ```
 
@@ -86,7 +89,7 @@ npm run deploy:dry-run
 ## ドキュメント
 
 - [ドキュメント案内](docs/README.md)
-- [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md)
+- [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md): 記事の編集・レビュー・公開・メンバー管理
 - [CMS contract](vnext/packages/cms/README.md)
 - [プロダクト再設計仕様](docs/product-reboot.md)
 - [コンテンツ・掲載方針](docs/content-strategy.md)
