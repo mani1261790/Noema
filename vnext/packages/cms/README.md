@@ -45,6 +45,19 @@ Reviewとpublicationは別の状態です。公開中の記事に新しいrevisi
 
 承認後に新しいrevisionを保存した場合、そのrevisionは再レビューが必要です。管理者はcurrent revisionとapproved revisionが一致するときだけ公開できます。
 
+## 状態遷移
+
+| action | 実行できるrole | 前提 | 結果 |
+| --- | --- | --- | --- |
+| `request_review` | `admin`、`editor`、`reviewer` | reviewが`draft`または`changes_requested`で、記事検証に成功 | reviewを`in_review`へ変更し、以前の承認pointerを外す |
+| `approve` | `admin`、`reviewer` | reviewが`in_review` | reviewを`approved`へ変更し、current revisionをapproved revisionへ固定 |
+| `request_changes` | `admin`、`reviewer` | reviewが`in_review`または`approved` | reviewを`changes_requested`へ変更し、承認pointerを外す |
+| `publish` | `admin` | reviewが`approved`で、current revisionとapproved revisionが一致 | current revision、slug、公開範囲をpublished pointerへ固定 |
+| `archive` | `admin` | publicationが`published` | publicationを`archived`へ変更し、公開面から外す |
+| `restore` | `admin` | publicationが`archived` | publicationを`unpublished`へ戻す。自動では再公開しない |
+
+`reviewer`は自分が保存したcurrent revisionを自己承認できません。`admin`は初期運用と障害対応のためこの制限をoverrideできます。`restricted`と`internal`は原稿の保存・レビューまでは可能ですが、現状の`publish`は拒否します。
+
 ## 公開範囲
 
 | 値 | 公開面 |
