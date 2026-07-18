@@ -6,6 +6,7 @@ import {
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createCmsArticle,
+  listCmsArticles,
   resolveCmsSession,
   transitionCmsArticle,
   updateCmsArticle,
@@ -31,6 +32,45 @@ beforeEach(async () => {
 });
 
 describe("CMS repository", () => {
+  it("lists the latest article metadata in descending update order", async () => {
+    const admin = await bootstrapAdmin();
+    const older = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("older-article"),
+      NOW
+    );
+    const newer = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("newer-article"),
+      new Date("2026-07-18T00:01:00.000Z")
+    );
+    const updatedInput = validArticle("older-article-updated");
+    updatedInput.frontmatter.title = "更新した記事";
+    const updated = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      older.id,
+      older.lockVersion,
+      updatedInput,
+      new Date("2026-07-18T00:02:00.000Z")
+    );
+
+    const articles = await listCmsArticles(testEnv.CMS_DB, admin.identity);
+
+    expect(articles.map((article) => article.id)).toEqual([updated.id, newer.id]);
+    expect(articles[0]).toMatchObject({
+      publicationStatus: "unpublished",
+      revisionNumber: 2,
+      reviewStatus: "draft",
+      slug: "older-article-updated",
+      title: "更新した記事",
+      updatedByEmail: "owner@example.com",
+      visibility: "internal"
+    });
+  });
+
   it("provisions the same first-login identity idempotently", async () => {
     const [first, second] = await Promise.all([
       resolveCmsSession(

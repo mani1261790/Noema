@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBlankArticle } from "../src/draft-storage";
 import {
+  fetchCmsArticles,
   fetchCmsMembers,
   runCmsArticleAction,
   updateCmsArticle
@@ -42,6 +43,52 @@ function articleDetail(lockVersion = 4) {
     reviewNote: null
   };
 }
+
+function articleSummary() {
+  const { currentRevision: _currentRevision, ...summary } = articleDetail();
+  const {
+    publishedRevisionNumber: _publishedRevisionNumber,
+    publishedSlug: _publishedSlug,
+    publishedVisibility: _publishedVisibility,
+    reviewNote: _reviewNote,
+    ...value
+  } = summary;
+  return value;
+}
+
+describe("CMS article list client", () => {
+  it("parses the article summaries used by the Studio library", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({
+      articles: [articleSummary()]
+    }));
+
+    const result = await fetchCmsArticles({ fetchFn });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([articleSummary()]);
+      expect(result.value[0]?.id).toBe("11111111-1111-4111-8111-111111111111");
+    }
+  });
+
+  it("rejects the whole list when a summary is malformed", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({
+      articles: [articleSummary(), { ...articleSummary(), revisionNumber: "2" }]
+    }));
+
+    const result = await fetchCmsArticles({ fetchFn });
+
+    expect(result).toEqual({
+      error: {
+        code: "invalid_response",
+        message: "CMSから安全に読み取れる応答を受け取れませんでした。",
+        retryable: true,
+        status: 200
+      },
+      ok: false
+    });
+  });
+});
 
 describe("CMS client optimistic updates", () => {
   it("sends the expected revision in both the body and If-Match", async () => {

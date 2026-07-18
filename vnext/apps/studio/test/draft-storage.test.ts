@@ -157,6 +157,24 @@ describe("loadDraft", () => {
     });
   });
 
+  it("marks a previous-version browser draft as needing a safe CMS association choice", () => {
+    const storage = new MemoryStorage();
+    const draft = incompleteDraft();
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      frontmatter: draft.frontmatter,
+      body: draft.body
+    }));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      draft: { ...draft, cmsAssociation: "unknown" }
+    });
+  });
+
   it.each([
     ["malformed JSON", "{"],
     ["unsupported version", JSON.stringify({ version: 99, updatedAt: "2026-07-18T00:00:00Z", frontmatter: {}, body: "" })],
@@ -194,6 +212,55 @@ describe("saveDraft", () => {
       body: draft.body
     });
     expect(loadDraft(storage)).toMatchObject({ status: "restored", draft });
+  });
+
+  it("preserves the CMS identity needed to resume editing the same article", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      ...incompleteDraft(),
+      cmsArticle: {
+        id: "11111111-1111-4111-8111-111111111111",
+        lockVersion: 7,
+        visibility: "unlisted",
+        autosavePaused: true
+      }
+    };
+
+    expect(saveDraft(storage, draft, {
+      now: () => new Date("2026-07-18T04:05:06.000Z")
+    })).toEqual({ ok: true, updatedAt: "2026-07-18T04:05:06.000Z" });
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T04:05:06.000Z",
+      draft
+    });
+  });
+
+  it("preserves an unresolved legacy CMS association without inventing an article identity", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      ...incompleteDraft(),
+      cmsAssociation: "unknown"
+    };
+
+    expect(saveDraft(storage, draft, {
+      now: () => new Date("2026-07-18T04:05:06.000Z")
+    })).toEqual({ ok: true, updatedAt: "2026-07-18T04:05:06.000Z" });
+    expect(loadDraft(storage)).toMatchObject({ status: "restored", draft });
+  });
+
+  it("rejects a draft with both a CMS identity and an unresolved association", () => {
+    const storage = new MemoryStorage();
+    expect(saveDraft(storage, {
+      ...incompleteDraft(),
+      cmsArticle: {
+        id: "11111111-1111-4111-8111-111111111111",
+        lockVersion: 7,
+        visibility: "public"
+      },
+      cmsAssociation: "unknown"
+    })).toEqual({ ok: false, reason: "invalid_draft" });
   });
 
   it("returns a failure instead of throwing when the storage write fails", () => {
