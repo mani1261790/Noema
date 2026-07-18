@@ -502,7 +502,7 @@ export function App() {
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
   const validationSection = useRef<HTMLElement>(null);
-  const reviewButton = useRef<HTMLButtonElement>(null);
+  const legacyReviewButton = useRef<HTMLButtonElement>(null);
   const confirmDialog = useRef<HTMLDialogElement>(null);
   const cancelledRecoveryInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
@@ -1583,7 +1583,6 @@ export function App() {
                   data-type="outline"
                   disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsConflict}
                   onClick={() => void runCmsAction("request_review")}
-                  ref={reviewButton}
                   type="button"
                 >
                   レビューを依頼
@@ -1975,6 +1974,7 @@ export function App() {
                 data-type="solid-fill"
                 disabled={!capabilityEnabled || publicationBusy}
                 onClick={requestReview}
+                ref={legacyReviewButton}
                 type="button"
               >
                 {publicationBusy ? "準備しています…" : "レビューを依頼"}
@@ -2144,7 +2144,7 @@ export function App() {
         </section>
       </main>
 
-      <dialog aria-labelledby="review-dialog-title" className="studio-dialog" ref={confirmDialog} onClose={() => reviewButton.current?.focus()}>
+      <dialog aria-labelledby="review-dialog-title" className="studio-dialog" ref={confirmDialog} onClose={() => legacyReviewButton.current?.focus()}>
         <form method="dialog">
           <p className="studio-review__eyebrow">GITHUB REVIEW</p>
           <h2 id="review-dialog-title">レビューへ送りますか？</h2>
