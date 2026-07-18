@@ -52,6 +52,7 @@ import {
 import {
   clearDraft,
   createBlankArticle,
+  hasMeaningfulArticleInput,
   loadDraft,
   resolveBrowserStorage,
   saveDraft,
@@ -188,12 +189,6 @@ interface InitialState {
   message: OperationMessage | null;
   saveStatus: string;
   storage: DraftStorage;
-}
-
-function hasMeaningfulArticleInput(frontmatter: ArticleFrontmatter, body: string): boolean {
-  if (body.trim().length > 0) return true;
-  const blank = createBlankArticle(frontmatter.updatedAt);
-  return JSON.stringify({ ...frontmatter, status: "draft" }) !== JSON.stringify(blank);
 }
 
 function getInitialState(): InitialState {
