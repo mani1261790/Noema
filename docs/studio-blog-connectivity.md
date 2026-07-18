@@ -45,7 +45,7 @@ GitHubはアプリケーションコード、D1 migration、運用文書、必�
 | --- | --- | --- |
 | 記事本文、frontmatter、公開範囲 | Studio | Studio → D1 → ブログ。GitHub PRとWorker deployは不要 |
 | app code、D1 schema、Worker設定 | GitHub | Pull Request → `develop` → GitHub Actions → Cloudflare |
-| docs | GitHub | Pull Request → `develop`。Cloudflare deployは起動しない |
+| docs | GitHub | Pull Request → `develop`。Cloudflareへの反映は不要。ただし`vnext/**`配下の文書は現行path filterに一致するためworkflowが起動する |
 
 Studioの「公開」は、D1のpublished revisionを開発ブログへ配信する操作です。サイト全体の本番公開とは別なので、記事を一般公開にしても、公開ゲートを外すまでは`noema-learn.uk`は404を返します。
 

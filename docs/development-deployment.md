@@ -11,6 +11,7 @@
 - 連続してmergeされた場合は、古い実行をcancelして最新の`develop`を優先します。
 - `noema-learn.uk`は公開承認まで公開ゲートで404を返します。
 - 記事の保存、レビュー、公開はD1 CMS内で完結し、記事公開ごとのcode deployは行いません。
+- Path filterは変更内容ではなくfile pathで判定します。`vnext/**`配下のREADME等も対象になるため、runtime codeが変わっていなくてもworkflowは起動します。
 
 GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 
