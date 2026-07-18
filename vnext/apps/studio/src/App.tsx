@@ -86,6 +86,7 @@ import {
   CmsArticleLibrary,
   type CmsLibraryConnection
 } from "./CmsArticleLibrary";
+import type { CmsArticleFilter } from "./article-library";
 
 type Pane = "settings" | "write" | "preview";
 type StudioView = "articles" | "editor";
@@ -527,6 +528,8 @@ export function App() {
   const [cmsSessionState, setCmsSessionState] = useState<CmsSessionState>({ kind: "checking" });
   const [cmsRefresh, setCmsRefresh] = useState(0);
   const [cmsArticles, setCmsArticles] = useState<CmsArticleSummary[]>([]);
+  const [cmsArticleQuery, setCmsArticleQuery] = useState("");
+  const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>("all");
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
   const [cmsRecoveryReference, setCmsRecoveryReference] = useState<StudioDraftCmsArticle | null>(
     initialState.cmsReference
@@ -895,6 +898,7 @@ export function App() {
   };
 
   const showArticleLibrary = () => {
+    setOperationMessage(null);
     if (hasMeaningfulArticleInput(frontmatter, body)) {
       const result = saveBrowserDraft(frontmatter, body);
       if (!cmsArticle && !cmsRecoveryReference) setHasRecoveryDraft(true);
@@ -1711,26 +1715,18 @@ export function App() {
           kind: "ready",
           role: cmsSessionState.session.identity.role
         };
-  const cmsHeaderStatus = cmsSessionState.kind === "checking"
+  const cmsEditorStatus = cmsSessionState.kind === "checking"
     ? "CMSを確認中…"
     : cmsSessionState.kind === "unavailable"
       ? "CMSに接続できません"
       : cmsAssociationRequired
         ? "保存先を選択してください"
-      : studioView === "articles"
-        ? cmsLibraryWorkingStatus
-          ? cmsSaveLabel[cmsConflict ? "conflict" : effectiveCmsSaveState]
-          : `CMSに保存済み ${cmsArticles.length}件`
         : cmsSaveLabel[effectiveCmsSaveState];
-  const cmsHeaderVisualState: CmsSaveState = cmsSessionState.kind === "checking"
+  const cmsEditorVisualState: CmsSaveState = cmsSessionState.kind === "checking"
     ? "saving"
     : cmsSessionState.kind === "unavailable"
       ? "error"
-      : studioView === "articles"
-        ? cmsLibraryWorkingStatus
-          ? cmsConflict ? "conflict" : effectiveCmsSaveState
-          : "saved"
-        : effectiveCmsSaveState;
+      : effectiveCmsSaveState;
   const cmsSaveDisabled = Boolean(
     !cmsSession?.capabilities.canEdit ||
     editorLocked ||
@@ -1749,40 +1745,35 @@ export function App() {
 
   return (
     <div className="studio-shell">
-      <header className="studio-header">
-        <div className="studio-brand">
-          <span className="studio-brand__mark" aria-hidden="true">N</span>
-          <span className="studio-brand__text">Noema <strong>Studio</strong><small className={`is-${cmsHeaderVisualState}`} aria-live="polite">{cmsHeaderStatus}</small></span>
+      {studioView === "editor" ? (
+        <div className="studio-editor-toolbar" aria-label="記事編集の操作" role="group">
+          <button
+            className="dads-button studio-library-shortcut"
+            data-size="md"
+            data-type="outline"
+            onClick={showArticleLibrary}
+            type="button"
+          >
+            記事一覧
+          </button>
+          <p
+            aria-live="polite"
+            className={`studio-editor-toolbar__status is-${cmsEditorVisualState}`}
+          >
+            {cmsEditorStatus}
+          </p>
+          <button
+            className="dads-button studio-save-shortcut"
+            data-size="md"
+            data-type="solid-fill"
+            disabled={cmsSaveDisabled}
+            onClick={() => void saveCmsDraft(true)}
+            type="button"
+          >
+            {cmsSaveButtonLabel}
+          </button>
         </div>
-        <div className="studio-header__actions">
-          <a className="dads-button studio-public-link" data-size="md" data-type="outline" href={publicSiteUrl} target="_blank" rel="noreferrer">
-            公開サイト <Icon name="external" />
-          </a>
-          {studioView === "editor" ? (
-            <>
-              <button
-                className="dads-button studio-library-shortcut"
-                data-size="md"
-                data-type="outline"
-                onClick={showArticleLibrary}
-                type="button"
-              >
-                記事一覧へ
-              </button>
-              <button
-                className="dads-button studio-save-shortcut"
-                data-size="md"
-                data-type="solid-fill"
-                disabled={cmsSaveDisabled}
-                onClick={() => void saveCmsDraft(true)}
-                type="button"
-              >
-                {cmsSaveButtonLabel}
-              </button>
-            </>
-          ) : null}
-        </div>
-      </header>
+      ) : null}
 
       {operationMessage ? (
         <div className={`studio-notification is-${operationMessage.tone}`} role={operationMessage.tone === "error" ? "alert" : "status"}>
@@ -1798,16 +1789,20 @@ export function App() {
           canCreate={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
           canOpenArticles={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
           connection={cmsLibraryConnection}
+          filter={cmsArticleFilter}
           hasRecoveryDraft={hasRecoveryDraft && !cmsArticle}
           hasWorkingEditor={Boolean(cmsArticle || cmsRecoveryReference)}
+          onFilterChange={setCmsArticleFilter}
           onContinueRecovery={() => showEditor("write")}
           onContinueRecoveryAsNew={continueRecoveryAsNewArticle}
           onCreate={startNewCmsArticle}
           onDownloadRecovery={downloadRecoveryCopy}
           onEdit={(articleId) => { void loadCmsArticle(articleId); }}
+          onQueryChange={setCmsArticleQuery}
           onRetry={() => setCmsRefresh((current) => current + 1)}
           onReturnToEditor={() => showEditor("write")}
           openingArticleId={openingArticleId}
+          query={cmsArticleQuery}
           recoveryCharacterCount={body.length}
           recoveryNeedsArticleAssociation={cmsAssociationRequired}
           recoverySaveStatus={saveStatus}

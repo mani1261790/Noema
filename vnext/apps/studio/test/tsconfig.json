@@ -2,7 +2,8 @@
   "extends": "../tsconfig.worker.json",
   "compilerOptions": {
     "composite": false,
-    "lib": ["ESNext"],
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "skipLibCheck": true,
     "types": ["@cloudflare/vitest-pool-workers/types", "vitest/globals"]
   },

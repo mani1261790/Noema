@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useRef } from "react";
 import {
   cmsPublicationStatusLabels,
   cmsReviewStatusLabels,
@@ -24,6 +24,7 @@ interface CmsArticleLibraryProps {
   canCreate: boolean;
   canOpenArticles: boolean;
   connection: CmsLibraryConnection;
+  filter: CmsArticleFilter;
   hasRecoveryDraft: boolean;
   hasWorkingEditor: boolean;
   recoveryNeedsArticleAssociation: boolean;
@@ -37,8 +38,11 @@ interface CmsArticleLibraryProps {
   onCreate: () => void;
   onDownloadRecovery: () => void;
   onEdit: (articleId: string) => void;
+  onFilterChange: (filter: CmsArticleFilter) => void;
+  onQueryChange: (query: string) => void;
   onReturnToEditor: () => void;
   onRetry: () => void;
+  query: string;
 }
 
 const articleDateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -161,6 +165,7 @@ export function CmsArticleLibrary({
   canCreate,
   canOpenArticles,
   connection,
+  filter,
   hasRecoveryDraft,
   hasWorkingEditor,
   recoveryNeedsArticleAssociation,
@@ -174,11 +179,13 @@ export function CmsArticleLibrary({
   onCreate,
   onDownloadRecovery,
   onEdit,
+  onFilterChange,
+  onQueryChange,
   onReturnToEditor,
-  onRetry
+  onRetry,
+  query
 }: CmsArticleLibraryProps) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<CmsArticleFilter>("all");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
   const visibleArticles = useMemo(
     () => filterCmsArticles(articles, deferredQuery, filter),
@@ -186,8 +193,9 @@ export function CmsArticleLibrary({
   );
   const hasConditions = query.trim().length > 0 || filter !== "all";
   const clearConditions = () => {
-    setQuery("");
-    setFilter("all");
+    onQueryChange("");
+    onFilterChange("all");
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   return (
@@ -199,9 +207,9 @@ export function CmsArticleLibrary({
       <div className="studio-library__inner">
         <header className="studio-library__heading">
           <div>
-            <p className="studio-library__eyebrow">記事管理</p>
-            <h1 id="studio-article-library-heading" tabIndex={-1}>記事</h1>
-            <p>新しい記事を書くか、保存済みの記事を選んで編集を続けます。</p>
+            <p className="studio-library__eyebrow">Noema Studio</p>
+            <h1 id="studio-article-library-heading" tabIndex={-1}>記事を管理</h1>
+            <p>記事を検索して編集するか、新しい記事を書き始めます。</p>
           </div>
           <button
             className="dads-button studio-library__create"
@@ -214,13 +222,6 @@ export function CmsArticleLibrary({
             新しい記事を書く
           </button>
         </header>
-
-        {connection.kind === "ready" ? (
-          <p className="studio-library__identity">
-            <strong>{cmsRoleLabels[connection.role]}</strong>
-            <span>{connection.email}</span>
-          </p>
-        ) : null}
 
         {workingArticleStatus ? (
           <p
@@ -274,41 +275,46 @@ export function CmsArticleLibrary({
           <section aria-labelledby="studio-saved-articles-heading" className="studio-library__saved">
             <div className="studio-library__saved-heading">
               <div>
-                <h2 id="studio-saved-articles-heading">CMSに保存した記事</h2>
-                <p>タイトル、スラッグ、更新者で検索できます。</p>
+                <h2 id="studio-saved-articles-heading">記事を探す</h2>
+                <p id="studio-article-search-description">下書き、レビュー中、公開中、保管済みの記事をまとめて検索できます。</p>
               </div>
-              <p aria-live="polite" className="studio-library__count">
-                {visibleArticles.length} / {articles.length}件
+              <p aria-atomic="true" aria-live="polite" className="studio-library__count">
+                {hasConditions ? `${visibleArticles.length}件（全${articles.length}件）` : `${articles.length}件`}
               </p>
             </div>
 
-            {articles.length > 0 ? (
-              <div className="studio-library-controls">
-                <label htmlFor="studio-article-search">記事を検索</label>
-                <input
-                  id="studio-article-search"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="タイトル、スラッグ、更新者"
-                  type="search"
-                  value={query}
-                />
-                <fieldset>
-                  <legend>状態で絞り込む</legend>
-                  <div className="studio-library-filters">
-                    {cmsArticleFilterOptions.map((option) => (
-                      <button
-                        aria-pressed={filter === option.value}
-                        key={option.value}
-                        onClick={() => setFilter(option.value)}
-                        type="button"
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
-            ) : null}
+            <div aria-label="CMSの記事を検索・絞り込み" className="studio-library-controls" role="search">
+              <label htmlFor="studio-article-search">キーワードで検索</label>
+              <input
+                aria-describedby="studio-article-search-description"
+                id="studio-article-search"
+                onChange={(event) => onQueryChange(event.target.value)}
+                placeholder="記事タイトル、スラッグ、更新者"
+                ref={searchInputRef}
+                type="search"
+                value={query}
+              />
+              <fieldset>
+                <legend>表示する記事</legend>
+                <div className="studio-library-filters">
+                  {cmsArticleFilterOptions.map((option) => (
+                    <button
+                      aria-pressed={filter === option.value}
+                      key={option.value}
+                      onClick={() => onFilterChange(option.value)}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              {hasConditions ? (
+                <button className="studio-library__clear" onClick={clearConditions} type="button">
+                  検索条件をクリア
+                </button>
+              ) : null}
+            </div>
 
             {articles.length === 0 ? (
               <div className="studio-library-empty">
@@ -329,10 +335,7 @@ export function CmsArticleLibrary({
             ) : visibleArticles.length === 0 ? (
               <div className="studio-library-empty">
                 <h3>条件に一致する記事はありません</h3>
-                <p>検索語や状態を変えると、別の記事を探せます。</p>
-                <button className="dads-button" data-size="md" data-type="outline" onClick={clearConditions} type="button">
-                  検索条件をクリア
-                </button>
+                <p>検索語や「表示する記事」を変えると、別の記事を探せます。</p>
               </div>
             ) : (
               <ul className="studio-library-list">
@@ -349,12 +352,15 @@ export function CmsArticleLibrary({
                 ))}
               </ul>
             )}
-            {hasConditions && visibleArticles.length > 0 ? (
-              <button className="studio-library__clear" onClick={clearConditions} type="button">
-                検索条件をクリア
-              </button>
-            ) : null}
           </section>
+        ) : null}
+
+        {connection.kind === "ready" ? (
+          <p className="studio-library__identity">
+            <span>ログイン中</span>
+            <strong>{cmsRoleLabels[connection.role]}</strong>
+            <span>{connection.email}</span>
+          </p>
         ) : null}
       </div>
     </main>
