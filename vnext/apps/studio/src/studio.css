@@ -277,8 +277,6 @@ a {
 
 .studio-settings > * {
   width: min(100%, 48rem);
-  margin-right: auto;
-  margin-left: auto;
 }
 
 .studio-editor,
