@@ -411,6 +411,17 @@ a {
   margin-top: 1.25rem;
 }
 
+.studio-library-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: 1.25rem;
+}
+
+.studio-library-state__actions .dads-button {
+  margin-top: 0;
+}
+
 .studio-library__saved {
   margin-top: 2.5rem;
 }
@@ -1871,6 +1882,11 @@ a {
   .studio-library-state .dads-button,
   .studio-library-empty .dads-button {
     width: 100%;
+  }
+
+  .studio-library-state__actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .studio-library__count {

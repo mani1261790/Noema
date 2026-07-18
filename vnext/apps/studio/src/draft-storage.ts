@@ -202,8 +202,11 @@ export function loadDraft(
   if (!hasOnlyKeys(value, ["frontmatter", "body"])) {
     return { status: "invalid", reason: "invalid_data" };
   }
-  const draft = parseDraft(value);
-  if (!draft) return { status: "invalid", reason: "invalid_data" };
+  const parsedDraft = parseDraft(value);
+  if (!parsedDraft) return { status: "invalid", reason: "invalid_data" };
+  const draft = hasMeaningfulArticleInput(parsedDraft.frontmatter, parsedDraft.body)
+    ? { ...parsedDraft, cmsAssociation: "unknown" as const }
+    : parsedDraft;
   return {
     status: "restored",
     draft,

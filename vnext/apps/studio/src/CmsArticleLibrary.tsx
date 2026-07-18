@@ -25,6 +25,7 @@ interface CmsArticleLibraryProps {
   canOpenArticles: boolean;
   connection: CmsLibraryConnection;
   hasRecoveryDraft: boolean;
+  hasWorkingEditor: boolean;
   recoveryNeedsArticleAssociation: boolean;
   openingArticleId: string | null;
   recoveryCharacterCount: number;
@@ -36,6 +37,7 @@ interface CmsArticleLibraryProps {
   onCreate: () => void;
   onDownloadRecovery: () => void;
   onEdit: (articleId: string) => void;
+  onReturnToEditor: () => void;
   onRetry: () => void;
 }
 
@@ -160,6 +162,7 @@ export function CmsArticleLibrary({
   canOpenArticles,
   connection,
   hasRecoveryDraft,
+  hasWorkingEditor,
   recoveryNeedsArticleAssociation,
   openingArticleId,
   recoveryCharacterCount,
@@ -171,6 +174,7 @@ export function CmsArticleLibrary({
   onCreate,
   onDownloadRecovery,
   onEdit,
+  onReturnToEditor,
   onRetry
 }: CmsArticleLibraryProps) {
   const [query, setQuery] = useState("");
@@ -250,10 +254,19 @@ export function CmsArticleLibrary({
           <section className="studio-library-state is-error" role="alert">
             <h2>CMSに接続できません</h2>
             <p>{connection.message}</p>
-            <p>復旧原稿がある場合は、上の復旧原稿から内容の確認やMarkdown書き出しを続けられます。</p>
-            <button className="dads-button" data-size="md" data-type="outline" onClick={onRetry} type="button">
-              もう一度確認
-            </button>
+            <p>{hasWorkingEditor
+              ? "編集中の記事と復旧コピーは、このブラウザに保持しています。編集画面へ戻って内容を確認できます。"
+              : "復旧原稿がある場合は、上の復旧原稿から内容の確認やMarkdown書き出しを続けられます。"}</p>
+            <div className="studio-library-state__actions">
+              {hasWorkingEditor ? (
+                <button className="dads-button" data-size="md" data-type="solid-fill" onClick={onReturnToEditor} type="button">
+                  編集画面に戻る
+                </button>
+              ) : null}
+              <button className="dads-button" data-size="md" data-type="outline" onClick={onRetry} type="button">
+                もう一度確認
+              </button>
+            </div>
           </section>
         ) : null}
 
