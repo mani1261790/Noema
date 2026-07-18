@@ -898,6 +898,7 @@ export function App() {
   };
 
   const showArticleLibrary = () => {
+    setOperationMessage(null);
     if (hasMeaningfulArticleInput(frontmatter, body)) {
       const result = saveBrowserDraft(frontmatter, body);
       if (!cmsArticle && !cmsRecoveryReference) setHasRecoveryDraft(true);
@@ -909,7 +910,6 @@ export function App() {
         });
       }
     }
-    setOperationMessage((current) => current?.tone === "error" ? current : null);
     pendingViewFocus.current = "studio-article-library-heading";
     setStudioView("articles");
   };
