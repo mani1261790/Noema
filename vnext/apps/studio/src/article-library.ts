@@ -12,9 +12,9 @@ export const cmsArticleFilterOptions: ReadonlyArray<{
   value: CmsArticleFilter;
 }> = [
   { label: "すべて", value: "all" },
+  { label: "公開中", value: "published" },
   { label: "下書き・要修正", value: "draft" },
   { label: "レビュー・承認", value: "review" },
-  { label: "公開中", value: "published" },
   { label: "保管", value: "archived" }
 ];
 
