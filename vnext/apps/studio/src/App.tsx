@@ -225,11 +225,12 @@ function getInitialState(): InitialState {
   const loadedDraft = loadDraft(storage);
   if (loadedDraft.status === "restored") {
     const cmsReference = loadedDraft.draft.cmsArticle ?? null;
-    const cmsAssociationRequired = loadedDraft.draft.cmsAssociation === "unknown";
-    const hasRecoveryDraft = !cmsReference && hasMeaningfulArticleInput(
+    const meaningfulDraft = hasMeaningfulArticleInput(
       loadedDraft.draft.frontmatter,
       loadedDraft.draft.body
     );
+    const cmsAssociationRequired = loadedDraft.draft.cmsAssociation === "unknown" && meaningfulDraft;
+    const hasRecoveryDraft = !cmsReference && meaningfulDraft;
     return {
       attempt: null,
       body: loadedDraft.draft.body,
@@ -911,7 +912,11 @@ export function App() {
 
   const applyCmsArticle = (
     article: CmsArticleDetail,
-    options: { pauseAutosave?: boolean; preserveLocalInput?: boolean } = {}
+    options: {
+      pauseAutosave?: boolean;
+      preserveLocalInput?: boolean;
+      preserveLocalVisibility?: boolean;
+    } = {}
   ) => {
     const nextFrontmatter: ArticleFrontmatter = {
       ...article.currentRevision.frontmatter,
@@ -920,9 +925,12 @@ export function App() {
     const nextBody = article.currentRevision.markdown;
     const serverFingerprint = cmsContentFingerprint(nextFrontmatter, nextBody, article.visibility);
     const local = cmsContentRef.current;
+    const preservedVisibility = options.preserveLocalVisibility
+      ? local.visibility
+      : article.visibility;
     const preservedInputHasChanges = Boolean(
       options.preserveLocalInput &&
-      cmsContentFingerprint(local.frontmatter, local.body, article.visibility) !== serverFingerprint
+      cmsContentFingerprint(local.frontmatter, local.body, preservedVisibility) !== serverFingerprint
     );
     const manualSaveRequired = Boolean(options.pauseAutosave && preservedInputHasChanges);
     setCmsArticle(article);
@@ -950,7 +958,7 @@ export function App() {
         }
       });
     } else {
-      setCmsVisibility(article.visibility);
+      setCmsVisibility(preservedVisibility);
       setSaveStatus("ブラウザに復旧コピーを保存済み");
       saveDraft(storage, {
         frontmatter: local.frontmatter,
@@ -958,7 +966,7 @@ export function App() {
         cmsArticle: {
           id: article.id,
           lockVersion: article.lockVersion,
-          visibility: article.visibility,
+          visibility: preservedVisibility,
           ...(manualSaveRequired ? { autosavePaused: true as const } : {})
         }
       });
@@ -1262,7 +1270,10 @@ export function App() {
         current.body,
         current.visibility
       ) !== actionStartFingerprint;
-      applyCmsArticle(result.value, { preserveLocalInput: localChangedDuringAction });
+      applyCmsArticle(result.value, {
+        preserveLocalInput: localChangedDuringAction,
+        preserveLocalVisibility: localChangedDuringAction
+      });
       const labels: Record<CmsArticleAction, string> = {
         approve: "記事を承認しました。",
         archive: "公開記事を保管しました。",
@@ -1788,12 +1799,14 @@ export function App() {
           canOpenArticles={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
           connection={cmsLibraryConnection}
           hasRecoveryDraft={hasRecoveryDraft && !cmsArticle}
+          hasWorkingEditor={Boolean(cmsArticle || cmsRecoveryReference)}
           onContinueRecovery={() => showEditor("write")}
           onContinueRecoveryAsNew={continueRecoveryAsNewArticle}
           onCreate={startNewCmsArticle}
           onDownloadRecovery={downloadRecoveryCopy}
           onEdit={(articleId) => { void loadCmsArticle(articleId); }}
           onRetry={() => setCmsRefresh((current) => current + 1)}
+          onReturnToEditor={() => showEditor("write")}
           openingArticleId={openingArticleId}
           recoveryCharacterCount={body.length}
           recoveryNeedsArticleAssociation={cmsAssociationRequired}

@@ -127,7 +127,7 @@ describe("loadDraft", () => {
     expect(loadDraft(new MemoryStorage())).toEqual({ status: "empty" });
   });
 
-  it("restores an incomplete legacy draft and retains its editable lists", () => {
+  it("marks a meaningful unversioned draft as needing a safe CMS association choice", () => {
     const storage = new MemoryStorage();
     const draft = incompleteDraft();
     storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
@@ -146,13 +146,29 @@ describe("loadDraft", () => {
       status: "restored",
       source: "legacy",
       updatedAt: null,
-      draft
+      draft: { ...draft, cmsAssociation: "unknown" }
     });
     if (result.status === "restored") {
       expect(result.draft.frontmatter).not.toHaveProperty("excerpt");
       expect(result.draft.frontmatter.tags).toEqual(["AI", "下書き"]);
       expect(result.draft.frontmatter.sources).toEqual([{ title: "", url: "", checkedAt: "" }]);
     }
+  });
+
+  it("does not require a CMS association choice for an empty unversioned draft", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      frontmatter: createBlankArticle("2026-07-18"),
+      body: ""
+    };
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "legacy",
+      updatedAt: null,
+      draft
+    });
   });
 
   it("restores a bounded versioned record with its save timestamp", () => {
