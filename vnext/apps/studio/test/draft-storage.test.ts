@@ -4,6 +4,7 @@ import {
   DRAFT_STORAGE_VERSION,
   clearDraft,
   createBlankArticle,
+  hasMeaningfulArticleInput,
   loadDraft,
   resolveBrowserStorage,
   saveDraft,
@@ -106,6 +107,21 @@ describe("createBlankArticle", () => {
   });
 });
 
+describe("hasMeaningfulArticleInput", () => {
+  it("treats a blank article as empty even when its date is not parseable", () => {
+    expect(hasMeaningfulArticleInput({
+      ...createBlankArticle("2026-07-18"),
+      updatedAt: "not-yet-a-date"
+    }, "   ")).toBe(false);
+  });
+
+  it("detects body or metadata input", () => {
+    const blank = createBlankArticle("2026-07-18");
+    expect(hasMeaningfulArticleInput(blank, "## 本文")).toBe(true);
+    expect(hasMeaningfulArticleInput({ ...blank, title: "タイトル" }, "")).toBe(true);
+  });
+});
+
 describe("loadDraft", () => {
   it("distinguishes an empty store", () => {
     expect(loadDraft(new MemoryStorage())).toEqual({ status: "empty" });
@@ -172,6 +188,27 @@ describe("loadDraft", () => {
       source: "versioned",
       updatedAt: "2026-07-18T01:02:03.000Z",
       draft: { ...draft, cmsAssociation: "unknown" }
+    });
+  });
+
+  it("does not require a CMS association choice for an empty previous-version draft", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      frontmatter: createBlankArticle("2026-07-18"),
+      body: ""
+    };
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      frontmatter: draft.frontmatter,
+      body: draft.body
+    }));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      draft
     });
   });
 

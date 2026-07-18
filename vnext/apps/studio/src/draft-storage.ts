@@ -132,6 +132,18 @@ export function createBlankArticle(date: Date | string = new Date()): ArticleFro
   };
 }
 
+export function hasMeaningfulArticleInput(
+  frontmatter: ArticleFrontmatter,
+  body: string
+): boolean {
+  if (body.trim().length > 0) return true;
+  const blank = {
+    ...createBlankArticle("2000-01-01"),
+    updatedAt: frontmatter.updatedAt
+  };
+  return JSON.stringify({ ...frontmatter, status: "draft" }) !== JSON.stringify(blank);
+}
+
 export function loadDraft(
   storage: DraftStorage,
   options: Pick<DraftStorageOptions, "key"> = {}
@@ -174,7 +186,8 @@ export function loadDraft(
       return { status: "invalid", reason: "invalid_data" };
     }
     const parsedDraft = parseDraft(value);
-    const draft = value.version === PREVIOUS_DRAFT_STORAGE_VERSION && parsedDraft
+    const draft = value.version === PREVIOUS_DRAFT_STORAGE_VERSION && parsedDraft &&
+      hasMeaningfulArticleInput(parsedDraft.frontmatter, parsedDraft.body)
       ? { ...parsedDraft, cmsAssociation: "unknown" as const }
       : parsedDraft;
     if (!draft) return { status: "invalid", reason: "invalid_data" };
