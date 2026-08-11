@@ -43,6 +43,7 @@ type StudioApiEnvironment = AccessEnvironment &
       | "GITHUB_APP_PRIVATE_KEY"
       | "CMS_BOOTSTRAP_ADMIN_EMAIL"
       | "CMS_DB"
+      | "ARTICLE_ASSETS"
       | "PUBLICATION_COORDINATOR"
       | "STUDIO_ALLOWED_ORIGIN"
     >
@@ -118,6 +119,7 @@ export async function handleStudioApiRequest(
     return handleCmsApiRequest(
       request,
       {
+        ARTICLE_ASSETS: env.ARTICLE_ASSETS,
         CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
         CMS_DB: env.CMS_DB
       },

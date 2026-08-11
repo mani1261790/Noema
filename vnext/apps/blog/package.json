@@ -30,6 +30,7 @@
     "@noema/ui": "0.1.0",
     "astro": "^7.0.7",
     "github-slugger": "^2.0.0",
+    "highlight.js": "^11.11.1",
     "markdown-it": "^14.3.0",
     "satteri": "^0.9.5",
     "zod": "^4.4.3"

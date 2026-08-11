@@ -27,6 +27,12 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_ASSETS",
+      "bucket_name": "noema-article-assets"
+    }
+  ],
   "secrets": {
     "required": [
       "GITHUB_APP_CLIENT_ID",

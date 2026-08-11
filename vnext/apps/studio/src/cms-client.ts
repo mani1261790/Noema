@@ -18,6 +18,12 @@ import type { ArticleFrontmatter } from "@noema/content";
 const CMS_ARTICLES_PATH = "/api/cms/articles";
 const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
+const CMS_ASSETS_PATH = "/api/cms/assets";
+
+export interface CmsUploadedAsset {
+  markdownUrl: string;
+  previewUrl: string;
+}
 
 export interface CmsClientError {
   code: string;
@@ -137,6 +143,26 @@ export async function updateCmsArticle(
     method: "PUT"
   }, options);
   return articleResult(result);
+}
+
+export async function uploadCmsAsset(
+  file: File,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsUploadedAsset>> {
+  const form = new FormData();
+  form.set("file", file);
+  const result = await cmsRequest(CMS_ASSETS_PATH, {
+    body: form,
+    method: "POST"
+  }, options);
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !isRecord(result.value.asset)) {
+    return invalidResponse(result.status);
+  }
+  const { markdownUrl, previewUrl } = result.value.asset;
+  return isString(markdownUrl) && isString(previewUrl)
+    ? { ok: true, value: { markdownUrl, previewUrl } }
+    : invalidResponse(result.status);
 }
 
 export async function runCmsArticleAction(

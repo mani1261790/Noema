@@ -46,6 +46,7 @@ import {
   fetchCmsSession,
   runCmsArticleAction,
   updateCmsArticle as updateCmsArticleRecord,
+  uploadCmsAsset,
   upsertCmsMember,
   type CmsClientError
 } from "./cms-client";
@@ -59,22 +60,6 @@ import {
   type DraftStorage,
   type StudioDraftCmsArticle
 } from "./draft-storage";
-import {
-  PUBLICATION_ATTEMPT_STORAGE_KEY,
-  cancelArticleSubmission,
-  clearInvalidPublicationAttemptSafely,
-  clearPublicationAttemptSafely,
-  createArticleSubmission,
-  fetchPublicationCapabilities,
-  loadPublicationAttempt,
-  resumeArticleSubmission,
-  retryPublicationAttempt,
-  type PublicationActionResult,
-  type PublicationAttempt,
-  type PublicationCapabilities,
-  type PublicationClientError,
-  type PublicationSuccess
-} from "./publication-client";
 import { createPreviewMarkdown, resolvePublicSiteReference } from "./preview-markdown";
 import {
   MAX_ARTICLE_TOPICS,
@@ -91,10 +76,6 @@ import type { CmsArticleFilter } from "./article-library";
 type Pane = "settings" | "write" | "preview";
 type StudioView = "articles" | "editor";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
-type CapabilityState =
-  | { kind: "checking" }
-  | { capabilities: PublicationCapabilities; kind: "ready" }
-  | { error: PublicationClientError; kind: "unavailable" };
 type CmsSessionState =
   | { kind: "checking" }
   | { kind: "ready"; session: CmsSession }
@@ -106,8 +87,8 @@ const markdown = createPreviewMarkdown(publicSiteUrl);
 const reviewValidationSubmissionId = "00000000-0000-4000-8000-000000000000";
 const paneOrder: Pane[] = ["write", "preview", "settings"];
 const paneLabels: Record<Pane, string> = {
-  settings: "設定",
-  write: "本文",
+  settings: "記事情報",
+  write: "Markdownを書く",
   preview: "プレビュー"
 };
 
@@ -180,13 +161,11 @@ function issueControlId(issue: ArticleSubmissionValidationIssue): string | null 
 }
 
 interface InitialState {
-  attempt: PublicationAttempt | null;
   body: string;
   cmsAssociationRequired: boolean;
   cmsReference: StudioDraftCmsArticle | null;
   frontmatter: ArticleFrontmatter;
   hasRecoveryDraft: boolean;
-  invalidAttemptStorage: boolean;
   message: OperationMessage | null;
   saveStatus: string;
   storage: DraftStorage;
@@ -194,34 +173,6 @@ interface InitialState {
 
 function getInitialState(): InitialState {
   const { available: storageAvailable, storage } = resolveBrowserStorage(window);
-  const attempt = loadPublicationAttempt(storage);
-  if (attempt) {
-    const cancelled = attempt.status.kind === "succeeded" && attempt.status.result.outcome === "cancelled";
-    return {
-      attempt,
-      body: attempt.request.markdown,
-      cmsAssociationRequired: false,
-      cmsReference: null,
-      frontmatter: attempt.request.frontmatter,
-      hasRecoveryDraft: true,
-      invalidAttemptStorage: false,
-      message: {
-        text: cancelled
-          ? "取り消したレビュー依頼の内容を復元しています。"
-          : "前回のレビュー依頼を復元しました。状態を確認するまで内容は固定されます。",
-        tone: cancelled ? "success" : "info"
-      },
-      saveStatus: cancelled ? "取り消した内容を復元中" : "送信内容を復元しました",
-      storage
-    };
-  }
-
-  let invalidAttemptStorage = false;
-  try {
-    invalidAttemptStorage = storage.getItem(PUBLICATION_ATTEMPT_STORAGE_KEY) !== null;
-  } catch {
-    // The publication client will report storage unavailability if the user submits.
-  }
 
   const loadedDraft = loadDraft(storage);
   if (loadedDraft.status === "restored") {
@@ -233,19 +184,12 @@ function getInitialState(): InitialState {
     const cmsAssociationRequired = loadedDraft.draft.cmsAssociation === "unknown" && meaningfulDraft;
     const hasRecoveryDraft = !cmsReference && meaningfulDraft;
     return {
-      attempt: null,
       body: loadedDraft.draft.body,
       cmsAssociationRequired,
       cmsReference,
       frontmatter: loadedDraft.draft.frontmatter,
       hasRecoveryDraft,
-      invalidAttemptStorage,
-      message: invalidAttemptStorage
-        ? {
-            text: "以前の送信記録を安全に読み込めません。下書きは復元できています。",
-            tone: "error"
-          }
-        : cmsReference
+      message: cmsReference
           ? {
               text: "前回編集中だったCMS記事へ再接続しています。入力内容は復旧コピーから保持しています。",
               tone: "info"
@@ -270,21 +214,14 @@ function getInitialState(): InitialState {
   }
 
   return {
-    attempt: null,
     body: "",
     cmsAssociationRequired: false,
     cmsReference: null,
     frontmatter: createBlankArticle(),
     hasRecoveryDraft: false,
-    invalidAttemptStorage,
     message: !storageAvailable
       ? {
           text: "このブラウザでは自動保存を利用できません。入力後はMarkdownを書き出して保管してください。",
-          tone: "error"
-        }
-      : invalidAttemptStorage
-      ? {
-          text: "以前の送信記録を安全に読み込めません。修復してからレビューを依頼してください。",
           tone: "error"
         }
       : loadedDraft.status === "invalid"
@@ -489,18 +426,121 @@ function PreviewHeroImage({ image }: { image: NonNullable<ArticleFrontmatter["he
   return <img className="studio-preview__hero-image" src={src} alt={image.alt} onError={() => setFailed(true)} />;
 }
 
-function publicationOutcomeLabel(result: PublicationSuccess): string {
-  switch (result.outcome) {
-    case "open":
-      return "Draft PRを準備しました";
-    case "merged":
-      return "レビュー済みの記事がdevelopへ反映されました";
-    case "closed":
-      return "Draft PRはマージされずに閉じられました";
-    case "cancelled":
-      return "レビュー依頼を取り消しました";
-  }
+function ArticlePreviewContent({
+  frontmatter,
+  previewHtml
+}: {
+  frontmatter: ArticleFrontmatter;
+  previewHtml: string;
+}) {
+  return (
+    <article>
+      {frontmatter.heroImage ? <PreviewHeroImage key={frontmatter.heroImage.src} image={frontmatter.heroImage} /> : null}
+      <div className="studio-preview__meta">
+        <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? "テーマ未選択"}</span>
+        <span>{approachLabels[frontmatter.approach]}</span>
+        <span>約{frontmatter.estimatedMinutes || "—"}分</span>
+        <span>{frontmatter.authors.filter(Boolean).join("、") || "執筆者未入力"}</span>
+      </div>
+      <h1>{frontmatter.title || "タイトル未入力"}</h1>
+      <p className="studio-preview__lead">{frontmatter.description || "概要を入力すると、ここに表示されます。"}</p>
+      {frontmatter.outcome ? (
+        <section className="studio-preview__outcome">
+          <h2>この記事でできるようになること</h2>
+          <p>{frontmatter.outcome}</p>
+        </section>
+      ) : null}
+      <div className="studio-preview__dates">
+        {formatArticleDate(frontmatter.publishedAt) ? <span>公開 {formatArticleDate(frontmatter.publishedAt)}</span> : null}
+        <span>更新 {formatArticleDate(frontmatter.updatedAt)}</span>
+      </div>
+      {frontmatter.tags.filter(Boolean).length > 0 ? (
+        <ul className="studio-preview__tags" aria-label="タグ">
+          {frontmatter.tags.filter(Boolean).map((tag) => <li key={tag}>{tag}</li>)}
+        </ul>
+      ) : null}
+      <div className="studio-preview__body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+      {frontmatter.sources.length > 0 ? (
+        <section className="studio-preview__sources">
+          <h2>参考資料</h2>
+          <ul>{frontmatter.sources.map((source, index) => {
+            const label = source.title || source.url || `資料 ${index + 1}`;
+            return (
+              <li key={`${source.url}-${index}`}>
+                {isSafeHttpUrl(source.url) ? <a href={source.url} target="_blank" rel="noreferrer">{label}</a> : <span>{label}</span>}
+                {source.checkedAt ? `（${formatArticleDate(source.checkedAt)}確認）` : ""}
+              </li>
+            );
+          })}</ul>
+        </section>
+      ) : null}
+    </article>
+  );
 }
+
+function TagEditor({
+  disabled,
+  error,
+  onChange,
+  tags
+}: {
+  disabled?: boolean;
+  error?: string;
+  onChange: (tags: string[]) => void;
+  tags: string[];
+}) {
+  const [input, setInput] = useState("");
+
+  const addTag = () => {
+    const nextTag = input.trim().replace(/^#+/u, "");
+    if (!nextTag) return;
+    if (!tags.some((tag) => tag.toLocaleLowerCase() === nextTag.toLocaleLowerCase())) {
+      onChange([...tags, nextTag]);
+    }
+    setInput("");
+  };
+
+  return (
+    <div className={`studio-tag-editor ${error ? "has-error" : ""}`}>
+      {tags.length > 0 ? (
+        <ul className="studio-tag-editor__list" aria-label="設定済みのタグ">
+          {tags.map((tag) => (
+            <li key={tag}>
+              <span>{tag}</span>
+              <button
+                aria-label={`${tag}を削除`}
+                disabled={disabled}
+                onClick={() => onChange(tags.filter((current) => current !== tag))}
+                type="button"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="studio-tag-editor__empty">タグはまだありません。</p>}
+      <div className="studio-tag-editor__input-row">
+        <input
+          aria-describedby="article-tags-support"
+          aria-invalid={error ? true : undefined}
+          disabled={disabled}
+          id="article-tags"
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              addTag();
+            }
+          }}
+          placeholder="タグを入力"
+          value={input}
+        />
+        <button className="dads-button" data-size="sm" data-type="outline" disabled={disabled || !input.trim()} onClick={addTag} type="button">追加</button>
+      </div>
+    </div>
+  );
+}
+
 
 export function App() {
   const [initialState] = useState(getInitialState);
@@ -510,20 +550,15 @@ export function App() {
     status: "draft"
   });
   const [body, setBody] = useState(initialState.body);
-  const [attempt, setAttempt] = useState<PublicationAttempt | null>(initialState.attempt);
-  const [invalidAttemptStorage, setInvalidAttemptStorage] = useState(initialState.invalidAttemptStorage);
   const [studioView, setStudioView] = useState<StudioView>(
-    initialState.attempt || initialState.cmsReference || initialState.hasRecoveryDraft || initialState.invalidAttemptStorage
+    initialState.cmsReference || initialState.hasRecoveryDraft
       ? "editor"
       : "articles"
   );
   const [activePane, setActivePane] = useState<Pane>("write");
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
-  const [capabilityState, setCapabilityState] = useState<CapabilityState>({ kind: "checking" });
-  const [capabilityRefresh, setCapabilityRefresh] = useState(0);
   const [validationRequested, setValidationRequested] = useState(false);
-  const [publicationBusy, setPublicationBusy] = useState(false);
   const [publicationIssues, setPublicationIssues] = useState<ArticleSubmissionValidationIssue[]>([]);
   const [cmsSessionState, setCmsSessionState] = useState<CmsSessionState>({ kind: "checking" });
   const [cmsRefresh, setCmsRefresh] = useState(0);
@@ -557,15 +592,17 @@ export function App() {
   const [cmsMemberEmail, setCmsMemberEmail] = useState("");
   const [cmsMemberRole, setCmsMemberRole] = useState<CmsRole>("editor");
   const [cmsMemberActive, setCmsMemberActive] = useState(true);
-  const [metadataOpen, setMetadataOpen] = useState(false);
+  const [metadataOpen, setMetadataOpen] = useState(true);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(true);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imageAlt, setImageAlt] = useState("");
+  const [imageUploadBusy, setImageUploadBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
   const validationSection = useRef<HTMLElement>(null);
-  const legacyReviewButton = useRef<HTMLButtonElement>(null);
-  const confirmDialog = useRef<HTMLDialogElement>(null);
-  const cancelledRecoveryInFlight = useRef<string | null>(null);
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
   const pendingViewFocus = useRef<string | null>(null);
@@ -633,79 +670,13 @@ export function App() {
   const editorialWarnings = [
     ...(frontmatter.sources.length === 0 ? ["出典がまだ登録されていません。"] : [])
   ];
-  const baseValidation = articleFrontmatterSchema.safeParse(frontmatter);
-  const canExport = baseValidation.success && bodyErrors.length === 0;
-  const attemptResult = attempt?.status.kind === "succeeded" ? attempt.status.result : null;
-  const attemptCancelled = attemptResult?.outcome === "cancelled";
-  const editorLocked = publicationBusy || Boolean(attempt);
-  const canAbandonAttempt = attempt?.status.kind === "failed" &&
-    attempt.status.operation === "create" &&
-    ["article_already_exists", "open_submission_exists"].includes(attempt.status.error.code);
-  const capabilityEnabled = capabilityState.kind === "ready" && capabilityState.capabilities.publication.enabled;
+  const editorLocked = false;
   const cmsFingerprint = useMemo(
     () => cmsContentFingerprint(frontmatter, body, cmsVisibility),
     [body, cmsVisibility, frontmatter]
   );
   const cmsDirty = cmsArticle !== null && cmsFingerprint !== lastCmsFingerprint;
 
-  const resumeEditingAfterCancellation = useCallback(async () => {
-    if (!attempt || attempt.status.kind !== "succeeded" || attempt.status.result.outcome !== "cancelled") return;
-    const submissionId = attempt.request.submissionId;
-    if (cancelledRecoveryInFlight.current === submissionId) return;
-    cancelledRecoveryInFlight.current = submissionId;
-    setPublicationBusy(true);
-
-    const savedDraft = saveDraft(storage, {
-      frontmatter: attempt.request.frontmatter,
-      body: attempt.request.markdown
-    });
-    if (!savedDraft.ok) {
-      setOperationMessage({
-        text: "取り消した内容を下書きへ保存できませんでした。送信記録を残しているため、もう一度試せます。",
-        tone: "error"
-      });
-      cancelledRecoveryInFlight.current = null;
-      setPublicationBusy(false);
-      return;
-    }
-
-    const clearedAttempt = await clearPublicationAttemptSafely(attempt, { storage });
-    if (clearedAttempt.ok) {
-      setAttempt(null);
-      setSaveStatus("このブラウザに保存済み");
-      setOperationMessage({ text: "取り消した内容を下書きとして復元しました。編集を再開できます。", tone: "success" });
-    } else {
-      if (clearedAttempt.attempt) {
-        setAttempt(clearedAttempt.attempt);
-        setFrontmatter(clearedAttempt.attempt.request.frontmatter);
-        setBody(clearedAttempt.attempt.request.markdown);
-      }
-      setOperationMessage({
-        text: clearedAttempt.error.code === "publication_attempt_changed"
-          ? "別のタブで送信状態が更新されました。最新の状態を表示しています。"
-          : "送信記録を安全に解除できませんでした。内容は保持されています。",
-        tone: "error"
-      });
-    }
-    cancelledRecoveryInFlight.current = null;
-    setPublicationBusy(false);
-  }, [attempt]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let current = true;
-    setCapabilityState({ kind: "checking" });
-    void fetchPublicationCapabilities({ signal: controller.signal }).then((result) => {
-      if (!current || controller.signal.aborted) return;
-      setCapabilityState(result.ok
-        ? { capabilities: result.capabilities, kind: "ready" }
-        : { error: result.error, kind: "unavailable" });
-    });
-    return () => {
-      current = false;
-      controller.abort();
-    };
-  }, [capabilityRefresh]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -755,10 +726,6 @@ export function App() {
       controller.abort();
     };
   }, [cmsRefresh, cmsSessionState]);
-
-  useEffect(() => {
-    if (attemptCancelled) void resumeEditingAfterCancellation();
-  }, [attemptCancelled, resumeEditingAfterCancellation]);
 
   useEffect(() => {
     const targetId = pendingViewFocus.current;
@@ -1158,7 +1125,7 @@ export function App() {
     setCmsConflict(false);
     setPublicationIssues([]);
     setValidationRequested(false);
-    showEditor("settings");
+    showEditor("write");
     setOperationMessage({ text: "新しい記事を作成します。最初の保存でCMSに登録されます。", tone: "info" });
   };
 
@@ -1393,6 +1360,43 @@ export function App() {
     });
   };
 
+  const insertMarkdownAtCursor = (snippet: string) => {
+    const input = bodyInput.current;
+    const start = input?.selectionStart ?? body.length;
+    const end = input?.selectionEnd ?? start;
+    const before = body.slice(0, start);
+    const after = body.slice(end);
+    const prefix = before && !before.endsWith("\n") ? "\n\n" : "";
+    const suffix = after && !after.startsWith("\n") ? "\n\n" : "";
+    const inserted = `${prefix}${snippet}${suffix}`;
+    setBody(`${before}${inserted}${after}`);
+    setPublicationIssues([]);
+    window.requestAnimationFrame(() => {
+      const nextInput = bodyInput.current;
+      if (!nextInput) return;
+      const caret = start + inserted.length;
+      nextInput.focus();
+      nextInput.setSelectionRange(caret, caret);
+    });
+  };
+
+  const insertPendingImage = async () => {
+    if (!pendingImage || !imageAlt.trim() || imageUploadBusy) return;
+    setImageUploadBusy(true);
+    const result = await uploadCmsAsset(pendingImage);
+    setImageUploadBusy(false);
+    if (!result.ok) {
+      setOperationMessage({ text: result.error.message, tone: "error" });
+      return;
+    }
+    const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "");
+    insertMarkdownAtCursor(`![${safeAlt}](${result.value.markdownUrl})`);
+    setPendingImage(null);
+    setImageAlt("");
+    if (imageInput.current) imageInput.current.value = "";
+    setOperationMessage({ text: "画像をアップロードし、本文に追加しました。", tone: "success" });
+  };
+
   const focusReviewIssue = (issue: ArticleSubmissionValidationIssue) => {
     const field = normalizedIssueField(issue);
     if (field === "markdown") {
@@ -1468,155 +1472,12 @@ export function App() {
     ));
   };
 
-  const requestReview = () => {
-    setValidationRequested(true);
-    const currentValidation = articleSubmissionRequestSchema.safeParse({
-      version: 1,
-      operation: "create_article",
-      submissionId: reviewValidationSubmissionId,
-      frontmatter,
-      markdown: body
-    });
-    if (!currentValidation.success) {
-      setPublicationIssues(normalizeReviewIssues(currentValidation.error.issues.map((issue) => ({
-        message: issue.message,
-        path: issue.path.map((segment) => typeof segment === "number" ? segment : String(segment))
-      }))));
-      setOperationMessage({ text: "レビューへ送る前に入力エラーを確認してください。", tone: "error" });
-      focusValidation();
-      return;
-    }
-    setPublicationIssues([]);
-    if (!capabilityEnabled || editorLocked) return;
-    confirmDialog.current?.showModal();
-  };
 
-  const applyPublicationResult = (result: PublicationActionResult) => {
-    if (result.attempt) {
-      setInvalidAttemptStorage(false);
-      setAttempt(result.attempt);
-      setFrontmatter(result.attempt.request.frontmatter);
-      setBody(result.attempt.request.markdown);
-    }
-    if (result.ok) {
-      setInvalidAttemptStorage(false);
-      setPublicationIssues([]);
-      setOperationMessage({ text: publicationOutcomeLabel(result.result), tone: "success" });
-      return;
-    }
-    if (!result.attempt && result.error.code === "invalid_stored_attempt") {
-      setInvalidAttemptStorage(true);
-    }
-    setPublicationIssues(normalizeReviewIssues(result.error.issues ?? []));
-    if (result.error.issues?.length) setValidationRequested(true);
-    setOperationMessage({
-      text: result.outcomeUnknown
-        ? "送信結果を確認できませんでした。内容を変更せず、もう一度確認してください。"
-        : result.error.message,
-      tone: "error"
-    });
-  };
 
-  const submitReview = async () => {
-    confirmDialog.current?.close();
-    setPublicationBusy(true);
-    setOperationMessage({ text: "Draft PRを準備しています…", tone: "info" });
-    const result = await createArticleSubmission(
-      { frontmatter, markdown: body },
-      { storage }
-    );
-    applyPublicationResult(result);
-    setPublicationBusy(false);
-  };
 
-  const retryAttempt = async () => {
-    if (!attempt || publicationBusy) return;
-    setPublicationBusy(true);
-    setOperationMessage({ text: "同じ送信内容で状態を確認しています…", tone: "info" });
-    const result = await retryPublicationAttempt(attempt, { storage });
-    applyPublicationResult(result);
-    setPublicationBusy(false);
-  };
 
-  const resumeAttempt = async () => {
-    if (!attempt || publicationBusy) return;
-    if (!window.confirm("取り消しをやめて、元の内容でDraft PRの作成・状態確認を続けますか？")) return;
-    setPublicationBusy(true);
-    setOperationMessage({ text: "元の送信内容で状態を再確認しています…", tone: "info" });
-    const result = await resumeArticleSubmission(attempt, { storage });
-    applyPublicationResult(result);
-    setPublicationBusy(false);
-  };
 
-  const repairInvalidAttemptStorage = async () => {
-    if (!invalidAttemptStorage || publicationBusy) return;
-    if (!window.confirm("安全に読み込めない送信記録だけを削除しますか？ 現在の下書き内容は残ります。")) return;
-    setPublicationBusy(true);
-    const result = await clearInvalidPublicationAttemptSafely({ storage });
-    if (result.ok) {
-      setInvalidAttemptStorage(false);
-      setOperationMessage({ text: "以前の送信記録を修復しました。下書き内容はそのままです。", tone: "success" });
-    } else if (result.attempt) {
-      setInvalidAttemptStorage(false);
-      setAttempt(result.attempt);
-      setFrontmatter(result.attempt.request.frontmatter);
-      setBody(result.attempt.request.markdown);
-      setOperationMessage({
-        text: "別のタブで有効な送信状態へ更新されました。最新の内容を表示しています。",
-        tone: "info"
-      });
-    } else {
-      setOperationMessage({ text: "送信記録を安全に修復できませんでした。ブラウザの保存設定を確認してください。", tone: "error" });
-    }
-    setPublicationBusy(false);
-  };
 
-  const cancelAttempt = async () => {
-    if (!attempt || publicationBusy) return;
-    if (!window.confirm("このレビュー依頼を取り消しますか？ GitHub側の作成が始まっている場合は取り消せません。")) return;
-    setPublicationBusy(true);
-    setOperationMessage({ text: "レビュー依頼を取り消しています…", tone: "info" });
-    const result = await cancelArticleSubmission(attempt, { storage });
-    if (result.ok && result.result.outcome === "cancelled") {
-      cancelledRecoveryInFlight.current = result.attempt.request.submissionId;
-    }
-    applyPublicationResult(result);
-    if (result.ok && result.result.outcome === "cancelled") {
-      const savedDraft = saveDraft(storage, {
-        frontmatter: result.attempt.request.frontmatter,
-        body: result.attempt.request.markdown
-      });
-      if (!savedDraft.ok) {
-        setOperationMessage({
-          text: "取り消しは完了しましたが、内容を下書きへ保存できませんでした。送信記録は安全のため残しています。",
-          tone: "error"
-        });
-        cancelledRecoveryInFlight.current = null;
-        setPublicationBusy(false);
-        return;
-      }
-      const clearedAttempt = await clearPublicationAttemptSafely(result.attempt, { storage });
-      if (clearedAttempt.ok) {
-        setAttempt(null);
-        setSaveStatus("このブラウザに保存済み");
-        setOperationMessage({ text: "レビュー依頼を取り消しました。編集を再開できます。", tone: "success" });
-      } else {
-        if (clearedAttempt.attempt) {
-          setAttempt(clearedAttempt.attempt);
-          setFrontmatter(clearedAttempt.attempt.request.frontmatter);
-          setBody(clearedAttempt.attempt.request.markdown);
-        }
-        setOperationMessage({
-          text: clearedAttempt.error.code === "publication_attempt_changed"
-            ? "取り消し後に別のタブで送信状態が更新されました。最新の状態を確認してください。"
-            : "取り消しは完了しましたが、ブラウザの送信記録を安全に消去できませんでした。",
-          tone: "error"
-        });
-      }
-      cancelledRecoveryInFlight.current = null;
-    }
-    setPublicationBusy(false);
-  };
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, pane: Pane) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1633,13 +1494,6 @@ export function App() {
   };
 
   const validationVisible = validationRequested || publicationIssues.length > 0;
-  const publicationStatus = attempt?.status;
-  const failedAttemptNeedsReload = publicationStatus?.kind === "failed" &&
-    ["invalid_stored_attempt", "publication_attempt_changed"].includes(publicationStatus.error.code);
-  const failedCancellation = publicationStatus?.kind === "failed" && publicationStatus.operation === "cancel";
-  const pullRequest = publicationStatus?.kind === "succeeded" && publicationStatus.result.outcome !== "cancelled"
-    ? publicationStatus.result.pullRequest
-    : null;
   const cmsSession = cmsSessionState.kind === "ready" ? cmsSessionState.session : null;
   const cmsSaveLabel: Record<CmsSaveState, string> = {
     conflict: "保存競合・入力内容を保持中",
@@ -1861,15 +1715,11 @@ export function App() {
             <span>CMSへ保存し、レビュー・承認・公開を役割ごとに進めます。</span>
           </div>
 
-          <section
-            aria-labelledby="cms-workflow-heading"
-            className="studio-cms"
-            id="cms-workflow"
-            tabIndex={-1}
-          >
-            <div className="studio-cms__heading">
-              <h2 id="cms-workflow-heading">記事とワークフロー</h2>
-            </div>
+          <details className="studio-cms studio-cms-workflow" id="cms-workflow">
+            <summary className="studio-cms-workflow__summary">
+              <span>保存・レビュー・公開</span>
+              <small>{cmsArticle ? `${cmsReviewStatusLabels[cmsArticle.reviewStatus]}・${cmsPublicationStatusLabels[cmsArticle.publicationStatus]}` : "未登録・未公開"}</small>
+            </summary>
 
             {cmsSessionState.kind === "checking" ? (
               <p className="studio-cms__session" role="status">CMSの権限を確認しています…</p>
@@ -2082,7 +1932,7 @@ export function App() {
               <summary>保存の仕組み</summary>
               <p className="studio-cms__recovery-copy">ブラウザ保存は通信障害や競合時の復旧コピーです。共有・レビュー・公開の正本はCMSです。<span aria-live="polite">{saveStatus}</span></p>
             </details>
-          </section>
+          </details>
 
           <details className="studio-disclosure studio-utilities">
             <summary>Markdownの入出力</summary>
@@ -2119,7 +1969,6 @@ export function App() {
                 <div><dt>参考資料</dt><dd>{frontmatter.sources.length > 0 ? (
                   <ul>{frontmatter.sources.map((source, index) => <li key={`${source.url}-${index}`}>{source.title} — {source.url}（{source.checkedAt}確認）</li>)}</ul>
                 ) : "なし"}</dd></div>
-                <div><dt>送信ID</dt><dd><code>{attempt?.request.submissionId}</code></dd></div>
               </dl>
             </section>
           ) : null}
@@ -2240,8 +2089,13 @@ export function App() {
                 })()}
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "tags", validationVisible);
-                  return <Field id="article-tags" label="タグ" required={false} support="複数の場合はカンマで区切ります。" error={error}>
-                    <input id="article-tags" className="dads-input-text__input" {...inputA11y("article-tags", true, error, false, false)} value={frontmatter.tags.join(", ")} onChange={(event) => update("tags", event.target.value.split(",").map((tag) => tag.trim()))} onBlur={() => update("tags", frontmatter.tags.filter(Boolean))} />
+                  return <Field id="article-tags" label="タグ" required={false} support="入力してEnterまたは「追加」を押します。後から個別に外せます。" error={error}>
+                    <TagEditor
+                      disabled={editorLocked}
+                      error={error}
+                      onChange={(tags) => update("tags", tags)}
+                      tags={frontmatter.tags.filter(Boolean)}
+                    />
                   </Field>;
                 })()}
                 {(() => {
@@ -2327,103 +2181,6 @@ export function App() {
             </section>
           ) : null}
 
-          <details className="studio-legacy-review">
-            <summary>移行用: 旧GitHub Draft PR連携</summary>
-          <section aria-labelledby="article-review-heading" className="studio-review studio-review--legacy" id="article-review" tabIndex={-1}>
-            <p className="studio-review__eyebrow">LEGACY FALLBACK</p>
-            <h2 id="article-review-heading">旧GitHub Draft PR連携</h2>
-            <p>移行期間中の予備経路です。通常の記事管理・レビュー・公開には、上のNoema CMSを使用してください。</p>
-
-            {capabilityState.kind === "checking" ? <p className="studio-review__state" role="status">GitHub連携を確認中…</p> : null}
-            {capabilityState.kind === "ready" && capabilityState.capabilities.publication.enabled ? (
-              <p className="studio-review__state is-ready"><Icon name="check" /> 連携済み — {capabilityState.capabilities.identity.email}</p>
-            ) : null}
-            {capabilityState.kind === "ready" && !capabilityState.capabilities.publication.enabled ? (
-              <p className="studio-review__state is-unavailable">この環境ではGitHub連携が無効です。Markdownの書き出しは利用できます。</p>
-            ) : null}
-            {capabilityState.kind === "unavailable" ? (
-              <div className="studio-review__state is-unavailable">
-                <p>GitHub連携の状態を確認できません。Markdownの書き出しは利用できます。</p>
-                <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={() => setCapabilityRefresh((current) => current + 1)}>もう一度確認</button>
-              </div>
-            ) : null}
-
-            {!attempt && !invalidAttemptStorage ? (
-              <button
-                className="dads-button studio-review__primary"
-                data-size="lg"
-                data-type="solid-fill"
-                disabled={!capabilityEnabled || publicationBusy}
-                onClick={requestReview}
-                ref={legacyReviewButton}
-                type="button"
-              >
-                {publicationBusy ? "準備しています…" : "レビューを依頼"}
-              </button>
-            ) : null}
-
-            {invalidAttemptStorage ? (
-              <div className="studio-review__recovery">
-                <h3>以前の送信記録を読み込めません</h3>
-                <p>現在の入力内容は下書きとして残っています。読み込めない送信記録だけを削除すると、もう一度レビューを依頼できます。</p>
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => void repairInvalidAttemptStorage()}>送信記録を修復</button>
-              </div>
-            ) : null}
-
-            {publicationStatus?.kind === "pending" || publicationStatus?.kind === "outcomeUnknown" ? (
-              <div className="studio-review__recovery">
-                <h3>{publicationStatus.operation === "cancel" ? "取り消し結果の確認が必要です" : "送信結果の確認が必要です"}</h3>
-                <p>内容を変更せず、同じ送信IDで状態を確認します。</p>
-                {publicationStatus.operation === "cancel" ? (
-                  <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => void retryAttempt()}>取り消し結果を再確認</button>
-                ) : (
-                  <div className="studio-review__actions">
-                    <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => void retryAttempt()}>同じ内容で再確認</button>
-                    <button className="dads-button" data-size="md" data-type="outline" disabled={publicationBusy} type="button" onClick={() => void cancelAttempt()}>依頼を取り消す</button>
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            {publicationStatus?.kind === "failed" ? (
-              <div className="studio-review__recovery">
-                <h3>レビュー依頼を完了できませんでした</h3>
-                <p>{publicationStatus.error.message}</p>
-                {canAbandonAttempt ? <p>記事やPRを作成する前に停止したため、下の「新しい記事を開始」から安全に編集へ戻れます。</p> : null}
-                {failedAttemptNeedsReload ? (
-                  <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => window.location.reload()}>最新の状態を読み込む</button>
-                ) : failedCancellation ? (
-                  <div className="studio-review__actions">
-                    <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => void resumeAttempt()}>取り消しをやめて送信を続行</button>
-                    {publicationStatus.error.retryable ? <button className="dads-button" data-size="md" data-type="outline" disabled={publicationBusy} type="button" onClick={() => void retryAttempt()}>取り消しを再試行</button> : null}
-                  </div>
-                ) : !canAbandonAttempt ? (
-                  <div className="studio-review__actions">
-                    <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => void retryAttempt()}>同じ内容で再試行</button>
-                    <button className="dads-button" data-size="md" data-type="outline" disabled={publicationBusy} type="button" onClick={() => void cancelAttempt()}>依頼を取り消す</button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {publicationStatus?.kind === "succeeded" ? (
-              <div className="studio-review__result">
-                <h3>{publicationOutcomeLabel(publicationStatus.result)}</h3>
-                {pullRequest ? (
-                  <a className="dads-button" data-size="md" data-type="solid-fill" href={pullRequest.url} target="_blank" rel="noreferrer">
-                    GitHubでレビューを開く <Icon name="external" />
-                  </a>
-                ) : null}
-                {publicationStatus.result.outcome === "open" ? (
-                  <button className="dads-button" data-size="md" data-type="outline" disabled={publicationBusy} type="button" onClick={() => void retryAttempt()}>PRの状態を再確認</button>
-                ) : null}
-                {publicationStatus.result.outcome === "cancelled" ? (
-                  <button className="dads-button" data-size="md" data-type="solid-fill" disabled={publicationBusy} type="button" onClick={() => void resumeEditingAfterCancellation()}>編集を再開</button>
-                ) : null}
-              </div>
-            ) : null}
-          </section>
-          </details>
 
         </aside>
 
@@ -2437,31 +2194,117 @@ export function App() {
         >
           <div className="studio-pane-title studio-pane-title--horizontal">
             <div>
-              <h2 id="editor-heading">本文</h2>
-              <p className="studio-pane-title__context">{frontmatter.title || "新しい記事"}</p>
+              <h2 id="editor-heading">Markdown本文</h2>
+              <p className="studio-pane-title__context">本文を直接編集します。変更はCMSへ自動保存されます。</p>
             </div>
             <div className="studio-editor__status">
               <span>{body.length.toLocaleString("ja-JP")}文字</span>
+              <button
+                aria-pressed={showLivePreview}
+                className="studio-preview-toggle"
+                onClick={() => setShowLivePreview((current) => !current)}
+                type="button"
+              >
+                {showLivePreview ? "プレビューを閉じる" : "横にプレビュー"}
+              </button>
               {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー{blockingErrorCount}件を確認</button> : null}
             </div>
           </div>
           {editorLocked ? <p className="studio-editor__lock" role="status">送信内容を固定しています。本文は選択してコピーできます。</p> : null}
-          <label className="sr-only" htmlFor="article-body">Markdown本文</label>
-          <textarea
-            aria-describedby="article-body-help"
-            aria-errormessage={bodyInvalid ? "article-body-error" : undefined}
-            aria-invalid={bodyInvalid || undefined}
-            aria-required="true"
-            aria-readonly={editorLocked}
-            id="article-body"
-            onChange={(event) => { if (!editorLocked) { setBody(event.target.value); setPublicationIssues([]); } }}
-            placeholder="# はじめにではなく、H2（##）から本文を書き始めます"
-            readOnly={editorLocked}
-            required
-            ref={bodyInput}
-            spellCheck="true"
-            value={body}
-          />
+          <div className="studio-markdown-toolbar" aria-label="Markdown編集ツール">
+            <input
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                setPendingImage(file);
+                setImageAlt("");
+              }}
+              ref={imageInput}
+              type="file"
+            />
+            <button
+              className="dads-button"
+              data-size="sm"
+              data-type="outline"
+              disabled={editorLocked || imageUploadBusy || !cmsSession?.capabilities.canEdit}
+              onClick={() => imageInput.current?.click()}
+              type="button"
+            >
+              画像を追加
+            </button>
+            <span>PNG・JPEG・WebP・GIF、8MBまで</span>
+          </div>
+          {pendingImage ? (
+            <div className="studio-image-insert" role="group" aria-labelledby="image-insert-heading">
+              <div>
+                <strong id="image-insert-heading">{pendingImage.name}</strong>
+                <span>{(pendingImage.size / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}MB</span>
+              </div>
+              <label htmlFor="image-alt">画像の説明（代替テキスト）</label>
+              <input
+                id="image-alt"
+                onChange={(event) => setImageAlt(event.target.value)}
+                placeholder="例：Studioの記事編集画面"
+                required
+                value={imageAlt}
+              />
+              <div className="studio-image-insert__actions">
+                <button
+                  className="dads-button"
+                  data-size="sm"
+                  disabled={!imageAlt.trim() || imageUploadBusy}
+                  onClick={() => void insertPendingImage()}
+                  type="button"
+                >
+                  {imageUploadBusy ? "アップロード中…" : "本文に挿入"}
+                </button>
+                <button
+                  className="dads-button"
+                  data-size="sm"
+                  data-type="outline"
+                  disabled={imageUploadBusy}
+                  onClick={() => {
+                    setPendingImage(null);
+                    setImageAlt("");
+                    if (imageInput.current) imageInput.current.value = "";
+                  }}
+                  type="button"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className={`studio-writing-layout ${showLivePreview ? "has-preview" : ""}`}>
+            <div className="studio-writing-canvas">
+              <label className="sr-only" htmlFor="article-body">Markdown本文</label>
+              <textarea
+                aria-describedby="article-body-help"
+                aria-errormessage={bodyInvalid ? "article-body-error" : undefined}
+                aria-invalid={bodyInvalid || undefined}
+                aria-required="true"
+                aria-readonly={editorLocked}
+                id="article-body"
+                onChange={(event) => { if (!editorLocked) { setBody(event.target.value); setPublicationIssues([]); } }}
+                placeholder="## はじめに\n\nここからMarkdownで本文を書きます。"
+                readOnly={editorLocked}
+                required
+                ref={bodyInput}
+                spellCheck="true"
+                value={body}
+              />
+            </div>
+            {showLivePreview ? (
+              <div className="studio-live-preview studio-preview" aria-label="ライブプレビュー">
+                <div className="studio-live-preview__heading">
+                  <strong>ライブプレビュー</strong>
+                  <span>自動更新</span>
+                </div>
+                <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} />
+              </div>
+            ) : null}
+          </div>
           <p className="sr-only" id="article-body-help">Markdown形式で本文を入力します。H1見出しとraw HTMLは使用できません。</p>
           <p className="sr-only" id="article-body-error">{bodyErrorMessage ? `エラー — ${bodyErrorMessage}` : ""}</p>
         </section>
@@ -2481,64 +2324,12 @@ export function App() {
             </div>
             <span className="studio-preview__status">自動更新</span>
           </div>
-          <article>
-            {frontmatter.heroImage ? <PreviewHeroImage key={frontmatter.heroImage.src} image={frontmatter.heroImage} /> : null}
-            <div className="studio-preview__meta">
-              <span>{topicLabels[frontmatter.topics[0] as keyof typeof topicLabels] ?? "テーマ未選択"}</span>
-              <span>{approachLabels[frontmatter.approach]}</span>
-              <span>約{frontmatter.estimatedMinutes || "—"}分</span>
-              <span>{frontmatter.authors.filter(Boolean).join("、") || "執筆者未入力"}</span>
-            </div>
-            <h1>{frontmatter.title || "タイトル未入力"}</h1>
-            <p className="studio-preview__lead">{frontmatter.description || "概要を入力すると、ここに表示されます。"}</p>
-            {frontmatter.outcome ? (
-              <section className="studio-preview__outcome">
-                <h2>この記事でできるようになること</h2>
-                <p>{frontmatter.outcome}</p>
-              </section>
-            ) : null}
-            <div className="studio-preview__dates">
-              {formatArticleDate(frontmatter.publishedAt) ? <span>公開 {formatArticleDate(frontmatter.publishedAt)}</span> : null}
-              <span>更新 {formatArticleDate(frontmatter.updatedAt)}</span>
-            </div>
-            {frontmatter.tags.filter(Boolean).length > 0 ? (
-              <ul className="studio-preview__tags" aria-label="タグ">
-                {frontmatter.tags.filter(Boolean).map((tag) => <li key={tag}>{tag}</li>)}
-              </ul>
-            ) : null}
-            <div className="studio-preview__body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-            {frontmatter.sources.length > 0 ? (
-              <section className="studio-preview__sources">
-                <h2>参考資料</h2>
-                <ul>{frontmatter.sources.map((source, index) => {
-                  const label = source.title || source.url || `資料 ${index + 1}`;
-                  return (
-                    <li key={`${source.url}-${index}`}>
-                      {isSafeHttpUrl(source.url) ? <a href={source.url} target="_blank" rel="noreferrer">{label}</a> : <span>{label}</span>}
-                      {source.checkedAt ? `（${formatArticleDate(source.checkedAt)}確認）` : ""}
-                    </li>
-                  );
-                })}</ul>
-              </section>
-            ) : null}
-          </article>
+          <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} />
         </section>
       </main>
         </>
       )}
 
-      <dialog aria-labelledby="review-dialog-title" className="studio-dialog" ref={confirmDialog} onClose={() => legacyReviewButton.current?.focus()}>
-        <form method="dialog">
-          <p className="studio-review__eyebrow">GITHUB REVIEW</p>
-          <h2 id="review-dialog-title">レビューへ送りますか？</h2>
-          <p><strong>{frontmatter.title}</strong></p>
-          <p>新しい記事として<code>develop</code>向けのDraft PRを作成します。公開やマージは行いません。</p>
-          <div className="studio-dialog__actions">
-            <button className="dads-button" data-size="md" data-type="outline" value="cancel">編集に戻る</button>
-            <button className="dads-button" data-size="md" data-type="solid-fill" value="default" onClick={(event) => { event.preventDefault(); void submitReview(); }}>Draft PRを作成</button>
-          </div>
-        </form>
-      </dialog>
     </div>
   );
 }

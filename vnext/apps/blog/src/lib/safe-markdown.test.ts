@@ -95,6 +95,13 @@ describe("hardenArticleMarkdown", () => {
     expect(html).not.toMatch(/href=["']javascript:/i);
   });
 
+  it("adds syntax highlighting to CMS code fences", () => {
+    const html = renderArticleMarkdown("```ts\nconst answer: number = 42;\n```");
+
+    expect(html).toContain('class="hljs-keyword"');
+    expect(html).toContain('class="hljs-number"');
+  });
+
   it("keeps H2 links aligned after duplicate mixed-depth headings", () => {
     const source = "### 重複\n\n## 重複\n\n# 別見出し\n\n## 重複";
     const html = renderArticleMarkdown(source);

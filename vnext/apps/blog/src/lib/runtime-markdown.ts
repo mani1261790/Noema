@@ -1,12 +1,14 @@
 import { isSafeArticleMarkdownUrl } from "@noema/content";
 import GithubSlugger from "github-slugger";
 import MarkdownIt from "markdown-it";
+import { highlightMarkdownCode } from "./markdown-highlight";
 
 interface RuntimeMarkdownEnvironment {
   headingSlugger: GithubSlugger;
 }
 
 const parser = new MarkdownIt({
+  highlight: highlightMarkdownCode,
   html: false,
   linkify: true,
 });

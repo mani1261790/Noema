@@ -10,10 +10,11 @@ import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
 import { extractArticleHeadings } from "../../lib/article-assistant";
+import { highlightMarkdownCode } from "../../lib/markdown-highlight";
 
 export const prerender = true;
 const article = previewArticles[0];
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const md = new MarkdownIt({ highlight: highlightMarkdownCode, html: false, linkify: true, typographer: true });
 const articleHeadings = extractArticleHeadings(previewArticleMarkdown);
 const sections = previewArticleMarkdown
   .trim()

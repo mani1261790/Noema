@@ -311,6 +311,17 @@ describe("prepareArticleSubmission", () => {
     assert.equal(prepared.ok, true);
   });
 
+  it("allows private-R2 article image paths in Markdown", async () => {
+    const prepared = await prepareArticleSubmission(
+      validRequest({
+        markdown: "## 図解\n\n![構成図](/media/articles/00000000-0000-4000-8000-000000000000.webp)"
+      }),
+      principal,
+    );
+
+    assert.equal(prepared.ok, true);
+  });
+
   it("bounds and deduplicates repeated frontmatter fields", async () => {
     const tooMany = await prepareArticleSubmission(
       validRequest({ frontmatter: validFrontmatter({ authors: Array.from({ length: 6 }, (_, index) => `著者${index}`) }) }),

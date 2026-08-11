@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createPreviewMarkdown,
+  resolvePreviewImageReference,
   resolvePublicSiteReference
 } from "../src/preview-markdown.ts";
 
@@ -24,6 +25,26 @@ test("resolves only root-relative public-site references", () => {
   ]) {
     assert.equal(resolvePublicSiteReference(reference, publicSiteUrl), reference);
   }
+});
+
+test("uses the authenticated Studio route for uploaded draft images", () => {
+  assert.equal(
+    resolvePreviewImageReference(
+      "/media/articles/00000000-0000-4000-8000-000000000000.png",
+      publicSiteUrl
+    ),
+    "/api/cms/assets/articles/00000000-0000-4000-8000-000000000000.png"
+  );
+});
+
+test("highlights known fenced code and safely renders unknown languages", () => {
+  const markdown = createPreviewMarkdown(publicSiteUrl);
+  const known = markdown.render("```ts\nconst answer: number = 42;\n```");
+  const unknown = markdown.render("```not-a-language\n<tag>\n```");
+
+  assert.match(known, /class="hljs-keyword"/);
+  assert.match(known, /class="hljs-number"/);
+  assert.match(unknown, /&lt;tag&gt;/);
 });
 
 test("rewrites inline and reference images without replacing the default image renderer", () => {
