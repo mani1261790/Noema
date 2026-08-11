@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
   type ReactNode
 } from "react";
 import DOMPurify from "dompurify";
@@ -72,8 +71,8 @@ import {
   type CmsLibraryConnection
 } from "./CmsArticleLibrary";
 import type { CmsArticleFilter } from "./article-library";
+import { suggestArticleMetadata } from "./article-autofill";
 
-type Pane = "settings" | "write" | "preview";
 type StudioView = "articles" | "editor";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
 type CmsSessionState =
@@ -85,12 +84,16 @@ type CmsSaveState = "local" | "dirty" | "saving" | "saved" | "conflict" | "error
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
 const markdown = createPreviewMarkdown(publicSiteUrl);
 const reviewValidationSubmissionId = "00000000-0000-4000-8000-000000000000";
-const paneOrder: Pane[] = ["write", "preview", "settings"];
-const paneLabels: Record<Pane, string> = {
-  settings: "記事情報",
-  write: "Markdownを書く",
-  preview: "プレビュー"
-};
+const autoManagedMetadataFields = new Set<keyof ArticleFrontmatter>([
+  "approach",
+  "description",
+  "estimatedMinutes",
+  "outcome",
+  "slug",
+  "tags",
+  "title",
+  "topics"
+]);
 
 const cmsVisibilityDescriptions: Record<CmsVisibility, string> = {
   public: "一覧と記事URLから誰でも読めます。",
@@ -555,7 +558,8 @@ export function App() {
       ? "editor"
       : "articles"
   );
-  const [activePane, setActivePane] = useState<Pane>("write");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
   const [validationRequested, setValidationRequested] = useState(false);
@@ -592,10 +596,9 @@ export function App() {
   const [cmsMemberEmail, setCmsMemberEmail] = useState("");
   const [cmsMemberRole, setCmsMemberRole] = useState<CmsRole>("editor");
   const [cmsMemberActive, setCmsMemberActive] = useState(true);
-  const [metadataOpen, setMetadataOpen] = useState(true);
+  const [metadataOpen, setMetadataOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [showLivePreview, setShowLivePreview] = useState(true);
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imageAlt, setImageAlt] = useState("");
   const [imageUploadBusy, setImageUploadBusy] = useState(false);
@@ -607,7 +610,13 @@ export function App() {
   const cmsSaveInFlight = useRef(false);
   const pendingViewFocus = useRef<string | null>(null);
   const cmsContentRef = useRef({ body, frontmatter, visibility: cmsVisibility });
-  const tabRefs = useRef<Record<Pane, HTMLButtonElement | null>>({ settings: null, write: null, preview: null });
+  const manuallyEditedMetadata = useRef<Set<keyof ArticleFrontmatter>>(
+    new Set(
+      initialState.cmsReference || initialState.hasRecoveryDraft
+        ? autoManagedMetadataFields
+        : []
+    )
+  );
   const deferredBody = useDeferredValue(body);
   cmsContentRef.current = { body, frontmatter, visibility: cmsVisibility };
 
@@ -661,8 +670,6 @@ export function App() {
   const visibleReviewIssues = publicationIssues.length > 0 ? publicationIssues : localReviewIssues;
   const blockingErrorCount = visibleReviewIssues.length;
   const settingsErrorCount = visibleReviewIssues.filter((issue) => normalizedIssueField(issue) !== "markdown").length;
-  const visibleBodyErrorCount = visibleReviewIssues.filter((issue) => normalizedIssueField(issue) === "markdown").length;
-  const bodyTabErrorCount = Math.max(bodyErrors.length, visibleBodyErrorCount);
   const visibleSettingsIssues = visibleReviewIssues.filter((issue) => normalizedIssueField(issue) !== "markdown");
   const bodyReviewIssue = visibleReviewIssues.find((issue) => normalizedIssueField(issue) === "markdown");
   const bodyErrorMessage = bodyReviewIssue?.message ?? bodyErrors[0]?.message;
@@ -732,7 +739,7 @@ export function App() {
     if (!targetId) return;
     document.getElementById(targetId)?.focus();
     pendingViewFocus.current = null;
-  }, [activePane, studioView]);
+  }, [settingsOpen, studioView]);
 
   useEffect(() => {
     const meaningfulLocalInput = hasMeaningfulArticleInput(frontmatter, body);
@@ -767,9 +774,42 @@ export function App() {
 
   const update = <K extends keyof ArticleFrontmatter>(key: K, value: ArticleFrontmatter[K]) => {
     if (editorLocked) return;
+    if (autoManagedMetadataFields.has(key)) manuallyEditedMetadata.current.add(key);
     setFrontmatter((current) => ({ ...current, [key]: value }));
     setPublicationIssues([]);
   };
+
+  const applyAutomaticMetadata = useCallback((force = false) => {
+    if (editorLocked || body.trim().length < 20) return;
+    setFrontmatter((current) => {
+      const suggestion = suggestArticleMetadata({
+        body,
+        currentTitle: current.title,
+        updatedAt: current.updatedAt
+      });
+      const next = { ...current };
+      const assign = <K extends keyof typeof suggestion>(key: K) => {
+        if (force || !manuallyEditedMetadata.current.has(key)) {
+          (next as Record<string, unknown>)[key] = suggestion[key];
+        }
+      };
+      assign("title");
+      assign("description");
+      assign("slug");
+      assign("topics");
+      assign("tags");
+      assign("approach");
+      assign("outcome");
+      assign("estimatedMinutes");
+      return JSON.stringify(next) === JSON.stringify(current) ? current : next;
+    });
+  }, [body, editorLocked]);
+
+  useEffect(() => {
+    if (studioView !== "editor") return;
+    const timer = window.setTimeout(() => applyAutomaticMetadata(false), 700);
+    return () => window.clearTimeout(timer);
+  }, [applyAutomaticMetadata, deferredBody, studioView]);
 
   const updateCmsArticleList = useCallback((article: CmsArticleDetail) => {
     setCmsArticles((current) => [article, ...current.filter((item) => item.id !== article.id)]
@@ -858,10 +898,11 @@ export function App() {
     };
   }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, storage, updateCmsArticleList]);
 
-  const showEditor = (pane: Pane) => {
-    pendingViewFocus.current = `studio-tab-${pane}`;
+  const showEditor = () => {
+    pendingViewFocus.current = "editor-heading";
     setStudioView("editor");
-    setActivePane(pane);
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
   };
 
   const showArticleLibrary = () => {
@@ -914,6 +955,7 @@ export function App() {
     setHasRecoveryDraft(false);
     setPublicationIssues([]);
     setValidationRequested(false);
+    manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
     updateCmsArticleList(article);
     if (!options.preserveLocalInput) {
       setFrontmatter(nextFrontmatter);
@@ -948,7 +990,7 @@ export function App() {
   const loadCmsArticle = async (articleId: string): Promise<boolean> => {
     if (editorLocked || cmsOperationBusy || cmsSaveInFlight.current) return false;
     if (articleId === cmsArticle?.id) {
-      showEditor("write");
+      showEditor();
       return true;
     }
     const hasLocalInput = hasMeaningfulArticleInput(frontmatter, body);
@@ -984,7 +1026,7 @@ export function App() {
         pauseAutosave: associatingRecovery,
         preserveLocalInput: associatingRecovery
       });
-      showEditor("write");
+      showEditor();
       setOperationMessage({
         text: associatingRecovery
           ? application.manualSaveRequired
@@ -1095,7 +1137,7 @@ export function App() {
     setCmsAutosavePaused(false);
     const result = saveDraft(storage, { frontmatter, body });
     setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
-    showEditor("write");
+    showEditor();
     setOperationMessage({
       text: result.ok
         ? "復旧原稿を新しい記事として扱います。内容を確認し、「CMSに保存」で登録してください。"
@@ -1125,7 +1167,8 @@ export function App() {
     setCmsConflict(false);
     setPublicationIssues([]);
     setValidationRequested(false);
-    showEditor("write");
+    manuallyEditedMetadata.current.clear();
+    showEditor();
     setOperationMessage({ text: "新しい記事を作成します。最初の保存でCMSに登録されます。", tone: "info" });
   };
 
@@ -1334,7 +1377,8 @@ export function App() {
 
   const focusValidation = () => {
     setValidationRequested(true);
-    setActivePane("settings");
+    setSettingsOpen(true);
+    setPreviewFullscreen(false);
     window.requestAnimationFrame(() => {
       validationSection.current?.focus({ preventScroll: true });
       validationSection.current?.scrollIntoView({ block: "center" });
@@ -1342,7 +1386,8 @@ export function App() {
   };
 
   const focusBodyIssue = (issue?: ArticleMarkdownIssue) => {
-    setActivePane("write");
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
     window.requestAnimationFrame(() => {
       const input = bodyInput.current;
       if (!input) return;
@@ -1405,7 +1450,8 @@ export function App() {
     }
     if (field === "heroImage") setMediaOpen(true);
     if (field === "sources") setSourcesOpen(true);
-    setActivePane("settings");
+    setSettingsOpen(true);
+    setPreviewFullscreen(false);
     window.requestAnimationFrame(() => {
       const target = document.getElementById(issueControlId(issue) ?? "");
       target?.focus();
@@ -1453,6 +1499,7 @@ export function App() {
       if (hasCurrentInput && !window.confirm("現在の入力内容を、読み込んだMarkdownで置き換えますか？")) return;
       setFrontmatter({ ...parsed.frontmatter, status: "draft" });
       setBody(parsed.markdown);
+      manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
       setValidationRequested(false);
       setPublicationIssues([]);
       setOperationMessage({ text: `${file.name}を読み込みました。`, tone: "success" });
@@ -1470,27 +1517,6 @@ export function App() {
     update("sources", frontmatter.sources.map((source, sourceIndex) =>
       sourceIndex === index ? { ...source, [key]: value } : source
     ));
-  };
-
-
-
-
-
-
-
-
-  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, pane: Pane) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const currentIndex = paneOrder.indexOf(pane);
-    const nextIndex = event.key === "Home"
-      ? 0
-      : event.key === "End"
-        ? paneOrder.length - 1
-        : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + paneOrder.length) % paneOrder.length;
-    const nextPane = paneOrder[nextIndex];
-    setActivePane(nextPane);
-    tabRefs.current[nextPane]?.focus();
   };
 
   const validationVisible = validationRequested || publicationIssues.length > 0;
@@ -1617,6 +1643,21 @@ export function App() {
             {cmsEditorStatus}
           </p>
           <button
+            aria-controls="studio-article-settings"
+            aria-expanded={settingsOpen}
+            className="dads-button studio-settings-shortcut"
+            data-size="md"
+            data-type="outline"
+            onClick={() => {
+              setPreviewFullscreen(false);
+              setSettingsOpen((current) => !current);
+            }}
+            type="button"
+          >
+            記事情報
+            {validationVisible && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
+          </button>
+          <button
             className="dads-button studio-save-shortcut"
             data-size="md"
             data-type="solid-fill"
@@ -1647,14 +1688,14 @@ export function App() {
           hasRecoveryDraft={hasRecoveryDraft && !cmsArticle}
           hasWorkingEditor={Boolean(cmsArticle || cmsRecoveryReference)}
           onFilterChange={setCmsArticleFilter}
-          onContinueRecovery={() => showEditor("write")}
+          onContinueRecovery={showEditor}
           onContinueRecoveryAsNew={continueRecoveryAsNewArticle}
           onCreate={startNewCmsArticle}
           onDownloadRecovery={downloadRecoveryCopy}
           onEdit={(articleId) => { void loadCmsArticle(articleId); }}
           onQueryChange={setCmsArticleQuery}
           onRetry={() => setCmsRefresh((current) => current + 1)}
-          onReturnToEditor={() => showEditor("write")}
+          onReturnToEditor={showEditor}
           openingArticleId={openingArticleId}
           query={cmsArticleQuery}
           recoveryCharacterCount={body.length}
@@ -1678,41 +1719,44 @@ export function App() {
           </div>
         </section>
       ) : null}
-      <div className="studio-tabs" role="tablist" aria-label="編集画面">
-        {paneOrder.map((pane) => (
-          <button
-            aria-controls={`studio-pane-${pane}`}
-            aria-selected={activePane === pane}
-            id={`studio-tab-${pane}`}
-            key={pane}
-            onClick={() => setActivePane(pane)}
-            onKeyDown={(event) => handleTabKeyDown(event, pane)}
-            ref={(node) => { tabRefs.current[pane] = node; }}
-            role="tab"
-            tabIndex={activePane === pane ? 0 : -1}
-            type="button"
-          >
-            {paneLabels[pane]}
-            {validationVisible && pane === "settings" && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
-            {validationVisible && pane === "write" && bodyTabErrorCount > 0 ? ` (${bodyTabErrorCount})` : ""}
-          </button>
-        ))}
-      </div>
-
       <main className="studio-workspace">
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
         <aside
           aria-label="記事設定"
-          aria-labelledby="studio-tab-settings"
           className="studio-settings"
-          hidden={activePane !== "settings"}
-          id="studio-pane-settings"
-          role="tabpanel"
+          hidden={!settingsOpen}
+          id="studio-article-settings"
         >
-          <div className="studio-pane-title">
-            <h2>記事設定</h2>
-            <span>CMSへ保存し、レビュー・承認・公開を役割ごとに進めます。</span>
+          <div className="studio-settings__header">
+            <div>
+              <h2>記事情報</h2>
+              <p>本文から自動整理されます。必要な項目だけ確認・修正できます。</p>
+            </div>
+            <button className="dads-button" data-size="sm" data-type="outline" onClick={() => setSettingsOpen(false)} type="button">
+              閉じる
+            </button>
           </div>
+
+          <section className="studio-autofill" aria-labelledby="studio-autofill-heading">
+            <div>
+              <h3 id="studio-autofill-heading">本文から自動整理</h3>
+              <p>概要・到達点・URL・テーマ・記事タイプ・タグ・読了時間を、外部送信せずに本文から整えます。</p>
+            </div>
+            <button
+              className="dads-button"
+              data-size="sm"
+              data-type="outline"
+              disabled={editorLocked || body.trim().length < 20}
+              onClick={() => {
+                manuallyEditedMetadata.current.clear();
+                applyAutomaticMetadata(true);
+                setOperationMessage({ text: "本文から記事情報を整理しました。必要な箇所だけ確認してください。", tone: "success" });
+              }}
+              type="button"
+            >
+              もう一度自動整理
+            </button>
+          </section>
 
           <details className="studio-cms studio-cms-workflow" id="cms-workflow">
             <summary className="studio-cms-workflow__summary">
@@ -1974,6 +2018,9 @@ export function App() {
 
           <fieldset className="studio-form-fieldset" hidden={editorLocked}>
             <legend className="sr-only">記事情報</legend>
+            <details className="studio-disclosure">
+              <summary>タイトルと概要 — {frontmatter.title || "自動整理待ち"}</summary>
+              <div className="studio-disclosure__content">
             {(() => {
               const error = fieldError(visibleReviewIssues, "title", validationVisible);
               return <Field id="article-title" label="タイトル" counter={`${frontmatter.title.length} / 100文字`} error={error}>
@@ -1998,6 +2045,8 @@ export function App() {
                 <input id="article-slug" className="dads-input-text__input" required {...inputA11y("article-slug", true, error)} value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} placeholder="getting-started-with-ai" />
               </Field>;
             })()}
+              </div>
+            </details>
 
             <details className="studio-disclosure" open={metadataOpen} onToggle={(event) => setMetadataOpen(event.currentTarget.open)}>
               <summary>公開と分類 — {approachLabels[frontmatter.approach]} / {frontmatter.topics[0] ? topicLabels[frontmatter.topics[0]] : "テーマ未選択"}</summary>
@@ -2184,26 +2233,27 @@ export function App() {
         </aside>
 
         <section
-          aria-labelledby="studio-tab-write"
-          className={`studio-editor ${editorLocked ? "has-lock" : ""}`}
-          hidden={activePane !== "write"}
-          id="studio-pane-write"
-          role="tabpanel"
+          aria-labelledby="editor-heading"
+          className={`studio-editor ${editorLocked ? "has-lock" : ""} ${previewFullscreen ? "is-preview-fullscreen" : ""}`}
+          id="studio-editor"
         >
           <div className="studio-pane-title studio-pane-title--horizontal">
             <div>
-              <h2 id="editor-heading">Markdown本文</h2>
-              <p className="studio-pane-title__context">本文を直接編集します。変更はCMSへ自動保存されます。</p>
+              <h2 id="editor-heading">{previewFullscreen ? "記事プレビュー" : "Markdown本文"}</h2>
+              <p className="studio-pane-title__context">書くことに集中できるよう、記事情報は本文から自動整理します。</p>
             </div>
             <div className="studio-editor__status">
               <span>{body.length.toLocaleString("ja-JP")}文字</span>
               <button
-                aria-pressed={showLivePreview}
+                aria-pressed={previewFullscreen}
                 className="studio-preview-toggle"
-                onClick={() => setShowLivePreview((current) => !current)}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setPreviewFullscreen((current) => !current);
+                }}
                 type="button"
               >
-                {showLivePreview ? "プレビューを閉じる" : "横にプレビュー"}
+                {previewFullscreen ? "Markdown編集に戻る" : "プレビューを全画面"}
               </button>
               {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー{blockingErrorCount}件を確認</button> : null}
             </div>
@@ -2274,8 +2324,8 @@ export function App() {
               </div>
             </div>
           ) : null}
-          <div className={`studio-writing-layout ${showLivePreview ? "has-preview" : ""}`}>
-            <div className="studio-writing-canvas">
+          <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
+            <div className="studio-writing-canvas" hidden={previewFullscreen}>
               <label className="sr-only" htmlFor="article-body">Markdown本文</label>
               <textarea
                 aria-describedby="article-body-help"
@@ -2293,36 +2343,18 @@ export function App() {
                 value={body}
               />
             </div>
-            {showLivePreview ? (
-              <div className="studio-live-preview studio-preview" aria-label="ライブプレビュー">
-                <div className="studio-live-preview__heading">
-                  <strong>ライブプレビュー</strong>
-                  <span>自動更新</span>
-                </div>
-                <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} />
+            <div className="studio-live-preview studio-preview" aria-label="ライブプレビュー">
+              <div className="studio-live-preview__heading">
+                <strong>{previewFullscreen ? "記事プレビュー" : "ライブプレビュー"}</strong>
+                <span>自動更新</span>
               </div>
-            ) : null}
+              <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} />
+            </div>
           </div>
           <p className="sr-only" id="article-body-help">Markdown形式で本文を入力します。H1見出しとraw HTMLは使用できません。</p>
           <p className="sr-only" id="article-body-error">{bodyErrorMessage ? `エラー — ${bodyErrorMessage}` : ""}</p>
         </section>
 
-        <section
-          aria-labelledby="studio-tab-preview"
-          className="studio-preview"
-          hidden={activePane !== "preview"}
-          id="studio-pane-preview"
-          role="tabpanel"
-        >
-          <div className="studio-pane-title studio-pane-title--horizontal">
-            <div>
-              <h2 id="preview-heading">プレビュー</h2>
-              <p className="studio-pane-title__context">{frontmatter.title || "新しい記事"}</p>
-            </div>
-            <span className="studio-preview__status">自動更新</span>
-          </div>
-          <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} />
-        </section>
       </main>
         </>
       )}
