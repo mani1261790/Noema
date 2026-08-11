@@ -42,3 +42,14 @@ test("keeps an explicitly supplied title", () => {
 
   assert.equal(suggestion.title, "編集者が決めたタイトル");
 });
+
+test("uses an H1 for the title but not for the description", () => {
+  const suggestion = suggestArticleMetadata({
+    body: "# 説明文には使わない十分に長い記事タイトルです\n\nこの記事では、見出しとは別の本文を概要として正しく抽出できることを確認します。",
+    currentTitle: "",
+    updatedAt: "2026-08-11"
+  });
+
+  assert.equal(suggestion.title, "説明文には使わない十分に長い記事タイトルです");
+  assert.equal(suggestion.description, "この記事では、見出しとは別の本文を概要として正しく抽出できることを確認します。");
+});

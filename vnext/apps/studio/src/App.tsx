@@ -559,6 +559,7 @@ export function App() {
       : "articles"
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
@@ -784,7 +785,7 @@ export function App() {
     setFrontmatter((current) => {
       const suggestion = suggestArticleMetadata({
         body,
-        currentTitle: current.title,
+        currentTitle: manuallyEditedMetadata.current.has("title") ? current.title : "",
         updatedAt: current.updatedAt
       });
       const next = { ...current };
@@ -1450,6 +1451,7 @@ export function App() {
     }
     if (field === "heroImage") setMediaOpen(true);
     if (field === "sources") setSourcesOpen(true);
+    if (["title", "description", "outcome", "slug"].includes(field ?? "")) setSummaryOpen(true);
     setSettingsOpen(true);
     setPreviewFullscreen(false);
     window.requestAnimationFrame(() => {
@@ -2018,7 +2020,7 @@ export function App() {
 
           <fieldset className="studio-form-fieldset" hidden={editorLocked}>
             <legend className="sr-only">記事情報</legend>
-            <details className="studio-disclosure">
+            <details className="studio-disclosure" open={summaryOpen} onToggle={(event) => setSummaryOpen(event.currentTarget.open)}>
               <summary>タイトルと概要 — {frontmatter.title || "自動整理待ち"}</summary>
               <div className="studio-disclosure__content">
             {(() => {

@@ -74,13 +74,19 @@ function readableText(markdown: string): string {
 }
 
 function firstHeading(markdown: string): string {
-  const heading = markdown.match(/^\s{0,3}#{2,6}\s+(.+)$/mu)?.[1] ?? "";
+  const heading = markdown.match(/^\s{0,3}#{1,6}\s+(.+)$/mu)?.[1] ?? "";
   return truncate(cleanInlineMarkdown(heading), 100);
 }
 
 function firstParagraph(markdown: string): string {
-  const paragraph = readableText(markdown)
+  const paragraph = markdown
+    .replace(/```[\s\S]*?```/gu, " ")
     .split(/\n\s*\n/gu)
+    .filter((candidate) => !/^\s{0,3}#{1,6}\s+/u.test(candidate))
+    .map((candidate) => candidate
+      .replace(/^\s*[-*+]\s+/gmu, "")
+      .replace(/^\s*\d+[.)]\s+/gmu, ""))
+    .map(cleanInlineMarkdown)
     .find((candidate) => candidate.length >= 20) ?? "";
   return truncate(paragraph, 180);
 }
