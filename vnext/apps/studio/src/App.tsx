@@ -1708,7 +1708,6 @@ export function App() {
           hidden={activePane !== "settings"}
           id="studio-pane-settings"
           role="tabpanel"
-          tabIndex={0}
         >
           <div className="studio-pane-title">
             <h2>記事設定</h2>
@@ -2190,7 +2189,6 @@ export function App() {
           hidden={activePane !== "write"}
           id="studio-pane-write"
           role="tabpanel"
-          tabIndex={0}
         >
           <div className="studio-pane-title studio-pane-title--horizontal">
             <div>
@@ -2315,7 +2313,6 @@ export function App() {
           hidden={activePane !== "preview"}
           id="studio-pane-preview"
           role="tabpanel"
-          tabIndex={0}
         >
           <div className="studio-pane-title studio-pane-title--horizontal">
             <div>

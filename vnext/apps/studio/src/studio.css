@@ -43,18 +43,29 @@ a {
   display: none !important;
 }
 
-:where(button, input, textarea, select, summary, a):focus-visible,
-.studio-settings[role="tabpanel"]:focus-visible,
-.studio-editor[role="tabpanel"]:focus-visible,
-.studio-preview[role="tabpanel"]:focus-visible,
-#studio-article-library-heading:focus,
-.studio-validation:focus,
-.studio-review:focus,
-.studio-cms:focus,
-.studio-topic-field:focus {
-  outline: 4px solid #000;
+#root :where(button, input, textarea, select, summary, a):focus-visible {
+  outline: 3px solid #006b65;
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px #ffdc26;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+#root :where(
+  #studio-article-library-heading,
+  .studio-validation,
+  .studio-review,
+  .studio-cms,
+  .studio-topic-field
+):focus {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (forced-colors: active) {
+  #root :where(button, input, textarea, select, summary, a):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
 }
 
 .sr-only {
