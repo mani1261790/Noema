@@ -102,7 +102,7 @@ a {
 .studio-editor-toolbar {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: .75rem;
   min-height: 64px;
@@ -577,34 +577,8 @@ a {
   text-underline-offset: .2em;
 }
 
-.studio-tabs {
-  display: grid;
-  flex: 0 0 52px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  background: #fff;
-  border-bottom: 1px solid #949494;
-}
-
-.studio-tabs button {
-  min-width: 0;
-  min-height: 48px;
-  padding: .5rem .25rem;
-  overflow: hidden;
-  border: 0;
-  border-bottom: 4px solid transparent;
-  color: #444;
-  background: transparent;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.studio-tabs button[aria-selected="true"] {
-  color: var(--color-key-900);
-  border-bottom-color: var(--color-key-900);
-  font-weight: 700;
-}
-
 .studio-workspace {
+  position: relative;
   display: block;
   flex: 1 1 auto;
   min-width: 0;
@@ -623,13 +597,55 @@ a {
 }
 
 .studio-settings {
-  max-width: none;
-  padding: 2rem clamp(1rem, 5vw, 3rem) 4rem;
+  position: absolute;
+  z-index: 5;
+  inset: 0 0 0 auto;
+  width: min(100%, 34rem);
+  padding: 1.25rem 1.25rem 4rem;
   background: var(--noema-background);
+  border-left: 1px solid #767676;
+  box-shadow: -12px 0 32px rgb(0 0 0 / .12);
 }
 
 .studio-settings > * {
-  width: min(100%, 48rem);
+  width: 100%;
+}
+
+.studio-settings__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #949494;
+}
+
+.studio-settings__header h2,
+.studio-autofill h3 {
+  margin: 0;
+}
+
+.studio-settings__header p,
+.studio-autofill p {
+  margin: .35rem 0 0;
+  color: #444;
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.6;
+}
+
+.studio-autofill {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  color: #003c39;
+  background: #eaf4f3;
+  border: 1px solid #6b918e;
+}
+
+.studio-autofill .dads-button {
+  justify-self: start;
 }
 
 .studio-editor,
@@ -643,6 +659,11 @@ a {
 
 .studio-editor.has-lock {
   grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.studio-editor.is-preview-fullscreen .studio-markdown-toolbar,
+.studio-editor.is-preview-fullscreen .studio-image-insert {
+  display: none;
 }
 
 .studio-preview {
@@ -1482,6 +1503,19 @@ a {
   grid-template-columns: minmax(24rem, 1fr) minmax(24rem, 1fr);
 }
 
+.studio-writing-layout.is-preview-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.studio-writing-layout.is-preview-only .studio-live-preview {
+  display: grid;
+  background: var(--noema-background);
+}
+
+.studio-writing-layout.is-preview-only .studio-live-preview article {
+  width: min(100% - 2rem, 56rem);
+}
+
 .studio-writing-canvas {
   min-width: 0;
   min-height: 0;
@@ -2004,8 +2038,7 @@ a {
     grid-template-columns: 1fr;
   }
 
-  .studio-live-preview,
-  .studio-preview-toggle {
+  .studio-writing-layout:not(.is-preview-only) .studio-live-preview {
     display: none;
   }
 
@@ -2016,7 +2049,7 @@ a {
 
 @media (max-width: 640px) {
   .studio-editor-toolbar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: .5rem;
     padding: .5rem .75rem;
   }
@@ -2029,6 +2062,15 @@ a {
 
   .studio-editor-toolbar .dads-button {
     width: 100%;
+  }
+
+  .studio-settings {
+    position: fixed;
+    top: 0;
+    z-index: 20;
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
   }
 
   .studio-library {
@@ -2084,10 +2126,6 @@ a {
 
   .studio-cms-association__actions .dads-button {
     width: 100%;
-  }
-
-  .studio-tabs {
-    flex-basis: 50px;
   }
 
   .studio-settings {
