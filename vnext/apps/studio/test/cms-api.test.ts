@@ -183,6 +183,50 @@ describe("CMS HTTP API", () => {
     await expectErrorCode(response, "same_origin_required");
     expect(verifyAccessToken).not.toHaveBeenCalled();
   });
+
+  it("stores supported images privately and serves them to authenticated Studio previews", async () => {
+    await bootstrapAdmin();
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "diagram.png", {
+      type: "image/png"
+    }));
+    const upload = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
+      cmsEnv(),
+      ADMIN
+    );
+    const uploaded = (await upload.json()) as {
+      asset: { markdownUrl: string; previewUrl: string };
+    };
+
+    expect(upload.status).toBe(201);
+    expect(uploaded.asset.markdownUrl).toMatch(/^\/media\/articles\/[0-9a-f-]{36}\.png$/);
+    expect(uploaded.asset.previewUrl).toMatch(/^\/api\/cms\/assets\/articles\/[0-9a-f-]{36}\.png$/);
+
+    const preview = await handleCmsApiRequest(
+      cmsRequest(uploaded.asset.previewUrl),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get("cache-control")).toBe("private, no-store");
+    expect(preview.headers.get("content-type")).toBe("image/png");
+    expect(new Uint8Array(await preview.arrayBuffer())).toEqual(new Uint8Array([137, 80, 78, 71]));
+  });
+
+  it("rejects SVG uploads", async () => {
+    await bootstrapAdmin();
+    const form = new FormData();
+    form.set("file", new File(["<svg></svg>"], "unsafe.svg", { type: "image/svg+xml" }));
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
+      cmsEnv(),
+      ADMIN
+    );
+
+    expect(response.status).toBe(415);
+    await expectErrorCode(response, "unsupported_asset_type");
+  });
 });
 
 async function bootstrapAdmin(): Promise<void> {
@@ -214,6 +258,7 @@ async function createArticle(): Promise<{
 
 function cmsEnv() {
   return {
+    ARTICLE_ASSETS: testEnv.ARTICLE_ASSETS,
     CMS_BOOTSTRAP_ADMIN_EMAIL: ADMIN.email,
     CMS_DB: testEnv.CMS_DB
   };

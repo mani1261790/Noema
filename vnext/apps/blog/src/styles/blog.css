@@ -968,6 +968,49 @@ astro-dev-toolbar {
   color: var(--color-neutral-white);
 }
 
+.article-body pre code.hljs {
+  display: block;
+  padding: 0;
+  color: #f3f7f7;
+  background: transparent;
+}
+
+.article-body .hljs-keyword,
+.article-body .hljs-selector-tag,
+.article-body .hljs-literal,
+.article-body .hljs-section,
+.article-body .hljs-link {
+  color: #ff9cac;
+}
+
+.article-body .hljs-string,
+.article-body .hljs-title,
+.article-body .hljs-name,
+.article-body .hljs-type,
+.article-body .hljs-attribute,
+.article-body .hljs-symbol,
+.article-body .hljs-bullet,
+.article-body .hljs-addition,
+.article-body .hljs-variable,
+.article-body .hljs-template-tag,
+.article-body .hljs-template-variable {
+  color: #a7e8c1;
+}
+
+.article-body .hljs-comment,
+.article-body .hljs-quote,
+.article-body .hljs-deletion,
+.article-body .hljs-meta {
+  color: #aebdbb;
+}
+
+.article-body .hljs-number,
+.article-body .hljs-regexp,
+.article-body .hljs-built_in,
+.article-body .hljs-params {
+  color: #ffd580;
+}
+
 .article-sources {
   margin-top: 4rem;
   padding-top: 2rem;

@@ -31,7 +31,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/;
 const gitObjectIdPattern = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const unsafeControlPattern =
   /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
-const rootArticleImagePattern = /^\/images\/articles\/[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
+const rootArticleImagePattern = /^\/(?:images|media)\/articles\/[a-zA-Z0-9][a-zA-Z0-9._/-]*$/;
 
 function isSafeHttpsUrl(value: string): boolean {
   try {
@@ -83,7 +83,7 @@ function unsafeMarkdownMessages(markdown: string): string[] {
       if (token.type === "image") {
         const src = token.attrGet("src");
         if (!src || !isSafeArticleImage(src)) {
-          messages.add("Markdown画像には/images/articles/以下のpathを指定してください");
+          messages.add("Markdown画像には記事用のサイト内pathを指定してください");
         }
       }
       if (token.children) inspect(token.children);
@@ -106,7 +106,7 @@ const submissionImageSchema = z.strictObject({
     .trim()
     .min(1)
     .max(512)
-    .refine(isSafeArticleImage, "記事画像には/images/articles/以下のpathを指定してください"),
+    .refine(isSafeArticleImage, "記事画像には記事用のサイト内pathを指定してください"),
   alt: z.string().trim().min(1).max(240),
 });
 

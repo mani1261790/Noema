@@ -20,8 +20,18 @@ import type { AccessIdentity } from "./access";
 
 const CMS_API_PREFIX = "/api/cms";
 const MAX_CMS_REQUEST_BYTES = 1_200_000;
+const MAX_CMS_ASSET_BYTES = 8 * 1024 * 1024;
+const CMS_ASSET_PREFIX = `${CMS_API_PREFIX}/assets/`;
+
+const imageTypes = new Map([
+  ["image/gif", "gif"],
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"]
+]);
 
 export interface CmsApiEnvironment {
+  ARTICLE_ASSETS?: R2Bucket;
   CMS_BOOTSTRAP_ADMIN_EMAIL?: string;
   CMS_DB: D1Database;
 }
@@ -42,6 +52,25 @@ export async function handleCmsApiRequest(
     if (pathname === `${CMS_API_PREFIX}/session`) {
       if (request.method !== "GET") return methodNotAllowed("GET");
       return cmsJson(session);
+    }
+
+    if (pathname === `${CMS_API_PREFIX}/assets`) {
+      if (request.method !== "POST") return methodNotAllowed("POST");
+      if (!session.capabilities.canEdit) {
+        return cmsError(403, "forbidden", "画像を追加する権限がありません。");
+      }
+      if (!env.ARTICLE_ASSETS) {
+        return cmsError(503, "asset_storage_unavailable", "画像保存は現在利用できません。", true);
+      }
+      return uploadCmsAsset(request, env.ARTICLE_ASSETS);
+    }
+
+    if (pathname.startsWith(CMS_ASSET_PREFIX)) {
+      if (request.method !== "GET") return methodNotAllowed("GET");
+      if (!env.ARTICLE_ASSETS) {
+        return cmsError(503, "asset_storage_unavailable", "画像保存は現在利用できません。", true);
+      }
+      return readCmsAsset(pathname.slice(CMS_ASSET_PREFIX.length), env.ARTICLE_ASSETS);
     }
 
     if (pathname === `${CMS_API_PREFIX}/articles`) {
@@ -128,6 +157,63 @@ export async function handleCmsApiRequest(
   } catch (error) {
     return cmsRepositoryError(error);
   }
+}
+
+async function uploadCmsAsset(request: Request, bucket: R2Bucket): Promise<Response> {
+  const mediaType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!mediaType.startsWith("multipart/form-data;")) {
+    return cmsError(415, "unsupported_media_type", "画像をmultipart/form-dataで送信してください。");
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_CMS_ASSET_BYTES + 64 * 1024) {
+    return cmsError(413, "asset_too_large", "画像は8MB以下にしてください。");
+  }
+
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return cmsError(400, "invalid_asset_request", "画像データを読み取れませんでした。");
+  }
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return cmsError(400, "invalid_asset_request", "画像ファイルを選択してください。");
+  }
+  if (file.size === 0 || file.size > MAX_CMS_ASSET_BYTES) {
+    return cmsError(413, "asset_too_large", "画像は8MB以下にしてください。");
+  }
+  const extension = imageTypes.get(file.type.toLowerCase());
+  if (!extension) {
+    return cmsError(415, "unsupported_asset_type", "PNG、JPEG、WebP、GIFの画像を選択してください。");
+  }
+
+  const key = `articles/${crypto.randomUUID()}.${extension}`;
+  await bucket.put(key, file.stream(), {
+    httpMetadata: { contentType: file.type.toLowerCase() },
+    customMetadata: { originalName: file.name.slice(0, 200) }
+  });
+  return cmsJson({
+    asset: {
+      markdownUrl: `/media/${key}`,
+      previewUrl: `${CMS_ASSET_PREFIX}${key}`
+    }
+  }, 201);
+}
+
+async function readCmsAsset(key: string, bucket: R2Bucket): Promise<Response> {
+  if (!isCmsAssetKey(key)) return cmsError(404, "asset_not_found", "画像が見つかりません。");
+  const object = await bucket.get(key);
+  if (!object) return cmsError(404, "asset_not_found", "画像が見つかりません。");
+  const headers = new Headers({
+    "cache-control": "private, no-store",
+    "content-type": object.httpMetadata?.contentType ?? "application/octet-stream",
+    "x-content-type-options": "nosniff"
+  });
+  return new Response(object.body, { headers });
+}
+
+function isCmsAssetKey(key: string): boolean {
+  return /^articles\/[0-9a-f-]{36}\.(?:gif|jpe?g|png|webp)$/i.test(key);
 }
 
 type ArticleRoute =
