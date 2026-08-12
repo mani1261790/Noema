@@ -89,8 +89,13 @@ import {
   StudioPanelResizeHandle
 } from "./StudioPanelResizeHandle";
 import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
+import {
+  readStudioView,
+  studioViewHref,
+  writeStudioHistory,
+  type StudioView
+} from "./studio-navigation";
 
-type StudioView = "articles" | "assets" | "editor" | "team";
 type StudioSettingsMode = "metadata" | "workflow";
 type CmsSessionState =
   | { kind: "checking" }
@@ -560,16 +565,20 @@ function TagEditor({
 export function App() {
   const [initialState] = useState(getInitialState);
   const storage = initialState.storage;
+  const [initialStudioView] = useState<StudioView>(() => {
+    const fallback = initialState.cmsReference || initialState.hasRecoveryDraft
+      ? "editor"
+      : "articles";
+    return typeof window === "undefined"
+      ? fallback
+      : readStudioView(window.location.hash, fallback);
+  });
   const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>({
     ...initialState.frontmatter,
     status: "draft"
   });
   const [body, setBody] = useState(initialState.body);
-  const [studioView, setStudioView] = useState<StudioView>(
-    initialState.cmsReference || initialState.hasRecoveryDraft
-      ? "editor"
-      : "articles"
-  );
+  const [studioView, setStudioView] = useState<StudioView>(initialStudioView);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMode, setSettingsMode] = useState<StudioSettingsMode>("metadata");
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -631,6 +640,7 @@ export function App() {
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
   const pendingViewFocus = useRef<string | null>(null);
+  const studioViewRef = useRef(studioView);
   const cmsContentRef = useRef({ body, frontmatter, visibility: cmsVisibility });
   const manuallyEditedMetadata = useRef<Set<keyof ArticleFrontmatter>>(
     new Set(
@@ -659,6 +669,7 @@ export function App() {
     setAssetTrayOpen(false);
     window.requestAnimationFrame(() => assetTrigger.current?.focus());
   }, []);
+  studioViewRef.current = studioView;
   cmsContentRef.current = { body, frontmatter, visibility: cmsVisibility };
 
   const cmsDraftReference = useMemo<StudioDraftCmsArticle | null>(() => {
@@ -945,9 +956,15 @@ export function App() {
     };
   }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, showNotification, storage, updateCmsArticleList]);
 
+  const changeStudioView = (view: StudioView) => {
+    if (studioViewRef.current !== view) writeStudioHistory(view);
+    studioViewRef.current = view;
+    setStudioView(view);
+  };
+
   const showEditor = () => {
     pendingViewFocus.current = "editor-heading";
-    setStudioView("editor");
+    changeStudioView("editor");
     setSettingsOpen(false);
     setPreviewFullscreen(false);
     setAssetTrayOpen(false);
@@ -968,14 +985,14 @@ export function App() {
       }
     }
     pendingViewFocus.current = "studio-article-library-heading";
-    setStudioView("articles");
+    changeStudioView("articles");
   };
 
   const showAssetLibrary = () => {
     setOperationMessage(null);
     if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
     pendingViewFocus.current = "studio-asset-library-heading";
-    setStudioView("assets");
+    changeStudioView("assets");
     setSettingsOpen(false);
     setPreviewFullscreen(false);
     setAssetTrayOpen(false);
@@ -985,10 +1002,49 @@ export function App() {
     setOperationMessage(null);
     if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
     pendingViewFocus.current = "studio-team-heading";
-    setStudioView("team");
+    changeStudioView("team");
     setSettingsOpen(false);
     setPreviewFullscreen(false);
   };
+
+  useEffect(() => {
+    writeStudioHistory(initialStudioView, "replace");
+  }, [initialStudioView]);
+
+  useEffect(() => {
+    const restoreStudioView = () => {
+      const nextView = readStudioView(window.location.hash, "articles");
+      if (studioViewRef.current === "editor" && nextView !== "editor") {
+        const current = cmsContentRef.current;
+        if (hasMeaningfulArticleInput(current.frontmatter, current.body)) {
+          const result = saveBrowserDraft(current.frontmatter, current.body);
+          setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
+          if (!result.ok) {
+            showNotification({
+              text: "復旧コピーを保存できませんでした。内容はこの画面を閉じるまで保持しています。",
+              title: "自動保存に失敗しました",
+              tone: "error"
+            });
+          }
+        }
+      }
+      setOperationMessage(null);
+      setSettingsOpen(false);
+      setPreviewFullscreen(false);
+      setAssetTrayOpen(false);
+      pendingViewFocus.current = nextView === "articles"
+        ? "studio-article-library-heading"
+        : nextView === "assets"
+          ? "studio-asset-library-heading"
+          : nextView === "team"
+            ? "studio-team-heading"
+            : "editor-heading";
+      studioViewRef.current = nextView;
+      setStudioView(nextView);
+    };
+    window.addEventListener("popstate", restoreStudioView);
+    return () => window.removeEventListener("popstate", restoreStudioView);
+  }, [saveBrowserDraft, showNotification]);
 
   const applyCmsArticle = (
     article: CmsArticleDetail,
@@ -1718,15 +1774,18 @@ export function App() {
     <div className="studio-shell">
       {studioView === "editor" ? (
         <div className="studio-editor-toolbar" aria-label="記事編集の操作" role="group">
-          <button
+          <a
             className="dads-button studio-library-shortcut"
             data-size="md"
             data-type="outline"
-            onClick={showArticleLibrary}
-            type="button"
+            href={studioViewHref("articles")}
+            onClick={(event) => {
+              event.preventDefault();
+              showArticleLibrary();
+            }}
           >
             記事一覧
-          </button>
+          </a>
           <p
             aria-live="polite"
             className={`studio-editor-toolbar__status is-${cmsEditorVisualState}`}
@@ -1799,10 +1858,10 @@ export function App() {
         <nav aria-label="Studioの主要機能" className="studio-primary-nav">
           <strong>Noema Studio</strong>
           <div>
-            <button aria-current={studioView === "articles" ? "page" : undefined} onClick={showArticleLibrary} type="button">記事</button>
-            <button aria-current={studioView === "assets" ? "page" : undefined} onClick={showAssetLibrary} type="button">画像</button>
+            <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
+            <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
             {cmsSession?.capabilities.canManageMembers ? (
-              <button aria-current={studioView === "team" ? "page" : undefined} onClick={showTeamSettings} type="button">チーム</button>
+              <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>チーム</a>
             ) : null}
           </div>
         </nav>
