@@ -1018,6 +1018,7 @@ export function App() {
         const current = cmsContentRef.current;
         if (hasMeaningfulArticleInput(current.frontmatter, current.body)) {
           const result = saveBrowserDraft(current.frontmatter, current.body);
+          if (result.ok && !cmsArticle && !cmsRecoveryReference) setHasRecoveryDraft(true);
           setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
           if (!result.ok) {
             showNotification({
@@ -1044,7 +1045,7 @@ export function App() {
     };
     window.addEventListener("popstate", restoreStudioView);
     return () => window.removeEventListener("popstate", restoreStudioView);
-  }, [saveBrowserDraft, showNotification]);
+  }, [cmsArticle, cmsRecoveryReference, saveBrowserDraft, showNotification]);
 
   const applyCmsArticle = (
     article: CmsArticleDetail,
