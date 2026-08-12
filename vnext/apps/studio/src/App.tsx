@@ -76,8 +76,9 @@ import type { CmsArticleFilter } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
 import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
+import { CmsTeamSettings } from "./CmsTeamSettings";
 
-type StudioView = "articles" | "assets" | "editor";
+type StudioView = "articles" | "assets" | "editor" | "team";
 type StudioSettingsMode = "metadata" | "workflow";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
 type CmsSessionState =
@@ -930,6 +931,15 @@ export function App() {
     setPreviewFullscreen(false);
   };
 
+  const showTeamSettings = () => {
+    setOperationMessage(null);
+    if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
+    pendingViewFocus.current = "studio-team-heading";
+    setStudioView("team");
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
+  };
+
   const applyCmsArticle = (
     article: CmsArticleDetail,
     options: {
@@ -1747,6 +1757,9 @@ export function App() {
           <div>
             <button aria-current={studioView === "articles" ? "page" : undefined} onClick={showArticleLibrary} type="button">記事</button>
             <button aria-current={studioView === "assets" ? "page" : undefined} onClick={showAssetLibrary} type="button">画像</button>
+            {cmsSession?.capabilities.canManageMembers ? (
+              <button aria-current={studioView === "team" ? "page" : undefined} onClick={showTeamSettings} type="button">チーム</button>
+            ) : null}
           </div>
         </nav>
       ) : null}
@@ -1794,6 +1807,27 @@ export function App() {
           onRetry={() => setCmsRefresh((current) => current + 1)}
           onUpdate={saveAsset}
           onUpload={uploadAssets}
+        />
+      ) : studioView === "team" ? (
+        <CmsTeamSettings
+          active={cmsMemberActive}
+          busy={cmsMembersBusy}
+          connection={cmsLibraryConnection}
+          email={cmsMemberEmail}
+          error={cmsMembersError}
+          members={cmsMembers}
+          onActiveChange={setCmsMemberActive}
+          onEdit={(member) => {
+            setCmsMemberEmail(member.email);
+            setCmsMemberRole(member.role);
+            setCmsMemberActive(member.active);
+            window.requestAnimationFrame(() => document.getElementById("cms-member-email")?.focus());
+          }}
+          onEmailChange={setCmsMemberEmail}
+          onRetry={() => setCmsRefresh((current) => current + 1)}
+          onRoleChange={setCmsMemberRole}
+          onSubmit={(event) => void saveCmsMember(event)}
+          role={cmsMemberRole}
         />
       ) : (
         <>
@@ -1987,80 +2021,6 @@ export function App() {
             ) : null}
             {cmsArticle?.reviewStatus === "in_review" && cmsSelfApprovalBlocked ? (
               <p className="studio-cms__pending-message">自分が保存した最新版は承認できません。別のレビュー担当者または管理者に承認を依頼してください。</p>
-            ) : null}
-            {cmsSession?.capabilities.canManageMembers ? (
-              <details className="studio-cms-members">
-                <summary>メンバー管理（{cmsMembers.length}人）</summary>
-                <div className="studio-cms-members__content">
-                  <p>メールアドレスを登録すると、Cloudflare Accessで初めてログインした時に役割が有効になります。同じメールを送信すると設定を更新します。</p>
-                  <form onSubmit={(event) => void saveCmsMember(event)}>
-                    <label htmlFor="cms-member-email">メールアドレス</label>
-                    <input
-                      autoComplete="email"
-                      disabled={cmsMembersBusy}
-                      id="cms-member-email"
-                      onChange={(event) => setCmsMemberEmail(event.target.value)}
-                      placeholder="editor@example.com"
-                      required
-                      type="email"
-                      value={cmsMemberEmail}
-                    />
-                    <label htmlFor="cms-member-role">役割</label>
-                    <select
-                      disabled={cmsMembersBusy}
-                      id="cms-member-role"
-                      onChange={(event) => setCmsMemberRole(event.target.value as CmsRole)}
-                      value={cmsMemberRole}
-                    >
-                      {(Object.keys(cmsRoleLabels) as CmsRole[]).map((role) => (
-                        <option key={role} value={role}>{cmsRoleLabels[role]}</option>
-                      ))}
-                    </select>
-                    <label className="studio-cms-members__active">
-                      <input
-                        checked={cmsMemberActive}
-                        disabled={cmsMembersBusy}
-                        onChange={(event) => setCmsMemberActive(event.target.checked)}
-                        type="checkbox"
-                      />
-                      <span>このメンバーを有効にする</span>
-                    </label>
-                    <button className="dads-button" data-size="sm" data-type="solid-fill" disabled={cmsMembersBusy} type="submit">
-                      {cmsMembersBusy ? "更新中…" : "招待・設定を保存"}
-                    </button>
-                  </form>
-                  {cmsMembersError ? <p className="studio-cms-members__error" role="alert">{cmsMembersError}</p> : null}
-                  <ul className="studio-cms-members__list">
-                    {cmsMembers.map((member) => {
-                      const isSelf = member.email.toLowerCase() === cmsSession.identity.email.toLowerCase();
-                      return (
-                        <li key={member.email}>
-                          <div>
-                            <strong>{member.email}</strong>
-                            <span>{cmsRoleLabels[member.role]}・{member.active ? "有効" : "停止"}・{member.provisioned ? "利用開始済み" : "招待待ち"}</span>
-                          </div>
-                          {isSelf ? <span className="studio-cms-members__self">自分</span> : (
-                            <button
-                              className="dads-button"
-                              data-size="sm"
-                              data-type="outline"
-                              disabled={cmsMembersBusy}
-                              onClick={() => {
-                                setCmsMemberEmail(member.email);
-                                setCmsMemberRole(member.role);
-                                setCmsMemberActive(member.active);
-                              }}
-                              type="button"
-                            >
-                              設定を編集
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </details>
             ) : null}
             <details className="studio-save-help">
               <summary>保存の仕組み</summary>
