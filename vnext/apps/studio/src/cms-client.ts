@@ -1,5 +1,6 @@
 import {
   cmsDraftFrontmatterSchema,
+  cmsAssetStatusSchema,
   cmsPublicationStatusSchema,
   cmsReviewStatusSchema,
   cmsRoleSchema,
@@ -7,6 +8,8 @@ import {
   type CmsArticleAction,
   type CmsArticleDetail,
   type CmsArticleSummary,
+  type CmsAsset,
+  type CmsAssetStatus,
   type CmsEditorialIssue,
   type CmsMember,
   type CmsRole,
@@ -19,11 +22,6 @@ const CMS_ARTICLES_PATH = "/api/cms/articles";
 const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
 const CMS_ASSETS_PATH = "/api/cms/assets";
-
-export interface CmsUploadedAsset {
-  markdownUrl: string;
-  previewUrl: string;
-}
 
 export interface CmsClientError {
   code: string;
@@ -148,7 +146,7 @@ export async function updateCmsArticle(
 export async function uploadCmsAsset(
   file: File,
   options: CmsRequestOptions = {}
-): Promise<CmsClientResult<CmsUploadedAsset>> {
+): Promise<CmsClientResult<CmsAsset>> {
   const form = new FormData();
   form.set("file", file);
   const result = await cmsRequest(CMS_ASSETS_PATH, {
@@ -159,10 +157,40 @@ export async function uploadCmsAsset(
   if (!isRecord(result.value) || !isRecord(result.value.asset)) {
     return invalidResponse(result.status);
   }
-  const { markdownUrl, previewUrl } = result.value.asset;
-  return isString(markdownUrl) && isString(previewUrl)
-    ? { ok: true, value: { markdownUrl, previewUrl } }
+  const asset = parseCmsAsset(result.value.asset);
+  return asset ? { ok: true, value: asset } : invalidResponse(result.status);
+}
+
+export async function fetchCmsAssets(
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsAsset[]>> {
+  const result = await cmsRequest(CMS_ASSETS_PATH, { method: "GET" }, options);
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !Array.isArray(result.value.assets)) {
+    return invalidResponse(result.status);
+  }
+  const assets = result.value.assets.map(parseCmsAsset);
+  return assets.every((asset): asset is CmsAsset => asset !== null)
+    ? { ok: true, value: assets }
     : invalidResponse(result.status);
+}
+
+export async function updateCmsAsset(
+  assetId: string,
+  input: { alt: string; status: CmsAssetStatus; tags: string[] },
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsAsset>> {
+  const result = await cmsRequest(`${CMS_ASSETS_PATH}/${encodeURIComponent(assetId)}`, {
+    body: JSON.stringify(input),
+    headers: { "content-type": "application/json" },
+    method: "PATCH"
+  }, options);
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !isRecord(result.value.asset)) {
+    return invalidResponse(result.status);
+  }
+  const asset = parseCmsAsset(result.value.asset);
+  return asset ? { ok: true, value: asset } : invalidResponse(result.status);
 }
 
 export async function runCmsArticleAction(
@@ -360,6 +388,46 @@ function parseCmsMember(value: unknown): CmsMember | null {
     provisioned: value.provisioned,
     role: role.data,
     updatedAt: value.updatedAt
+  };
+}
+
+function parseCmsAsset(value: unknown): CmsAsset | null {
+  if (!isRecord(value)) return null;
+  const status = cmsAssetStatusSchema.safeParse(value.status);
+  if (
+    !status.success ||
+    !isString(value.alt) ||
+    !isNonnegativeInteger(value.byteSize) ||
+    !isString(value.contentType) ||
+    !isString(value.createdAt) ||
+    !isString(value.createdByEmail) ||
+    !(value.height === null || isNonnegativeInteger(value.height)) ||
+    !isString(value.id) ||
+    !isString(value.markdownUrl) ||
+    !isString(value.originalName) ||
+    !isString(value.previewUrl) ||
+    !isNonnegativeInteger(value.referenceCount) ||
+    !Array.isArray(value.tags) ||
+    !value.tags.every(isString) ||
+    !isString(value.updatedAt) ||
+    !(value.width === null || isNonnegativeInteger(value.width))
+  ) return null;
+  return {
+    alt: value.alt,
+    byteSize: value.byteSize,
+    contentType: value.contentType,
+    createdAt: value.createdAt,
+    createdByEmail: value.createdByEmail,
+    height: value.height,
+    id: value.id,
+    markdownUrl: value.markdownUrl,
+    originalName: value.originalName,
+    previewUrl: value.previewUrl,
+    referenceCount: value.referenceCount,
+    status: status.data,
+    tags: value.tags,
+    updatedAt: value.updatedAt,
+    width: value.width
   };
 }
 

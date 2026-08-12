@@ -32,6 +32,8 @@ import {
   type CmsArticleAction,
   type CmsArticleDetail,
   type CmsArticleSummary,
+  type CmsAsset,
+  type CmsAssetStatus,
   type CmsMember,
   type CmsRole,
   type CmsSession,
@@ -41,10 +43,12 @@ import {
   createCmsArticle as createCmsArticleRecord,
   fetchCmsArticle,
   fetchCmsArticles,
+  fetchCmsAssets,
   fetchCmsMembers,
   fetchCmsSession,
   runCmsArticleAction,
   updateCmsArticle as updateCmsArticleRecord,
+  updateCmsAsset as updateCmsAssetRecord,
   uploadCmsAsset,
   upsertCmsMember,
   type CmsClientError
@@ -72,8 +76,10 @@ import {
 } from "./CmsArticleLibrary";
 import type { CmsArticleFilter } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
+import { CmsAssetLibrary } from "./CmsAssetLibrary";
+import { CmsAssetPicker } from "./CmsAssetPicker";
 
-type StudioView = "articles" | "editor";
+type StudioView = "articles" | "assets" | "editor";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
 type CmsSessionState =
   | { kind: "checking" }
@@ -568,6 +574,8 @@ export function App() {
   const [cmsSessionState, setCmsSessionState] = useState<CmsSessionState>({ kind: "checking" });
   const [cmsRefresh, setCmsRefresh] = useState(0);
   const [cmsArticles, setCmsArticles] = useState<CmsArticleSummary[]>([]);
+  const [cmsAssets, setCmsAssets] = useState<CmsAsset[]>([]);
+  const [cmsAssetsError, setCmsAssetsError] = useState<CmsClientError | null>(null);
   const [cmsArticleQuery, setCmsArticleQuery] = useState("");
   const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>("all");
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
@@ -600,11 +608,9 @@ export function App() {
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [pendingImage, setPendingImage] = useState<File | null>(null);
-  const [imageAlt, setImageAlt] = useState("");
-  const [imageUploadBusy, setImageUploadBusy] = useState(false);
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
+  const [assetOperationBusy, setAssetOperationBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
-  const imageInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
   const validationSection = useRef<HTMLElement>(null);
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
@@ -690,10 +696,12 @@ export function App() {
     const controller = new AbortController();
     let current = true;
     setCmsSessionState({ kind: "checking" });
+    setCmsAssetsError(null);
     void Promise.all([
       fetchCmsSession({ signal: controller.signal }),
-      fetchCmsArticles({ signal: controller.signal })
-    ]).then(([sessionResult, articlesResult]) => {
+      fetchCmsArticles({ signal: controller.signal }),
+      fetchCmsAssets({ signal: controller.signal })
+    ]).then(([sessionResult, articlesResult, assetsResult]) => {
       if (!current || controller.signal.aborted) return;
       if (!sessionResult.ok) {
         setCmsSessionState({ error: sessionResult.error, kind: "unavailable" });
@@ -705,6 +713,8 @@ export function App() {
       }
       setCmsSessionState({ kind: "ready", session: sessionResult.value });
       setCmsArticles(articlesResult.value);
+      if (assetsResult.ok) setCmsAssets(assetsResult.value);
+      else setCmsAssetsError(assetsResult.error);
     });
     return () => {
       current = false;
@@ -921,6 +931,15 @@ export function App() {
     }
     pendingViewFocus.current = "studio-article-library-heading";
     setStudioView("articles");
+  };
+
+  const showAssetLibrary = () => {
+    setOperationMessage(null);
+    if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
+    pendingViewFocus.current = "studio-asset-library-heading";
+    setStudioView("assets");
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
   };
 
   const applyCmsArticle = (
@@ -1426,21 +1445,50 @@ export function App() {
     });
   };
 
-  const insertPendingImage = async () => {
-    if (!pendingImage || !imageAlt.trim() || imageUploadBusy) return;
-    setImageUploadBusy(true);
-    const result = await uploadCmsAsset(pendingImage);
-    setImageUploadBusy(false);
+  const uploadAssets = async (files: File[]) => {
+    if (files.length === 0 || assetOperationBusy) return;
+    setAssetOperationBusy(true);
+    let uploaded = 0;
+    for (const file of files) {
+      const result = await uploadCmsAsset(file);
+      if (!result.ok) {
+        setOperationMessage({ text: `${file.name}: ${result.error.message}`, tone: "error" });
+        setAssetOperationBusy(false);
+        return;
+      }
+      uploaded += 1;
+      setCmsAssets((current) => [result.value, ...current.filter((asset) => asset.id !== result.value.id)]);
+    }
+    setCmsAssetsError(null);
+    setAssetOperationBusy(false);
+    setOperationMessage({ text: `${uploaded}件の画像をAssetsへ追加しました。`, tone: "success" });
+  };
+
+  const saveAsset = async (
+    asset: CmsAsset,
+    input: { alt: string; status: CmsAssetStatus; tags: string[] }
+  ) => {
+    setAssetOperationBusy(true);
+    const result = await updateCmsAssetRecord(asset.id, input);
+    setAssetOperationBusy(false);
     if (!result.ok) {
       setOperationMessage({ text: result.error.message, tone: "error" });
       return;
     }
-    const safeAlt = imageAlt.trim().replace(/[\[\]]/g, "");
-    insertMarkdownAtCursor(`![${safeAlt}](${result.value.markdownUrl})`);
-    setPendingImage(null);
-    setImageAlt("");
-    if (imageInput.current) imageInput.current.value = "";
-    setOperationMessage({ text: "画像をアップロードし、本文に追加しました。", tone: "success" });
+    setCmsAssets((current) => current.map((item) => item.id === result.value.id ? result.value : item));
+    setOperationMessage({ text: "画像情報を保存しました。", tone: "success" });
+  };
+
+  const closeAssetPicker = () => {
+    setAssetPickerOpen(false);
+    window.requestAnimationFrame(() => bodyInput.current?.focus());
+  };
+
+  const insertAsset = (asset: CmsAsset, alt: string) => {
+    const safeAlt = alt.replace(/[\[\]]/g, "");
+    setAssetPickerOpen(false);
+    insertMarkdownAtCursor(`![${safeAlt}](${asset.markdownUrl})`);
+    setOperationMessage({ text: "Assetsの画像を本文へ挿入しました。", tone: "success" });
   };
 
   const focusReviewIssue = (issue: ArticleSubmissionValidationIssue) => {
@@ -1597,6 +1645,9 @@ export function App() {
           kind: "ready",
           role: cmsSessionState.session.identity.role
         };
+  const cmsAssetConnection: CmsLibraryConnection = cmsAssetsError
+    ? { kind: "unavailable", message: cmsAssetsError.message }
+    : cmsLibraryConnection;
   const cmsEditorStatus = cmsSessionState.kind === "checking"
     ? "CMSを確認中…"
     : cmsSessionState.kind === "unavailable"
@@ -1645,6 +1696,15 @@ export function App() {
             {cmsEditorStatus}
           </p>
           <button
+            className="dads-button studio-assets-shortcut"
+            data-size="md"
+            data-type="outline"
+            onClick={showAssetLibrary}
+            type="button"
+          >
+            Assets
+          </button>
+          <button
             aria-controls="studio-article-settings"
             aria-expanded={settingsOpen}
             className="dads-button studio-settings-shortcut"
@@ -1670,6 +1730,16 @@ export function App() {
             {cmsSaveButtonLabel}
           </button>
         </div>
+      ) : null}
+
+      {studioView !== "editor" ? (
+        <nav aria-label="Studioの主要機能" className="studio-primary-nav">
+          <strong>Noema Studio</strong>
+          <div>
+            <button aria-current={studioView === "articles" ? "page" : undefined} onClick={showArticleLibrary} type="button">記事</button>
+            <button aria-current={studioView === "assets" ? "page" : undefined} onClick={showAssetLibrary} type="button">画像</button>
+          </div>
+        </nav>
       ) : null}
 
       {operationMessage ? (
@@ -1705,6 +1775,16 @@ export function App() {
           recoverySaveStatus={saveStatus}
           recoveryTitle={frontmatter.title}
           workingArticleStatus={cmsLibraryWorkingStatus}
+        />
+      ) : studioView === "assets" ? (
+        <CmsAssetLibrary
+          assets={cmsAssets}
+          busy={assetOperationBusy}
+          canEdit={Boolean(cmsSession?.capabilities.canEdit)}
+          connection={cmsAssetConnection}
+          onRetry={() => setCmsRefresh((current) => current + 1)}
+          onUpdate={saveAsset}
+          onUpload={uploadAssets}
         />
       ) : (
         <>
@@ -2262,70 +2342,18 @@ export function App() {
           </div>
           {editorLocked ? <p className="studio-editor__lock" role="status">送信内容を固定しています。本文は選択してコピーできます。</p> : null}
           <div className="studio-markdown-toolbar" aria-label="Markdown編集ツール">
-            <input
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null;
-                setPendingImage(file);
-                setImageAlt("");
-              }}
-              ref={imageInput}
-              type="file"
-            />
             <button
               className="dads-button"
               data-size="sm"
               data-type="outline"
-              disabled={editorLocked || imageUploadBusy || !cmsSession?.capabilities.canEdit}
-              onClick={() => imageInput.current?.click()}
+              disabled={editorLocked || assetOperationBusy || !cmsSession?.capabilities.canEdit}
+              onClick={() => setAssetPickerOpen(true)}
               type="button"
             >
-              画像を追加
+              Assetsから画像を挿入
             </button>
-            <span>PNG・JPEG・WebP・GIF、8MBまで</span>
+            <span>既存画像の再利用、または新しい画像のアップロード</span>
           </div>
-          {pendingImage ? (
-            <div className="studio-image-insert" role="group" aria-labelledby="image-insert-heading">
-              <div>
-                <strong id="image-insert-heading">{pendingImage.name}</strong>
-                <span>{(pendingImage.size / 1024 / 1024).toLocaleString("ja-JP", { maximumFractionDigits: 1 })}MB</span>
-              </div>
-              <label htmlFor="image-alt">画像の説明（代替テキスト）</label>
-              <input
-                id="image-alt"
-                onChange={(event) => setImageAlt(event.target.value)}
-                placeholder="例：Studioの記事編集画面"
-                required
-                value={imageAlt}
-              />
-              <div className="studio-image-insert__actions">
-                <button
-                  className="dads-button"
-                  data-size="sm"
-                  disabled={!imageAlt.trim() || imageUploadBusy}
-                  onClick={() => void insertPendingImage()}
-                  type="button"
-                >
-                  {imageUploadBusy ? "アップロード中…" : "本文に挿入"}
-                </button>
-                <button
-                  className="dads-button"
-                  data-size="sm"
-                  data-type="outline"
-                  disabled={imageUploadBusy}
-                  onClick={() => {
-                    setPendingImage(null);
-                    setImageAlt("");
-                    if (imageInput.current) imageInput.current.value = "";
-                  }}
-                  type="button"
-                >
-                  キャンセル
-                </button>
-              </div>
-            </div>
-          ) : null}
           <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
             <div className="studio-writing-canvas" hidden={previewFullscreen}>
               <label className="sr-only" htmlFor="article-body">Markdown本文</label>
@@ -2360,6 +2388,16 @@ export function App() {
       </main>
         </>
       )}
+
+      {assetPickerOpen ? (
+        <CmsAssetPicker
+          assets={cmsAssets}
+          busy={assetOperationBusy}
+          onClose={closeAssetPicker}
+          onInsert={insertAsset}
+          onUpload={uploadAssets}
+        />
+      ) : null}
 
     </div>
   );
