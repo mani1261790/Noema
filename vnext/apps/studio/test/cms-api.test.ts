@@ -17,11 +17,18 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  const objects = await testEnv.ARTICLE_ASSETS.list({ limit: 1000 });
+  if (objects.objects.length > 0) {
+    await testEnv.ARTICLE_ASSETS.delete(objects.objects.map((object) => object.key));
+  }
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_audit_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_assets"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_asset_imports"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_members"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_member_invitations")
   ]);
@@ -212,6 +219,46 @@ describe("CMS HTTP API", () => {
     expect(preview.headers.get("cache-control")).toBe("private, no-store");
     expect(preview.headers.get("content-type")).toBe("image/png");
     expect(new Uint8Array(await preview.arrayBuffer())).toEqual(new Uint8Array([137, 80, 78, 71]));
+  });
+
+  it("lists uploaded images and updates reusable alt text and tags", async () => {
+    await bootstrapAdmin();
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "library.png", {
+      type: "image/png"
+    }));
+    const upload = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
+      cmsEnv(),
+      ADMIN
+    );
+    const uploaded = (await upload.json()) as { asset: { id: string } };
+
+    const patch = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/assets/${uploaded.asset.id}`, {
+        body: JSON.stringify({ alt: "記事ライブラリの画面", status: "active", tags: ["Studio", "UI"] }),
+        headers: { "content-type": "application/json" },
+        method: "PATCH"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(patch.status).toBe(200);
+
+    const list = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets"),
+      cmsEnv(),
+      ADMIN
+    );
+    const body = (await list.json()) as { assets: Array<Record<string, unknown>> };
+    expect(body.assets).toHaveLength(1);
+    expect(body.assets[0]).toMatchObject({
+      alt: "記事ライブラリの画面",
+      originalName: "library.png",
+      referenceCount: 0,
+      status: "active",
+      tags: ["Studio", "UI"]
+    });
   });
 
   it("rejects SVG uploads", async () => {
