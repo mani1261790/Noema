@@ -30,7 +30,7 @@ export function StudioNotification({
         <strong>{title}</strong>
         <p>{message.text}</p>
       </div>
-      <button onClick={onDismiss} type="button">閉じる</button>
+      <button aria-label="通知を閉じる" onClick={onDismiss} title="閉じる" type="button">閉じる</button>
     </section>
   );
 }
