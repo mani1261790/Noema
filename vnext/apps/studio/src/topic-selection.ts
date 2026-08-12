@@ -1,8 +1,7 @@
 import type { ArticleFrontmatter } from "@noema/content";
-import { STUDIO_ARTICLE_MAX_TOPICS } from "@noema/studio-publication";
 
 type ArticleTopic = ArticleFrontmatter["topics"][number];
-export const MAX_ARTICLE_TOPICS = STUDIO_ARTICLE_MAX_TOPICS;
+export const MAX_ARTICLE_TOPICS = 3;
 
 export function isArticleTopicChoiceDisabled(
   topics: ArticleFrontmatter["topics"],

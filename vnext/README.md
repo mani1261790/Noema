@@ -19,7 +19,6 @@ GitHub ActionsではNode.js 24とWrangler 4.110.0を使います。
 - `apps/public-gate`: `noema-learn.uk`を非公開に保つWorker
 - `packages/cms`: role、review・publication状態、公開範囲、CMS API contract
 - `packages/content`: 記事schema、Markdown validation、UI確認用fixture
-- `packages/studio-publication`: 移行期間中だけ保持するlegacy GitHub Draft PR contract
 - `packages/ui`: Noema共通styleとデジタル庁公式snippet由来CSS
 - `design/concepts`: 実装照合用の画面concept
 - `design/qa`: browser確認時のcapture
@@ -150,7 +149,6 @@ Mutationは固定Studio origin、検証済みAccess principal、CMS role、JSON 
 
 ### Legacy GitHub publication
 
-旧`/api/publication-capabilities`、`/api/article-submissions`、`/api/article-submission-cancellations`と`packages/studio-publication`は、CMS移行期間中に既存flowを壊さないため保持しています。新しい記事運用には使用せず、GitHub App、Draft Pull Request、Durable Objectを記事のsource of truthにしません。
 
 ## R2画像
 

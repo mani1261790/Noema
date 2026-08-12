@@ -17,7 +17,6 @@
   "dependencies": {
     "@noema/cms": "0.1.0",
     "@noema/content": "0.1.0",
-    "@noema/studio-publication": "0.1.0",
     "@noema/ui": "0.1.0",
     "dompurify": "^3.4.11",
     "highlight.js": "^11.11.1",

@@ -21,19 +21,17 @@ import {
   type ArticleMarkdownIssue
 } from "@noema/content";
 import {
-  articleSubmissionRequestSchema,
-  type ArticleSubmissionValidationIssue
-} from "@noema/studio-publication";
-import {
   cmsPublicationStatusLabels,
   cmsReviewStatusLabels,
   cmsRoleLabels,
   cmsVisibilityLabels,
+  validateCmsArticleForReview,
   type CmsArticleAction,
   type CmsArticleDetail,
   type CmsArticleSummary,
   type CmsAsset,
   type CmsAssetStatus,
+  type CmsEditorialIssue,
   type CmsMember,
   type CmsRole,
   type CmsSession,
@@ -90,7 +88,6 @@ type CmsSaveState = "local" | "dirty" | "saving" | "saved" | "conflict" | "error
 
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
 const markdown = createPreviewMarkdown(publicSiteUrl);
-const reviewValidationSubmissionId = "00000000-0000-4000-8000-000000000000";
 const autoManagedMetadataFields = new Set<keyof ArticleFrontmatter>([
   "approach",
   "description",
@@ -154,7 +151,7 @@ const issueFieldLabels: Record<string, string> = {
   updatedAt: "更新日"
 };
 
-function issueControlId(issue: ArticleSubmissionValidationIssue): string | null {
+function issueControlId(issue: CmsEditorialIssue): string | null {
   const path = normalizedIssuePath(issue);
   if (path[0] === "heroImage" && path[1] === "alt") return "article-hero-image-alt";
   if (path[0] === "sources" && typeof path[1] === "number") {
@@ -247,16 +244,16 @@ function getInitialState(): InitialState {
   };
 }
 
-function normalizedIssuePath(issue: ArticleSubmissionValidationIssue): Array<string | number> {
+function normalizedIssuePath(issue: CmsEditorialIssue): Array<string | number> {
   return issue.path[0] === "frontmatter" ? issue.path.slice(1) : issue.path;
 }
 
-function normalizedIssueField(issue: ArticleSubmissionValidationIssue): string | null {
+function normalizedIssueField(issue: CmsEditorialIssue): string | null {
   const path = normalizedIssuePath(issue);
   return typeof path[0] === "string" ? path[0] : null;
 }
 
-function japaneseIssueMessage(issue: ArticleSubmissionValidationIssue): string {
+function japaneseIssueMessage(issue: CmsEditorialIssue): string {
   const path = normalizedIssuePath(issue);
   const field = typeof path[0] === "string" ? path[0] : "";
   let label = issueFieldLabels[field] ?? "入力内容";
@@ -301,9 +298,9 @@ function japaneseIssueMessage(issue: ArticleSubmissionValidationIssue): string {
 }
 
 function normalizeReviewIssues(
-  issues: ArticleSubmissionValidationIssue[]
-): ArticleSubmissionValidationIssue[] {
-  const unique = new Map<string, ArticleSubmissionValidationIssue>();
+  issues: CmsEditorialIssue[]
+): CmsEditorialIssue[] {
+  const unique = new Map<string, CmsEditorialIssue>();
   for (const issue of issues) {
     const normalized = { ...issue, message: japaneseIssueMessage(issue) };
     const key = `${normalized.path.join(".")}|${normalized.message}`;
@@ -322,7 +319,7 @@ function normalizeReviewIssues(
 }
 
 function fieldError(
-  issues: ArticleSubmissionValidationIssue[],
+  issues: CmsEditorialIssue[],
   field: string,
   visible: boolean,
   child?: string
@@ -335,7 +332,7 @@ function fieldError(
 }
 
 function sourceFieldError(
-  issues: ArticleSubmissionValidationIssue[],
+  issues: CmsEditorialIssue[],
   index: number,
   key: "checkedAt" | "title" | "url",
   visible: boolean
@@ -572,7 +569,7 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
   const [validationRequested, setValidationRequested] = useState(false);
-  const [publicationIssues, setPublicationIssues] = useState<ArticleSubmissionValidationIssue[]>([]);
+  const [publicationIssues, setPublicationIssues] = useState<CmsEditorialIssue[]>([]);
   const [cmsSessionState, setCmsSessionState] = useState<CmsSessionState>({ kind: "checking" });
   const [cmsRefresh, setCmsRefresh] = useState(0);
   const [cmsArticles, setCmsArticles] = useState<CmsArticleSummary[]>([]);
@@ -658,22 +655,11 @@ export function App() {
   const bodyIssues = useMemo(() => validateArticleMarkdown(deferredBody), [deferredBody]);
   const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");
   const reviewValidation = useMemo(
-    () => articleSubmissionRequestSchema.safeParse({
-      version: 1,
-      operation: "create_article",
-      submissionId: reviewValidationSubmissionId,
-      frontmatter,
-      markdown: deferredBody
-    }),
+    () => validateCmsArticleForReview({ frontmatter, markdown: deferredBody }),
     [deferredBody, frontmatter]
   );
-  const localReviewIssues = useMemo<ArticleSubmissionValidationIssue[]>(
-    () => reviewValidation.success
-      ? []
-      : normalizeReviewIssues(reviewValidation.error.issues.map((issue) => ({
-          message: issue.message,
-          path: issue.path.map((segment) => typeof segment === "number" ? segment : String(segment))
-        }))),
+  const localReviewIssues = useMemo<CmsEditorialIssue[]>(
+    () => normalizeReviewIssues(reviewValidation),
     [reviewValidation]
   );
   const visibleReviewIssues = publicationIssues.length > 0 ? publicationIssues : localReviewIssues;
@@ -1262,18 +1248,12 @@ export function App() {
     }
 
     if (action === "request_review") {
-      const validation = articleSubmissionRequestSchema.safeParse({
-        version: 1,
-        operation: "create_article",
-        submissionId: reviewValidationSubmissionId,
+      const validation = validateCmsArticleForReview({
         frontmatter: cmsContentRef.current.frontmatter,
         markdown: cmsContentRef.current.body
       });
-      if (!validation.success) {
-        setPublicationIssues(normalizeReviewIssues(validation.error.issues.map((issue) => ({
-          message: issue.message,
-          path: issue.path.map((segment) => typeof segment === "number" ? segment : String(segment))
-        }))));
+      if (validation.length > 0) {
+        setPublicationIssues(normalizeReviewIssues(validation));
         setValidationRequested(true);
         setOperationMessage({ text: "レビューへ送る前に入力エラーを確認してください。", tone: "error" });
         focusValidation();
@@ -1504,7 +1484,7 @@ export function App() {
     setOperationMessage({ text: "Assetsの画像を本文へ挿入しました。", tone: "success" });
   };
 
-  const focusReviewIssue = (issue: ArticleSubmissionValidationIssue) => {
+  const focusReviewIssue = (issue: CmsEditorialIssue) => {
     const field = normalizedIssueField(issue);
     if (field === "markdown") {
       focusBodyIssue(bodyIssues.find((bodyIssue) => bodyIssue.message === issue.message));

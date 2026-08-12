@@ -33,25 +33,10 @@
       "bucket_name": "noema-article-assets"
     }
   ],
-  "secrets": {
-    "required": [
-      "GITHUB_APP_CLIENT_ID",
-      "GITHUB_APP_INSTALLATION_ID",
-      "GITHUB_APP_PRIVATE_KEY"
-    ]
-  },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "PUBLICATION_COORDINATOR",
-        "class_name": "PublicationCoordinator"
-      }
-    ]
-  },
   "exports": {
     "PublicationCoordinator": {
       "type": "durable-object",
-      "storage": "sqlite"
+      "state": "deleted"
     }
   },
   "assets": {
