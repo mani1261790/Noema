@@ -1,4 +1,5 @@
 import {
+  cmsAssetMutationSchema,
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsMemberMutationSchema,
@@ -9,11 +10,14 @@ import {
   CmsRepositoryError,
   createCmsArticle,
   getCmsArticle,
+  listCmsAssets,
   listCmsArticles,
   listCmsMembers,
   resolveCmsSession,
+  registerCmsAsset,
   transitionCmsArticle,
   updateCmsArticle,
+  updateCmsAsset,
   upsertCmsMemberInvitation
 } from "./cms-repository";
 import type { AccessIdentity } from "./access";
@@ -55,14 +59,32 @@ export async function handleCmsApiRequest(
     }
 
     if (pathname === `${CMS_API_PREFIX}/assets`) {
-      if (request.method !== "POST") return methodNotAllowed("POST");
-      if (!session.capabilities.canEdit) {
-        return cmsError(403, "forbidden", "画像を追加する権限がありません。");
-      }
       if (!env.ARTICLE_ASSETS) {
         return cmsError(503, "asset_storage_unavailable", "画像保存は現在利用できません。", true);
       }
-      return uploadCmsAsset(request, env.ARTICLE_ASSETS);
+      if (request.method === "GET") {
+        await registerLegacyAssets(env.CMS_DB, env.ARTICLE_ASSETS, session.identity);
+        return cmsJson({ assets: await listCmsAssets(env.CMS_DB, session.identity) });
+      }
+      if (request.method === "POST") {
+        if (!session.capabilities.canEdit) {
+          return cmsError(403, "forbidden", "画像を追加する権限がありません。");
+        }
+        return uploadCmsAsset(request, env.CMS_DB, env.ARTICLE_ASSETS, session.identity);
+      }
+      return methodNotAllowed("GET, POST");
+    }
+
+    const assetId = parseAssetMetadataRoute(pathname);
+    if (assetId) {
+      if (request.method !== "PATCH") return methodNotAllowed("PATCH");
+      const body = await readCmsJson(request);
+      if (!body.ok) return body.response;
+      const parsed = cmsAssetMutationSchema.safeParse(body.value);
+      if (!parsed.success) return invalidRequest(parsed.error.issues);
+      return cmsJson({
+        asset: await updateCmsAsset(env.CMS_DB, session.identity, assetId, parsed.data)
+      });
     }
 
     if (pathname.startsWith(CMS_ASSET_PREFIX)) {
@@ -159,7 +181,12 @@ export async function handleCmsApiRequest(
   }
 }
 
-async function uploadCmsAsset(request: Request, bucket: R2Bucket): Promise<Response> {
+async function uploadCmsAsset(
+  request: Request,
+  db: D1Database,
+  bucket: R2Bucket,
+  identity: CmsIdentity
+): Promise<Response> {
   const mediaType = request.headers.get("content-type")?.toLowerCase() ?? "";
   if (!mediaType.startsWith("multipart/form-data;")) {
     return cmsError(415, "unsupported_media_type", "画像をmultipart/form-dataで送信してください。");
@@ -187,17 +214,61 @@ async function uploadCmsAsset(request: Request, bucket: R2Bucket): Promise<Respo
     return cmsError(415, "unsupported_asset_type", "PNG、JPEG、WebP、GIFの画像を選択してください。");
   }
 
-  const key = `articles/${crypto.randomUUID()}.${extension}`;
+  const id = crypto.randomUUID();
+  const key = `articles/${id}.${extension}`;
   await bucket.put(key, file.stream(), {
     httpMetadata: { contentType: file.type.toLowerCase() },
     customMetadata: { originalName: file.name.slice(0, 200) }
   });
-  return cmsJson({
-    asset: {
-      markdownUrl: `/media/${key}`,
-      previewUrl: `${CMS_ASSET_PREFIX}${key}`
+  try {
+    const asset = await registerCmsAsset(db, identity, {
+      byteSize: file.size,
+      contentType: file.type.toLowerCase(),
+      id,
+      originalName: file.name,
+      r2Key: key
+    });
+    return cmsJson({ asset }, 201);
+  } catch (error) {
+    await bucket.delete(key);
+    throw error;
+  }
+}
+
+async function registerLegacyAssets(
+  db: D1Database,
+  bucket: R2Bucket,
+  identity: CmsIdentity
+): Promise<void> {
+  const completed = await db.prepare(
+    "SELECT 1 AS present FROM cms_asset_imports WHERE id = 'legacy-r2-assets-v1'"
+  ).first<number>("present");
+  if (completed) return;
+  let cursor: string | undefined;
+  do {
+    const page = await bucket.list({
+      cursor,
+      include: ["customMetadata", "httpMetadata"],
+      limit: 500,
+      prefix: "articles/"
+    });
+    for (const object of page.objects) {
+      if (!isCmsAssetKey(object.key)) continue;
+      const id = object.key.match(/^articles\/([0-9a-f-]{36})\./iu)?.[1];
+      if (!id) continue;
+      await registerCmsAsset(db, identity, {
+        byteSize: object.size,
+        contentType: object.httpMetadata?.contentType ?? contentTypeFromKey(object.key),
+        id,
+        originalName: object.customMetadata?.originalName ?? object.key.split("/").at(-1) ?? object.key,
+        r2Key: object.key
+      });
     }
-  }, 201);
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  await db.prepare(
+    "INSERT INTO cms_asset_imports (id, completed_at) VALUES ('legacy-r2-assets-v1', ?1) ON CONFLICT(id) DO NOTHING"
+  ).bind(new Date().toISOString()).run();
 }
 
 async function readCmsAsset(key: string, bucket: R2Bucket): Promise<Response> {
@@ -214,6 +285,18 @@ async function readCmsAsset(key: string, bucket: R2Bucket): Promise<Response> {
 
 function isCmsAssetKey(key: string): boolean {
   return /^articles\/[0-9a-f-]{36}\.(?:gif|jpe?g|png|webp)$/i.test(key);
+}
+
+function parseAssetMetadataRoute(pathname: string): string | null {
+  const match = pathname.match(/^\/api\/cms\/assets\/([0-9a-f-]{36})$/iu);
+  return match?.[1] ?? null;
+}
+
+function contentTypeFromKey(key: string): string {
+  if (/\.gif$/iu.test(key)) return "image/gif";
+  if (/\.png$/iu.test(key)) return "image/png";
+  if (/\.webp$/iu.test(key)) return "image/webp";
+  return "image/jpeg";
 }
 
 type ArticleRoute =
@@ -330,9 +413,12 @@ function cmsRepositoryError(error: unknown): Response {
 
   const status = {
     article_not_found: 404,
+    asset_in_use: 409,
+    asset_not_found: 404,
     cms_not_configured: 503,
     forbidden: 403,
     invalid_article: 400,
+    invalid_asset: 400,
     invalid_transition: 409,
     last_admin_required: 409,
     member_not_registered: 403,

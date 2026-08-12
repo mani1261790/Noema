@@ -1,6 +1,8 @@
 import {
   canCms,
   cmsCapabilitiesFor,
+  cmsAssetMutationSchema,
+  cmsAssetStatusSchema,
   cmsDraftFrontmatterSchema,
   cmsPublicationStatusSchema,
   cmsReviewStatusSchema,
@@ -8,6 +10,7 @@ import {
   cmsVisibilitySchema,
   validateCmsArticleForReview,
   type CmsArticleAction,
+  type CmsAsset,
   type CmsArticleDetail,
   type CmsArticleSummary,
   type CmsIdentity,
@@ -19,6 +22,7 @@ import {
   type CmsVisibility
 } from "@noema/cms";
 import type { ArticleFrontmatter } from "@noema/content";
+import { z } from "zod";
 
 interface MemberRow {
   active: number;
@@ -91,11 +95,31 @@ interface MemberListRow {
   updated_at: string;
 }
 
+interface AssetRow {
+  alt: string;
+  byte_size: number;
+  content_type: string;
+  created_at: string;
+  created_by_email: string;
+  height: number | null;
+  id: string;
+  original_name: string;
+  reference_count: number;
+  r2_key: string;
+  status: string;
+  tags_json: string;
+  updated_at: string;
+  width: number | null;
+}
+
 export type CmsRepositoryErrorCode =
   | "article_not_found"
+  | "asset_in_use"
+  | "asset_not_found"
   | "cms_not_configured"
   | "forbidden"
   | "invalid_article"
+  | "invalid_asset"
   | "invalid_transition"
   | "last_admin_required"
   | "member_not_registered"
@@ -198,6 +222,131 @@ export async function listCmsArticles(
   return result.results.map(parseArticleSummary);
 }
 
+export async function listCmsAssets(
+  db: D1Database,
+  identity: CmsIdentity
+): Promise<CmsAsset[]> {
+  requirePermission(identity.role, "edit");
+  const result = await db.prepare(
+    `${assetSelect()}
+     ORDER BY a.updated_at DESC, a.id ASC
+     LIMIT 500`
+  ).all<AssetRow>();
+  return result.results.map(parseAsset);
+}
+
+export async function registerCmsAsset(
+  db: D1Database,
+  identity: CmsIdentity,
+  input: {
+    byteSize: number;
+    contentType: string;
+    id: string;
+    originalName: string;
+    r2Key: string;
+  },
+  now = new Date()
+): Promise<CmsAsset> {
+  requirePermission(identity.role, "edit");
+  const timestamp = now.toISOString();
+  await db.prepare(
+    `INSERT INTO cms_assets (
+      id, r2_key, original_name, content_type, byte_size, width, height,
+      alt, tags_json, status, created_by_subject, updated_by_subject,
+      created_at, updated_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, '', '[]', 'active', ?6, ?6, ?7, ?7)
+    ON CONFLICT(r2_key) DO NOTHING`
+  ).bind(
+    input.id,
+    input.r2Key,
+    input.originalName.slice(0, 200),
+    input.contentType,
+    input.byteSize,
+    identity.subject,
+    timestamp
+  ).run();
+  return getCmsAssetByKey(db, input.r2Key);
+}
+
+export async function updateCmsAsset(
+  db: D1Database,
+  identity: CmsIdentity,
+  assetId: string,
+  input: { alt: string; status: string; tags: string[] },
+  now = new Date()
+): Promise<CmsAsset> {
+  requirePermission(identity.role, "edit");
+  const parsed = cmsAssetMutationSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new CmsRepositoryError("invalid_asset", "画像情報を確認してください。");
+  }
+  const tags = [...new Set(parsed.data.tags.map((tag) => tag.trim()).filter(Boolean))];
+  const result = await db.prepare(
+    `UPDATE cms_assets
+     SET alt = ?1, tags_json = ?2, status = ?3,
+         updated_by_subject = ?4, updated_at = ?5
+     WHERE id = ?6
+       AND (?3 <> 'archived' OR NOT EXISTS (
+         SELECT 1 FROM cms_asset_references WHERE asset_id = ?6
+       ))`
+  ).bind(
+    parsed.data.alt.trim(),
+    JSON.stringify(tags),
+    parsed.data.status,
+    identity.subject,
+    now.toISOString(),
+    assetId
+  ).run();
+  if (result.meta.changes !== 1) {
+    const exists = await db.prepare("SELECT 1 AS present FROM cms_assets WHERE id = ?1")
+      .bind(assetId)
+      .first<number>("present");
+    if (!exists) throw assetNotFound();
+    throw new CmsRepositoryError(
+      "asset_in_use",
+      "記事で使用中の画像はアーカイブできません。"
+    );
+  }
+  return getCmsAsset(db, assetId);
+}
+
+function cmsArticleAssetReferenceStatements(
+  db: D1Database,
+  articleId: string,
+  frontmatter: ArticleFrontmatter,
+  markdown: string,
+  timestamp: string
+): D1PreparedStatement[] {
+  const references = new Map<string, Set<"hero" | "markdown">>();
+  for (const match of markdown.matchAll(/\/media\/(articles\/[0-9a-f-]{36}\.(?:gif|jpe?g|png|webp))/giu)) {
+    const key = match[1];
+    if (!key) continue;
+    const locations = references.get(key) ?? new Set<"hero" | "markdown">();
+    locations.add("markdown");
+    references.set(key, locations);
+  }
+  const heroKey = frontmatter.heroImage?.src.match(/^\/media\/(articles\/[0-9a-f-]{36}\.(?:gif|jpe?g|png|webp))$/iu)?.[1];
+  if (heroKey) {
+    const locations = references.get(heroKey) ?? new Set<"hero" | "markdown">();
+    locations.add("hero");
+    references.set(heroKey, locations);
+  }
+
+  const statements: D1PreparedStatement[] = [
+    db.prepare("DELETE FROM cms_asset_references WHERE article_id = ?1").bind(articleId)
+  ];
+  for (const [r2Key, locations] of references) {
+    for (const location of locations) {
+      statements.push(db.prepare(
+        `INSERT INTO cms_asset_references (asset_id, article_id, location, created_at)
+         SELECT id, ?1, ?2, ?3 FROM cms_assets WHERE r2_key = ?4
+         ON CONFLICT(asset_id, article_id, location) DO NOTHING`
+      ).bind(articleId, location, timestamp, r2Key));
+    }
+  }
+  return statements;
+}
+
 export async function getCmsArticle(
   db: D1Database,
   identity: CmsIdentity,
@@ -270,6 +419,13 @@ export async function createCmsArticle(
         articleId,
         identity.subject,
         JSON.stringify({ revisionId, visibility: content.visibility }),
+        timestamp
+      ),
+      ...cmsArticleAssetReferenceStatements(
+        db,
+        articleId,
+        content.frontmatter,
+        content.markdown,
         timestamp
       )
     ]);
@@ -363,6 +519,13 @@ export async function updateCmsArticle(
         articleId,
         nextVersion,
         revisionId
+      ),
+      ...cmsArticleAssetReferenceStatements(
+        db,
+        articleId,
+        content.frontmatter,
+        content.markdown,
+        timestamp
       )
     ]);
 
@@ -643,6 +806,73 @@ function articleDetailSelect(): string {
   JOIN cms_article_revisions r ON r.id = a.current_revision_id
   LEFT JOIN cms_members m ON m.subject = a.updated_by_subject
   LEFT JOIN cms_members rm ON rm.subject = r.created_by_subject`;
+}
+
+function assetSelect(): string {
+  return `SELECT
+    a.id,
+    a.r2_key,
+    a.original_name,
+    a.content_type,
+    a.byte_size,
+    a.width,
+    a.height,
+    a.alt,
+    a.tags_json,
+    a.status,
+    a.created_at,
+    a.updated_at,
+    COALESCE(m.email, 'unknown') AS created_by_email,
+    (SELECT COUNT(*) FROM cms_asset_references ar WHERE ar.asset_id = a.id) AS reference_count
+  FROM cms_assets a
+  LEFT JOIN cms_members m ON m.subject = a.created_by_subject`;
+}
+
+async function getCmsAsset(db: D1Database, assetId: string): Promise<CmsAsset> {
+  const row = await db.prepare(`${assetSelect()} WHERE a.id = ?1`)
+    .bind(assetId)
+    .first<AssetRow>();
+  if (!row) throw assetNotFound();
+  return parseAsset(row);
+}
+
+async function getCmsAssetByKey(db: D1Database, r2Key: string): Promise<CmsAsset> {
+  const row = await db.prepare(`${assetSelect()} WHERE a.r2_key = ?1`)
+    .bind(r2Key)
+    .first<AssetRow>();
+  if (!row) throw assetNotFound();
+  return parseAsset(row);
+}
+
+function parseAsset(row: AssetRow): CmsAsset {
+  const status = cmsAssetStatusSchema.safeParse(row.status);
+  let tags: unknown;
+  try {
+    tags = JSON.parse(row.tags_json) as unknown;
+  } catch {
+    throw new Error("CMS asset tags are not valid JSON.");
+  }
+  const parsedTags = z.array(z.string()).safeParse(tags);
+  if (!status.success || !parsedTags.success) {
+    throw new Error("CMS asset metadata is invalid.");
+  }
+  return {
+    alt: row.alt,
+    byteSize: row.byte_size,
+    contentType: row.content_type,
+    createdAt: row.created_at,
+    createdByEmail: row.created_by_email,
+    height: row.height,
+    id: row.id,
+    markdownUrl: `/media/${row.r2_key}`,
+    originalName: row.original_name,
+    previewUrl: `/api/cms/assets/${row.r2_key}`,
+    referenceCount: row.reference_count,
+    status: status.data,
+    tags: parsedTags.data,
+    updatedAt: row.updated_at,
+    width: row.width
+  };
 }
 
 function parseArticleSummary(row: ArticleListRow): CmsArticleSummary {
@@ -934,6 +1164,10 @@ function isUniqueConstraint(error: unknown, field: string): boolean {
 
 function articleNotFound(): CmsRepositoryError {
   return new CmsRepositoryError("article_not_found", "記事が見つかりません。");
+}
+
+function assetNotFound(): CmsRepositoryError {
+  return new CmsRepositoryError("asset_not_found", "画像が見つかりません。");
 }
 
 function revisionConflict(): CmsRepositoryError {

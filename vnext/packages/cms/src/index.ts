@@ -27,11 +27,13 @@ export const cmsVisibilitySchema = z.enum([
   "restricted",
   "internal"
 ]);
+export const cmsAssetStatusSchema = z.enum(["active", "archived"]);
 
 export type CmsRole = z.infer<typeof cmsRoleSchema>;
 export type CmsReviewStatus = z.infer<typeof cmsReviewStatusSchema>;
 export type CmsPublicationStatus = z.infer<typeof cmsPublicationStatusSchema>;
 export type CmsVisibility = z.infer<typeof cmsVisibilitySchema>;
+export type CmsAssetStatus = z.infer<typeof cmsAssetStatusSchema>;
 
 export const cmsRoleLabels = {
   admin: "管理者",
@@ -119,6 +121,12 @@ export const cmsMemberMutationSchema = z.object({
   role: cmsRoleSchema
 }).strict();
 
+export const cmsAssetMutationSchema = z.object({
+  alt: boundedString(500),
+  status: cmsAssetStatusSchema,
+  tags: z.array(boundedString(80)).max(30)
+}).strict();
+
 export interface CmsIdentity {
   email: string;
   role: CmsRole;
@@ -173,6 +181,24 @@ export interface CmsMember {
   provisioned: boolean;
   role: CmsRole;
   updatedAt: string;
+}
+
+export interface CmsAsset {
+  alt: string;
+  byteSize: number;
+  contentType: string;
+  createdAt: string;
+  createdByEmail: string;
+  height: number | null;
+  id: string;
+  markdownUrl: string;
+  originalName: string;
+  previewUrl: string;
+  referenceCount: number;
+  status: CmsAssetStatus;
+  tags: string[];
+  updatedAt: string;
+  width: number | null;
 }
 
 export type CmsPermission =

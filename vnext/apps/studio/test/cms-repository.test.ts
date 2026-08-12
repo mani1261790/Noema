@@ -6,10 +6,13 @@ import {
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createCmsArticle,
+  listCmsAssets,
   listCmsArticles,
+  registerCmsAsset,
   resolveCmsSession,
   transitionCmsArticle,
   updateCmsArticle,
+  updateCmsAsset,
   upsertCmsMemberInvitation
 } from "../worker/cms-repository";
 
@@ -23,15 +26,76 @@ beforeAll(async () => {
 beforeEach(async () => {
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_audit_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_assets"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_asset_imports"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_members"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_member_invitations")
   ]);
 });
 
 describe("CMS repository", () => {
+  it("tracks article references and prevents archiving an image that is in use", async () => {
+    const admin = await bootstrapAdmin();
+    const asset = await registerCmsAsset(
+      testEnv.CMS_DB,
+      admin.identity,
+      {
+        byteSize: 2048,
+        contentType: "image/png",
+        id: "00000000-0000-4000-8000-000000000001",
+        originalName: "editor.png",
+        r2Key: "articles/00000000-0000-4000-8000-000000000001.png"
+      },
+      NOW
+    );
+    const input = validArticle("asset-reference");
+    input.markdown = `## 画像を使う\n\n![編集画面](${asset.markdownUrl})`;
+    const article = await createCmsArticle(testEnv.CMS_DB, admin.identity, input, NOW);
+
+    const [referenced] = await listCmsAssets(testEnv.CMS_DB, admin.identity);
+    expect(referenced).toMatchObject({
+      alt: "",
+      id: asset.id,
+      referenceCount: 1,
+      status: "active",
+      tags: []
+    });
+    await expect(updateCmsAsset(
+      testEnv.CMS_DB,
+      admin.identity,
+      asset.id,
+      { alt: "記事編集画面", status: "archived", tags: ["Studio"] },
+      NOW
+    )).rejects.toMatchObject({ code: "asset_in_use" });
+
+    const withoutImage = validArticle("asset-reference");
+    await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      withoutImage,
+      new Date("2026-07-18T00:01:00.000Z")
+    );
+    const archived = await updateCmsAsset(
+      testEnv.CMS_DB,
+      admin.identity,
+      asset.id,
+      { alt: "記事編集画面", status: "archived", tags: ["Studio", "Studio"] },
+      new Date("2026-07-18T00:02:00.000Z")
+    );
+    expect(archived).toMatchObject({
+      alt: "記事編集画面",
+      referenceCount: 0,
+      status: "archived",
+      tags: ["Studio"]
+    });
+  });
+
   it("lists the latest article metadata in descending update order", async () => {
     const admin = await bootstrapAdmin();
     const older = await createCmsArticle(
