@@ -5,12 +5,14 @@ import { filterCmsAssets } from "./asset-library";
 export function CmsAssetPicker({
   assets,
   busy,
+  mode,
   onClose,
   onInsert,
   onUpload
 }: {
   assets: CmsAsset[];
   busy: boolean;
+  mode: "body" | "hero";
   onClose: () => void;
   onInsert: (asset: CmsAsset, alt: string) => void;
   onUpload: (files: File[]) => Promise<void>;
@@ -66,7 +68,7 @@ export function CmsAssetPicker({
         <header>
           <div>
             <p className="studio-library__eyebrow">Assets</p>
-            <h2 id="asset-picker-heading">本文へ画像を挿入</h2>
+            <h2 id="asset-picker-heading">{mode === "hero" ? "記事画像を選択" : "本文へ画像を挿入"}</h2>
           </div>
           <button aria-label="画像選択を閉じる" onClick={onClose} type="button">閉じる</button>
         </header>
@@ -103,10 +105,12 @@ export function CmsAssetPicker({
           {selected ? (
             <aside className="studio-asset-picker__selection">
               <img alt={selected.alt || "選択中の画像"} src={selected.previewUrl} />
-              <label htmlFor="asset-picker-alt">この記事での画像の説明</label>
+              <label htmlFor="asset-picker-alt">{mode === "hero" ? "記事画像の説明" : "この記事での画像の説明"}</label>
               <textarea id="asset-picker-alt" onChange={(event) => setAlt(event.target.value)} rows={3} value={alt} />
               <p>記事の文脈に合わせて変更できます。</p>
-              <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy || !alt.trim()} onClick={() => onInsert(selected, alt.trim())} type="button">カーソル位置に挿入</button>
+              <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy || !alt.trim()} onClick={() => onInsert(selected, alt.trim())} type="button">
+                {mode === "hero" ? "記事画像に設定" : "カーソル位置に挿入"}
+              </button>
             </aside>
           ) : null}
         </div>

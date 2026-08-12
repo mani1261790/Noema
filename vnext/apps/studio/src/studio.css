@@ -102,7 +102,7 @@ a {
 .studio-editor-toolbar {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
   align-items: center;
   gap: .75rem;
   min-height: 64px;
@@ -610,6 +610,51 @@ a {
 
 .studio-settings > * {
   width: 100%;
+}
+
+.studio-settings.is-metadata > .studio-cms-workflow,
+.studio-settings.is-workflow > :not(.studio-settings__header):not(.studio-cms-workflow) {
+  display: none;
+}
+
+.studio-settings.is-workflow .studio-cms-workflow {
+  border: 0;
+}
+
+.studio-settings.is-workflow .studio-cms-workflow > summary {
+  display: none;
+}
+
+.studio-hero-asset-button {
+  width: 100%;
+}
+
+.studio-hero-asset-preview {
+  display: grid;
+  gap: .75rem;
+  padding: .75rem;
+  background: #f7f8f8;
+  border: 1px solid #949494;
+}
+
+.studio-hero-asset-preview img {
+  width: 100%;
+  max-height: 16rem;
+  object-fit: contain;
+}
+
+.studio-manual-media-path {
+  padding: .75rem 0;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+
+.studio-manual-media-path > summary {
+  font-weight: 700;
+}
+
+.studio-manual-media-path[open] > summary {
+  margin-bottom: .75rem;
 }
 
 .studio-settings__header {
