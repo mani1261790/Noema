@@ -1,7 +1,5 @@
 import { useDeferredValue, useMemo, useRef } from "react";
 import {
-  cmsPublicationStatusLabels,
-  cmsReviewStatusLabels,
   cmsRoleLabels,
   cmsVisibilityLabels,
   type CmsArticleSummary,
@@ -13,6 +11,7 @@ import {
   getCmsEditorialQueue,
   type CmsArticleFilter
 } from "./article-library";
+import { CmsPublicationJourney } from "./CmsPublicationJourney";
 
 export type CmsLibraryConnection =
   | { kind: "checking" }
@@ -80,15 +79,11 @@ function CmsArticleListItem({
   return (
     <li className="studio-library-item">
       <div className="studio-library-item__main">
-        <div className="studio-library-item__status" aria-label="記事の状態">
-          <span className={`is-review-${article.reviewStatus}`}>
-            {cmsReviewStatusLabels[article.reviewStatus]}
-          </span>
-          <span className={`is-publication-${article.publicationStatus}`}>
-            {cmsPublicationStatusLabels[article.publicationStatus]}
-          </span>
-          <span>{cmsVisibilityLabels[article.visibility]}</span>
-        </div>
+        <CmsPublicationJourney
+          compact
+          publicationStatus={article.publicationStatus}
+          reviewStatus={article.reviewStatus}
+        />
         <h3>{title}</h3>
         <p className="studio-library-item__slug">
           <span>スラッグ</span> {article.slug || "未設定"}
@@ -98,6 +93,7 @@ function CmsArticleListItem({
         <p className="studio-library-item__updated">
           <time dateTime={article.updatedAt}>{formatArticleDate(article.updatedAt)}</time>
           <span>{article.updatedByEmail}</span>
+          <span>{cmsVisibilityLabels[article.visibility]}</span>
         </p>
       </div>
       <button
@@ -317,6 +313,9 @@ export function CmsArticleLibrary({
                 </button>
               ))}
             </div>
+            <p className="studio-editorial-queue__flow">
+              公開までの4段階 <span aria-hidden="true">下書き → レビュー中 → 承認済み → 公開</span>
+            </p>
             {queueCount === 0 ? <p className="studio-editorial-queue__empty">いま対応が必要な記事はありません。新しい記事を書くか、下の一覧から作業を続けられます。</p> : null}
           </section>
         ) : null}
