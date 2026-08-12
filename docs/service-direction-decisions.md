@@ -11,6 +11,7 @@
 - [コンテンツ・掲載方針](./content-strategy.md)
 - [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md)
 - [開発環境デプロイ](./development-deployment.md)
+- [CMS contract](../vnext/packages/cms/README.md)
 
 ## 1. 目指すもの
 
@@ -46,7 +47,7 @@ AIへ関心はあるものの、学ぶ理由や具体的な使い道をまだ見
 | --- | --- | --- |
 | 各執筆者がMarkdownファイルを貯め、まとめて配置・整形する | StudioからCloudflare D1のCMSへ保存し、レビュー・承認・公開する | 複数人編集、版管理、公開中の記事の安全な更新、権限管理を一つの流れで扱うため |
 | 記事公開をGitHub Draft PRと連携する | 記事公開はStudio内で完結し、GitHubはコード、schema、docsを管理する | 執筆者に開発用GitHub操作を要求せず、記事とアプリケーションのリリースを分離するため |
-| 旧AWS版を維持しながら新構成を検討する | 旧AWS版を退役・公開アーカイブ化し、Cloudflare構成へ移行する | 学生主体の運営で、費用と保守対象を抑えながら継続できる構成にするため |
+| 旧AWS版を維持しながら新構成を検討する | 旧AWS版を退役・公開アーカイブ化し、Cloudflare構成へ移行した | 学生主体の運営で、費用と保守対象を抑えながら継続できる構成にするため |
 
 現在の構成、制約、未決定事項は[プロダクト再設計仕様](./product-reboot.md)を参照する。この文書へ進捗状況や一時的なTODOは記載しない。
 
