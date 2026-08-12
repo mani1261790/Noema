@@ -10,6 +10,7 @@ import {
 import {
   cmsArticleFilterOptions,
   filterCmsArticles,
+  getCmsEditorialQueue,
   type CmsArticleFilter
 } from "./article-library";
 
@@ -61,8 +62,10 @@ function CmsArticleListItem({
   canOpen,
   opening,
   recoveryNeedsArticleAssociation,
+  actionLabel,
   onEdit
 }: {
+  actionLabel: string;
   article: CmsArticleSummary;
   busy: boolean;
   canOpen: boolean;
@@ -71,6 +74,9 @@ function CmsArticleListItem({
   onEdit: (articleId: string) => void;
 }) {
   const title = article.title.trim() || "無題の記事";
+  const actionAriaLabel = actionLabel === "公開を確認"
+    ? `「${title}」の公開を確認`
+    : `「${title}」を${actionLabel}`;
   return (
     <li className="studio-library-item">
       <div className="studio-library-item__main">
@@ -99,7 +105,7 @@ function CmsArticleListItem({
           ? `「${title}」を開いています`
           : recoveryNeedsArticleAssociation
             ? `復旧原稿を「${title}」に引き継ぐ`
-            : `「${title}」を編集する`}
+            : actionAriaLabel}
         className="dads-button studio-library-item__edit"
         data-size="md"
         data-type="outline"
@@ -107,7 +113,7 @@ function CmsArticleListItem({
         onClick={() => onEdit(article.id)}
         type="button"
       >
-        {opening ? "開いています…" : recoveryNeedsArticleAssociation ? "この内容を引き継ぐ" : "編集する"}
+        {opening ? "開いています…" : recoveryNeedsArticleAssociation ? "この内容を引き継ぐ" : actionLabel}
       </button>
     </li>
   );
@@ -191,7 +197,20 @@ export function CmsArticleLibrary({
     () => filterCmsArticles(articles, deferredQuery, filter),
     [articles, deferredQuery, filter]
   );
+  const editorialQueue = useMemo(
+    () => connection.kind === "ready" ? getCmsEditorialQueue(articles, connection.role) : [],
+    [articles, connection]
+  );
+  const queueCount = editorialQueue.reduce((total, item) => total + item.count, 0);
+  const queueFilters = new Set(editorialQueue.map((item) => item.filter));
   const hasConditions = query.trim().length > 0 || filter !== "all";
+  const articleActionLabel = filter === "changes_requested"
+    ? "修正する"
+    : filter === "in_review"
+      ? "レビューする"
+      : filter === "ready_to_publish"
+        ? "公開を確認"
+        : "編集する";
   const clearConditions = () => {
     onQueryChange("");
     onFilterChange("all");
@@ -272,6 +291,37 @@ export function CmsArticleLibrary({
         ) : null}
 
         {connection.kind === "ready" ? (
+          <section aria-labelledby="studio-editorial-queue-heading" className="studio-editorial-queue">
+            <div className="studio-editorial-queue__heading">
+              <div>
+                <p className="studio-library__eyebrow">次にやること</p>
+                <h2 id="studio-editorial-queue-heading">対応する記事</h2>
+              </div>
+              <strong>{queueCount === 0 ? "対応待ちなし" : `${queueCount}件`}</strong>
+            </div>
+            <div className="studio-editorial-queue__items">
+              {editorialQueue.map((item) => (
+                <button
+                  aria-pressed={filter === item.filter}
+                  className="studio-editorial-queue__item"
+                  disabled={item.count === 0}
+                  key={item.filter}
+                  onClick={() => {
+                    onQueryChange("");
+                    onFilterChange(item.filter);
+                  }}
+                  type="button"
+                >
+                  <span><strong>{item.label}</strong><b>{item.count}</b></span>
+                  <small>{item.description}</small>
+                </button>
+              ))}
+            </div>
+            {queueCount === 0 ? <p className="studio-editorial-queue__empty">いま対応が必要な記事はありません。新しい記事を書くか、下の一覧から作業を続けられます。</p> : null}
+          </section>
+        ) : null}
+
+        {connection.kind === "ready" ? (
           <section aria-labelledby="studio-saved-articles-heading" className="studio-library__saved">
             <div className="studio-library__saved-heading">
               <div>
@@ -309,6 +359,11 @@ export function CmsArticleLibrary({
                   ))}
                 </div>
               </fieldset>
+              {queueFilters.has(filter) ? (
+                <p className="studio-library-controls__queue-filter" role="status">
+                  「{editorialQueue.find((item) => item.filter === filter)?.label}」だけを表示しています。
+                </p>
+              ) : null}
               {hasConditions ? (
                 <button className="studio-library__clear" onClick={clearConditions} type="button">
                   検索条件をクリア
@@ -341,6 +396,7 @@ export function CmsArticleLibrary({
               <ul className="studio-library-list">
                 {visibleArticles.map((article) => (
                   <CmsArticleListItem
+                    actionLabel={articleActionLabel}
                     article={article}
                     busy={busy}
                     canOpen={canOpenArticles}

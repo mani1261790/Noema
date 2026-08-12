@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CmsArticleSummary } from "@noema/cms";
-import { filterCmsArticles } from "../src/article-library";
+import { filterCmsArticles, getCmsEditorialQueue } from "../src/article-library";
 
 const articles: CmsArticleSummary[] = [
   {
@@ -68,5 +68,43 @@ describe("filterCmsArticles", () => {
     expect(filterCmsArticles(articles, "　ＡＤＭＩＮ＠ＥＸＡＭＰＬＥ．ＣＯＭ　", "archived")
       .map((article) => article.id)).toEqual(["article-archived"]);
     expect(filterCmsArticles(articles, "reviewer", "published")).toEqual([]);
+  });
+
+  it("builds a role-specific queue without mixing review and publication work", () => {
+    const readyToPublish: CmsArticleSummary = {
+      ...articles[1],
+      id: "article-publish",
+      publicationStatus: "unpublished",
+      reviewStatus: "approved"
+    };
+    const changesRequested: CmsArticleSummary = {
+      ...articles[1],
+      id: "article-fix",
+      reviewStatus: "changes_requested"
+    };
+    const source = [...articles, readyToPublish, changesRequested];
+
+    expect(getCmsEditorialQueue(source, "editor")).toEqual([
+      expect.objectContaining({ count: 1, filter: "changes_requested", label: "修正が必要" })
+    ]);
+    expect(getCmsEditorialQueue(source, "reviewer")).toEqual([
+      expect.objectContaining({ count: 1, filter: "in_review", label: "レビュー待ち" })
+    ]);
+    expect(getCmsEditorialQueue(source, "admin")).toEqual([
+      expect.objectContaining({ count: 1, filter: "in_review", label: "レビュー待ち" }),
+      expect.objectContaining({ count: 1, filter: "ready_to_publish", label: "公開待ち" })
+    ]);
+  });
+
+  it("applies the precise queue filters", () => {
+    const source: CmsArticleSummary[] = [
+      ...articles,
+      { ...articles[1], id: "article-fix", reviewStatus: "changes_requested" },
+      { ...articles[1], id: "article-publish", reviewStatus: "approved", publicationStatus: "unpublished" }
+    ];
+
+    expect(filterCmsArticles(source, "", "changes_requested").map(({ id }) => id)).toEqual(["article-fix"]);
+    expect(filterCmsArticles(source, "", "in_review").map(({ id }) => id)).toEqual(["article-review"]);
+    expect(filterCmsArticles(source, "", "ready_to_publish").map(({ id }) => id)).toEqual(["article-publish"]);
   });
 });
