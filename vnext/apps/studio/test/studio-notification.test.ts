@@ -15,6 +15,7 @@ describe("StudioNotification", () => {
     expect(html).toContain("操作を完了できませんでした");
     expect(html).toContain("通信状態を確認してください。");
     expect(html).toContain("閉じる");
+    expect(html).toContain('aria-label="通知を閉じる"');
   });
 
   it("uses a supplied recovery title for contextual information", () => {

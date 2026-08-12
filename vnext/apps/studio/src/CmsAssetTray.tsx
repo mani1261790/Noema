@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { CmsAsset } from "@noema/cms";
 import { filterCmsAssets } from "./asset-library";
+import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
 
 export const noemaAssetDragType = "application/x-noema-asset";
 
@@ -43,19 +44,19 @@ export function CmsAssetTray({
 
   return (
     <aside aria-labelledby="studio-asset-tray-heading" className="studio-asset-tray" id="studio-asset-tray">
-      <header>
-        <div>
-          <h2 id="studio-asset-tray-heading">Assets</h2>
-          <p>画像を本文へドラッグ</p>
-        </div>
-        <button aria-label="Assetsを閉じる" onClick={onClose} type="button">閉じる</button>
-      </header>
+      <StudioSurfaceHeader
+        description="画像を本文へドラッグ"
+        onClose={onClose}
+        title="Assets"
+        titleId="studio-asset-tray-heading"
+      />
       <label htmlFor="studio-asset-tray-search">画像を検索</label>
       <input
         id="studio-asset-tray-search"
         onChange={(event) => setQuery(event.target.value)}
         placeholder="ファイル名、説明、タグ"
         ref={searchInput}
+        className="studio-control"
         type="search"
         value={query}
       />
@@ -71,8 +72,8 @@ export function CmsAssetTray({
         type="file"
       />
       <div className="studio-asset-tray__actions">
-        <button disabled={!canEdit || busy} onClick={() => fileInput.current?.click()} type="button">画像を追加</button>
-        <button onClick={onManage} type="button">すべて管理</button>
+        <button className="dads-button" data-size="sm" data-type="outline" disabled={!canEdit || busy} onClick={() => fileInput.current?.click()} type="button">画像を追加</button>
+        <button className="dads-button" data-size="sm" data-type="outline" onClick={onManage} type="button">すべて管理</button>
       </div>
       {visibleAssets.length > 0 ? (
         <ul className="studio-asset-tray__grid">
@@ -93,7 +94,7 @@ export function CmsAssetTray({
                   <img alt="" loading="lazy" src={asset.previewUrl} />
                   <strong title={asset.originalName}>{asset.originalName}</strong>
                   {asset.alt.trim() ? <small>{asset.alt}</small> : <small className="is-warning">画像の説明が未設定</small>}
-                  <button disabled={!usable || busy} onClick={() => onInsert(asset)} type="button">
+                  <button className="dads-button" data-size="sm" data-type="outline" disabled={!usable || busy} onClick={() => onInsert(asset)} type="button">
                     カーソル位置へ挿入
                   </button>
                 </article>

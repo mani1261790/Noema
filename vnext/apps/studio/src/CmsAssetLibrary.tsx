@@ -67,7 +67,7 @@ export function CmsAssetLibrary({
       }}
     >
       <div className="studio-assets__inner">
-        <header className="studio-assets__heading">
+        <header className="studio-library__heading studio-assets__heading">
           <div>
             <p className="studio-library__eyebrow">Assets</p>
             <h1 id="studio-asset-library-heading" tabIndex={-1}>画像を管理</h1>
@@ -109,6 +109,7 @@ export function CmsAssetLibrary({
             <section className="studio-assets__controls" aria-label="画像を検索・絞り込み">
               <label htmlFor="asset-search">画像を検索</label>
               <input
+                className="studio-control"
                 id="asset-search"
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="ファイル名、説明、タグで検索"
@@ -156,7 +157,7 @@ export function CmsAssetLibrary({
                   <div className="studio-assets__empty">
                     <h2>{assets.length === 0 ? "最初の画像を追加しましょう" : "条件に合う画像がありません"}</h2>
                     <p>{assets.length === 0 ? "画像をアップロードすると、どの記事からでも再利用できます。" : "検索語を短くするか、別の状態を選んでください。"}</p>
-                    {query || filter !== "all" ? <button type="button" onClick={() => { setQuery(""); setFilter("all"); }}>検索条件をクリア</button> : null}
+                    {query || filter !== "all" ? <button className="studio-text-action" type="button" onClick={() => { setQuery(""); setFilter("all"); }}>検索条件をクリア</button> : null}
                   </div>
                 )}
               </section>
@@ -208,6 +209,7 @@ function AssetDetails({
       </dl>
       <label htmlFor="asset-alt">標準の画像説明（alt）</label>
       <textarea
+        className="studio-control"
         id="asset-alt"
         onChange={(event) => setAlt(event.target.value)}
         placeholder="画像が伝えている内容を簡潔に記述"
@@ -216,7 +218,7 @@ function AssetDetails({
       />
       {!alt.trim() ? <p className="studio-asset-details__warning">記事へ挿入する前に画像の説明を設定してください。</p> : null}
       <label htmlFor="asset-tags">管理用タグ</label>
-      <input id="asset-tags" onChange={(event) => setTags(event.target.value)} placeholder="UI, Cloudflare" value={tags} />
+      <input className="studio-control" id="asset-tags" onChange={(event) => setTags(event.target.value)} placeholder="UI, Cloudflare" value={tags} />
       <p className="studio-asset-details__support">複数のタグはカンマで区切ります。</p>
       <div className="studio-asset-details__actions">
         <button

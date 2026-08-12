@@ -88,6 +88,7 @@ import {
   defaultStudioPanelWidth,
   StudioPanelResizeHandle
 } from "./StudioPanelResizeHandle";
+import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
 
 type StudioView = "articles" | "assets" | "editor" | "team";
 type StudioSettingsMode = "metadata" | "workflow";
@@ -1901,15 +1902,12 @@ export function App() {
           hidden={!settingsOpen}
           id="studio-article-settings"
         >
-          <div className="studio-settings__header">
-            <div>
-              <h2>{settingsMode === "workflow" ? "レビュー・公開" : "記事情報"}</h2>
-              <p>{settingsMode === "workflow" ? "記事の状態を確認し、次の工程へ進めます。" : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}</p>
-            </div>
-            <button className="dads-button" data-size="sm" data-type="outline" onClick={() => setSettingsOpen(false)} type="button">
-              閉じる
-            </button>
-          </div>
+          <StudioSurfaceHeader
+            description={settingsMode === "workflow" ? "記事の状態を確認し、次の工程へ進めます。" : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
+            onClose={() => setSettingsOpen(false)}
+            title={settingsMode === "workflow" ? "レビュー・公開" : "記事情報"}
+            titleId="studio-settings-heading"
+          />
 
           <section className="studio-autofill" aria-labelledby="studio-autofill-heading">
             <div>
