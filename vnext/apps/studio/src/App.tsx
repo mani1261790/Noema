@@ -80,6 +80,7 @@ import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
 
 type StudioView = "articles" | "assets" | "editor";
+type StudioSettingsMode = "metadata" | "workflow";
 type OperationMessage = { text: string; tone: "error" | "info" | "success" };
 type CmsSessionState =
   | { kind: "checking" }
@@ -565,6 +566,7 @@ export function App() {
       : "articles"
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMode, setSettingsMode] = useState<StudioSettingsMode>("metadata");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
@@ -608,7 +610,7 @@ export function App() {
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
+  const [assetPickerTarget, setAssetPickerTarget] = useState<"body" | "hero" | null>(null);
   const [assetOperationBusy, setAssetOperationBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
@@ -1480,13 +1482,24 @@ export function App() {
   };
 
   const closeAssetPicker = () => {
-    setAssetPickerOpen(false);
-    window.requestAnimationFrame(() => bodyInput.current?.focus());
+    const target = assetPickerTarget;
+    setAssetPickerTarget(null);
+    window.requestAnimationFrame(() => {
+      if (target === "hero") document.querySelector<HTMLElement>("#article-hero-asset")?.focus();
+      else bodyInput.current?.focus();
+    });
   };
 
   const insertAsset = (asset: CmsAsset, alt: string) => {
     const safeAlt = alt.replace(/[\[\]]/g, "");
-    setAssetPickerOpen(false);
+    if (assetPickerTarget === "hero") {
+      update("heroImage", { alt: safeAlt, src: asset.markdownUrl });
+      setAssetPickerTarget(null);
+      setMediaOpen(true);
+      setOperationMessage({ text: "Assetsの画像を記事画像に設定しました。", tone: "success" });
+      return;
+    }
+    setAssetPickerTarget(null);
     insertMarkdownAtCursor(`![${safeAlt}](${asset.markdownUrl})`);
     setOperationMessage({ text: "Assetsの画像を本文へ挿入しました。", tone: "success" });
   };
@@ -1706,18 +1719,34 @@ export function App() {
           </button>
           <button
             aria-controls="studio-article-settings"
-            aria-expanded={settingsOpen}
+            aria-expanded={settingsOpen && settingsMode === "metadata"}
             className="dads-button studio-settings-shortcut"
             data-size="md"
             data-type="outline"
             onClick={() => {
               setPreviewFullscreen(false);
-              setSettingsOpen((current) => !current);
+              setSettingsMode("metadata");
+              setSettingsOpen((current) => settingsMode === "metadata" ? !current : true);
             }}
             type="button"
           >
             記事情報
             {validationVisible && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
+          </button>
+          <button
+            aria-controls="studio-article-settings"
+            aria-expanded={settingsOpen && settingsMode === "workflow"}
+            className="dads-button studio-workflow-shortcut"
+            data-size="md"
+            data-type="outline"
+            onClick={() => {
+              setPreviewFullscreen(false);
+              setSettingsMode("workflow");
+              setSettingsOpen((current) => settingsMode === "workflow" ? !current : true);
+            }}
+            type="button"
+          >
+            レビュー・公開
           </button>
           <button
             className="dads-button studio-save-shortcut"
@@ -1805,14 +1834,14 @@ export function App() {
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
         <aside
           aria-label="記事設定"
-          className="studio-settings"
+          className={`studio-settings is-${settingsMode}`}
           hidden={!settingsOpen}
           id="studio-article-settings"
         >
           <div className="studio-settings__header">
             <div>
-              <h2>記事情報</h2>
-              <p>本文から自動整理されます。必要な項目だけ確認・修正できます。</p>
+              <h2>{settingsMode === "workflow" ? "レビュー・公開" : "記事情報"}</h2>
+              <p>{settingsMode === "workflow" ? "記事の状態を確認し、次の工程へ進めます。" : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}</p>
             </div>
             <button className="dads-button" data-size="sm" data-type="outline" onClick={() => setSettingsOpen(false)} type="button">
               閉じる
@@ -1840,7 +1869,7 @@ export function App() {
             </button>
           </section>
 
-          <details className="studio-cms studio-cms-workflow" id="cms-workflow">
+          <details className="studio-cms studio-cms-workflow" id="cms-workflow" open={settingsMode === "workflow"}>
             <summary className="studio-cms-workflow__summary">
               <span>保存・レビュー・公開</span>
               <small>{cmsArticle ? `${cmsReviewStatusLabels[cmsArticle.reviewStatus]}・${cmsPublicationStatusLabels[cmsArticle.publicationStatus]}` : "未登録・未公開"}</small>
@@ -2240,12 +2269,32 @@ export function App() {
             <details className="studio-disclosure" open={mediaOpen} onToggle={(event) => setMediaOpen(event.currentTarget.open)}>
               <summary>記事画像{fieldError(visibleReviewIssues, "heroImage", validationVisible) ? "（要確認）" : "（任意）"}</summary>
               <div className="studio-disclosure__content">
+                <button
+                  className="dads-button studio-hero-asset-button"
+                  data-size="md"
+                  data-type="outline"
+                  disabled={editorLocked || assetOperationBusy || !cmsSession?.capabilities.canEdit}
+                  id="article-hero-asset"
+                  onClick={() => setAssetPickerTarget("hero")}
+                  type="button"
+                >
+                  {frontmatter.heroImage ? "Assetsから記事画像を変更" : "Assetsから記事画像を選ぶ"}
+                </button>
+                {frontmatter.heroImage ? (
+                  <div className="studio-hero-asset-preview">
+                    <PreviewHeroImage image={frontmatter.heroImage} />
+                    <button className="dads-button" data-size="sm" data-type="outline" onClick={() => update("heroImage", null)} type="button">記事画像を外す</button>
+                  </div>
+                ) : null}
+                <details className="studio-manual-media-path">
+                  <summary>画像パスを手動で指定</summary>
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "heroImage", validationVisible, "src");
                   return <Field id="article-hero-image" label="画像パス" required={false} support="/images/articles/ 以下のサイト内パスを指定します。" error={error}>
                     <input id="article-hero-image" className="dads-input-text__input" {...inputA11y("article-hero-image", true, error, false, false)} value={frontmatter.heroImage?.src ?? ""} onChange={(event) => update("heroImage", event.target.value ? { src: event.target.value, alt: frontmatter.heroImage?.alt ?? "" } : null)} placeholder="/images/articles/example.webp" />
                   </Field>;
                 })()}
+                </details>
                 {frontmatter.heroImage ? (
                   (() => {
                     const error = fieldError(visibleReviewIssues, "heroImage", validationVisible, "alt");
@@ -2347,7 +2396,7 @@ export function App() {
               data-size="sm"
               data-type="outline"
               disabled={editorLocked || assetOperationBusy || !cmsSession?.capabilities.canEdit}
-              onClick={() => setAssetPickerOpen(true)}
+              onClick={() => setAssetPickerTarget("body")}
               type="button"
             >
               Assetsから画像を挿入
@@ -2389,10 +2438,11 @@ export function App() {
         </>
       )}
 
-      {assetPickerOpen ? (
+      {assetPickerTarget ? (
         <CmsAssetPicker
           assets={cmsAssets}
           busy={assetOperationBusy}
+          mode={assetPickerTarget}
           onClose={closeAssetPicker}
           onInsert={insertAsset}
           onUpload={uploadAssets}
