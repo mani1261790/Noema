@@ -571,7 +571,7 @@ export function App() {
       : "articles";
     return typeof window === "undefined"
       ? fallback
-      : readStudioView(window.location.hash, fallback);
+      : readStudioView(window.location.pathname, fallback);
   });
   const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>({
     ...initialState.frontmatter,
@@ -1013,11 +1013,12 @@ export function App() {
 
   useEffect(() => {
     const restoreStudioView = () => {
-      const nextView = readStudioView(window.location.hash, "articles");
+      const nextView = readStudioView(window.location.pathname, "articles");
       if (studioViewRef.current === "editor" && nextView !== "editor") {
         const current = cmsContentRef.current;
         if (hasMeaningfulArticleInput(current.frontmatter, current.body)) {
           const result = saveBrowserDraft(current.frontmatter, current.body);
+          if (result.ok && !cmsArticle && !cmsRecoveryReference) setHasRecoveryDraft(true);
           setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
           if (!result.ok) {
             showNotification({
@@ -1044,7 +1045,7 @@ export function App() {
     };
     window.addEventListener("popstate", restoreStudioView);
     return () => window.removeEventListener("popstate", restoreStudioView);
-  }, [saveBrowserDraft, showNotification]);
+  }, [cmsArticle, cmsRecoveryReference, saveBrowserDraft, showNotification]);
 
   const applyCmsArticle = (
     article: CmsArticleDetail,
