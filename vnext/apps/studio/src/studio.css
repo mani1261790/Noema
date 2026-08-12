@@ -883,16 +883,6 @@ a {
   overflow-wrap: anywhere;
 }
 
-.studio-cms-members input,
-.studio-cms-members select {
-  width: 100%;
-  min-height: 44px;
-  padding: .6rem .7rem;
-  border: 1px solid #767676;
-  color: #1a1a1a;
-  background: #fff;
-}
-
 .studio-cms__status-pair {
   display: flex;
   flex-wrap: wrap;
@@ -1024,54 +1014,86 @@ a {
   margin-top: .25rem;
 }
 
-.studio-cms-members {
-  background: #fff;
-  border: 1px solid #767676;
+.studio-team__heading {
+  align-items: center;
 }
 
-.studio-cms-members > summary {
-  min-height: 48px;
-  padding: .75rem;
-  font-weight: 700;
+.studio-team__identity {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: .15rem;
+  margin: 0;
+  color: #555;
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.studio-team__identity strong {
+  color: var(--color-key-900);
+}
+
+.studio-team__layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.studio-team__invite,
+.studio-team__members {
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #949494;
+}
+
+.studio-team__invite h2,
+.studio-team__members h2 {
+  margin: 0;
+  font-size: calc(22 / 16 * 1rem);
   line-height: 1.5;
 }
 
-.studio-cms-members[open] > summary {
-  background: #f2f2f2;
-  border-bottom: 1px solid #949494;
-}
-
-.studio-cms-members__content {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.studio-cms-members__content > p {
-  margin: 0;
-  color: #444;
+.studio-team__invite > div > p:last-child {
+  margin: .5rem 0 0;
+  color: #555;
   font-size: calc(14 / 16 * 1rem);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
-.studio-cms-members form {
+.studio-team__invite form {
   display: grid;
   gap: .5rem;
+  margin-top: 1.5rem;
 }
 
-.studio-cms-members form > label:not(.studio-cms-members__active) {
+.studio-team__invite form > label:not(.studio-team__active) {
   margin-top: .25rem;
   font-weight: 700;
 }
 
-.studio-cms-members__active {
+.studio-team__invite input[type="email"],
+.studio-team__invite select {
+  width: 100%;
+  min-height: 48px;
+  padding: .75rem;
+  border: 2px solid #767676;
+  border-radius: 0;
+  color: #1a1a1a;
+  background: #fff;
+  font: inherit;
+}
+
+.studio-team__active {
   display: flex;
   min-height: 44px;
   align-items: center;
   gap: .5rem;
 }
 
-.studio-cms-members__active input {
+.studio-team__active input {
   flex: 0 0 1.2rem;
   width: 1.2rem;
   min-height: 1.2rem;
@@ -1079,46 +1101,81 @@ a {
   accent-color: var(--color-key-900);
 }
 
-.studio-cms-members__error {
+.studio-team__error {
+  margin: 1rem 0 0;
   padding: .75rem;
-  color: #5c0011 !important;
+  color: #5c0011;
   background: #fff4f5;
   border-left: 5px solid #b40000;
+  line-height: 1.6;
 }
 
-.studio-cms-members__list {
+.studio-team__members-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #b4b4b4;
+}
+
+.studio-team__members-heading > strong {
+  flex: 0 0 auto;
+}
+
+.studio-team__list {
   display: grid;
-  gap: .5rem;
-  margin: 0;
+  gap: .75rem;
+  margin: 1rem 0 0;
   padding: 0;
   list-style: none;
 }
 
-.studio-cms-members__list li {
+.studio-team__list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: .75rem;
-  padding: .75rem;
+  gap: 1rem;
+  padding: 1rem;
   background: #f7f7f7;
   border: 1px solid #b4b4b4;
 }
 
-.studio-cms-members__list li > div {
+.studio-team__list li > div {
   display: grid;
   min-width: 0;
-  gap: .2rem;
+  gap: .15rem;
 }
 
-.studio-cms-members__list strong {
+.studio-team__list strong {
   overflow-wrap: anywhere;
 }
 
-.studio-cms-members__list span,
-.studio-cms-members__self {
+.studio-team__list span {
+  color: #333;
+  font-weight: 700;
+}
+
+.studio-team__list small,
+.studio-team__self {
   color: #555;
   font-size: calc(13 / 16 * 1rem);
   line-height: 1.5;
+}
+
+.studio-team__self {
+  padding: .35rem .6rem;
+  background: #eaf4f3;
+  border: 1px solid #6b918e;
+  font-weight: 700;
+}
+
+.studio-team__empty {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  color: #555;
+  background: #f7f7f7;
+  line-height: 1.6;
 }
 
 .studio-file-actions {
@@ -2722,11 +2779,16 @@ a {
     width: 100%;
   }
 
-  .studio-cms-members__list li {
+  .studio-team__layout,
+  .studio-team__list li {
     grid-template-columns: 1fr;
   }
 
-  .studio-cms-members__list .dads-button {
+  .studio-team__identity {
+    justify-items: start;
+  }
+
+  .studio-team__list .dads-button {
     width: 100%;
   }
 }
