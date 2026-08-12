@@ -55,7 +55,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain('role="search"');
     expect(html).toContain('id="studio-article-search"');
     expect(html).toContain('aria-describedby="studio-article-search-description"');
-    expect(html.match(/aria-pressed=/g)).toHaveLength(5);
+    expect(html.match(/aria-pressed=/g)).toHaveLength(7);
     expect(html).toContain("公開中");
     expect(html).toContain("0件");
     expect(html).toContain("CMSの記事はまだありません");
@@ -78,5 +78,26 @@ describe("CmsArticleLibrary", () => {
 
     expect(html).toContain("記事を読み込んでいます");
     expect(html).not.toContain('id="studio-article-search"');
+  });
+
+  it("shows an admin queue and changes the article action for a selected task", () => {
+    const reviewArticle = { ...article, publicationStatus: "unpublished" as const, reviewStatus: "in_review" as const };
+    const html = renderLibrary({ articles: [reviewArticle], filter: "in_review" });
+
+    expect(html).toContain('id="studio-editorial-queue-heading"');
+    expect(html).toContain("レビュー待ち");
+    expect(html).toContain("公開待ち");
+    expect(html).toContain("レビューする");
+    expect(html).toContain("だけを表示しています");
+  });
+
+  it("shows only the correction queue to editors", () => {
+    const html = renderLibrary({
+      connection: { email: "editor@example.com", kind: "ready", role: "editor" }
+    });
+
+    expect(html).toContain("修正が必要");
+    expect(html).not.toContain("公開待ち");
+    expect(html).not.toContain("レビュー待ち");
   });
 });

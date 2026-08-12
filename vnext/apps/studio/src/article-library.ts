@@ -2,10 +2,26 @@ import {
   cmsPublicationStatusLabels,
   cmsReviewStatusLabels,
   cmsVisibilityLabels,
-  type CmsArticleSummary
+  type CmsArticleSummary,
+  type CmsRole
 } from "@noema/cms";
 
-export type CmsArticleFilter = "all" | "draft" | "review" | "published" | "archived";
+export type CmsArticleFilter =
+  | "all"
+  | "archived"
+  | "changes_requested"
+  | "draft"
+  | "in_review"
+  | "published"
+  | "ready_to_publish"
+  | "review";
+
+export interface CmsEditorialQueueItem {
+  count: number;
+  description: string;
+  filter: CmsArticleFilter;
+  label: string;
+}
 
 export const cmsArticleFilterOptions: ReadonlyArray<{
   label: string;
@@ -28,13 +44,53 @@ function matchesArticleFilter(article: CmsArticleSummary, filter: CmsArticleFilt
       return true;
     case "draft":
       return ["draft", "changes_requested"].includes(article.reviewStatus);
+    case "changes_requested":
+      return article.reviewStatus === "changes_requested";
+    case "in_review":
+      return article.reviewStatus === "in_review";
     case "review":
       return ["in_review", "approved"].includes(article.reviewStatus);
+    case "ready_to_publish":
+      return article.reviewStatus === "approved" && article.publicationStatus === "unpublished";
     case "published":
       return article.publicationStatus === "published";
     case "archived":
       return article.publicationStatus === "archived";
   }
+}
+
+export function getCmsEditorialQueue(
+  articles: readonly CmsArticleSummary[],
+  role: CmsRole
+): CmsEditorialQueueItem[] {
+  if (role === "editor") {
+    return [{
+      count: articles.filter((article) => article.reviewStatus === "changes_requested").length,
+      description: "レビューコメントを確認して、本文を直す記事です。",
+      filter: "changes_requested",
+      label: "修正が必要"
+    }];
+  }
+
+  const reviewCount = articles.filter((article) => article.reviewStatus === "in_review").length;
+  const queue: CmsEditorialQueueItem[] = [{
+    count: reviewCount,
+    description: "内容を確認し、承認または修正依頼を返す記事です。",
+    filter: "in_review",
+    label: "レビュー待ち"
+  }];
+
+  if (role === "admin") {
+    queue.push({
+      count: articles.filter((article) => (
+        article.reviewStatus === "approved" && article.publicationStatus === "unpublished"
+      )).length,
+      description: "承認済みで、公開操作を待っている記事です。",
+      filter: "ready_to_publish",
+      label: "公開待ち"
+    });
+  }
+  return queue;
 }
 
 export function filterCmsArticles(
