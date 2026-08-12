@@ -2482,21 +2482,25 @@ textarea.studio-control {
   gap: .25rem;
 }
 
-.studio-primary-nav button {
+.studio-primary-nav a {
+  display: inline-flex;
   position: relative;
   min-width: 5rem;
+  align-items: center;
+  justify-content: center;
   padding: .75rem 1rem;
   color: #333;
   background: transparent;
   border: 0;
   font-weight: 700;
+  text-decoration: none;
 }
 
-.studio-primary-nav button[aria-current="page"] {
+.studio-primary-nav a[aria-current="page"] {
   color: #005a55;
 }
 
-.studio-primary-nav button[aria-current="page"]::after {
+.studio-primary-nav a[aria-current="page"]::after {
   position: absolute;
   right: .75rem;
   bottom: 0;
