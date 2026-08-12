@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { CmsAsset } from "@noema/cms";
 import { filterCmsAssets } from "./asset-library";
 
@@ -24,10 +24,22 @@ export function CmsAssetTray({
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const fileInput = useRef<HTMLInputElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
   const visibleAssets = useMemo(
     () => filterCmsAssets(assets, deferredQuery, "all"),
     [assets, deferredQuery]
   );
+
+  useEffect(() => {
+    searchInput.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
 
   return (
     <aside aria-labelledby="studio-asset-tray-heading" className="studio-asset-tray" id="studio-asset-tray">
@@ -43,6 +55,7 @@ export function CmsAssetTray({
         id="studio-asset-tray-search"
         onChange={(event) => setQuery(event.target.value)}
         placeholder="ファイル名、説明、タグ"
+        ref={searchInput}
         type="search"
         value={query}
       />

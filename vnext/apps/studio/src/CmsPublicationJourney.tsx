@@ -46,6 +46,7 @@ export function CmsPublicationJourney({
   reviewStatus: CmsReviewStatus | null;
 }) {
   const status = getCmsJourneyStatus(reviewStatus, publicationStatus);
+  const archived = publicationStatus === "archived";
   return (
     <div className={`studio-journey ${compact ? "is-compact" : ""}`}>
       <p className="studio-journey__current">
@@ -54,16 +55,20 @@ export function CmsPublicationJourney({
         {status.detail ? <small>{status.detail}</small> : null}
       </p>
       <ol aria-label={`公開までの進行状況。現在は${status.label}`}>
-        {stages.map((stage, index) => (
-          <li
-            aria-current={index === status.step ? "step" : undefined}
-            className={index < status.step ? "is-complete" : index === status.step ? "is-current" : ""}
-            key={stage}
-          >
-            <span aria-hidden="true">{index + 1}</span>
-            <strong>{stage}</strong>
-          </li>
-        ))}
+        {stages.map((stage, index) => {
+          const current = !archived && index === status.step;
+          const complete = archived ? index <= status.step : index < status.step;
+          return (
+            <li
+              aria-current={current ? "step" : undefined}
+              className={complete ? "is-complete" : current ? "is-current" : ""}
+              key={stage}
+            >
+              <span aria-hidden="true">{index + 1}</span>
+              <strong>{stage}</strong>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );

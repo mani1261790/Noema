@@ -78,10 +78,13 @@ import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsTeamSettings } from "./CmsTeamSettings";
+import {
+  StudioNotification,
+  type StudioNotificationMessage
+} from "./StudioNotification";
 
 type StudioView = "articles" | "assets" | "editor" | "team";
 type StudioSettingsMode = "metadata" | "workflow";
-type OperationMessage = { text: string; tone: "error" | "info" | "success" };
 type CmsSessionState =
   | { kind: "checking" }
   | { kind: "ready"; session: CmsSession }
@@ -175,7 +178,7 @@ interface InitialState {
   cmsReference: StudioDraftCmsArticle | null;
   frontmatter: ArticleFrontmatter;
   hasRecoveryDraft: boolean;
-  message: OperationMessage | null;
+  message: StudioNotificationMessage | null;
   saveStatus: string;
   storage: DraftStorage;
 }
@@ -201,16 +204,10 @@ function getInitialState(): InitialState {
       message: cmsReference
           ? {
               text: "前回編集中だったCMS記事へ再接続しています。入力内容は復旧コピーから保持しています。",
+              title: "復旧原稿を確認しています",
               tone: "info"
             }
-          : hasRecoveryDraft
-            ? {
-              text: cmsAssociationRequired
-                ? "旧Studioの復旧原稿です。元のCMS記事を選ぶか、新しい記事として続けるかを確認してください。"
-                : "このブラウザに保存した下書きを復元しました。",
-              tone: cmsAssociationRequired ? "info" : "success"
-            }
-            : null,
+          : null,
       saveStatus: cmsReference
         ? "CMS記事へ再接続中…"
         : cmsAssociationRequired
@@ -231,11 +228,13 @@ function getInitialState(): InitialState {
     message: !storageAvailable
       ? {
           text: "このブラウザでは自動保存を利用できません。入力後はMarkdownを書き出して保管してください。",
+          title: "自動保存を利用できません",
           tone: "error"
         }
       : loadedDraft.status === "invalid"
       ? {
           text: "保存した下書きを安全に読み込めなかったため、新しい記事を開きました。",
+          title: "下書きを復元できませんでした",
           tone: "error"
         }
       : null,
@@ -569,7 +568,7 @@ export function App() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
-  const [operationMessage, setOperationMessage] = useState<OperationMessage | null>(initialState.message);
+  const [operationMessage, setOperationMessage] = useState<StudioNotificationMessage | null>(initialState.message);
   const [validationRequested, setValidationRequested] = useState(false);
   const [publicationIssues, setPublicationIssues] = useState<CmsEditorialIssue[]>([]);
   const [cmsSessionState, setCmsSessionState] = useState<CmsSessionState>({ kind: "checking" });
@@ -615,6 +614,7 @@ export function App() {
   const [assetOperationBusy, setAssetOperationBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
+  const assetTrigger = useRef<HTMLButtonElement>(null);
   const validationSection = useRef<HTMLElement>(null);
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
@@ -628,6 +628,17 @@ export function App() {
     )
   );
   const deferredBody = useDeferredValue(body);
+  const showNotification = useCallback((message: StudioNotificationMessage) => {
+    setOperationMessage((current) => (
+      current?.text === message.text && current.tone === message.tone && current.title === message.title
+        ? current
+        : message
+    ));
+  }, []);
+  const closeAssetTray = useCallback(() => {
+    setAssetTrayOpen(false);
+    window.requestAnimationFrame(() => assetTrigger.current?.focus());
+  }, []);
   cmsContentRef.current = { body, frontmatter, visibility: cmsVisibility };
 
   const cmsDraftReference = useMemo<StudioDraftCmsArticle | null>(() => {
@@ -716,7 +727,7 @@ export function App() {
 
   useEffect(() => {
     if (!operationMessage || operationMessage.tone === "error") return;
-    const timer = window.setTimeout(() => setOperationMessage(null), 5_000);
+    const timer = window.setTimeout(() => setOperationMessage(null), 6_000);
     return () => window.clearTimeout(timer);
   }, [operationMessage]);
 
@@ -763,14 +774,15 @@ export function App() {
       setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
       if (result.ok && !cmsArticle && meaningfulLocalInput) setHasRecoveryDraft(true);
       if (!result.ok) {
-        setOperationMessage({
+        showNotification({
           text: "ブラウザに復旧コピーを保存できませんでした。Markdownを書き出して内容を保管してください。",
+          title: "自動保存に失敗しました",
           tone: "error"
         });
       }
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [body, cmsArticle, editorLocked, frontmatter, saveBrowserDraft, studioView]);
+  }, [body, cmsArticle, editorLocked, frontmatter, saveBrowserDraft, showNotification, studioView]);
 
   useEffect(() => {
     if (!validationRequested) return;
@@ -842,8 +854,9 @@ export function App() {
       if (!current || controller.signal.aborted) return;
       if (!result.ok) {
         setCmsSaveState("error");
-        setOperationMessage({
+        showNotification({
           text: "復旧コピーを元のCMS記事へ再接続できませんでした。内容は保持しています。もう一度確認するか、記事一覧から元の記事を開いてください。",
+          title: "復旧原稿を再接続できません",
           tone: "error"
         });
         cmsRecoveryReconnectInFlight.current = null;
@@ -886,14 +899,19 @@ export function App() {
               ...(keepAutosavePaused ? { autosavePaused: true as const } : {})
             }
       });
-      setOperationMessage({
-        text: recovery.conflict
-          ? "元の記事は別の編集者によって更新されています。入力内容は保持しました。"
-          : keepAutosavePaused
-            ? `「${article.title || "無題の記事"}」へ再接続しました。内容を確認し、「保存」でCMSへ反映してください。`
-          : `「${article.title || "無題の記事"}」へ再接続しました。`,
-        tone: recovery.conflict ? "error" : "success"
-      });
+      if (recovery.conflict) {
+        showNotification({
+          text: "元の記事は別の編集者によって更新されています。入力内容は保持しました。",
+          title: "同時編集を検出しました",
+          tone: "error"
+        });
+      } else if (keepAutosavePaused) {
+        showNotification({
+          text: `「${article.title || "無題の記事"}」へ再接続しました。内容を確認し、「保存」でCMSへ反映してください。`,
+          title: "保存前の確認が必要です",
+          tone: "info"
+        });
+      }
       cmsRecoveryReconnectInFlight.current = null;
       setCmsOperationBusy(false);
     });
@@ -905,7 +923,7 @@ export function App() {
         cmsRecoveryReconnectInFlight.current = null;
       }
     };
-  }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, storage, updateCmsArticleList]);
+  }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, showNotification, storage, updateCmsArticleList]);
 
   const showEditor = () => {
     pendingViewFocus.current = "editor-heading";
@@ -922,8 +940,9 @@ export function App() {
       if (!cmsArticle && !cmsRecoveryReference) setHasRecoveryDraft(true);
       setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
       if (!result.ok) {
-        setOperationMessage({
+        showNotification({
           text: "復旧コピーを保存できませんでした。内容はこの画面を閉じるまで保持しています。",
+          title: "自動保存に失敗しました",
           tone: "error"
         });
       }
@@ -1056,23 +1075,22 @@ export function App() {
         preserveLocalInput: associatingRecovery
       });
       showEditor();
-      setOperationMessage({
-        text: associatingRecovery
-          ? application.manualSaveRequired
-            ? `復旧原稿を「${result.value.title || "無題の記事"}」に引き継ぎました。内容を確認し、「保存」でCMSへ反映してください。`
-            : `復旧原稿を「${result.value.title || "無題の記事"}」へ接続しました。CMSの最新版と同じ内容です。`
-          : `「${result.value.title || "無題の記事"}」を読み込みました。`,
-        tone: "success"
-      });
+      if (associatingRecovery && application.manualSaveRequired) {
+        showNotification({
+          text: `復旧原稿を「${result.value.title || "無題の記事"}」に引き継ぎました。内容を確認し、「保存」でCMSへ反映してください。`,
+          title: "保存前の確認が必要です",
+          tone: "info"
+        });
+      }
     } else {
-      setOperationMessage({ text: result.error.message, tone: "error" });
+      showNotification({ text: result.error.message, tone: "error" });
     }
     setCmsOperationBusy(false);
     setOpeningArticleId(null);
     return result.ok;
   };
 
-  const saveCmsDraft = useCallback(async (announce = true): Promise<CmsArticleDetail | null> => {
+  const saveCmsDraft = useCallback(async (): Promise<CmsArticleDetail | null> => {
     if (
       cmsSaveInFlight.current ||
       cmsConflict ||
@@ -1116,13 +1134,14 @@ export function App() {
       if (result.error.code === "revision_conflict") {
         setCmsConflict(true);
         setCmsSaveState("conflict");
-        setOperationMessage({
+        showNotification({
           text: "別の編集者がこの記事を更新しました。入力中の内容は保持しています。",
+          title: "同時編集を検出しました",
           tone: "error"
         });
       } else {
         setCmsSaveState("error");
-        setOperationMessage({ text: result.error.message, tone: "error" });
+        showNotification({ text: result.error.message, tone: "error" });
       }
       return null;
     }
@@ -1150,16 +1169,8 @@ export function App() {
       latest.visibility
     ) !== snapshotFingerprint;
     setCmsSaveState(hasNewerLocalChanges ? "dirty" : "saved");
-    if (announce) {
-      setOperationMessage({
-        text: cmsArticle
-          ? `revision ${result.value.revisionNumber} をCMSへ保存しました。`
-          : "新しい記事をCMSへ保存しました。",
-        tone: "success"
-      });
-    }
     return result.value;
-  }, [cmsArticle, cmsAssociationRequired, cmsConflict, cmsRecoveryReference, cmsSessionState, editorLocked, storage, updateCmsArticleList]);
+  }, [cmsArticle, cmsAssociationRequired, cmsConflict, cmsRecoveryReference, cmsSessionState, editorLocked, showNotification, storage, updateCmsArticleList]);
 
   const continueRecoveryAsNewArticle = () => {
     setCmsAssociationRequired(false);
@@ -1167,12 +1178,13 @@ export function App() {
     const result = saveDraft(storage, { frontmatter, body });
     setSaveStatus(result.ok ? "ブラウザに復旧コピーを保存済み" : "復旧コピーを保存できません");
     showEditor();
-    setOperationMessage({
-      text: result.ok
-        ? "復旧原稿を新しい記事として扱います。内容を確認し、「CMSに保存」で登録してください。"
-        : "新しい記事として続けますが、復旧コピーを保存できません。Markdownを書き出して保管してください。",
-      tone: result.ok ? "info" : "error"
-    });
+    if (!result.ok) {
+      showNotification({
+        text: "新しい記事として続けますが、復旧コピーを保存できません。Markdownを書き出して保管してください。",
+        title: "自動保存に失敗しました",
+        tone: "error"
+      });
+    }
   };
 
   const startNewCmsArticle = () => {
@@ -1198,7 +1210,6 @@ export function App() {
     setValidationRequested(false);
     manuallyEditedMetadata.current.clear();
     showEditor();
-    setOperationMessage({ text: "新しい記事を作成します。最初の保存でCMSに登録されます。", tone: "info" });
   };
 
   const reloadLatestCmsArticle = async () => {
@@ -1224,17 +1235,17 @@ export function App() {
         return;
       }
       applyCmsArticle(result.value);
-      setOperationMessage({ text: "CMSの最新版を読み込みました。", tone: "success" });
     } else {
-      setOperationMessage({ text: result.error.message, tone: "error" });
+      showNotification({ text: result.error.message, tone: "error" });
     }
     setCmsOperationBusy(false);
   };
 
   const runCmsAction = async (action: CmsArticleAction) => {
     if (cmsAutosavePaused) {
-      setOperationMessage({
+      showNotification({
         text: "復旧内容を確認し、先に「保存」でCMSへ反映してください。保存後にレビュー・公開操作を続けられます。",
+        title: "先に保存してください",
         tone: "info"
       });
       return;
@@ -1246,7 +1257,7 @@ export function App() {
       editorLocked
     ) return;
     let target = cmsArticle;
-    if (!target || cmsDirty) target = await saveCmsDraft(false);
+    if (!target || cmsDirty) target = await saveCmsDraft();
     if (!target) return;
     const latest = cmsContentRef.current;
     const latestFingerprint = cmsContentFingerprint(
@@ -1261,8 +1272,9 @@ export function App() {
     );
     if (latestFingerprint !== savedFingerprint) {
       setCmsSaveState("dirty");
-      setOperationMessage({
+      showNotification({
         text: "保存中に新しい変更がありました。自動保存の完了後、もう一度ワークフロー操作を選んでください。",
+        title: "新しい変更が残っています",
         tone: "info"
       });
       return;
@@ -1276,7 +1288,6 @@ export function App() {
       if (validation.length > 0) {
         setPublicationIssues(normalizeReviewIssues(validation));
         setValidationRequested(true);
-        setOperationMessage({ text: "レビューへ送る前に入力エラーを確認してください。", tone: "error" });
         focusValidation();
         return;
       }
@@ -1319,22 +1330,24 @@ export function App() {
         request_review: "レビューを依頼しました。",
         restore: "記事を未公開へ戻しました。"
       };
-      setOperationMessage({
-        text: localChangedDuringAction
-          ? `${labels[action]} 操作中に入力した変更は未保存のまま保持しています。`
-          : labels[action],
-        tone: "success"
-      });
+      if (localChangedDuringAction) {
+        showNotification({
+          text: `${labels[action]} 操作中に入力した変更は未保存のまま保持しています。`,
+          title: "未保存の変更があります",
+          tone: "info"
+        });
+      }
     } else if (result.error.code === "revision_conflict") {
       setCmsConflict(true);
       setCmsSaveState("conflict");
-      setOperationMessage({ text: "別の編集者が記事を更新しました。入力中の内容は保持しています。", tone: "error" });
+      showNotification({ text: "別の編集者が記事を更新しました。入力中の内容は保持しています。", title: "同時編集を検出しました", tone: "error" });
     } else {
       if (result.error.issues) {
         setPublicationIssues(normalizeReviewIssues(result.error.issues));
         setValidationRequested(true);
       }
-      setOperationMessage({ text: result.error.message, tone: "error" });
+      if (result.error.issues) focusValidation();
+      else showNotification({ text: result.error.message, tone: "error" });
     }
     setCmsOperationBusy(false);
   };
@@ -1363,7 +1376,6 @@ export function App() {
       setCmsMemberEmail("");
       setCmsMemberRole("editor");
       setCmsMemberActive(true);
-      setOperationMessage({ text: `${email} のCMS権限を更新しました。`, tone: "success" });
     } else {
       setCmsMembersError(result.error.message);
     }
@@ -1383,7 +1395,7 @@ export function App() {
       !cmsSessionState.session.capabilities.canEdit
     ) return;
     const timer = window.setTimeout(() => {
-      void saveCmsDraft(false);
+      void saveCmsDraft();
     }, 1_200);
     return () => window.clearTimeout(timer);
   }, [
@@ -1451,20 +1463,17 @@ export function App() {
   const uploadAssets = async (files: File[]) => {
     if (files.length === 0 || assetOperationBusy) return;
     setAssetOperationBusy(true);
-    let uploaded = 0;
     for (const file of files) {
       const result = await uploadCmsAsset(file);
       if (!result.ok) {
-        setOperationMessage({ text: `${file.name}: ${result.error.message}`, tone: "error" });
+        showNotification({ text: `${file.name}: ${result.error.message}`, title: "画像を追加できませんでした", tone: "error" });
         setAssetOperationBusy(false);
         return;
       }
-      uploaded += 1;
       setCmsAssets((current) => [result.value, ...current.filter((asset) => asset.id !== result.value.id)]);
     }
     setCmsAssetsError(null);
     setAssetOperationBusy(false);
-    setOperationMessage({ text: `${uploaded}件の画像をAssetsへ追加しました。`, tone: "success" });
   };
 
   const saveAsset = async (
@@ -1475,11 +1484,10 @@ export function App() {
     const result = await updateCmsAssetRecord(asset.id, input);
     setAssetOperationBusy(false);
     if (!result.ok) {
-      setOperationMessage({ text: result.error.message, tone: "error" });
+      showNotification({ text: result.error.message, title: "画像情報を保存できませんでした", tone: "error" });
       return;
     }
     setCmsAssets((current) => current.map((item) => item.id === result.value.id ? result.value : item));
-    setOperationMessage({ text: "画像情報を保存しました。", tone: "success" });
   };
 
   const closeAssetPicker = () => {
@@ -1496,17 +1504,12 @@ export function App() {
     update("heroImage", { alt: safeAlt, src: asset.markdownUrl });
     setAssetPickerTarget(null);
     setMediaOpen(true);
-    setOperationMessage({ text: "Assetsの画像を記事画像に設定しました。", tone: "success" });
   };
 
   const insertBodyAsset = (asset: CmsAsset) => {
     const safeAlt = asset.alt.trim().replace(/[\[\]]/g, "");
-    if (!safeAlt) {
-      setOperationMessage({ text: "画像の説明をAssetsで設定してから挿入してください。", tone: "error" });
-      return;
-    }
+    if (!safeAlt) return;
     insertMarkdownAtCursor(`![${safeAlt}](${asset.markdownUrl})`);
-    setOperationMessage({ text: "画像を本文へ挿入しました。", tone: "success" });
   };
 
   const focusReviewIssue = (issue: CmsEditorialIssue) => {
@@ -1531,7 +1534,6 @@ export function App() {
     const result = articleFrontmatterSchema.safeParse(frontmatter);
     const currentBodyErrors = validateArticleMarkdown(body).filter((issue) => issue.severity === "error");
     if (!result.success || currentBodyErrors.length > 0) {
-      setOperationMessage({ text: "書き出す前に入力エラーを確認してください。", tone: "error" });
       focusValidation();
       return;
     }
@@ -1542,7 +1544,6 @@ export function App() {
     anchor.download = `${frontmatter.slug}.md`;
     anchor.click();
     URL.revokeObjectURL(href);
-    setOperationMessage({ text: `${frontmatter.slug}.mdを書き出しました。`, tone: "success" });
   };
 
   const downloadRecoveryCopy = () => {
@@ -1556,7 +1557,6 @@ export function App() {
     anchor.download = `${safeSlug}-recovery.md`;
     anchor.click();
     URL.revokeObjectURL(href);
-    setOperationMessage({ text: "入力中の内容を復旧用Markdownとして書き出しました。", tone: "success" });
   };
 
   const importMarkdown = async (file?: File) => {
@@ -1570,10 +1570,10 @@ export function App() {
       manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
       setValidationRequested(false);
       setPublicationIssues([]);
-      setOperationMessage({ text: `${file.name}を読み込みました。`, tone: "success" });
     } catch (error) {
-      setOperationMessage({
+      showNotification({
         text: error instanceof Error ? error.message : "Markdownを読み込めませんでした。",
+        title: "Markdownを読み込めませんでした",
         tone: "error"
       });
     } finally {
@@ -1724,6 +1724,7 @@ export function App() {
               setPreviewFullscreen(false);
               setAssetTrayOpen((current) => !current);
             }}
+            ref={assetTrigger}
             type="button"
           >
             Assets
@@ -1766,7 +1767,7 @@ export function App() {
             data-size="md"
             data-type="solid-fill"
             disabled={cmsSaveDisabled}
-            onClick={() => void saveCmsDraft(true)}
+            onClick={() => void saveCmsDraft()}
             type="button"
           >
             {cmsSaveButtonLabel}
@@ -1788,10 +1789,7 @@ export function App() {
       ) : null}
 
       {operationMessage ? (
-        <div className={`studio-notification is-${operationMessage.tone}`} role={operationMessage.tone === "error" ? "alert" : "status"}>
-          <span>{operationMessage.text}</span>
-          <button type="button" onClick={() => setOperationMessage(null)} aria-label="通知を閉じる">閉じる</button>
-        </div>
+        <StudioNotification message={operationMessage} onDismiss={() => setOperationMessage(null)} />
       ) : null}
 
       {studioView === "articles" ? (
@@ -1898,7 +1896,6 @@ export function App() {
               onClick={() => {
                 manuallyEditedMetadata.current.clear();
                 applyAutomaticMetadata(true);
-                setOperationMessage({ text: "本文から記事情報を整理しました。必要な箇所だけ確認してください。", tone: "success" });
               }}
               type="button"
             >
@@ -2388,7 +2385,7 @@ export function App() {
             assets={cmsAssets}
             busy={assetOperationBusy}
             canEdit={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
-            onClose={() => setAssetTrayOpen(false)}
+            onClose={closeAssetTray}
             onInsert={insertBodyAsset}
             onManage={showAssetLibrary}
             onUpload={uploadAssets}

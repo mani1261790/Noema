@@ -158,49 +158,95 @@ a {
 .studio-notification {
   position: fixed;
   z-index: 40;
+  top: 4.5rem;
   right: 1rem;
-  bottom: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: min(calc(100% - 2rem), 28rem);
-  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: .75rem;
+  width: min(calc(100% - 2rem), 25rem);
   margin: 0;
-  padding: .65rem 1rem;
-  border: 1px solid currentcolor;
-  border-left-width: 5px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / .14);
+  padding: .9rem;
+  border: 1px solid #949494;
+  border-radius: .5rem;
+  box-shadow: 0 12px 32px rgb(0 0 0 / .18);
   font-size: calc(14 / 16 * 1rem);
   line-height: 1.5;
-}
-
-.studio-notification.is-success {
-  color: #003c39;
-  background: #e5f5e9;
+  animation: studio-notification-enter 180ms ease-out;
 }
 
 .studio-notification.is-info {
-  color: #003e73;
-  background: #e8f1f8;
+  color: #1a1a1a;
+  background: #fff;
+  border-color: #6393b5;
 }
 
 .studio-notification.is-error {
-  color: #5c0011;
-  background: #fff4f5;
+  color: #1a1a1a;
+  background: #fff;
+  border-color: #d83445;
+}
+
+.studio-notification__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: .05rem;
+  fill: none;
+  stroke: #0066a4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.studio-notification.is-error .studio-notification__icon {
+  stroke: #b40000;
+}
+
+.studio-notification__content {
+  min-width: 0;
+}
+
+.studio-notification__content strong {
+  display: block;
+  line-height: 1.4;
+}
+
+.studio-notification__content p {
+  margin: .25rem 0 0;
+  color: #444;
+  overflow-wrap: anywhere;
 }
 
 .studio-notification button {
-  flex: 0 0 auto;
-  min-width: 44px;
-  min-height: 44px;
-  padding: .25rem .5rem;
+  min-width: 40px;
+  min-height: 40px;
+  margin: -.45rem -.45rem 0 0;
+  padding: .25rem;
   border: 0;
-  color: inherit;
+  color: #444;
   background: transparent;
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: .2em;
+  cursor: pointer;
+}
+
+@keyframes studio-notification-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-notification {
+    animation: none;
+  }
 }
 
 .studio-library {
@@ -3037,8 +3083,9 @@ a {
   }
 
   .studio-notification {
-    align-items: flex-start;
-    justify-content: space-between;
+    top: 4rem;
+    right: .75rem;
+    width: min(calc(100% - 1.5rem), 21rem);
     padding: .5rem .75rem;
   }
 

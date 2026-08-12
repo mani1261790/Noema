@@ -1,5 +1,7 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { getCmsJourneyStatus } from "../src/CmsPublicationJourney";
+import { CmsPublicationJourney, getCmsJourneyStatus } from "../src/CmsPublicationJourney";
 
 describe("getCmsJourneyStatus", () => {
   it("maps CMS state to the four visible stages", () => {
@@ -16,5 +18,17 @@ describe("getCmsJourneyStatus", () => {
       label: "公開中・新しい版は下書き",
       step: 0
     });
+  });
+
+  it("shows an archived article as completed without marking publish as current", () => {
+    const html = renderToStaticMarkup(createElement(CmsPublicationJourney, {
+      publicationStatus: "archived",
+      reviewStatus: "approved"
+    }));
+
+    expect(html).toContain("公開終了");
+    expect(html.match(/is-complete/g)).toHaveLength(4);
+    expect(html).not.toContain('aria-current="step"');
+    expect(html).not.toContain("is-current");
   });
 });
