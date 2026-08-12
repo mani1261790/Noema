@@ -571,7 +571,7 @@ export function App() {
       : "articles";
     return typeof window === "undefined"
       ? fallback
-      : readStudioView(window.location.hash, fallback);
+      : readStudioView(window.location.pathname, fallback);
   });
   const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>({
     ...initialState.frontmatter,
@@ -1013,7 +1013,7 @@ export function App() {
 
   useEffect(() => {
     const restoreStudioView = () => {
-      const nextView = readStudioView(window.location.hash, "articles");
+      const nextView = readStudioView(window.location.pathname, "articles");
       if (studioViewRef.current === "editor" && nextView !== "editor") {
         const current = cmsContentRef.current;
         if (hasMeaningfulArticleInput(current.frontmatter, current.body)) {
