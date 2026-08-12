@@ -55,7 +55,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain('role="search"');
     expect(html).toContain('id="studio-article-search"');
     expect(html).toContain('aria-describedby="studio-article-search-description"');
-    expect(html.match(/aria-pressed=/g)).toHaveLength(7);
+    expect(html.match(/aria-pressed=/g)).toHaveLength(5);
     expect(html).toContain("公開中");
     expect(html).toContain("0件");
     expect(html).toContain("CMSの記事はまだありません");
@@ -86,14 +86,19 @@ describe("CmsArticleLibrary", () => {
 
     expect(html).toContain('id="studio-editorial-queue-heading"');
     expect(html).toContain("レビューする記事");
-    expect(html).toContain("公開する記事");
-    expect(html).toContain("公開までの4段階");
+    expect(html).not.toContain("公開する記事");
     expect(html).toContain("レビューする");
     expect(html).toContain("だけを表示しています");
   });
 
   it("shows only the correction queue to editors", () => {
+    const correctionArticle = {
+      ...article,
+      publicationStatus: "unpublished" as const,
+      reviewStatus: "changes_requested" as const
+    };
     const html = renderLibrary({
+      articles: [correctionArticle],
       connection: { email: "editor@example.com", kind: "ready", role: "editor" }
     });
 
@@ -102,15 +107,16 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain("レビューする記事");
   });
 
-  it("shows one four-step journey instead of separate review and publication chips", () => {
+  it("keeps each article row to one status, title, date, slug, and action", () => {
     const html = renderLibrary({ articles: [article] });
 
     expect(html).toContain("公開中・新しい版は下書き");
     expect(html).toContain("現在の公開版はそのまま");
-    expect(html).toContain("1 / 4");
-    expect(html).toContain("下書き");
-    expect(html).toContain("レビュー中");
-    expect(html).toContain("承認済み");
-    expect(html).not.toContain("studio-library-item__status");
+    expect(html).toContain("studio-library-item__status");
+    expect(html).toMatch(/更新 2026\/07\/18 \d{1,2}:00/);
+    expect(html).toContain("/workers-ai-guide");
+    expect(html).not.toContain("revision 3");
+    expect(html).not.toContain("editor@example.com");
+    expect(html).not.toContain("1 / 4");
   });
 });

@@ -11,7 +11,7 @@ import {
   getCmsEditorialQueue,
   type CmsArticleFilter
 } from "./article-library";
-import { CmsPublicationJourney } from "./CmsPublicationJourney";
+import { getCmsJourneyStatus } from "./CmsPublicationJourney";
 
 export type CmsLibraryConnection =
   | { kind: "checking" }
@@ -76,24 +76,23 @@ function CmsArticleListItem({
   const actionAriaLabel = actionLabel === "公開を確認"
     ? `「${title}」の公開を確認`
     : `「${title}」を${actionLabel}`;
+  const status = getCmsJourneyStatus(article.reviewStatus, article.publicationStatus);
   return (
     <li className="studio-library-item">
       <div className="studio-library-item__main">
-        <CmsPublicationJourney
-          compact
-          publicationStatus={article.publicationStatus}
-          reviewStatus={article.reviewStatus}
-        />
-        <h3>{title}</h3>
-        <p className="studio-library-item__slug">
-          <span>スラッグ</span> {article.slug || "未設定"}
-          <span aria-hidden="true"> · </span>
-          revision {article.revisionNumber}
-        </p>
-        <p className="studio-library-item__updated">
-          <time dateTime={article.updatedAt}>{formatArticleDate(article.updatedAt)}</time>
-          <span>{article.updatedByEmail}</span>
-          <span>{cmsVisibilityLabels[article.visibility]}</span>
+        <div className="studio-library-item__title">
+          <span
+            aria-label={status.detail ? `${status.label}。${status.detail}` : status.label}
+            className="studio-library-item__status"
+          >
+            {status.label}
+          </span>
+          <h3>{title}</h3>
+        </div>
+        <p className="studio-library-item__meta">
+          <time dateTime={article.updatedAt}>更新 {formatArticleDate(article.updatedAt)}</time>
+          <span>/{article.slug || "スラッグ未設定"}</span>
+          {article.visibility !== "public" ? <span>{cmsVisibilityLabels[article.visibility]}</span> : null}
         </p>
       </div>
       <button
@@ -288,15 +287,10 @@ export function CmsArticleLibrary({
 
         {connection.kind === "ready" ? (
           <section aria-labelledby="studio-editorial-queue-heading" className="studio-editorial-queue">
-            <div className="studio-editorial-queue__heading">
-              <div>
-                <p className="studio-library__eyebrow">次にやること</p>
-                <h2 id="studio-editorial-queue-heading">対応する記事</h2>
-              </div>
-              <strong>{queueCount === 0 ? "対応待ちなし" : `${queueCount}件`}</strong>
-            </div>
-            <div className="studio-editorial-queue__items">
-              {editorialQueue.map((item) => (
+            <h2 id="studio-editorial-queue-heading">対応待ち</h2>
+            {queueCount > 0 ? (
+              <div className="studio-editorial-queue__items">
+                {editorialQueue.filter((item) => item.count > 0).map((item) => (
                 <button
                   aria-pressed={filter === item.filter}
                   className="studio-editorial-queue__item"
@@ -308,15 +302,12 @@ export function CmsArticleLibrary({
                   }}
                   type="button"
                 >
-                  <span><strong>{item.label}</strong><b>{item.count}</b></span>
-                  <small>{item.description}</small>
+                  <span>{item.label}</span>
+                  <strong>{item.count}</strong>
                 </button>
-              ))}
-            </div>
-            <p className="studio-editorial-queue__flow">
-              公開までの4段階 <span aria-hidden="true">下書き → レビュー中 → 承認済み → 公開</span>
-            </p>
-            {queueCount === 0 ? <p className="studio-editorial-queue__empty">いま対応が必要な記事はありません。新しい記事を書くか、下の一覧から作業を続けられます。</p> : null}
+                ))}
+              </div>
+            ) : <p>いま対応が必要な記事はありません。</p>}
           </section>
         ) : null}
 
@@ -333,7 +324,7 @@ export function CmsArticleLibrary({
             </div>
 
             <div aria-label="CMSの記事を検索・絞り込み" className="studio-library-controls" role="search">
-              <label htmlFor="studio-article-search">キーワードで検索</label>
+              <label className="sr-only" htmlFor="studio-article-search">キーワードで検索</label>
               <input
                 aria-describedby="studio-article-search-description"
                 id="studio-article-search"
@@ -344,7 +335,7 @@ export function CmsArticleLibrary({
                 value={query}
               />
               <fieldset>
-                <legend>表示する記事</legend>
+                <legend className="sr-only">表示する記事</legend>
                 <div className="studio-library-filters">
                   {cmsArticleFilterOptions.map((option) => (
                     <button

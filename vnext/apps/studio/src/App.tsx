@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
   type ReactNode
 } from "react";
@@ -82,6 +83,11 @@ import {
   StudioNotification,
   type StudioNotificationMessage
 } from "./StudioNotification";
+import {
+  clampStudioPanelWidth,
+  defaultStudioPanelWidth,
+  StudioPanelResizeHandle
+} from "./StudioPanelResizeHandle";
 
 type StudioView = "articles" | "assets" | "editor" | "team";
 type StudioSettingsMode = "metadata" | "workflow";
@@ -610,6 +616,11 @@ export function App() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [assetPickerTarget, setAssetPickerTarget] = useState<"hero" | null>(null);
   const [assetTrayOpen, setAssetTrayOpen] = useState(false);
+  const [sidePanelWidth, setSidePanelWidth] = useState(() => (
+    typeof window === "undefined"
+      ? defaultStudioPanelWidth
+      : clampStudioPanelWidth(defaultStudioPanelWidth, window.innerWidth)
+  ));
   const [assetDropActive, setAssetDropActive] = useState(false);
   const [assetOperationBusy, setAssetOperationBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
@@ -628,6 +639,14 @@ export function App() {
     )
   );
   const deferredBody = useDeferredValue(body);
+
+  useEffect(() => {
+    const fitSidePanelToViewport = () => {
+      setSidePanelWidth((width) => clampStudioPanelWidth(width, window.innerWidth));
+    };
+    window.addEventListener("resize", fitSidePanelToViewport);
+    return () => window.removeEventListener("resize", fitSidePanelToViewport);
+  }, []);
   const showNotification = useCallback((message: StudioNotificationMessage) => {
     setOperationMessage((current) => (
       current?.text === message.text && current.tone === message.tone && current.title === message.title
@@ -1865,8 +1884,17 @@ export function App() {
           </div>
         </section>
       ) : null}
-      <main className="studio-workspace">
+      <main
+        className="studio-workspace"
+        style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
+      >
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
+        {settingsOpen || assetTrayOpen ? (
+          <StudioPanelResizeHandle
+            onResize={(width) => setSidePanelWidth(clampStudioPanelWidth(width, window.innerWidth))}
+            width={sidePanelWidth}
+          />
+        ) : null}
         <aside
           aria-label="記事設定"
           className={`studio-settings is-${settingsMode}`}
