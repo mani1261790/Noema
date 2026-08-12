@@ -85,14 +85,14 @@ describe("filterCmsArticles", () => {
     const source = [...articles, readyToPublish, changesRequested];
 
     expect(getCmsEditorialQueue(source, "editor")).toEqual([
-      expect.objectContaining({ count: 1, filter: "changes_requested", label: "修正が必要" })
+      expect.objectContaining({ count: 1, filter: "changes_requested", label: "修正する記事" })
     ]);
     expect(getCmsEditorialQueue(source, "reviewer")).toEqual([
-      expect.objectContaining({ count: 1, filter: "in_review", label: "レビュー待ち" })
+      expect.objectContaining({ count: 1, filter: "in_review", label: "レビューする記事" })
     ]);
     expect(getCmsEditorialQueue(source, "admin")).toEqual([
-      expect.objectContaining({ count: 1, filter: "in_review", label: "レビュー待ち" }),
-      expect.objectContaining({ count: 1, filter: "ready_to_publish", label: "公開待ち" })
+      expect.objectContaining({ count: 1, filter: "in_review", label: "レビューする記事" }),
+      expect.objectContaining({ count: 1, filter: "ready_to_publish", label: "公開する記事" })
     ]);
   });
 

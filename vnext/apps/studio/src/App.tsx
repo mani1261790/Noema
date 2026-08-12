@@ -23,7 +23,6 @@ import {
 import {
   cmsPublicationStatusLabels,
   cmsReviewStatusLabels,
-  cmsRoleLabels,
   cmsVisibilityLabels,
   validateCmsArticleForReview,
   type CmsArticleAction,
@@ -76,6 +75,8 @@ import type { CmsArticleFilter } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
 import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
+import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
+import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsTeamSettings } from "./CmsTeamSettings";
 
 type StudioView = "articles" | "assets" | "editor" | "team";
@@ -608,7 +609,9 @@ export function App() {
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [assetPickerTarget, setAssetPickerTarget] = useState<"body" | "hero" | null>(null);
+  const [assetPickerTarget, setAssetPickerTarget] = useState<"hero" | null>(null);
+  const [assetTrayOpen, setAssetTrayOpen] = useState(false);
+  const [assetDropActive, setAssetDropActive] = useState(false);
   const [assetOperationBusy, setAssetOperationBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
@@ -710,6 +713,12 @@ export function App() {
       controller.abort();
     };
   }, [cmsRefresh]);
+
+  useEffect(() => {
+    if (!operationMessage || operationMessage.tone === "error") return;
+    const timer = window.setTimeout(() => setOperationMessage(null), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [operationMessage]);
 
   useEffect(() => {
     if (cmsSessionState.kind !== "ready" || !cmsSessionState.session.capabilities.canManageMembers) {
@@ -903,6 +912,7 @@ export function App() {
     setStudioView("editor");
     setSettingsOpen(false);
     setPreviewFullscreen(false);
+    setAssetTrayOpen(false);
   };
 
   const showArticleLibrary = () => {
@@ -929,6 +939,7 @@ export function App() {
     setStudioView("assets");
     setSettingsOpen(false);
     setPreviewFullscreen(false);
+    setAssetTrayOpen(false);
   };
 
   const showTeamSettings = () => {
@@ -1482,16 +1493,20 @@ export function App() {
 
   const insertAsset = (asset: CmsAsset, alt: string) => {
     const safeAlt = alt.replace(/[\[\]]/g, "");
-    if (assetPickerTarget === "hero") {
-      update("heroImage", { alt: safeAlt, src: asset.markdownUrl });
-      setAssetPickerTarget(null);
-      setMediaOpen(true);
-      setOperationMessage({ text: "Assetsの画像を記事画像に設定しました。", tone: "success" });
+    update("heroImage", { alt: safeAlt, src: asset.markdownUrl });
+    setAssetPickerTarget(null);
+    setMediaOpen(true);
+    setOperationMessage({ text: "Assetsの画像を記事画像に設定しました。", tone: "success" });
+  };
+
+  const insertBodyAsset = (asset: CmsAsset) => {
+    const safeAlt = asset.alt.trim().replace(/[\[\]]/g, "");
+    if (!safeAlt) {
+      setOperationMessage({ text: "画像の説明をAssetsで設定してから挿入してください。", tone: "error" });
       return;
     }
-    setAssetPickerTarget(null);
     insertMarkdownAtCursor(`![${safeAlt}](${asset.markdownUrl})`);
-    setOperationMessage({ text: "Assetsの画像を本文へ挿入しました。", tone: "success" });
+    setOperationMessage({ text: "画像を本文へ挿入しました。", tone: "success" });
   };
 
   const focusReviewIssue = (issue: CmsEditorialIssue) => {
@@ -1699,10 +1714,16 @@ export function App() {
             {cmsEditorStatus}
           </p>
           <button
+            aria-controls="studio-asset-tray"
+            aria-expanded={assetTrayOpen}
             className="dads-button studio-assets-shortcut"
             data-size="md"
             data-type="outline"
-            onClick={showAssetLibrary}
+            onClick={() => {
+              setSettingsOpen(false);
+              setPreviewFullscreen(false);
+              setAssetTrayOpen((current) => !current);
+            }}
             type="button"
           >
             Assets
@@ -1715,6 +1736,7 @@ export function App() {
             data-type="outline"
             onClick={() => {
               setPreviewFullscreen(false);
+              setAssetTrayOpen(false);
               setSettingsMode("metadata");
               setSettingsOpen((current) => settingsMode === "metadata" ? !current : true);
             }}
@@ -1731,6 +1753,7 @@ export function App() {
             data-type="outline"
             onClick={() => {
               setPreviewFullscreen(false);
+              setAssetTrayOpen(false);
               setSettingsMode("workflow");
               setSettingsOpen((current) => settingsMode === "workflow" ? !current : true);
             }}
@@ -1901,23 +1924,16 @@ export function App() {
                 </button>
               </div>
             ) : null}
-            {cmsSession ? (
-              <p className="studio-cms__session">
-                <strong>{cmsRoleLabels[cmsSession.identity.role]}</strong>
-                <span>{cmsSession.identity.email}</span>
-              </p>
-            ) : null}
-
             <div className="studio-cms__current-article">
               <span>編集中の記事</span>
               <strong>{frontmatter.title || "新しい記事"}</strong>
               <small>{cmsArticle ? `revision ${cmsArticle.revisionNumber}` : "最初の保存でCMSに登録されます"}</small>
             </div>
 
-            <div className="studio-cms__status-pair" aria-label="記事の状態">
-              <span>レビュー: {cmsArticle ? cmsReviewStatusLabels[cmsArticle.reviewStatus] : "未登録"}</span>
-              <span>公開: {cmsArticle ? cmsPublicationStatusLabels[cmsArticle.publicationStatus] : "未公開"}</span>
-            </div>
+            <CmsPublicationJourney
+              publicationStatus={cmsArticle?.publicationStatus ?? "unpublished"}
+              reviewStatus={cmsArticle?.reviewStatus ?? null}
+            />
             {cmsArticle?.publishedRevisionNumber !== null && cmsArticle?.publishedRevisionNumber !== undefined ? (
               <p className="studio-cms__published-note">
                 公開中はrevision {cmsArticle.publishedRevisionNumber}です。現在のrevision {cmsArticle.revisionNumber}を編集しても、承認して公開するまで読者向け内容は変わりません。
@@ -1971,6 +1987,7 @@ export function App() {
               </div>
             ) : null}
 
+            <h3 className="studio-cms__next-action">次の操作</h3>
             <div className="studio-cms__actions">
               {cmsCanRequestReview ? (
                 <button
@@ -2022,10 +2039,7 @@ export function App() {
             {cmsArticle?.reviewStatus === "in_review" && cmsSelfApprovalBlocked ? (
               <p className="studio-cms__pending-message">自分が保存した最新版は承認できません。別のレビュー担当者または管理者に承認を依頼してください。</p>
             ) : null}
-            <details className="studio-save-help">
-              <summary>保存の仕組み</summary>
-              <p className="studio-cms__recovery-copy">ブラウザ保存は通信障害や競合時の復旧コピーです。共有・レビュー・公開の正本はCMSです。<span aria-live="polite">{saveStatus}</span></p>
-            </details>
+            <p className="sr-only" aria-live="polite">{saveStatus}</p>
           </details>
 
           <details className="studio-disclosure studio-utilities">
@@ -2308,43 +2322,25 @@ export function App() {
           className={`studio-editor ${editorLocked ? "has-lock" : ""} ${previewFullscreen ? "is-preview-fullscreen" : ""}`}
           id="studio-editor"
         >
-          <div className="studio-pane-title studio-pane-title--horizontal">
-            <div>
-              <h2 id="editor-heading">{previewFullscreen ? "記事プレビュー" : "Markdown本文"}</h2>
-              <p className="studio-pane-title__context">書くことに集中できるよう、記事情報は本文から自動整理します。</p>
-            </div>
-            <div className="studio-editor__status">
-              <span>{body.length.toLocaleString("ja-JP")}文字</span>
+          <h2 className="sr-only" id="editor-heading">{previewFullscreen ? "記事プレビュー" : "Markdown本文"}</h2>
+          {editorLocked ? <p className="studio-editor__lock" role="status">送信内容を固定しています。本文は選択してコピーできます。</p> : null}
+          <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
+            <div className="studio-writing-controls">
+              {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー {blockingErrorCount}</button> : null}
               <button
                 aria-pressed={previewFullscreen}
                 className="studio-preview-toggle"
                 onClick={() => {
                   setSettingsOpen(false);
+                  setAssetTrayOpen(false);
                   setPreviewFullscreen((current) => !current);
                 }}
                 type="button"
               >
-                {previewFullscreen ? "Markdown編集に戻る" : "プレビューを全画面"}
+                {previewFullscreen ? "編集に戻る" : "プレビューのみ"}
               </button>
-              {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー{blockingErrorCount}件を確認</button> : null}
             </div>
-          </div>
-          {editorLocked ? <p className="studio-editor__lock" role="status">送信内容を固定しています。本文は選択してコピーできます。</p> : null}
-          <div className="studio-markdown-toolbar" aria-label="Markdown編集ツール">
-            <button
-              className="dads-button"
-              data-size="sm"
-              data-type="outline"
-              disabled={editorLocked || assetOperationBusy || !cmsSession?.capabilities.canEdit}
-              onClick={() => setAssetPickerTarget("body")}
-              type="button"
-            >
-              Assetsから画像を挿入
-            </button>
-            <span>既存画像の再利用、または新しい画像のアップロード</span>
-          </div>
-          <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
-            <div className="studio-writing-canvas" hidden={previewFullscreen}>
+            <div className={`studio-writing-canvas ${assetDropActive ? "is-asset-drop" : ""}`} hidden={previewFullscreen}>
               <label className="sr-only" htmlFor="article-body">Markdown本文</label>
               <textarea
                 aria-describedby="article-body-help"
@@ -2353,6 +2349,23 @@ export function App() {
                 aria-required="true"
                 aria-readonly={editorLocked}
                 id="article-body"
+                onDragEnter={(event) => {
+                  if (event.dataTransfer.types.includes(noemaAssetDragType)) setAssetDropActive(true);
+                }}
+                onDragLeave={() => setAssetDropActive(false)}
+                onDragOver={(event) => {
+                  if (!event.dataTransfer.types.includes(noemaAssetDragType)) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(event) => {
+                  setAssetDropActive(false);
+                  const assetId = event.dataTransfer.getData(noemaAssetDragType);
+                  if (!assetId) return;
+                  event.preventDefault();
+                  const asset = cmsAssets.find((item) => item.id === assetId);
+                  if (asset) insertBodyAsset(asset);
+                }}
                 onChange={(event) => { if (!editorLocked) { setBody(event.target.value); setPublicationIssues([]); } }}
                 placeholder="## はじめに\n\nここからMarkdownで本文を書きます。"
                 readOnly={editorLocked}
@@ -2363,16 +2376,24 @@ export function App() {
               />
             </div>
             <div className="studio-live-preview studio-preview" aria-label="ライブプレビュー">
-              <div className="studio-live-preview__heading">
-                <strong>{previewFullscreen ? "記事プレビュー" : "ライブプレビュー"}</strong>
-                <span>自動更新</span>
-              </div>
               <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} />
             </div>
           </div>
           <p className="sr-only" id="article-body-help">Markdown形式で本文を入力します。H1見出しとraw HTMLは使用できません。</p>
           <p className="sr-only" id="article-body-error">{bodyErrorMessage ? `エラー — ${bodyErrorMessage}` : ""}</p>
         </section>
+
+        {assetTrayOpen ? (
+          <CmsAssetTray
+            assets={cmsAssets}
+            busy={assetOperationBusy}
+            canEdit={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
+            onClose={() => setAssetTrayOpen(false)}
+            onInsert={insertBodyAsset}
+            onManage={showAssetLibrary}
+            onUpload={uploadAssets}
+          />
+        ) : null}
 
       </main>
         </>
@@ -2382,7 +2403,7 @@ export function App() {
         <CmsAssetPicker
           assets={cmsAssets}
           busy={assetOperationBusy}
-          mode={assetPickerTarget}
+          mode="hero"
           onClose={closeAssetPicker}
           onInsert={insertAsset}
           onUpload={uploadAssets}

@@ -68,7 +68,7 @@ export function getCmsEditorialQueue(
       count: articles.filter((article) => article.reviewStatus === "changes_requested").length,
       description: "レビューコメントを確認して、本文を直す記事です。",
       filter: "changes_requested",
-      label: "修正が必要"
+      label: "修正する記事"
     }];
   }
 
@@ -77,7 +77,7 @@ export function getCmsEditorialQueue(
     count: reviewCount,
     description: "内容を確認し、承認または修正依頼を返す記事です。",
     filter: "in_review",
-    label: "レビュー待ち"
+    label: "レビューする記事"
   }];
 
   if (role === "admin") {
@@ -87,7 +87,7 @@ export function getCmsEditorialQueue(
       )).length,
       description: "承認済みで、公開操作を待っている記事です。",
       filter: "ready_to_publish",
-      label: "公開待ち"
+      label: "公開する記事"
     });
   }
   return queue;

@@ -85,8 +85,9 @@ describe("CmsArticleLibrary", () => {
     const html = renderLibrary({ articles: [reviewArticle], filter: "in_review" });
 
     expect(html).toContain('id="studio-editorial-queue-heading"');
-    expect(html).toContain("レビュー待ち");
-    expect(html).toContain("公開待ち");
+    expect(html).toContain("レビューする記事");
+    expect(html).toContain("公開する記事");
+    expect(html).toContain("公開までの4段階");
     expect(html).toContain("レビューする");
     expect(html).toContain("だけを表示しています");
   });
@@ -96,8 +97,20 @@ describe("CmsArticleLibrary", () => {
       connection: { email: "editor@example.com", kind: "ready", role: "editor" }
     });
 
-    expect(html).toContain("修正が必要");
-    expect(html).not.toContain("公開待ち");
-    expect(html).not.toContain("レビュー待ち");
+    expect(html).toContain("修正する記事");
+    expect(html).not.toContain("公開する記事");
+    expect(html).not.toContain("レビューする記事");
+  });
+
+  it("shows one four-step journey instead of separate review and publication chips", () => {
+    const html = renderLibrary({ articles: [article] });
+
+    expect(html).toContain("公開中・新しい版は下書き");
+    expect(html).toContain("現在の公開版はそのまま");
+    expect(html).toContain("1 / 4");
+    expect(html).toContain("下書き");
+    expect(html).toContain("レビュー中");
+    expect(html).toContain("承認済み");
+    expect(html).not.toContain("studio-library-item__status");
   });
 });
