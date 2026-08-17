@@ -6,12 +6,14 @@ import {
 
 export {
   extractArticleHeadingSlugs,
+  extractArticleHeadings,
   isSafeArticleMarkdownUrl,
   isSafeHttpUrl,
   validateArticleMarkdown,
   type ArticleMarkdownIssue,
   type ArticleMarkdownIssueCode,
   type ArticleMarkdownIssueSeverity,
+  type ArticleHeading,
   type ArticleMarkdownUrlKind,
   type ValidateArticleMarkdownOptions
 } from "./article-markdown";

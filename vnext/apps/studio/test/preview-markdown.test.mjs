@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createPreviewMarkdown,
+  renderArticleMarkdownWith,
   resolvePreviewImageReference,
   resolvePublicSiteReference
 } from "../src/preview-markdown.ts";
@@ -85,10 +86,21 @@ test("rewrites internal links while preserving fragments and external links", ()
 });
 
 test("keeps raw HTML disabled while applying preview URL rules", () => {
-  const rendered = createPreviewMarkdown(publicSiteUrl).render(
+  const rendered = renderArticleMarkdownWith(createPreviewMarkdown(publicSiteUrl),
     '<img src="/images/a.png" onerror="alert(1)">'
   );
 
   assert.match(rendered, /&lt;img/);
   assert.doesNotMatch(rendered, /<img/);
+});
+
+test("renders inline and display math with KaTeX", () => {
+  const rendered = renderArticleMarkdownWith(
+    createPreviewMarkdown(publicSiteUrl),
+    "Inline $E = mc^2$.\n\n$$\n\\sum_{i=1}^{n} i\n$$"
+  );
+
+  assert.match(rendered, /class="katex"/);
+  assert.match(rendered, /class="katex-display"/);
+  assert.match(rendered, /<math/);
 });

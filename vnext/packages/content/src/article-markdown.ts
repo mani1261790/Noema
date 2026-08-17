@@ -37,7 +37,7 @@ export interface ValidateArticleMarkdownOptions {
 
 export type ArticleMarkdownUrlKind = "image" | "link";
 
-interface ArticleHeading {
+export interface ArticleHeading {
   depth: number;
   line: number;
   slug: string;
@@ -208,6 +208,12 @@ export function extractArticleHeadingSlugs(source: string): string[] {
   return collectHeadings(parser.parse(source, {})).map(
     (heading) => heading.slug,
   );
+}
+
+export function extractArticleHeadings(source: string): Array<Pick<ArticleHeading, "slug" | "text">> {
+  return collectHeadings(parser.parse(source, {}))
+    .filter((heading) => heading.depth === 2)
+    .map(({ slug, text }) => ({ slug, text }));
 }
 
 export function validateArticleMarkdown(

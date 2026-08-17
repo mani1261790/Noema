@@ -1,5 +1,4 @@
 ---
-import MarkdownIt from "markdown-it";
 import { previewArticles, previewArticleMarkdown, topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleSources from "../../components/ArticleSources.astro";
@@ -10,11 +9,10 @@ import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
 import { extractArticleHeadings } from "../../lib/article-assistant";
-import { highlightMarkdownCode } from "../../lib/markdown-highlight";
+import { renderArticleMarkdown } from "../../lib/runtime-markdown";
 
 export const prerender = true;
 const article = previewArticles[0];
-const md = new MarkdownIt({ highlight: highlightMarkdownCode, html: false, linkify: true, typographer: true });
 const articleHeadings = extractArticleHeadings(previewArticleMarkdown);
 const sections = previewArticleMarkdown
   .trim()
@@ -22,7 +20,7 @@ const sections = previewArticleMarkdown
   .filter(Boolean)
   .map((section, index) => {
     const [heading, ...body] = section.split("\n");
-    return { id: articleHeadings[index]?.id ?? `section-${index + 1}`, heading, html: md.render(body.join("\n").trim()) };
+    return { id: articleHeadings[index]?.id ?? `section-${index + 1}`, heading, html: renderArticleMarkdown(body.join("\n").trim()) };
   });
 const tocItems = sections.map((section) => ({ href: `#${section.id}`, label: section.heading }));
 const topic = article.topics[0];
@@ -32,7 +30,7 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
 
 <BaseLayout title={`${article.title} | Noema`} description={article.description} image="/og/preview.png" pageType="article" noindex>
   <div class="noema-container article-page">
-    <div class="article-page__main">
+    <div class="article-page__main article-presentation">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
       <header class="article-header">
         <h1>{article.title}</h1>
@@ -55,6 +53,11 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
           <img src={article.heroImage.src} alt={article.heroImage.alt} />
         </figure>
       )}
+
+      <section class="article-outcome">
+        <h2>この記事でできるようになること</h2>
+        <p>{article.outcome}</p>
+      </section>
 
       <ArticleToc items={tocItems} />
 
