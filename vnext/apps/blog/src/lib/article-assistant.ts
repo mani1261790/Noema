@@ -1,7 +1,4 @@
-import GithubSlugger from "github-slugger";
-import MarkdownIt from "markdown-it";
-
-const headingParser = new MarkdownIt({ html: false });
+import { extractArticleHeadings as extractSharedArticleHeadings } from "@noema/content";
 
 export type ArticleHeading = {
   id: string;
@@ -14,24 +11,7 @@ export type ArticleAssistantAnswer = {
 };
 
 export function extractArticleHeadings(markdown: string): ArticleHeading[] {
-  const slugger = new GithubSlugger();
-  const headings: ArticleHeading[] = [];
-
-  const tokens = headingParser.parse(markdown, {});
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (token.type !== "heading_open") continue;
-    const text = (tokens[index + 1]?.children ?? [])
-      .filter((child) => child.type === "text" || child.type === "code_inline")
-      .map((child) => child.content)
-      .join("")
-      .trim();
-    if (!text) continue;
-    const id = slugger.slug(text);
-    if (token.tag === "h2") headings.push({ id, text });
-  }
-
-  return headings;
+  return extractSharedArticleHeadings(markdown).map(({ slug, text }) => ({ id: slug, text }));
 }
 
 export function createAnswerSchema(headings: ArticleHeading[]) {

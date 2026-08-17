@@ -54,7 +54,7 @@ const tocItems = headings
   jsonLd={jsonLd}
 >
   <div class="noema-container article-page">
-    <div class="article-page__main">
+    <div class="article-page__main article-presentation">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.data.title }]} />
       <header class="article-header">
         <h1>{article.data.title}</h1>
@@ -76,6 +76,10 @@ const tocItems = headings
           <img src={article.data.heroImage.src} alt={article.data.heroImage.alt} />
         </figure>
       )}
+      <section class="article-outcome">
+        <h2>この記事でできるようになること</h2>
+        <p>{article.data.outcome}</p>
+      </section>
       {tocItems.length > 0 && <ArticleToc items={tocItems} />}
       <article class="article-body" set:html={renderedHtml}></article>
       <ArticleSources sources={article.data.sources} />

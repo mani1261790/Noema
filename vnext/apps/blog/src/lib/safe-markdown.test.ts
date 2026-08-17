@@ -102,6 +102,16 @@ describe("hardenArticleMarkdown", () => {
     expect(html).toContain('class="hljs-number"');
   });
 
+  it("renders inline and display math with the shared KaTeX renderer", () => {
+    const html = renderArticleMarkdown(
+      "Inline $E = mc^2$.\n\n$$\n\\sum_{i=1}^{n} i\n$$",
+    );
+
+    expect(html).toContain('class="katex"');
+    expect(html).toContain('class="katex-display"');
+    expect(html).toContain("<math");
+  });
+
   it("keeps H2 links aligned after duplicate mixed-depth headings", () => {
     const source = "### 重複\n\n## 重複\n\n# 別見出し\n\n## 重複";
     const html = renderArticleMarkdown(source);

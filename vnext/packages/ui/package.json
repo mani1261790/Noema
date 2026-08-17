@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./styles": "./src/styles/index.css"
+    "./styles": "./src/styles/index.css",
+    "./article-styles": "./src/styles/article.css"
+  },
+  "dependencies": {
+    "katex": "^0.16.45"
   }
 }
