@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 372" width="100%" role="img"
+     aria-label="チャットに毎回前提を運び込む使い方と、AIが同じフォルダの中にいて材料が最初から揃っている使い方の対比図">
+  <defs>
+    <marker id="a-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#00645F"/>
+    </marker>
+    <marker id="a-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8A918E"/>
+    </marker>
+    <style>
+      .s { font-family: 'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif; }
+      .h { font-size: 19px; font-weight: 700; fill: #1C2422; }
+      .b { font-size: 15px; fill: #1C2422; }
+      .m { font-size: 13px; fill: #5A6360; }
+      .t { font-size: 13px; fill: #00645F; font-weight: 700; }
+      .box { fill: #FFFFFF; stroke: #00645F; stroke-width: 1.5; }
+      .boxm { fill: #FFFFFF; stroke: #8A918E; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect width="960" height="372" fill="#FAF9F5"/>
+
+  <!-- ============ 左：ブラウザのチャット ============ -->
+  <g class="s">
+    <text x="40" y="36" class="h">ブラウザのチャット</text>
+
+    <rect class="boxm" x="40"  y="78"  width="118" height="34" rx="6"/>
+    <text x="99" y="100" class="b" text-anchor="middle">コード</text>
+    <rect class="boxm" x="40"  y="126" width="118" height="34" rx="6"/>
+    <text x="99" y="148" class="b" text-anchor="middle">設定</text>
+    <rect class="boxm" x="40"  y="174" width="118" height="34" rx="6"/>
+    <text x="99" y="196" class="b" text-anchor="middle">過去のメモ</text>
+    <rect class="boxm" x="40"  y="222" width="118" height="34" rx="6"/>
+    <text x="99" y="244" class="b" text-anchor="middle">決めたこと</text>
+
+    <path d="M164,95  C210,95 230,140 262,152"  fill="none" stroke="#8A918E" stroke-width="1.5" marker-end="url(#a-muted)"/>
+    <path d="M164,143 C205,143 228,152 262,160" fill="none" stroke="#8A918E" stroke-width="1.5" marker-end="url(#a-muted)"/>
+    <path d="M164,191 C205,191 228,180 262,172" fill="none" stroke="#8A918E" stroke-width="1.5" marker-end="url(#a-muted)"/>
+    <path d="M164,239 C210,239 230,192 262,180" fill="none" stroke="#8A918E" stroke-width="1.5" marker-end="url(#a-muted)"/>
+
+    <text x="210" y="66" class="m" text-anchor="middle">毎回コピペ</text>
+
+    <rect class="box" x="272" y="118" width="148" height="96" rx="10"/>
+    <text x="346" y="172" class="b" text-anchor="middle" font-weight="700">チャット</text>
+
+    <text x="346" y="248" class="m" text-anchor="middle">閉じると消える</text>
+    <text x="40"  y="330" class="m">前提はいつも外にある。運び込むのは毎回、</text>
+    <text x="40"  y="352" class="m">運べる量は貼れる量まで。</text>
+  </g>
+
+  <line x1="480" y1="40" x2="480" y2="332" stroke="#DCDAD4" stroke-width="1"/>
+
+  <!-- ============ 右：フォルダの中のAI ============ -->
+  <g class="s">
+    <text x="520" y="36" class="h">フォルダの中のAI</text>
+
+    <rect x="520" y="58" width="400" height="212" rx="14" fill="#FFFFFF" stroke="#00645F" stroke-width="1.5"/>
+    <text x="536" y="82" class="t">ひとつのフォルダ</text>
+
+    <rect class="boxm" x="536" y="98"  width="112" height="30" rx="6"/>
+    <text x="592" y="118" class="b" text-anchor="middle">指示</text>
+    <rect class="boxm" x="536" y="136" width="112" height="30" rx="6"/>
+    <text x="592" y="156" class="b" text-anchor="middle">日誌</text>
+    <rect class="boxm" x="536" y="174" width="112" height="30" rx="6"/>
+    <text x="592" y="194" class="b" text-anchor="middle">知識</text>
+    <rect class="boxm" x="536" y="212" width="112" height="30" rx="6"/>
+    <text x="592" y="232" class="b" text-anchor="middle">決めたこと</text>
+
+    <path d="M654,113 C686,113 690,150 716,158" fill="none" stroke="#00645F" stroke-width="1.5" marker-end="url(#a-teal)"/>
+    <path d="M654,151 C684,151 690,158 716,164" fill="none" stroke="#00645F" stroke-width="1.5" marker-end="url(#a-teal)"/>
+    <path d="M654,189 C684,189 690,180 716,174" fill="none" stroke="#00645F" stroke-width="1.5" marker-end="url(#a-teal)"/>
+    <path d="M654,227 C686,227 690,190 716,180" fill="none" stroke="#00645F" stroke-width="1.5" marker-end="url(#a-teal)"/>
+
+    <rect class="box" x="726" y="126" width="140" height="80" rx="10"/>
+    <text x="796" y="172" class="b" text-anchor="middle" font-weight="700">AI</text>
+
+    <text x="520" y="330" class="m">材料は最初から同じ枠の中にある。</text>
+    <text x="520" y="352" class="m">運ぶのではなく、置いておく。</text>
+  </g>
+</svg>
