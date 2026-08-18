@@ -63,7 +63,7 @@ Migrationは旧Workerと新Workerの両方から安全に参照できるforward-
 
 Token値をIssue、Pull Request、ログ、チャットへ貼らないでください。確認は名前だけを表示します。
 
-Studio MCPはこれとは別にCloudflare Worker secret `MCP_ACCESS_POLICY_AUD`を必要とします。初回設定は[Studio MCP運用ガイド](./studio-mcp.md#cloudflare初期設定)に従い、Access applicationのAUDをWorkerへ登録します。
+Studio MCPはこれとは別に、Access applicationのAUDをWranglerの通常変数`MCP_ACCESS_POLICY_AUD`として必要とします。秘密情報ではありません。初回設定は[Studio MCP接続・運用ガイド](./studio-mcp.md#cloudflare初期設定)に従い、AUDを`vnext/apps/studio-mcp/wrangler.jsonc`の`vars`へ設定します。
 
 ```bash
 gh secret list --repo mani1261790/Noema
