@@ -34,14 +34,9 @@ MCP経由の作成・更新はD1監査eventへ`channel: mcp`、tool、request ID
 1. Cloudflare Zero TrustのAI controlsでcustomer-managed MCP serverを追加し、server URLを`https://mcp.noema-learn.uk/mcp`にする。
 2. `mcp.noema-learn.uk`を保護するAccess applicationと、Studio利用者に対応するallow policyを作る。
 3. Managed OAuthを有効にする。
-4. Access applicationのAUDをStudio MCP Workerのsecretへ設定する。
+4. Access applicationのAUDをStudio MCP Workerの`MCP_ACCESS_POLICY_AUD`へ設定する。
 
-```bash
-cd vnext/apps/studio-mcp
-npx wrangler secret put MCP_ACCESS_POLICY_AUD --config wrangler.jsonc
-```
-
-AUDは`wrangler.jsonc`へ直書きせず、Worker secretとして管理します。`ACCESS_TEAM_DOMAIN`とbootstrap admin emailはreview可能なWorker設定です。MCP custom domainでは`workers.dev`とpreview URLを無効化しています。
+Access applicationのAUDは秘密情報ではなく、WorkerがAccess JWTの対象を照合するための識別子です。初回deployより前に必要になるため、`ACCESS_TEAM_DOMAIN`やbootstrap admin emailと同様にreview可能な`wrangler.jsonc`の`vars`で管理します。MCP custom domainでは`workers.dev`とpreview URLを無効化しています。
 
 Cloudflare API tokenには既存Worker/D1 deploy権限に加えて、このWorkerとcustom domainを更新できる権限が必要です。Access applicationとManaged OAuth policyは通常のcode deployでは作り替えません。
 
