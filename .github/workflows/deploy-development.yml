@@ -82,3 +82,11 @@ jobs:
           workingDirectory: vnext/apps/studio
           wranglerVersion: "4.120.1"
           command: deploy --config wrangler.jsonc
+
+      - name: Deploy Studio MCP Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: vnext/apps/studio-mcp
+          wranglerVersion: "4.120.1"
+          command: deploy --config wrangler.jsonc

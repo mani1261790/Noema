@@ -12,9 +12,10 @@ const TEAM_DOMAIN_PATTERN =
   /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.cloudflareaccess\.com$/i;
 const AUDIENCE_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
-export type AccessEnvironment = Partial<
-  Pick<Env, "ACCESS_POLICY_AUD" | "ACCESS_TEAM_DOMAIN">
->;
+export interface AccessEnvironment {
+  ACCESS_POLICY_AUD?: string;
+  ACCESS_TEAM_DOMAIN?: string;
+}
 
 export interface AccessConfiguration {
   audience: string;

@@ -27,6 +27,7 @@ beforeEach(async () => {
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_idempotency"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_audit_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
@@ -226,6 +227,18 @@ describe("CMS repository", () => {
 
   it("rejects stale saves without creating a stray revision", async () => {
     const admin = await bootstrapAdmin();
+    const asset = await registerCmsAsset(
+      testEnv.CMS_DB,
+      admin.identity,
+      {
+        byteSize: 1024,
+        contentType: "image/png",
+        id: "00000000-0000-4000-8000-000000000009",
+        originalName: "concurrent.png",
+        r2Key: "articles/00000000-0000-4000-8000-000000000009.png"
+      },
+      NOW
+    );
     const created = await createCmsArticle(
       testEnv.CMS_DB,
       admin.identity,
@@ -239,7 +252,7 @@ describe("CMS repository", () => {
       created.lockVersion,
       {
         ...validArticle("concurrent-edit"),
-        markdown: "## 最初の保存\n\n一人目の内容です。"
+        markdown: `## 最初の保存\n\n一人目の内容です。\n\n![競合確認](${asset.markdownUrl})`
       },
       new Date("2026-07-18T00:01:00.000Z")
     );
@@ -259,8 +272,12 @@ describe("CMS repository", () => {
     const revisionCount = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_article_revisions WHERE article_id = ?1"
     ).bind(created.id).first<number>("count");
+    const referenceCount = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_asset_references WHERE article_id = ?1"
+    ).bind(created.id).first<number>("count");
     expect(first.currentRevision.number).toBe(2);
     expect(revisionCount).toBe(2);
+    expect(referenceCount).toBe(1);
   });
 
   it("keeps the published revision stable while a new draft is edited", async () => {
