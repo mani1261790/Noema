@@ -36,7 +36,9 @@ MCP経由の作成・更新はD1監査eventへ`channel: mcp`、tool、request ID
 3. Managed OAuthを有効にする。
 4. Access applicationのAUDをStudio MCP Workerの`MCP_ACCESS_POLICY_AUD`へ設定する。
 
-Access applicationのAUDは秘密情報ではなく、WorkerがAccess JWTの対象を照合するための識別子です。初回deployより前に必要になるため、`ACCESS_TEAM_DOMAIN`やbootstrap admin emailと同様にreview可能な`wrangler.jsonc`の`vars`で管理します。MCP custom domainでは`workers.dev`とpreview URLを無効化しています。
+Access applicationのAUDは秘密情報ではなく、WorkerがAccess JWTの対象を照合するための識別子です。初回deployより前に必要になるため、`ACCESS_TEAM_DOMAIN`と同様にreview可能な`wrangler.jsonc`の`vars`で管理します。MCP custom domainでは`workers.dev`とpreview URLを無効化しています。
+
+MCPは既存の有効な`cms_members`だけを受け入れ、bootstrap adminの作成や招待の消費は行いません。初回登録と招待の受け入れは、人が状態を確認できるStudio画面で完了してからMCPへ接続します。
 
 Cloudflare API tokenには既存Worker/D1 deploy権限に加えて、このWorkerとcustom domainを更新できる権限が必要です。Access applicationとManaged OAuth policyは通常のcode deployでは作り替えません。
 

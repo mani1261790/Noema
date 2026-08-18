@@ -226,6 +226,36 @@ describe("Studio MCP HTTP boundary", () => {
     });
   });
 
+  it("does not provision a CMS member from MCP authentication", async () => {
+    await testEnv.CMS_DB.prepare("DELETE FROM cms_members").run();
+    await testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_member_invitations
+        (email, role, active, invited_by_subject, created_at, updated_at)
+       VALUES (?1, 'admin', 1, 'studio-admin', ?2, ?2)`
+    ).bind(SESSION.identity.email, "2026-08-19T00:00:00.000Z").run();
+
+    const result = await handleStudioMcpRequest(
+      new Request("https://mcp.noema-learn.uk/mcp", {
+        headers: { "cf-access-jwt-assertion": "test-token" },
+        method: "POST"
+      }),
+      testEnv,
+      createExecutionContext(),
+      { verifyAccessToken: async () => SESSION.identity }
+    );
+
+    expect(result.status).toBe(403);
+    await expect(result.json()).resolves.toMatchObject({
+      error: { code: "member_not_registered" }
+    });
+    const counts = await testEnv.CMS_DB.prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM cms_members) AS members,
+        (SELECT COUNT(*) FROM cms_member_invitations) AS invitations`
+    ).first<{ invitations: number; members: number }>();
+    expect(counts).toEqual({ invitations: 1, members: 0 });
+  });
+
   it("serves tool discovery over authenticated Streamable HTTP", async () => {
     const fetch: FetchLike = async (input, init) => {
       const request = new Request(input, init);

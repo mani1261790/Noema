@@ -25,7 +25,7 @@ import {
   createCmsArticle,
   getCmsArticle,
   listCmsArticles,
-  resolveCmsSession,
+  resolveExistingCmsSession,
   updateCmsArticle
 } from "../../studio/worker/cms-repository";
 
@@ -113,11 +113,7 @@ export async function handleStudioMcpRequest(
 
   let session: CmsSession;
   try {
-    session = await resolveCmsSession(
-      env.CMS_DB,
-      accessIdentity,
-      env.CMS_BOOTSTRAP_ADMIN_EMAIL
-    );
+    session = await resolveExistingCmsSession(env.CMS_DB, accessIdentity);
   } catch (error) {
     if (error instanceof CmsRepositoryError) {
       return response(403, error.code, error.message);

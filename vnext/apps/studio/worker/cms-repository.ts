@@ -206,6 +206,27 @@ export async function resolveCmsSession(
     }
   }
 
+  return sessionFromMember(member);
+}
+
+export async function resolveExistingCmsSession(
+  db: D1Database,
+  accessIdentity: { email: string; subject: string }
+): Promise<CmsSession> {
+  const member = await db.prepare(
+    "SELECT subject, email, role, active FROM cms_members WHERE subject = ?1"
+  ).bind(accessIdentity.subject).first<MemberRow>();
+  if (!member) {
+    throw new CmsRepositoryError(
+      "member_not_registered",
+      "このAccess identityはNoema CMSへ登録されていません。Studioで招待を受け入れてから再試行してください。"
+    );
+  }
+
+  return sessionFromMember(member);
+}
+
+function sessionFromMember(member: MemberRow): CmsSession {
   const role = parseRole(member.role);
   if (member.active !== 1 || !role) {
     throw new CmsRepositoryError(

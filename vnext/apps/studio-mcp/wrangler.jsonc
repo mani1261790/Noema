@@ -15,7 +15,6 @@
   ],
   "vars": {
     "ACCESS_TEAM_DOMAIN": "falling-smoke-5c0f.cloudflareaccess.com",
-    "CMS_BOOTSTRAP_ADMIN_EMAIL": "mani1261790@gmail.com",
     "MCP_ACCESS_POLICY_AUD": "0812374c22e483430755f660ab3750f9057375cebb91bffa227610e1d0a1abf8"
   },
   "d1_databases": [
