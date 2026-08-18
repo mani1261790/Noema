@@ -110,7 +110,7 @@ npm test --workspace @noema/studio-mcp
 npm run check --workspace @noema/studio-mcp
 ```
 
-Cloudflare側の初期設定とclient接続は[Studio MCP運用ガイド](../docs/studio-mcp.md)を参照してください。
+Cloudflare側の初期設定とclient接続は[Studio MCP接続・運用ガイド](../docs/studio-mcp.md)を参照してください。
 
 ## 記事contract
 

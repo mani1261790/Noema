@@ -18,7 +18,7 @@ Noemaは、AIでできることと、その仕組みを、直感と具体例か�
 - 記事を新規作成・再編集し、レビュー・公開する: [記事が反映されるまで](docs/studio-blog-connectivity.md#記事が反映されるまで)
 - メンバーを追加する: [メンバーを招待する](docs/studio-blog-connectivity.md#メンバーを招待する)
 - 公開範囲やURL、旧Studio URLを確認する: [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md)
-- MCP clientから下書きを読み書きする: [Studio MCP運用ガイド](docs/studio-mcp.md)
+- MCP clientから下書きを読み書きする: [Studio MCP接続・運用ガイド](docs/studio-mcp.md)
 
 `develop`へのmergeでのみCloudflare deploymentが動きます。`main`へのpushではdeployしません。手動実行も`develop`以外ではjobを開始しません。
 
@@ -95,7 +95,7 @@ npm run deploy:dry-run
 
 - [ドキュメント案内](docs/README.md)
 - [Studio・CMS・ブログ接続ガイド](docs/studio-blog-connectivity.md): 記事の編集・レビュー・公開・メンバー管理
-- [Studio MCP運用ガイド](docs/studio-mcp.md): remote MCPの認証、tool境界、導入・確認手順
+- [Studio MCP接続・運用ガイド](docs/studio-mcp.md): remote MCPの認証、tool境界、導入・確認手順
 - [CMS contract](vnext/packages/cms/README.md)
 - [プロダクト再設計仕様](docs/product-reboot.md)
 - [コンテンツ・掲載方針](docs/content-strategy.md)
