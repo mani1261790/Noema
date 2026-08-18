@@ -417,6 +417,7 @@ function cmsRepositoryError(error: unknown): Response {
     asset_not_found: 404,
     cms_not_configured: 503,
     forbidden: 403,
+    idempotency_conflict: 409,
     invalid_article: 400,
     invalid_asset: 400,
     invalid_transition: 409,

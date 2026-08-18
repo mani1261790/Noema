@@ -16,6 +16,7 @@ GitHub ActionsではNode.js 24とWrangler 4.110.0を使います。
 
 - `apps/blog`: AstroとCloudflare adapterで構築するCMSブログと記事アシスタントAPI
 - `apps/studio`: React/Viteで構築するCMS型Markdown StudioとWorker API
+- `apps/studio-mcp`: Access保護された下書き専用remote MCP Worker
 - `apps/public-gate`: `noema-learn.uk`を非公開に保つWorker
 - `packages/cms`: role、review・publication状態、公開範囲、CMS API contract
 - `packages/content`: 記事schema、Markdown validation、UI確認用fixture
@@ -25,12 +26,14 @@ GitHub ActionsではNode.js 24とWrangler 4.110.0を使います。
 
 ## CMSの接続
 
-記事、immutable revision、メンバー権限、review状態、publication状態、公開範囲、監査eventの正本はCloudflare D1 `noema-cms`です。Studio WorkerとBlog Workerは同じdatabaseを`CMS_DB`としてbindします。
+記事、immutable revision、メンバー権限、review状態、publication状態、公開範囲、監査eventの正本はCloudflare D1 `noema-cms`です。Studio Worker、Studio MCP Worker、Blog Workerは同じdatabaseを`CMS_DB`としてbindします。
 
 ```mermaid
 flowchart LR
   Access["Cloudflare Access"] --> Studio["Studio Worker"]
+  Access --> Mcp["Studio MCP Worker"]
   Studio --> D1["D1 noema-cms<br/>記事・revision・role"]
+  Mcp --> D1
   D1 --> Blog["Blog Worker<br/>published revisionだけを読取"]
   GitHub["GitHub<br/>code・migration・docs・任意export"] --> Deploy["GitHub Actions"]
   Deploy --> D1
@@ -94,6 +97,20 @@ npm run dev:worker
 ```
 
 Workerの既定URLは`http://localhost:8787`です。ローカルのmutation境界を確認する場合は、Git管理しない`.dev.vars`の`STUDIO_ALLOWED_ORIGIN`もこのoriginへ合わせます。ただしlocalhostではCloudflare Access edgeが`Cf-Access-Jwt-Assertion`を付与しないため、通常のbrowser操作でCMS APIにloginできるわけではありません。APIの認証・role・D1 mutationはlocal Worker test、Accessを含む統合flowはdeploy後の`studio.noema-learn.uk`で確認します。
+
+### Studio MCP
+
+Studio MCPは`https://mcp.noema-learn.uk/mcp`でStreamable HTTPを提供します。Cloudflare Access Managed OAuthと既存CMS member roleの両方を通過したidentityだけが利用できます。公開するのはidentity確認、記事一覧・取得、下書き検証・作成・更新で、レビュー依頼、承認、公開、保管、メンバー管理はStudio画面に残します。
+
+ローカルではAccess edgeを迂回して実運用接続するのではなく、Worker testでprotocol、role、D1 mutation、再送のidempotencyを確認します。
+
+```bash
+cd vnext
+npm test --workspace @noema/studio-mcp
+npm run check --workspace @noema/studio-mcp
+```
+
+Cloudflare側の初期設定とclient接続は[Studio MCP運用ガイド](../docs/studio-mcp.md)を参照してください。
 
 ## 記事contract
 
@@ -175,7 +192,7 @@ npm run build
 npm run deploy:dry-run
 ```
 
-`deploy:dry-run`はCloudflareへ認証・uploadせず、公開ゲート、ブログ、StudioのWorker成果物とbindingを検証します。D1 repository testはmigrationをlocal Miniflareへ適用し、role、状態遷移、published revisionの固定、stale update時に孤立revisionを作らないことを検証します。
+`deploy:dry-run`はCloudflareへ認証・uploadせず、公開ゲート、ブログ、Studio、Studio MCPのWorker成果物とbindingを検証します。D1 repository testはmigrationをlocal Miniflareへ適用し、role、状態遷移、published revisionの固定、stale update時に孤立revisionを作らないことを検証します。
 
 ## Cloudflare開発環境
 
@@ -183,11 +200,12 @@ npm run deploy:dry-run
 | --- | --- | --- |
 | ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
 | Studio | `noema-studio` | <https://studio.noema-learn.uk>（Cloudflare Access保護） |
+| Studio MCP | `noema-studio-mcp` | <https://mcp.noema-learn.uk/mcp>（Access Managed OAuth保護） |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（404） |
 | CMS | D1 `noema-cms` | 記事とeditorial workflowの正本 |
 | 画像 | R2 | account未有効 |
 
-ブログは`workers.dev`で確認します。Studioはcustom domainだけを公開し、`workers.dev`とpreview URLは利用できません。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
+ブログは`workers.dev`で確認します。StudioとStudio MCPはcustom domainだけを公開し、`workers.dev`とpreview URLは利用できません。ブログWorkerは本番routeを持たず、`noema-learn.uk/*`は公開ゲートだけが受けます。
 
 ## 自動デプロイ
 
@@ -198,7 +216,7 @@ npm run deploy:dry-run
 - 手動実行も`develop` refだけを許可
 - GitHub Deployments / Environmentsは使わない
 - repository secret `CLOUDFLARE_API_TOKEN`を使用
-- test、check、build、公開ゲート、D1 migration、ブログ、Studioの順
+- test、check、build、公開ゲート、D1 migration、ブログ、Studio、Studio MCPの順
 - 記事の保存・レビュー・公開だけではworkflowを実行しない
 
 設定、確認、手動実行、rollbackの正は [開発環境デプロイ](../docs/development-deployment.md) を参照してください。

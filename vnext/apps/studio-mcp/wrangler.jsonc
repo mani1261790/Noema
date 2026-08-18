@@ -1,0 +1,42 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "noema-studio-mcp",
+  "main": "src/index.ts",
+  "account_id": "2ea670c2a6ff28e248ef084adf095e8b",
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "mcp.noema-learn.uk",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "falling-smoke-5c0f.cloudflareaccess.com",
+    "CMS_BOOTSTRAP_ADMIN_EMAIL": "mani1261790@gmail.com"
+  },
+  "secrets": {
+    "required": ["MCP_ACCESS_POLICY_AUD"]
+  },
+  "d1_databases": [
+    {
+      "binding": "CMS_DB",
+      "database_name": "noema-cms",
+      "database_id": "1be074f8-8d97-4422-a081-5eeaadcb5cd0",
+      "migrations_dir": "../studio/migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05
+    }
+  }
+}

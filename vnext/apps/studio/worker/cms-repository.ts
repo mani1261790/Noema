@@ -118,6 +118,7 @@ export type CmsRepositoryErrorCode =
   | "asset_not_found"
   | "cms_not_configured"
   | "forbidden"
+  | "idempotency_conflict"
   | "invalid_article"
   | "invalid_asset"
   | "invalid_transition"
@@ -143,6 +144,20 @@ export interface CmsArticleContentInput {
   frontmatter: ArticleFrontmatter;
   markdown: string;
   visibility: CmsVisibility;
+}
+
+export interface CmsMutationContext {
+  channel?: "mcp" | "web";
+  client?: string;
+  idempotency?: {
+    requestId: string;
+    toolName: "studio_create_draft" | "studio_update_draft";
+  };
+}
+
+interface IdempotencyRow {
+  article_id: string;
+  input_sha256: string;
 }
 
 export async function resolveCmsSession(
@@ -315,7 +330,8 @@ function cmsArticleAssetReferenceStatements(
   articleId: string,
   frontmatter: ArticleFrontmatter,
   markdown: string,
-  timestamp: string
+  timestamp: string,
+  revisionGuard?: { lockVersion: number; revisionId: string }
 ): D1PreparedStatement[] {
   const references = new Map<string, Set<"hero" | "markdown">>();
   for (const match of markdown.matchAll(/\/media\/(articles\/[0-9a-f-]{36}\.(?:gif|jpe?g|png|webp))/giu)) {
@@ -332,16 +348,26 @@ function cmsArticleAssetReferenceStatements(
     references.set(heroKey, locations);
   }
 
-  const statements: D1PreparedStatement[] = [
-    db.prepare("DELETE FROM cms_asset_references WHERE article_id = ?1").bind(articleId)
-  ];
+  const deleteGuardSql = revisionGuard
+    ? " AND EXISTS (SELECT 1 FROM cms_articles a WHERE a.id = ?1 AND a.lock_version = ?2 AND a.current_revision_id = ?3)"
+    : "";
+  const insertGuardSql = revisionGuard
+    ? " AND EXISTS (SELECT 1 FROM cms_articles a WHERE a.id = ?1 AND a.lock_version = ?5 AND a.current_revision_id = ?6)"
+    : "";
+  const guardBindings = revisionGuard
+    ? [revisionGuard.lockVersion, revisionGuard.revisionId]
+    : [];
+  const statements: D1PreparedStatement[] = [db.prepare(
+    `DELETE FROM cms_asset_references WHERE article_id = ?1${deleteGuardSql}`
+  ).bind(articleId, ...guardBindings)];
   for (const [r2Key, locations] of references) {
     for (const location of locations) {
       statements.push(db.prepare(
         `INSERT INTO cms_asset_references (asset_id, article_id, location, created_at)
-         SELECT id, ?1, ?2, ?3 FROM cms_assets WHERE r2_key = ?4
+         SELECT id, ?1, ?2, ?3 FROM cms_assets
+         WHERE r2_key = ?4${insertGuardSql}
          ON CONFLICT(asset_id, article_id, location) DO NOTHING`
-      ).bind(articleId, location, timestamp, r2Key));
+      ).bind(articleId, location, timestamp, r2Key, ...guardBindings));
     }
   }
   return statements;
@@ -365,7 +391,8 @@ export async function createCmsArticle(
   db: D1Database,
   identity: CmsIdentity,
   input: CmsArticleContentInput,
-  now = new Date()
+  now = new Date(),
+  context: CmsMutationContext = {}
 ): Promise<CmsArticleDetail> {
   requirePermission(identity.role, "edit");
   const content = parseDraftContent(input);
@@ -376,9 +403,24 @@ export async function createCmsArticle(
   const slug = canonicalDraftSlug(content.frontmatter.slug, articleId);
   const frontmatterJson = JSON.stringify(content.frontmatter);
   const checksum = await contentChecksum(content);
+  const replayArticleId = await findIdempotentArticle(
+    db,
+    identity,
+    context,
+    checksum
+  );
+  if (replayArticleId) return getCmsArticle(db, identity, replayArticleId);
 
   try {
     await db.batch([
+      ...idempotencyStatements(
+        db,
+        identity,
+        context,
+        checksum,
+        articleId,
+        timestamp
+      ),
       db.prepare(
         `INSERT INTO cms_articles (
           id, slug, review_status, publication_status, draft_visibility,
@@ -418,7 +460,10 @@ export async function createCmsArticle(
         auditId,
         articleId,
         identity.subject,
-        JSON.stringify({ revisionId, visibility: content.visibility }),
+        JSON.stringify(auditMetadata(
+          { revisionId, visibility: content.visibility },
+          context
+        )),
         timestamp
       ),
       ...cmsArticleAssetReferenceStatements(
@@ -430,6 +475,15 @@ export async function createCmsArticle(
       )
     ]);
   } catch (error) {
+    if (isIdempotencyConstraint(error)) {
+      const replay = await findIdempotentArticle(
+        db,
+        identity,
+        context,
+        checksum
+      );
+      if (replay) return getCmsArticle(db, identity, replay);
+    }
     if (isUniqueConstraint(error, "cms_articles.slug")) throw slugConflict();
     throw error;
   }
@@ -443,10 +497,23 @@ export async function updateCmsArticle(
   articleId: string,
   expectedVersion: number,
   input: CmsArticleContentInput,
-  now = new Date()
+  now = new Date(),
+  context: CmsMutationContext = {}
 ): Promise<CmsArticleDetail> {
   requirePermission(identity.role, "edit");
   const content = parseDraftContent(input);
+  const checksum = await operationChecksum({
+    articleId,
+    content,
+    expectedVersion
+  });
+  const replayArticleId = await findIdempotentArticle(
+    db,
+    identity,
+    context,
+    checksum
+  );
+  if (replayArticleId) return getCmsArticle(db, identity, replayArticleId);
   const current = await getCurrentArticleRow(db, articleId);
   if (current.lock_version !== expectedVersion) throw revisionConflict();
 
@@ -456,7 +523,7 @@ export async function updateCmsArticle(
   const nextRevision = current.current_revision_number + 1;
   const nextVersion = expectedVersion + 1;
   const slug = canonicalDraftSlug(content.frontmatter.slug, articleId);
-  const checksum = await contentChecksum(content);
+  const contentSha256 = await contentChecksum(content);
 
   try {
     const results = await db.batch([
@@ -473,7 +540,7 @@ export async function updateCmsArticle(
         nextRevision,
         JSON.stringify(content.frontmatter),
         content.markdown,
-        checksum,
+        contentSha256,
         identity.subject,
         timestamp,
         articleId,
@@ -514,7 +581,10 @@ export async function updateCmsArticle(
       ).bind(
         auditId,
         identity.subject,
-        JSON.stringify({ revisionId, revisionNumber: nextRevision }),
+        JSON.stringify(auditMetadata(
+          { revisionId, revisionNumber: nextRevision },
+          context
+        )),
         timestamp,
         articleId,
         nextVersion,
@@ -525,15 +595,41 @@ export async function updateCmsArticle(
         articleId,
         content.frontmatter,
         content.markdown,
-        timestamp
+        timestamp,
+        { lockVersion: nextVersion, revisionId }
+      ),
+      ...idempotencyStatements(
+        db,
+        identity,
+        context,
+        checksum,
+        articleId,
+        timestamp,
+        { lockVersion: nextVersion, revisionId }
       )
     ]);
 
     if (results[0]?.meta.changes !== 1 || results[1]?.meta.changes !== 1) {
+      const replay = await findIdempotentArticle(
+        db,
+        identity,
+        context,
+        checksum
+      );
+      if (replay) return getCmsArticle(db, identity, replay);
       throw revisionConflict();
     }
   } catch (error) {
     if (error instanceof CmsRepositoryError) throw error;
+    if (isIdempotencyConstraint(error)) {
+      const replay = await findIdempotentArticle(
+        db,
+        identity,
+        context,
+        checksum
+      );
+      if (replay) return getCmsArticle(db, identity, replay);
+    }
     if (isUniqueConstraint(error, "cms_articles.slug")) throw slugConflict();
     if (isUniqueConstraint(error, "cms_article_revisions")) {
       throw revisionConflict();
@@ -1139,15 +1235,110 @@ function canonicalDraftSlug(value: string, articleId: string): string {
 }
 
 async function contentChecksum(input: CmsArticleContentInput): Promise<string> {
-  const bytes = new TextEncoder().encode(JSON.stringify({
+  return sha256(JSON.stringify({
     frontmatter: input.frontmatter,
     markdown: input.markdown,
     visibility: input.visibility
   }));
+}
+
+async function operationChecksum(input: {
+  articleId: string;
+  content: CmsArticleContentInput;
+  expectedVersion: number;
+}): Promise<string> {
+  return sha256(JSON.stringify(input));
+}
+
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function auditMetadata(
+  metadata: Record<string, unknown>,
+  context: CmsMutationContext
+): Record<string, unknown> {
+  return {
+    ...metadata,
+    ...(context.channel ? { channel: context.channel } : {}),
+    ...(context.client ? { client: context.client.slice(0, 200) } : {}),
+    ...(context.idempotency ? {
+      requestId: context.idempotency.requestId,
+      tool: context.idempotency.toolName
+    } : {})
+  };
+}
+
+function idempotencyStatements(
+  db: D1Database,
+  identity: CmsIdentity,
+  context: CmsMutationContext,
+  checksum: string,
+  articleId: string,
+  timestamp: string,
+  revisionGuard?: { lockVersion: number; revisionId: string }
+): D1PreparedStatement[] {
+  if (!context.idempotency) return [];
+  if (revisionGuard) {
+    return [db.prepare(
+      `INSERT INTO cms_mcp_idempotency
+        (actor_subject, tool_name, request_id, input_sha256, article_id, created_at)
+       SELECT ?1, ?2, ?3, ?4, id, ?5
+       FROM cms_articles
+       WHERE id = ?6 AND lock_version = ?7 AND current_revision_id = ?8`
+    ).bind(
+      identity.subject,
+      context.idempotency.toolName,
+      context.idempotency.requestId,
+      checksum,
+      timestamp,
+      articleId,
+      revisionGuard.lockVersion,
+      revisionGuard.revisionId
+    )];
+  }
+  return [db.prepare(
+    `INSERT INTO cms_mcp_idempotency
+      (actor_subject, tool_name, request_id, input_sha256, article_id, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+  ).bind(
+    identity.subject,
+    context.idempotency.toolName,
+    context.idempotency.requestId,
+    checksum,
+    articleId,
+    timestamp
+  )];
+}
+
+async function findIdempotentArticle(
+  db: D1Database,
+  identity: CmsIdentity,
+  context: CmsMutationContext,
+  checksum: string
+): Promise<string | null> {
+  if (!context.idempotency) return null;
+  const row = await db.prepare(
+    `SELECT article_id, input_sha256
+     FROM cms_mcp_idempotency
+     WHERE actor_subject = ?1 AND tool_name = ?2 AND request_id = ?3`
+  ).bind(
+    identity.subject,
+    context.idempotency.toolName,
+    context.idempotency.requestId
+  ).first<IdempotencyRow>();
+  if (!row) return null;
+  if (row.input_sha256 !== checksum) {
+    throw new CmsRepositoryError(
+      "idempotency_conflict",
+      "同じrequestIdが異なる入力ですでに使用されています。"
+    );
+  }
+  return row.article_id;
 }
 
 function normalizeEmail(value: string | undefined): string | null {
@@ -1160,6 +1351,10 @@ function isUniqueConstraint(error: unknown, field: string): boolean {
   return error instanceof Error &&
     error.message.includes("UNIQUE constraint failed") &&
     error.message.includes(field);
+}
+
+function isIdempotencyConstraint(error: unknown): boolean {
+  return isUniqueConstraint(error, "cms_mcp_idempotency");
 }
 
 function articleNotFound(): CmsRepositoryError {

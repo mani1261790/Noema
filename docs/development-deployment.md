@@ -21,11 +21,12 @@ GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 | --- | --- | --- |
 | ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
 | Studio | `noema-studio` | <https://studio.noema-learn.uk>（Cloudflare Access保護） |
+| Studio MCP | `noema-studio-mcp` | <https://mcp.noema-learn.uk/mcp>（Access Managed OAuth保護） |
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（期待値404） |
 | CMS database | D1 `noema-cms` | 記事、revision、role、review、公開範囲の正本 |
 | 記事画像 | R2 | accountで未有効のためupload不可 |
 
-ブログの`workers.dev` URLとStudioのcustom domainには、最後に成功した`develop`のCloudflare Worker versionが表示されます。記事本文はD1から実行時に読み取るため、同じWorker versionのままでもCMSの公開操作によって内容が変わります。
+ブログの`workers.dev` URL、StudioとStudio MCPのcustom domainには、最後に成功した`develop`のCloudflare Worker versionが表示されます。記事本文はD1から実行時に読み取るため、同じWorker versionのままでもCMSの公開操作によって内容が変わります。
 
 Studioの`workers.dev`とpreview URLは認証の迂回経路を残さないため無効です。旧URLを開いた際の「There is nothing here yet」は閉鎖済み入口の汎用表示であり、Studioはcustom domainを使用します。
 
@@ -46,10 +47,11 @@ sequenceDiagram
   D1-->>GH: migration結果
   GH->>CF: noema-learnをdeploy
   GH->>CF: noema-studioをdeploy
-  CF-->>Dev: ブログURLとAccess保護Studioで確認可能
+  GH->>CF: noema-studio-mcpをdeploy
+  CF-->>Dev: ブログURL、Access保護Studio、MCPで確認可能
 ```
 
-公開ゲートを最初にdeployするため、後続処理中も`noema-learn.uk`が開くことはありません。D1 migrationに失敗した場合はBlogとStudioをdeployせず停止します。
+公開ゲートを最初にdeployするため、後続処理中も`noema-learn.uk`が開くことはありません。D1 migrationに失敗した場合はBlog、Studio、Studio MCPをdeployせず停止します。
 
 Migrationは旧Workerと新Workerの両方から安全に参照できるforward-compatibleな変更にします。workflowがmigration適用後にcancelまたは失敗しても旧Workerが動くよう、列やtableの追加と利用開始を分け、削除・rename等は別のmigrationへ段階化します。
 
@@ -60,6 +62,8 @@ Migrationは旧Workerと新Workerの両方から安全に参照できるforward-
 - `CLOUDFLARE_API_TOKEN`
 
 Token値をIssue、Pull Request、ログ、チャットへ貼らないでください。確認は名前だけを表示します。
+
+Studio MCPはこれとは別にCloudflare Worker secret `MCP_ACCESS_POLICY_AUD`を必要とします。初回設定は[Studio MCP運用ガイド](./studio-mcp.md#cloudflare初期設定)に従い、Access applicationのAUDをWorkerへ登録します。
 
 ```bash
 gh secret list --repo mani1261790/Noema
@@ -96,7 +100,7 @@ The given account is not valid or is not authorized to access this service [code
 3. tokenを更新または再作成した場合は、repository secret `CLOUDFLARE_API_TOKEN`を更新します。
 4. Secret値をログへ出さず、失敗したworkflowを`develop` refで再実行します。
 
-`gh secret list`で確認できるのはSecret名と更新日時だけです。Cloudflare側の権限はCloudflare Dashboardで確認します。Migration stepが成功するまで、後続のBlog・Studio deployは実行されません。
+`gh secret list`で確認できるのはSecret名と更新日時だけです。Cloudflare側の権限はCloudflare Dashboardで確認します。Migration stepが成功するまで、後続のBlog・Studio・Studio MCP deployは実行されません。
 
 ## D1 migration
 
@@ -165,7 +169,7 @@ localhostではCloudflare Access edgeが`Cf-Access-Jwt-Assertion`を付与しな
 2. schema変更がある場合はlocal D1へmigrationを適用し、旧codeと新codeの両方で後方互換性を確認
 3. Pull Requestを`develop`へmerge
 4. Actionsの`Deploy Noema development preview to Cloudflare`が成功するまで待つ
-5. D1 migration、公開ゲート、Blog、Studioの各stepが成功したことを確認
+5. D1 migration、公開ゲート、Blog、Studio、Studio MCPの各stepが成功したことを確認
 6. ブログの`workers.dev` URLとAccess保護されたStudio custom domainを確認
 7. `noema-learn.uk`が404、`Cache-Control: no-store`、`X-Robots-Tag: noindex`のままであることを確認
 
@@ -195,6 +199,7 @@ npx wrangler d1 migrations apply noema-cms \
   --config apps/studio/wrangler.jsonc
 VITE_PUBLIC_SITE_URL=https://noema-learn.mani1261790.workers.dev npm run deploy:blog
 VITE_PUBLIC_SITE_URL=https://noema-learn.mani1261790.workers.dev npm run deploy:studio
+npm run deploy:studio-mcp
 ```
 
 手動実行後も、正となるcommitを`develop`へmergeしてActionsの実行履歴、D1 migration、Cloudflare上のversionを一致させます。
@@ -205,7 +210,7 @@ VITE_PUBLIC_SITE_URL=https://noema-learn.mani1261790.workers.dev npm run deploy:
 
 1. Cloudflare Dashboardで直接コードを編集しません。
 2. 原因commitをrevertするPull Requestを`develop`へ作成します。
-3. merge後の自動デプロイで3 Workerを揃えて戻します。
+3. merge後の自動デプロイで公開ゲート、Blog、Studio、Studio MCPを揃えて戻します。
 4. 緊急時はCloudflareのWorker deployment履歴から直前versionへrollbackし、その後必ず`develop`もrevertします。
 
 公開ゲートに問題がある場合は、ブログより先に`noema-public-gate`を安全なversionへ戻します。
