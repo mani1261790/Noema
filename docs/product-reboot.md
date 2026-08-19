@@ -142,7 +142,7 @@ Cloudflare Accessの認証後、D1のCMS memberとroleを照合する。roleは�
 
 Review状態は`draft`、`in_review`、`changes_requested`、`approved`、publication状態は`unpublished`、`published`、`archived`として別々に管理する。公開範囲は`public`、`unlisted`、`restricted`、`internal`とする。`restricted`は読者認証が未接続のため現在は公開できず、`internal`は公開ブログへ出さない。
 
-更新には取得時のversionを`ETag`と`If-Match`で渡すoptimistic lockを使う。競合時は`412`で停止し、入力内容とブラウザの復旧コピーを保持して、最新版の読込かMarkdown書き出しを利用者が選ぶ。`localStorage`は復旧用であり、複数端末・複数人で共有する記事の正本にはしない。
+更新には取得時のversionを`ETag`と`If-Match`で渡すoptimistic lockを使う。競合時は`412`で停止し、入力内容とブラウザの復旧コピーを保持する。StudioはCMS最新版を取得し、ブラウザ原稿またはCMS最新版の全文採用、Markdown書き出し、記事情報の項目別・本文の変更ブロック別統合を利用者に提示する。統合結果は自動保存せず、最新版のlock versionを基準に明示的な保存で新しいrevisionを作る。`localStorage`は復旧用であり、複数端末・複数人で共有する記事の正本にはしない。
 
 Studio Workerの`/api/cms/*`はSPAへフォールバックさせず、`Cf-Access-Jwt-Assertion`のRS256署名、issuer、application audience、有効期限、not-beforeを検証する。cookieだけの認証は受け付けない。変更requestは固定Studio origin、JSON media type、streaming byte上限、strict schema、CMS roleを検証する。Access設定、D1 binding、member登録のいずれかが欠ける場合はfail closedとする。
 
