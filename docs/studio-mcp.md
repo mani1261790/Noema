@@ -25,10 +25,13 @@ Noemaリポジトリには、接続先とOAuth scopeを`.codex/config.toml`で�
    codex mcp login noema-studio
    ```
 
-4. ブラウザでCloudflare Accessの認証とOAuthの許可を完了します。
-5. 新しいCodexタスクで`studio_whoami`を実行し、メールアドレスと役割を確認します。
+4. CLIを使う場合は、表示された認可URLに`scope=openid`と`resource=https%3A%2F%2Fmcp.noema-learn.uk%2Fmcp`が含まれることを確認します。含まれない場合はブラウザを開かず、後述のエラー対応を行います。
+5. ブラウザでCloudflare Accessの認証とOAuthの許可を完了します。
+6. 新しいCodexタスクで`studio_whoami`を実行し、メールアドレスと役割を確認します。
 
 `.codex/config.toml`の`scopes = ["openid"]`は削除しないでください。Cloudflare Managed OAuthはscopeのない許可要求を`Consent request is malformed`として拒否するため、Codexが常に正しい要求を送るために必要です。書き込みツールでは確認を表示し、読み取りツールはそのまま使えるよう`default_tools_approval_mode = "writes"`も設定しています。
+
+この手順はCodex CLI `0.147.0`で、Dynamic Client Registration後の認可URLへ`scope=openid`と正しい`resource`が渡ることを確認しています。Codexのバージョンを変更した場合は`codex --version`を記録し、認可URLを同じように再確認します。
 
 リポジトリ外でグローバル設定だけを使う場合は、初回認証と再認証で次のコマンドを使います。
 
@@ -46,7 +49,7 @@ https://mcp.noema-learn.uk/mcp
 
 クライアントによって項目名は「MCP server」「Remote MCP」「Connector」など異なります。接続方式を選べる場合は、`Streamable HTTP`を選択してください。認証情報を手入力する必要はありません。
 
-Codexでは前項のプロジェクト設定を使い、ここで接続先を手動登録する必要はありません。ほかの製品の画面操作は、実機で動作確認できたものだけをこの文書へ追記します。未確認の製品でも、標準のStreamable HTTPとOAuthに対応していれば同じ接続先を利用できます。
+Codexでは前項のプロジェクト設定を使い、ここで接続先を手動登録する必要はありません。ほかの製品は、Streamable HTTPとOAuthに加え、RFC 8707の`resource`、Dynamic Client Registration、製品が使うredirect URIをCloudflare側で許可できることを実機確認してから、この文書へ利用可能として追記します。
 
 ### 2. ブラウザで認証する
 
@@ -188,12 +191,14 @@ MCP経由の作成・更新はD1監査イベントへ`channel: mcp`、ツール�
 
 1. `mcp.noema-learn.uk`を保護するself-hosted Access applicationを作成する。
 2. Studio利用者に対応するallow policyを設定する。
-3. Access applicationでManaged OAuthを有効にする。
-4. Access applicationのAUDをStudio MCP Workerの`MCP_ACCESS_POLICY_AUD`へ設定する。
+3. Access applicationのAdvanced settingsでManaged OAuthを有効にする。
+4. 同じManaged OAuth設定でDynamic Client Registrationを有効にする。
+5. Codexの`127.0.0.1` callbackを許可するため、Allow loopback clients（APIでは`dynamic_client_registration.allow_any_on_loopback`）を有効にする。
+6. Access applicationのAUDをStudio MCP Workerの`MCP_ACCESS_POLICY_AUD`へ設定する。
 
 Cloudflare Zero TrustのAI ControlsやMCP Portalへの登録は、複数のMCP serverを集約・制御する場合の任意設定です。Noema Studio MCPへ直接接続するための必須条件ではありません。
 
-Managed OAuthではDynamic Client Registrationと`127.0.0.1`のloopback redirectを許可します。CodexはOAuth callbackにloopback addressを使います。NoemaのCodex設定では、Cloudflareの許可要求が空にならないよう`openid` scopeを明示します。
+CodexはOAuth callbackに`127.0.0.1`のloopback addressと動的なportを使います。Dynamic Client RegistrationとAllow loopback clientsの両方が無効な場合、認証は完了しません。NoemaのCodex設定では、Cloudflareの許可要求が空にならないよう`openid` scopeも明示します。
 
 Access applicationのAUDは秘密情報ではなく、WorkerがAccess JWTの対象を照合するための識別子です。初回deployより前に必要になるため、`ACCESS_TEAM_DOMAIN`と同様にレビュー可能な`wrangler.jsonc`の`vars`で管理します。MCP custom domainでは`workers.dev`とpreview URLを無効化しています。
 
