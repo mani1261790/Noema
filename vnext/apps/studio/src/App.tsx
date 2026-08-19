@@ -62,7 +62,12 @@ import {
   type DraftStorage,
   type StudioDraftCmsArticle
 } from "./draft-storage";
-import { createPreviewMarkdown, renderArticleMarkdownWith, resolvePublicSiteReference } from "./preview-markdown";
+import {
+  createPreviewMarkdown,
+  renderArticleMarkdownWith,
+  resolvePreviewImageReference,
+  resolvePublicSiteReference
+} from "./preview-markdown";
 import {
   MAX_ARTICLE_TOPICS,
   isArticleTopicChoiceDisabled,
@@ -437,7 +442,7 @@ function formatArticleDate(value?: string): string | null {
 
 function PreviewHeroImage({ image }: { image: NonNullable<ArticleFrontmatter["heroImage"]> }) {
   const [failed, setFailed] = useState(false);
-  const src = resolvePublicSiteReference(image.src, publicSiteUrl);
+  const src = resolvePreviewImageReference(image.src, publicSiteUrl);
 
   if (failed) {
     return (
