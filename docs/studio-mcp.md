@@ -70,7 +70,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 - `editor`: 編集者
 - `reviewer`: レビュー担当
 
-`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。ただし、MCPが公開するのは下書きの編集、レビュー依頼、修正依頼までです。最終承認と公開はStudio画面で行います。
+`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。ただし、MCPが公開するのは下書きの編集、画像の検索・追加・情報更新、レビュー依頼、修正依頼までです。画像の削除・アーカイブ、最終承認、公開はStudio画面で行います。
 
 ## MCPでできること
 
@@ -79,13 +79,16 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_whoami` | なし | 現在のメールアドレス、役割、権限を確認する |
 | `studio_list_articles` | なし | 記事を検索し、状態で絞り込む |
 | `studio_get_article` | なし | 記事IDから現在の本文と版情報を取得する |
+| `studio_list_assets` | なし | 画像を検索し、記事挿入用URLと利用状況を確認する |
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
 | `studio_create_draft` | 下書きを作成 | 記事と最初の版を作成する |
 | `studio_update_draft` | 下書きを更新 | 競合を確認して新しい版を追加する |
+| `studio_upload_asset` | 画像を追加 | R2へ画像を保存し、記事挿入用Markdownを返す |
+| `studio_update_asset` | 画像情報を更新 | 競合を確認してactiveな画像のaltと管理用タグを更新する |
 | `studio_request_review` | レビュー状態を変更 | 原稿を検証してレビュー中へ進める |
 | `studio_request_changes` | レビュー状態を変更 | レビュー担当が具体的な指摘を記録して要修正へ戻す |
 
-MCPでは、最終承認、公開、保管、復元、記事削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。
+MCPでは、画像の削除・アーカイブ、最終承認、公開、記事の保管・復元・削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。
 
 ## 下書きを作成・更新する
 
@@ -162,6 +165,64 @@ MCPでは、最終承認、公開、保管、復元、記事削除、メンバ�
 
 作成・更新が通信途中で失敗し、処理結果が分からない場合に限り、同じ入力と同じ`requestId`で再送します。同じ利用者、ツール、`requestId`、入力の再送は同じ処理として扱われ、版は重複しません。新しい操作では必ず新しい`requestId`を使ってください。
 
+## 画像をアップロードして本文へ挿入する
+
+### 既存の画像を探す
+
+`studio_list_assets`でファイル名、alt、管理用タグを検索できます。応答の`markdownUrl`は記事本文で使う永続URLです。`previewUrl`はStudio画面での確認用URLなので、Markdownには使いません。
+
+```json
+{
+  "query": "Cloudflare",
+  "status": "active",
+  "limit": 50
+}
+```
+
+### 新しい画像を追加する
+
+PNG、JPEG、WebP、GIFのいずれかをBase64へ変換し、`studio_upload_asset`へ渡します。画像は8MB以下、`alt`は必須です。`requestId`は画像1点のアップロードごとに新しいUUIDを使います。
+
+```json
+{
+  "fileName": "worker-architecture.png",
+  "contentType": "image/png",
+  "dataBase64": "iVBORw0KGgo...",
+  "alt": "Cloudflare WorkerとD1、R2の接続構成図",
+  "tags": ["Cloudflare", "構成図"],
+  "requestId": "00000000-0000-4000-8000-000000000005"
+}
+```
+
+成功すると、Asset情報と次のような`markdown`が返ります。
+
+```markdown
+![Cloudflare WorkerとD1、R2の接続構成図](/media/articles/11111111-1111-4111-8111-111111111111.png)
+```
+
+通信結果が分からない場合だけ、同じ入力と同じ`requestId`で再送してください。R2オブジェクト、Asset台帳、監査イベントは重複しません。別の画像や異なるaltで同じ`requestId`を使うと`idempotency_conflict`になります。
+
+既存画像のaltや管理用タグを直す場合は、`studio_list_assets`が返した`id`と`updatedAt`を、`studio_update_asset`の`assetId`と`expectedUpdatedAt`へ指定します。新しい`requestId`も必要です。画像ファイル、URL、active／archived状態はこのツールでは変更されません。
+
+```json
+{
+  "assetId": "11111111-1111-4111-8111-111111111111",
+  "expectedUpdatedAt": "2026-08-19T05:30:00.000Z",
+  "alt": "Cloudflare WorkerとD1、R2の接続構成図",
+  "tags": ["Cloudflare", "構成図"],
+  "requestId": "00000000-0000-4000-8000-000000000006"
+}
+```
+
+### 記事へ挿入する
+
+1. `studio_get_article`で対象記事の最新版を取得します。
+2. `studio_upload_asset`が返した`markdown`を、現在の本文の希望位置へ挿入します。
+3. 取得した記事の`lockVersion`を`expectedVersion`へ指定し、新しい`requestId`で`studio_update_draft`を実行します。
+4. 更新結果の版が1つ進んだことを確認します。
+
+記事更新時にStudioが`/media/articles/...`を検出し、Assetの利用記事を自動記録します。他の編集者が先に保存していた場合は`revision_conflict`となるため、最新版へ画像を挿入し直してください。アップロードしただけで記事更新に失敗した画像はAsset一覧に残るので、同じ画像を再アップロードせず再利用します。
+
 ## レビューへ進める
 
 ### レビューを依頼する
@@ -203,6 +264,8 @@ MCPでは、最終承認、公開、保管、復元、記事削除、メンバ�
 | `403 member_not_registered` | Studioで招待の受け入れ・初回登録が完了していない、メンバーが無効、または別のAccessアカウントに紐づいています。Studioへ同じメールアドレスでログインして登録状態を確認します。 |
 | `revision_conflict` | 他の編集者が先に保存しています。最新版を取得し、変更を統合して、新しい`requestId`で更新します。 |
 | `idempotency_conflict` | 同じ`requestId`が異なる入力で使われています。新しい操作なら新しいUUIDを使います。 |
+| `invalid_asset` | 画像データとcontent typeが一致しない、altやタグが不正、または8MBを超えています。PNG、JPEG、WebP、GIFの元ファイルを確認します。 |
+| `asset_conflict` | 他の編集者が先に画像情報を更新しています。`studio_list_assets`を再実行し、新しい`updatedAt`と新しい`requestId`で変更をやり直します。 |
 | `invalid_transition` | 現在の記事状態ではそのレビュー操作を実行できません。`studio_get_article`で最新状態を確認します。 |
 | `forbidden` | 現在のStudio役割に必要な権限がありません。修正依頼にはレビュー担当または管理者の権限が必要です。 |
 | `503 authentication_unavailable` | 認証基盤が一時的に利用できません。書き込み結果を推測せず、復旧後に同じ入力と同じ`requestId`で再送します。 |
@@ -218,8 +281,9 @@ MCPでは、最終承認、公開、保管、復元、記事削除、メンバ�
 - 本人確認: Cloudflare Access Managed OAuth
 - 操作権限: Studioと同じD1の`cms_members` role
 - 記事データの正本: Studioと同じD1 `noema-cms`
+- 画像データの正本: Studioと同じR2 `noema-article-assets`
 
-MCP経由の作成、更新、レビュー依頼、修正依頼はD1監査イベントへ`channel: mcp`、ツール名、request ID、最大200文字のクライアント識別子を記録します。Access tokenや記事本文は監査metadataへ保存しません。
+MCP経由の記事作成・更新、画像アップロード・情報更新、レビュー依頼、修正依頼はD1監査イベントへ`channel: mcp`、ツール名、request ID、最大200文字のクライアント識別子を記録します。画像アップロード監査にはAsset ID、形式、容量、元ファイル名も記録します。Access token、記事本文、画像Base64は監査metadataへ保存しません。
 
 ### Cloudflare初期設定
 
@@ -253,4 +317,4 @@ npm run check --workspace @noema/studio-mcp
 npm run deploy:dry-run --workspace @noema/studio-mcp
 ```
 
-`develop`へのmerge後は、ActionsでD1 migration `0003_cms_mcp_idempotency.sql`が成功してからStudio MCP Workerがdeployされたことを確認します。その後、Access認証、`studio_whoami`、一覧、検証、テスト用下書きの作成、同一request IDでの再送、更新、レビュー依頼、修正依頼を順に確認します。公開・承認ツールが一覧に存在しないことも受入条件です。
+`develop`へのmerge後は、ActionsでD1 migration `0004_cms_mcp_asset_idempotency.sql`が成功してからStudio MCP Workerがdeployされたことを確認します。その後、Access認証、`studio_whoami`、記事・Asset一覧、検証、テスト用下書きの作成、画像アップロード、同一request IDでの再送、本文への画像挿入、更新、レビュー依頼、修正依頼を順に確認します。画像の削除・アーカイブ、公開・承認ツールが一覧に存在しないことも受入条件です。
