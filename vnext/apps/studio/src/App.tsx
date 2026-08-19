@@ -81,6 +81,10 @@ import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsTeamSettings } from "./CmsTeamSettings";
 import {
+  CmsConflictResolver,
+  type ResolvedCmsConflictDraft
+} from "./CmsConflictResolver";
+import {
   StudioNotification,
   type StudioNotificationMessage
 } from "./StudioNotification";
@@ -103,6 +107,10 @@ type CmsSessionState =
   | { kind: "ready"; session: CmsSession }
   | { error: CmsClientError; kind: "unavailable" };
 type CmsSaveState = "local" | "dirty" | "saving" | "saved" | "conflict" | "error";
+type CmsConflictLatestState =
+  | { kind: "idle" | "loading" }
+  | { error: CmsClientError; kind: "error" }
+  | { article: CmsArticleDetail; kind: "ready" };
 
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
 const markdown = createPreviewMarkdown(publicSiteUrl);
@@ -643,6 +651,8 @@ export function App() {
     initialState.cmsReference ? "saving" : "local"
   );
   const [cmsConflict, setCmsConflict] = useState(false);
+  const [cmsConflictLatestState, setCmsConflictLatestState] = useState<CmsConflictLatestState>({ kind: "idle" });
+  const [cmsConflictRefresh, setCmsConflictRefresh] = useState(0);
   const [cmsOperationBusy, setCmsOperationBusy] = useState(false);
   const [lastCmsFingerprint, setLastCmsFingerprint] = useState<string | null>(null);
   const [cmsMembers, setCmsMembers] = useState<CmsMember[]>([]);
@@ -695,6 +705,22 @@ export function App() {
         : message
     ));
   }, []);
+
+  useEffect(() => {
+    if (!cmsConflict || !cmsArticle) {
+      setCmsConflictLatestState({ kind: "idle" });
+      return;
+    }
+    const controller = new AbortController();
+    setCmsConflictLatestState({ kind: "loading" });
+    void fetchCmsArticle(cmsArticle.id, { signal: controller.signal }).then((result) => {
+      if (controller.signal.aborted) return;
+      setCmsConflictLatestState(result.ok
+        ? { article: result.value, kind: "ready" }
+        : { error: result.error, kind: "error" });
+    });
+    return () => controller.abort();
+  }, [cmsArticle?.id, cmsConflict, cmsConflictRefresh]);
   const closeAssetTray = useCallback(() => {
     setAssetTrayOpen(false);
     window.requestAnimationFrame(() => assetTrigger.current?.focus());
@@ -1322,33 +1348,77 @@ export function App() {
     showEditor();
   };
 
-  const reloadLatestCmsArticle = async () => {
-    if (!cmsArticle || cmsOperationBusy) return;
-    if (!window.confirm(
-      "入力中の内容を破棄してCMSの最新版を読み込みますか？ 必要なら先にMarkdownを書き出してください。"
-    )) return;
-    const contentBeforeReload = cmsContentFingerprint(
-      cmsContentRef.current.frontmatter,
-      cmsContentRef.current.body,
-      cmsContentRef.current.visibility
+  const applyConflictResolution = (draft: ResolvedCmsConflictDraft) => {
+    if (cmsConflictLatestState.kind !== "ready") return;
+    const article = cmsConflictLatestState.article;
+    const latestFrontmatter: ArticleFrontmatter = {
+      ...article.currentRevision.frontmatter,
+      status: "draft"
+    };
+    const nextFrontmatter: ArticleFrontmatter = { ...draft.frontmatter, status: "draft" };
+    const serverFingerprint = cmsContentFingerprint(
+      latestFrontmatter,
+      article.currentRevision.markdown,
+      article.visibility
     );
-    setCmsOperationBusy(true);
-    const result = await fetchCmsArticle(cmsArticle.id);
-    if (result.ok) {
-      const latest = cmsContentRef.current;
-      const contentAfterReload = cmsContentFingerprint(latest.frontmatter, latest.body, latest.visibility);
-      if (
-        contentAfterReload !== contentBeforeReload &&
-        !window.confirm("最新版の読込中に入力が変わりました。その変更も破棄してCMSの最新版を開きますか？")
-      ) {
-        setCmsOperationBusy(false);
-        return;
-      }
-      applyCmsArticle(result.value);
-    } else {
-      showNotification({ text: result.error.message, tone: "error" });
+    const resolvedFingerprint = cmsContentFingerprint(nextFrontmatter, draft.body, draft.visibility);
+
+    if (resolvedFingerprint === serverFingerprint) {
+      applyCmsArticle(article);
+      setCmsConflictLatestState({ kind: "idle" });
+      showNotification({
+        text: `CMS revision ${article.revisionNumber}を開きました。ブラウザ側の入力はCMSへ保存していません。`,
+        title: "CMS最新版を採用しました",
+        tone: "info"
+      });
+      return;
     }
-    setCmsOperationBusy(false);
+
+    setCmsArticle(article);
+    setFrontmatter(nextFrontmatter);
+    setBody(draft.body);
+    setCmsVisibility(draft.visibility);
+    setLastCmsFingerprint(serverFingerprint);
+    setCmsSaveState("dirty");
+    setCmsAutosavePaused(true);
+    setCmsConflict(false);
+    setCmsConflictLatestState({ kind: "idle" });
+    setCmsRecoveryReference(null);
+    setCmsAssociationRequired(false);
+    setHasRecoveryDraft(false);
+    setPublicationIssues([]);
+    setValidationRequested(false);
+    manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
+    updateCmsArticleList(article);
+    setSaveStatus("統合結果はまだCMSへ保存していません");
+    saveDraft(storage, {
+      frontmatter: nextFrontmatter,
+      body: draft.body,
+      cmsArticle: {
+        autosavePaused: true,
+        id: article.id,
+        lockVersion: article.lockVersion,
+        visibility: draft.visibility
+      }
+    });
+    showNotification({
+      text: "選んだ内容を編集画面へ戻しました。内容を確認し、「保存」で新しいrevisionとしてCMSへ反映してください。",
+      title: "統合結果はまだ保存されていません",
+      tone: "info"
+    });
+  };
+
+  const useLatestConflictArticle = (article: CmsArticleDetail) => {
+    if (!window.confirm(
+      `ブラウザ側の入力を破棄してCMS revision ${article.revisionNumber}を開きますか？ 必要なら先にMarkdownを書き出してください。`
+    )) return;
+    applyCmsArticle(article);
+    setCmsConflictLatestState({ kind: "idle" });
+    showNotification({
+      text: `CMS revision ${article.revisionNumber}を開きました。`,
+      title: "CMS最新版を採用しました",
+      tone: "info"
+    });
   };
 
   const runCmsAction = async (action: CmsArticleAction) => {
@@ -1978,8 +2048,26 @@ export function App() {
           </div>
         </section>
       ) : null}
+      {cmsConflict && cmsArticle ? (
+        <CmsConflictResolver
+          busy={cmsOperationBusy}
+          latestState={cmsConflictLatestState.kind === "ready"
+            ? cmsConflictLatestState
+            : cmsConflictLatestState.kind === "error"
+              ? { kind: "error", message: cmsConflictLatestState.error.message }
+              : { kind: "loading" }}
+          localBody={body}
+          localFrontmatter={frontmatter}
+          localVisibility={cmsVisibility}
+          onDownload={downloadRecoveryCopy}
+          onResolve={applyConflictResolution}
+          onRetry={() => setCmsConflictRefresh((current) => current + 1)}
+          onUseLatest={useLatestConflictArticle}
+        />
+      ) : null}
       <main
         className="studio-workspace"
+        hidden={cmsConflict}
         style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
       >
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
@@ -2091,17 +2179,6 @@ export function App() {
                 </fieldset>
               </div>
             </details>
-
-            {cmsConflict ? (
-              <div className="studio-cms__conflict" role="alert">
-                <h3>別の編集者による更新があります</h3>
-                <p>入力中の内容はこの画面と復旧コピーに保持しています。先に書き出すか、内容を破棄してCMSの最新版を読み込んでください。</p>
-                <div className="studio-cms__actions">
-                  <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={downloadRecoveryCopy}>復旧用Markdownを書き出す</button>
-                  <button className="dads-button" data-size="sm" data-type="solid-fill" disabled={cmsOperationBusy} type="button" onClick={() => void reloadLatestCmsArticle()}>CMSの最新版を読み込む</button>
-                </div>
-              </div>
-            ) : null}
 
             <h3 className="studio-cms__next-action">次の操作</h3>
             <div className="studio-cms__actions">
