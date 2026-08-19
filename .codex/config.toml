@@ -1,0 +1,7 @@
+# Cloudflare Managed OAuth rejects a scope-less consent request. Keep the
+# required scope in project configuration so Codex app, CLI, and IDE logins
+# all use the same working OAuth request.
+[mcp_servers.noema-studio]
+url = "https://mcp.noema-learn.uk/mcp"
+scopes = ["openid"]
+default_tools_approval_mode = "writes"
