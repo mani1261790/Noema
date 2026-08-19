@@ -70,7 +70,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 - `editor`: 編集者
 - `reviewer`: レビュー担当
 
-`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。ただし、MCPが公開するのは下書きを安全に扱う操作だけです。
+`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。ただし、MCPが公開するのは下書きの編集、レビュー依頼、修正依頼までです。最終承認と公開はStudio画面で行います。
 
 ## MCPでできること
 
@@ -82,8 +82,10 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
 | `studio_create_draft` | 下書きを作成 | 記事と最初の版を作成する |
 | `studio_update_draft` | 下書きを更新 | 競合を確認して新しい版を追加する |
+| `studio_request_review` | レビュー状態を変更 | 原稿を検証してレビュー中へ進める |
+| `studio_request_changes` | レビュー状態を変更 | レビュー担当が具体的な指摘を記録して要修正へ戻す |
 
-MCPでは、レビュー依頼、承認、修正依頼、公開、保管、復元、記事削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。
+MCPでは、最終承認、公開、保管、復元、記事削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。
 
 ## 下書きを作成・更新する
 
@@ -160,6 +162,38 @@ MCPでは、レビュー依頼、承認、修正依頼、公開、保管、復�
 
 作成・更新が通信途中で失敗し、処理結果が分からない場合に限り、同じ入力と同じ`requestId`で再送します。同じ利用者、ツール、`requestId`、入力の再送は同じ処理として扱われ、版は重複しません。新しい操作では必ず新しい`requestId`を使ってください。
 
+## レビューへ進める
+
+### レビューを依頼する
+
+`studio_request_review`へ、`studio_get_article`で確認した`articleId`と`lockVersion`、新しい`requestId`を渡します。必要であればレビュー担当への補足を`note`へ500文字以内で指定します。
+
+```json
+{
+  "articleId": "11111111-1111-4111-8111-111111111111",
+  "expectedVersion": 2,
+  "requestId": "00000000-0000-4000-8000-000000000003",
+  "note": "構成と技術内容のレビューをお願いします。"
+}
+```
+
+下書きまたは要修正の記事だけをレビュー中へ進められます。保存内容がレビュー基準を満たさない場合は状態を変更せず、修正箇所を返します。
+
+### 修正を依頼する
+
+レビュー担当者は`studio_request_changes`で、レビュー中または承認済みの記事を要修正へ戻せます。AIが原稿を確認した場合でも、抽象的な判定だけを保存せず、著者が対応できる具体的な`note`を必ず指定します。
+
+```json
+{
+  "articleId": "11111111-1111-4111-8111-111111111111",
+  "expectedVersion": 3,
+  "requestId": "00000000-0000-4000-8000-000000000004",
+  "note": "結論の根拠となる一次情報の出典を追記してください。"
+}
+```
+
+現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`と`reviewNote`で確認します。レビュー依頼と修正依頼も、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。最終承認と公開を依頼するMCPツールはありません。
+
 ## 困ったとき
 
 | 表示 | 意味と対応 |
@@ -169,6 +203,8 @@ MCPでは、レビュー依頼、承認、修正依頼、公開、保管、復�
 | `403 member_not_registered` | Studioで招待の受け入れ・初回登録が完了していない、メンバーが無効、または別のAccessアカウントに紐づいています。Studioへ同じメールアドレスでログインして登録状態を確認します。 |
 | `revision_conflict` | 他の編集者が先に保存しています。最新版を取得し、変更を統合して、新しい`requestId`で更新します。 |
 | `idempotency_conflict` | 同じ`requestId`が異なる入力で使われています。新しい操作なら新しいUUIDを使います。 |
+| `invalid_transition` | 現在の記事状態ではそのレビュー操作を実行できません。`studio_get_article`で最新状態を確認します。 |
+| `forbidden` | 現在のStudio役割に必要な権限がありません。修正依頼にはレビュー担当または管理者の権限が必要です。 |
 | `503 authentication_unavailable` | 認証基盤が一時的に利用できません。書き込み結果を推測せず、復旧後に同じ入力と同じ`requestId`で再送します。 |
 
 認証できたか不明な場合は、接続状態だけで判断せず`studio_whoami`が成功することを確認してください。
@@ -183,7 +219,7 @@ MCPでは、レビュー依頼、承認、修正依頼、公開、保管、復�
 - 操作権限: Studioと同じD1の`cms_members` role
 - 記事データの正本: Studioと同じD1 `noema-cms`
 
-MCP経由の作成・更新はD1監査イベントへ`channel: mcp`、ツール名、request ID、最大200文字のクライアント識別子を記録します。Access tokenや記事本文は監査metadataへ保存しません。
+MCP経由の作成、更新、レビュー依頼、修正依頼はD1監査イベントへ`channel: mcp`、ツール名、request ID、最大200文字のクライアント識別子を記録します。Access tokenや記事本文は監査metadataへ保存しません。
 
 ### Cloudflare初期設定
 
@@ -217,4 +253,4 @@ npm run check --workspace @noema/studio-mcp
 npm run deploy:dry-run --workspace @noema/studio-mcp
 ```
 
-`develop`へのmerge後は、ActionsでD1 migration `0003_cms_mcp_idempotency.sql`が成功してからStudio MCP Workerがdeployされたことを確認します。その後、Access認証、`studio_whoami`、一覧、検証、テスト用下書きの作成、同一request IDでの再送、更新を順に確認します。公開・承認ツールが一覧に存在しないことも受入条件です。
+`develop`へのmerge後は、ActionsでD1 migration `0003_cms_mcp_idempotency.sql`が成功してからStudio MCP Workerがdeployされたことを確認します。その後、Access認証、`studio_whoami`、一覧、検証、テスト用下書きの作成、同一request IDでの再送、更新、レビュー依頼、修正依頼を順に確認します。公開・承認ツールが一覧に存在しないことも受入条件です。
