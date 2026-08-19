@@ -40,4 +40,25 @@ describe("CMS conflict resolution", () => {
       tags: ["ローカル"]
     });
   });
+
+  it("does not report object fields as changed when only their key order differs", () => {
+    const latest = {
+      ...createBlankArticle("2026-08-20"),
+      heroImage: { alt: "説明", src: "/image.webp" }
+    };
+    const local = {
+      ...latest,
+      heroImage: { src: "/image.webp", alt: "説明" }
+    };
+
+    expect(changedCmsMetadataFields(local, latest)).toEqual([]);
+  });
+
+  it("removes an optional latest field when the browser-side field is absent", () => {
+    const latest = { ...createBlankArticle("2026-08-20"), publishedAt: "2026-08-20" };
+    const local = { ...latest, publishedAt: undefined };
+    const merged = mergeCmsConflictFrontmatter(local, latest, {});
+
+    expect(merged).not.toHaveProperty("publishedAt");
+  });
 });

@@ -588,24 +588,24 @@ a {
   gap: .75rem;
 }
 
-.studio-conflict-choice__options > label {
+.studio-conflict-choice__options > div {
   display: grid;
   grid-template-rows: auto minmax(5rem, auto);
   min-width: 0;
   padding: .75rem;
   background: #fff;
   border: 1px solid #949494;
-  cursor: pointer;
 }
 
-.studio-conflict-choice__options > label.is-selected {
+.studio-conflict-choice__options > div.is-selected {
   padding: calc(.75rem - 2px);
   background: #eaf4f3;
   border: 3px solid #006b65;
 }
 
-.studio-conflict-choice__options label > span {
+.studio-conflict-choice__options label {
   font-weight: 700;
+  cursor: pointer;
 }
 
 .studio-conflict-choice__options input {
@@ -3333,8 +3333,8 @@ textarea.studio-control {
 
 @media (forced-colors: active) {
   .studio-conflict-resolver,
-  .studio-conflict-choice__options > label,
-  .studio-conflict-choice__options > label.is-selected {
+  .studio-conflict-choice__options > div,
+  .studio-conflict-choice__options > div.is-selected {
     border-color: CanvasText;
   }
 

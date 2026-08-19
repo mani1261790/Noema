@@ -74,6 +74,8 @@ describe("CmsConflictResolver", () => {
     expect(html).toContain("ブラウザの本文");
     expect(html).toContain("CMSの本文");
     expect(html.match(/type="radio"/g)).toHaveLength(4);
+    expect(html.match(/tabindex="0"/g)).toHaveLength(4);
+    expect(html).toContain("aria-label=\"タイトル ブラウザ側の内容\"");
     expect(html).toContain("ブラウザ側を使う");
     expect(html).toContain("CMS側を使う");
     expect(html).toContain("選んだ内容を編集画面へ戻す");

@@ -261,14 +261,14 @@ function ConflictChoiceField({
     <fieldset className="studio-conflict-choice">
       <legend>{label}</legend>
       <div className="studio-conflict-choice__options">
-        <label className={value === "local" ? "is-selected" : ""}>
-          <span><input checked={value === "local"} name={name} onChange={() => onChange("local")} type="radio" /> ブラウザ側を使う</span>
-          <pre>{localValue}</pre>
-        </label>
-        <label className={value === "latest" ? "is-selected" : ""}>
-          <span><input checked={value === "latest"} name={name} onChange={() => onChange("latest")} type="radio" /> CMS側を使う</span>
-          <pre>{latestValue}</pre>
-        </label>
+        <div className={value === "local" ? "is-selected" : ""}>
+          <label><input checked={value === "local"} name={name} onChange={() => onChange("local")} type="radio" /> ブラウザ側を使う</label>
+          <pre aria-label={`${label} ブラウザ側の内容`} role="region" tabIndex={0}>{localValue}</pre>
+        </div>
+        <div className={value === "latest" ? "is-selected" : ""}>
+          <label><input checked={value === "latest"} name={name} onChange={() => onChange("latest")} type="radio" /> CMS側を使う</label>
+          <pre aria-label={`${label} CMS側の内容`} role="region" tabIndex={0}>{latestValue}</pre>
+        </div>
       </div>
     </fieldset>
   );

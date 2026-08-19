@@ -18,22 +18,26 @@ export type CmsBodyConflictBlock =
       localText: string;
     };
 
-export const cmsConflictMetadataFields = [
-  "title",
-  "description",
-  "slug",
-  "updatedAt",
-  "publishedAt",
-  "authors",
-  "topics",
-  "tags",
-  "approach",
-  "outcome",
-  "prerequisites",
-  "estimatedMinutes",
-  "heroImage",
-  "sources"
-] as const satisfies readonly (keyof ArticleFrontmatter)[];
+const cmsConflictMetadataFieldCoverage = {
+  title: true,
+  description: true,
+  slug: true,
+  updatedAt: true,
+  publishedAt: true,
+  authors: true,
+  topics: true,
+  tags: true,
+  approach: true,
+  outcome: true,
+  prerequisites: true,
+  estimatedMinutes: true,
+  heroImage: true,
+  sources: true
+} satisfies Record<Exclude<keyof ArticleFrontmatter, "status">, true>;
+
+export const cmsConflictMetadataFields = Object.keys(
+  cmsConflictMetadataFieldCoverage
+) as Exclude<keyof ArticleFrontmatter, "status">[];
 
 export function buildCmsBodyConflictBlocks(
   localBody: string,
@@ -88,8 +92,18 @@ export function changedCmsMetadataFields(
   latest: ArticleFrontmatter
 ): (keyof ArticleFrontmatter)[] {
   return cmsConflictMetadataFields.filter((field) =>
-    JSON.stringify(local[field]) !== JSON.stringify(latest[field])
+    stableValue(local[field]) !== stableValue(latest[field])
   );
+}
+
+function stableValue(value: unknown): string {
+  return JSON.stringify(value, (_key, item) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(
+          ([left], [right]) => left.localeCompare(right)
+        ))
+      : item
+  ) ?? "";
 }
 
 export function mergeCmsConflictFrontmatter(

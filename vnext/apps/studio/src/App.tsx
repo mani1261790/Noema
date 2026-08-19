@@ -2067,7 +2067,7 @@ export function App() {
       ) : null}
       <main
         className="studio-workspace"
-        hidden={cmsConflict}
+        hidden={cmsConflict && cmsArticle !== null}
         style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
       >
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
