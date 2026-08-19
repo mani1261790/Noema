@@ -13,6 +13,7 @@ import {
   type CmsAsset,
   type CmsSession
 } from "@noema/cms";
+import { renderArticleMarkdown } from "@noema/content/article-renderer";
 import { z } from "zod";
 import {
   ACCESS_JWT_HEADER,
@@ -34,6 +35,7 @@ import {
   resolveExistingCmsSession,
   transitionCmsArticle,
   updateIdempotentCmsAssetMetadata,
+  updateIdempotentCmsAssetStatus,
   updateCmsArticle
 } from "../../studio/worker/cms-repository";
 
@@ -42,6 +44,8 @@ const REQUEST_ID_SCHEMA = z.string().uuid();
 const MAX_ASSET_BYTES = 8 * 1024 * 1024;
 const MAX_ASSET_BASE64_LENGTH = Math.ceil(MAX_ASSET_BYTES / 3) * 4;
 const MAX_MCP_REQUEST_BYTES = MAX_ASSET_BASE64_LENGTH + 128 * 1024;
+const MAX_PREVIEW_MARKDOWN_CHARS = 256 * 1024;
+const MAX_PREVIEW_HTML_CHARS = 2 * 1024 * 1024;
 const SUPPORTED_IMAGE_TYPES = [
   "image/gif",
   "image/jpeg",
@@ -93,6 +97,12 @@ const updateAssetSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(80)).max(30).default([])
 }).strict();
 
+const assetStatusSchema = z.object({
+  assetId: z.string().uuid(),
+  expectedUpdatedAt: z.iso.datetime({ offset: true }),
+  requestId: REQUEST_ID_SCHEMA
+}).strict();
+
 const createDraftSchema = cmsCreateArticleRequestSchema.extend({
   requestId: REQUEST_ID_SCHEMA
 }).strict();
@@ -111,6 +121,14 @@ const requestReviewSchema = z.object({
 
 const requestChangesSchema = requestReviewSchema.extend({
   note: z.string().trim().min(1).max(500)
+}).strict();
+
+const approveArticleSchema = requestReviewSchema.extend({
+  note: z.string().trim().min(1).max(500)
+}).strict();
+
+const previewDraftSchema = cmsArticleContentSchema.extend({
+  markdown: z.string().max(MAX_PREVIEW_MARKDOWN_CHARS)
 }).strict();
 
 type AccessTokenVerifier = (
@@ -370,6 +388,64 @@ export function createStudioMcpServer(
   );
 
   server.registerTool(
+    "studio_archive_asset",
+    {
+      title: "Archive Studio asset",
+      description: "未使用のactive画像を競合検知付きでアーカイブします。R2オブジェクトは削除しません。",
+      inputSchema: assetStatusSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ assetId, expectedUpdatedAt, requestId }) => executeTool(async () => {
+      const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
+      return {
+        asset: await updateIdempotentCmsAssetStatus(
+          db,
+          session.identity,
+          assetId,
+          normalizedExpectedUpdatedAt,
+          "archived",
+          requestId,
+          await assetStatusChecksum({
+            assetId,
+            expectedUpdatedAt: normalizedExpectedUpdatedAt,
+            targetStatus: "archived"
+          }),
+          client
+        )
+      };
+    })
+  );
+
+  server.registerTool(
+    "studio_restore_asset",
+    {
+      title: "Restore Studio asset",
+      description: "アーカイブ済み画像を競合検知付きでactiveへ復元します。",
+      inputSchema: assetStatusSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ assetId, expectedUpdatedAt, requestId }) => executeTool(async () => {
+      const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
+      return {
+        asset: await updateIdempotentCmsAssetStatus(
+          db,
+          session.identity,
+          assetId,
+          normalizedExpectedUpdatedAt,
+          "active",
+          requestId,
+          await assetStatusChecksum({
+            assetId,
+            expectedUpdatedAt: normalizedExpectedUpdatedAt,
+            targetStatus: "active"
+          }),
+          client
+        )
+      };
+    })
+  );
+
+  server.registerTool(
     "studio_validate_draft",
     {
       title: "Validate Studio draft",
@@ -381,6 +457,34 @@ export function createStudioMcpServer(
       const issues = validateCmsArticleForReview({ frontmatter, markdown });
       return toolSuccess({ issues, valid: issues.length === 0 });
     }
+  );
+
+  server.registerTool(
+    "studio_preview_draft",
+    {
+      title: "Preview Studio draft",
+      description: "保存せずに公開サイトと同じMarkdownレンダラーで本文HTMLと検証結果を返します。",
+      inputSchema: previewDraftSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ frontmatter, markdown, visibility }) => executeTool(async () => {
+      const html = renderArticleMarkdown(markdown);
+      if (html.length > MAX_PREVIEW_HTML_CHARS) {
+        throw new CmsRepositoryError(
+          "invalid_article",
+          "プレビュー結果が大きすぎます。原稿を分割して確認してください。"
+        );
+      }
+      const issues = validateCmsArticleForReview({ frontmatter, markdown });
+      return {
+        html,
+        issues,
+        mediaType: "text/html",
+        title: frontmatter.title,
+        valid: issues.length === 0,
+        visibility
+      };
+    })
   );
 
   server.registerTool(
@@ -478,6 +582,32 @@ export function createStudioMcpServer(
           channel: "mcp",
           client,
           idempotency: { requestId, toolName: "studio_request_changes" }
+        }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_approve_article",
+    {
+      title: "Approve Studio article",
+      description: "レビュー中の最新版を、承認理由を記録して承認します。公開は行いません。",
+      inputSchema: approveArticleSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ articleId, expectedVersion, note, requestId }) => executeTool(async () => ({
+      article: await transitionCmsArticle(
+        db,
+        session.identity,
+        articleId,
+        "approve",
+        expectedVersion,
+        { note },
+        new Date(),
+        {
+          channel: "mcp",
+          client,
+          idempotency: { requestId, toolName: "studio_approve_article" }
         }
       )
     }))
@@ -634,7 +764,7 @@ async function assetUploadChecksum(input: {
   fileName: string;
   tags: string[];
 }): Promise<string> {
-  const contentSha256 = await sha256Hex(input.bytes);
+  const contentSha256 = await sha256Hex(new Uint8Array(input.bytes));
   return sha256Hex(new TextEncoder().encode(JSON.stringify({
     alt: input.alt,
     contentSha256,
@@ -649,6 +779,14 @@ function assetMetadataChecksum(input: {
   assetId: string;
   expectedUpdatedAt: string;
   tags: string[];
+}): Promise<string> {
+  return sha256Hex(new TextEncoder().encode(JSON.stringify(input)));
+}
+
+function assetStatusChecksum(input: {
+  assetId: string;
+  expectedUpdatedAt: string;
+  targetStatus: "active" | "archived";
 }): Promise<string> {
   return sha256Hex(new TextEncoder().encode(JSON.stringify(input)));
 }

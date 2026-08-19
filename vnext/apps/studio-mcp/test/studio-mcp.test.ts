@@ -96,12 +96,16 @@ describe("Studio MCP tools", () => {
     const tools = await connection.client.listTools();
 
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+      "studio_approve_article",
+      "studio_archive_asset",
       "studio_create_draft",
       "studio_get_article",
       "studio_list_articles",
       "studio_list_assets",
+      "studio_preview_draft",
       "studio_request_changes",
       "studio_request_review",
+      "studio_restore_asset",
       "studio_update_asset",
       "studio_update_draft",
       "studio_upload_asset",
@@ -331,7 +335,142 @@ describe("Studio MCP tools", () => {
     await connection.close();
   });
 
-  it("supports an idempotent review request and reviewer change request without exposing approval", async () => {
+  it("archives and restores an unused asset idempotently without deleting R2 data", async () => {
+    const connection = await connectClient();
+    const uploaded = await connection.client.callTool({
+      name: "studio_upload_asset",
+      arguments: {
+        alt: "状態変更するテスト画像",
+        contentType: "image/png",
+        dataBase64: ONE_PIXEL_PNG,
+        fileName: "status.png",
+        requestId: "00000000-0000-4000-8000-000000000040"
+      }
+    });
+    const asset = assetFrom(uploaded.structuredContent);
+    const archiveArguments = {
+      assetId: asset.id,
+      expectedUpdatedAt: asset.updatedAt.replace(/Z$/u, "+00:00"),
+      requestId: "00000000-0000-4000-8000-000000000041"
+    };
+    const archived = await connection.client.callTool({
+      name: "studio_archive_asset",
+      arguments: archiveArguments
+    });
+    const replayedArchive = await connection.client.callTool({
+      name: "studio_archive_asset",
+      arguments: archiveArguments
+    });
+    expect(archived.structuredContent).toMatchObject({ asset: { status: "archived" } });
+    expect(replayedArchive.structuredContent).toEqual(archived.structuredContent);
+
+    const changedArchive = await connection.client.callTool({
+      name: "studio_archive_asset",
+      arguments: { ...archiveArguments, expectedUpdatedAt: "2026-08-19T00:00:00.000Z" }
+    });
+    expect(toolErrorCode(changedArchive)).toBe("idempotency_conflict");
+
+    const archivedAsset = assetFrom(archived.structuredContent);
+    const restoreArguments = {
+      assetId: asset.id,
+      expectedUpdatedAt: archivedAsset.updatedAt,
+      requestId: "00000000-0000-4000-8000-000000000042"
+    };
+    const restored = await connection.client.callTool({
+      name: "studio_restore_asset",
+      arguments: restoreArguments
+    });
+    const replayedRestore = await connection.client.callTool({
+      name: "studio_restore_asset",
+      arguments: restoreArguments
+    });
+    expect(restored.structuredContent).toMatchObject({ asset: { status: "active" } });
+    expect(replayedRestore.structuredContent).toEqual(restored.structuredContent);
+
+    const staleArchive = await connection.client.callTool({
+      name: "studio_archive_asset",
+      arguments: {
+        assetId: asset.id,
+        expectedUpdatedAt: asset.updatedAt,
+        requestId: "00000000-0000-4000-8000-000000000043"
+      }
+    });
+    expect(toolErrorCode(staleArchive)).toBe("asset_conflict");
+    expect(await testEnv.ARTICLE_ASSETS.get(asset.r2Key)).not.toBeNull();
+
+    const counts = await testEnv.CMS_DB.prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM cms_audit_events
+          WHERE action IN ('asset.archived', 'asset.restored')) AS audits,
+        (SELECT COUNT(*) FROM cms_mcp_asset_idempotency
+          WHERE tool_name IN ('studio_archive_asset', 'studio_restore_asset')) AS idempotency_keys`
+    ).first<{ audits: number; idempotency_keys: number }>();
+    expect(counts).toEqual({ audits: 2, idempotency_keys: 2 });
+    await connection.close();
+  });
+
+  it("does not archive an asset referenced by an article", async () => {
+    const connection = await connectClient();
+    const uploaded = await connection.client.callTool({
+      name: "studio_upload_asset",
+      arguments: {
+        alt: "記事で使用するテスト画像",
+        contentType: "image/png",
+        dataBase64: ONE_PIXEL_PNG,
+        fileName: "referenced.png",
+        requestId: "00000000-0000-4000-8000-000000000044"
+      }
+    });
+    const asset = assetFrom(uploaded.structuredContent);
+    await connection.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("mcp-referenced-asset"),
+        markdown: `## 使用中\n\n![画像](${asset.markdownUrl})`,
+        requestId: "00000000-0000-4000-8000-000000000045"
+      }
+    });
+
+    const archived = await connection.client.callTool({
+      name: "studio_archive_asset",
+      arguments: {
+        assetId: asset.id,
+        expectedUpdatedAt: asset.updatedAt,
+        requestId: "00000000-0000-4000-8000-000000000046"
+      }
+    });
+    expect(toolErrorCode(archived)).toBe("asset_in_use");
+    await connection.close();
+  });
+
+  it("renders a bounded read-only preview with the public Markdown renderer", async () => {
+    const connection = await connectClient();
+    const preview = await connection.client.callTool({
+      name: "studio_preview_draft",
+      arguments: {
+        ...validArticle("mcp-preview"),
+        markdown: "## 安全な見出し\n\n<script>alert('xss')</script>\n\n[危険](javascript:alert(1))\n\n$$x^2$$"
+      }
+    });
+    const result = preview.structuredContent as {
+      html: string;
+      mediaType: string;
+      valid: boolean;
+    };
+    expect(result.mediaType).toBe("text/html");
+    expect(result.html).toContain('<h2 id="安全な見出し">');
+    expect(result.html).toContain("katex");
+    expect(result.html).not.toContain("<script");
+    expect(result.html).not.toContain('href="javascript:');
+    expect(result.valid).toBe(false);
+    const auditCount = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_audit_events"
+    ).first<number>("count");
+    expect(auditCount).toBe(0);
+    await connection.close();
+  });
+
+  it("supports an idempotent review request and reviewer change request", async () => {
     const editor = await connectClient();
     const createdResult = await editor.client.callTool({
       name: "studio_create_draft",
@@ -443,6 +582,130 @@ describe("Studio MCP tools", () => {
        WHERE tool_name IN ('studio_request_review', 'studio_request_changes')`
     ).first<number>("count");
     expect(actionIdempotencyCount).toBe(2);
+    await reviewer.close();
+  });
+
+  it("approves a reviewed revision idempotently without publishing it", async () => {
+    const editor = await connectClient();
+    const createdResult = await editor.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("mcp-approval"),
+        requestId: "00000000-0000-4000-8000-000000000050"
+      }
+    });
+    const created = articleFrom(createdResult.structuredContent);
+    const requested = await editor.client.callTool({
+      name: "studio_request_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: created.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000051"
+      }
+    });
+    const inReview = articleFrom(requested.structuredContent);
+    const forbidden = await editor.client.callTool({
+      name: "studio_approve_article",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: inReview.lockVersion,
+        note: "編集者自身による承認はできません。",
+        requestId: "00000000-0000-4000-8000-000000000052"
+      }
+    });
+    expect(toolErrorCode(forbidden)).toBe("forbidden");
+    await editor.close();
+
+    const reviewer = await connectClient(REVIEWER_SESSION);
+    const approveArguments = {
+      articleId: created.id,
+      expectedVersion: inReview.lockVersion,
+      note: "構成、根拠、画像説明を確認しました。",
+      requestId: "00000000-0000-4000-8000-000000000053"
+    };
+    const approved = await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: approveArguments
+    });
+    const replayedApproval = await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: approveArguments
+    });
+    expect(articleFrom(approved.structuredContent)).toMatchObject({
+      lockVersion: 3,
+      reviewNote: approveArguments.note,
+      reviewStatus: "approved"
+    });
+    expect(replayedApproval.structuredContent).toEqual(approved.structuredContent);
+    expect(approved.structuredContent).toMatchObject({
+      article: { publicationStatus: "unpublished" }
+    });
+
+    const changedApproval = await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: { ...approveArguments, note: "異なる承認理由です。" }
+    });
+    expect(toolErrorCode(changedApproval)).toBe("idempotency_conflict");
+    const staleApproval = await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: {
+        ...approveArguments,
+        requestId: "00000000-0000-4000-8000-000000000054"
+      }
+    });
+    expect(toolErrorCode(staleApproval)).toBe("revision_conflict");
+
+    const audit = await testEnv.CMS_DB.prepare(
+      "SELECT metadata_json FROM cms_audit_events WHERE action = 'article.approve'"
+    ).first<{ metadata_json: string }>();
+    expect(JSON.parse(audit?.metadata_json ?? "{}")).toMatchObject({
+      channel: "mcp",
+      client: "Noema MCP test",
+      requestId: approveArguments.requestId,
+      tool: "studio_approve_article"
+    });
+    await reviewer.close();
+  });
+
+  it("rejects reviewer self-approval and an empty approval reason", async () => {
+    const reviewer = await connectClient(REVIEWER_SESSION);
+    const createdResult = await reviewer.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("mcp-self-approval"),
+        requestId: "00000000-0000-4000-8000-000000000055"
+      }
+    });
+    const created = articleFrom(createdResult.structuredContent);
+    const requested = await reviewer.client.callTool({
+      name: "studio_request_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: created.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000056"
+      }
+    });
+    const inReview = articleFrom(requested.structuredContent);
+    const emptyReason = await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: inReview.lockVersion,
+        note: "",
+        requestId: "00000000-0000-4000-8000-000000000057"
+      }
+    });
+    expect(emptyReason.isError).toBe(true);
+    const selfApproval = await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: inReview.lockVersion,
+        note: "自分で保存した原稿を承認します。",
+        requestId: "00000000-0000-4000-8000-000000000058"
+      }
+    });
+    expect(toolErrorCode(selfApproval)).toBe("self_approval_forbidden");
     await reviewer.close();
   });
 
@@ -705,17 +968,21 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(11);
+    expect(tools.tools).toHaveLength(15);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_assets")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_request_review")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_request_changes")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_upload_asset")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_update_asset")).toBe(true);
-    expect(tools.tools.some((tool) => tool.name === "studio_archive_asset")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "studio_archive_asset")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_restore_asset")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_preview_draft")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_approve_article")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_delete_asset")).toBe(false);
-    expect(tools.tools.some((tool) => tool.name === "studio_approve")).toBe(false);
     expect(tools.tools.some((tool) => tool.name === "studio_publish")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "studio_archive_article")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "studio_list_members")).toBe(false);
     await client.close();
   });
 });

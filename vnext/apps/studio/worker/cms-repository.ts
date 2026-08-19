@@ -153,6 +153,7 @@ export interface CmsMutationContext {
   idempotency?: {
     requestId: string;
     toolName:
+      | "studio_approve_article"
       | "studio_create_draft"
       | "studio_request_changes"
       | "studio_request_review"
@@ -169,6 +170,12 @@ interface AssetIdempotencyRow {
   asset_id: string;
   input_sha256: string;
 }
+
+type CmsAssetMcpToolName =
+  | "studio_archive_asset"
+  | "studio_restore_asset"
+  | "studio_update_asset"
+  | "studio_upload_asset";
 
 export async function resolveCmsSession(
   db: D1Database,
@@ -337,7 +344,7 @@ export async function findIdempotentCmsAssetUpload(
 async function findIdempotentCmsAssetMutation(
   db: D1Database,
   identity: CmsIdentity,
-  toolName: "studio_update_asset" | "studio_upload_asset",
+  toolName: CmsAssetMcpToolName,
   requestId: string,
   inputSha256: string
 ): Promise<CmsAsset | null> {
@@ -546,8 +553,139 @@ export async function updateIdempotentCmsAssetMetadata(
     );
     if (concurrentReplay) return concurrentReplay;
     const current = await getCmsAsset(db, assetId);
-    if (current.status !== "active") throw invalidTransition();
+    if (current.status !== "active") throw invalidAssetTransition();
     throw assetConflict();
+  }
+  return getCmsAsset(db, assetId);
+}
+
+export async function updateIdempotentCmsAssetStatus(
+  db: D1Database,
+  identity: CmsIdentity,
+  assetId: string,
+  expectedUpdatedAt: string,
+  targetStatus: "active" | "archived",
+  requestId: string,
+  inputSha256: string,
+  client: string | undefined,
+  now = new Date()
+): Promise<CmsAsset> {
+  requirePermission(identity.role, "edit");
+  const toolName: CmsAssetMcpToolName = targetStatus === "archived"
+    ? "studio_archive_asset"
+    : "studio_restore_asset";
+  const replay = await findIdempotentCmsAssetMutation(
+    db,
+    identity,
+    toolName,
+    requestId,
+    inputSha256
+  );
+  if (replay) return replay;
+
+  const expectedUpdatedAtMs = Date.parse(expectedUpdatedAt);
+  if (!Number.isFinite(expectedUpdatedAtMs)) {
+    throw new CmsRepositoryError("invalid_asset", "画像の更新日時を確認してください。");
+  }
+  const timestamp = new Date(Math.max(
+    now.getTime(),
+    expectedUpdatedAtMs + 1
+  )).toISOString();
+  const sourceStatus = targetStatus === "archived" ? "active" : "archived";
+  const auditAction = targetStatus === "archived" ? "asset.archived" : "asset.restored";
+  const auditId = crypto.randomUUID();
+  let results: D1Result[];
+  try {
+    results = await db.batch([
+      db.prepare(
+        `INSERT INTO cms_audit_events
+          (id, article_id, actor_subject, action, metadata_json, created_at)
+         SELECT ?1, NULL, ?2, ?3, ?4, ?5
+         FROM cms_assets
+         WHERE id = ?6 AND status = ?7 AND updated_at = ?8
+           AND (?9 <> 'archived' OR NOT EXISTS (
+             SELECT 1 FROM cms_asset_references WHERE asset_id = ?6
+           ))`
+      ).bind(
+        auditId,
+        identity.subject,
+        auditAction,
+        JSON.stringify({
+          assetId,
+          channel: "mcp",
+          ...(client ? { client: client.slice(0, 200) } : {}),
+          requestId,
+          tool: toolName
+        }),
+        timestamp,
+        assetId,
+        sourceStatus,
+        expectedUpdatedAt,
+        targetStatus
+      ),
+      db.prepare(
+        `UPDATE cms_assets
+         SET status = ?1, updated_by_subject = ?2, updated_at = ?3
+         WHERE id = ?4 AND status = ?5 AND updated_at = ?6
+           AND (?1 <> 'archived' OR NOT EXISTS (
+             SELECT 1 FROM cms_asset_references WHERE asset_id = ?4
+           ))`
+      ).bind(
+        targetStatus,
+        identity.subject,
+        timestamp,
+        assetId,
+        sourceStatus,
+        expectedUpdatedAt
+      ),
+      db.prepare(
+        `INSERT INTO cms_mcp_asset_idempotency
+          (actor_subject, tool_name, request_id, input_sha256, asset_id, created_at)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6
+         FROM cms_audit_events
+         WHERE id = ?7 AND actor_subject = ?1`
+      ).bind(
+        identity.subject,
+        toolName,
+        requestId,
+        inputSha256,
+        assetId,
+        timestamp,
+        auditId
+      )
+    ]);
+  } catch (error) {
+    if (isAssetIdempotencyConstraint(error)) {
+      const concurrentReplay = await findIdempotentCmsAssetMutation(
+        db,
+        identity,
+        toolName,
+        requestId,
+        inputSha256
+      );
+      if (concurrentReplay) return concurrentReplay;
+    }
+    throw error;
+  }
+
+  if (results.some((result) => result.meta.changes !== 1)) {
+    const concurrentReplay = await findIdempotentCmsAssetMutation(
+      db,
+      identity,
+      toolName,
+      requestId,
+      inputSha256
+    );
+    if (concurrentReplay) return concurrentReplay;
+    const current = await getCmsAsset(db, assetId);
+    if (current.updatedAt !== expectedUpdatedAt) throw assetConflict();
+    if (targetStatus === "archived" && current.referenceCount > 0) {
+      throw new CmsRepositoryError(
+        "asset_in_use",
+        "記事で使用中の画像はアーカイブできません。"
+      );
+    }
+    throw invalidAssetTransition();
   }
   return getCmsAsset(db, assetId);
 }
@@ -1742,6 +1880,13 @@ function assetConflict(): CmsRepositoryError {
   return new CmsRepositoryError(
     "asset_conflict",
     "別の編集者が画像情報を更新しました。Asset一覧を読み直してください。"
+  );
+}
+
+function invalidAssetTransition(): CmsRepositoryError {
+  return new CmsRepositoryError(
+    "invalid_transition",
+    "現在の画像状態ではこの操作を行えません。"
   );
 }
 
