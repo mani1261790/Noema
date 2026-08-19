@@ -1,6 +1,6 @@
 # Studio MCP接続・運用ガイド
 
-Noema Studio MCPを使うと、MCP対応クライアントからNoemaの記事を検索し、下書きを検証・保存できます。公開、承認、メンバー管理など、影響の大きい操作はStudio画面で行います。
+Noema Studio MCPを使うと、MCP対応クライアントからNoemaの記事を検索し、下書きの検証・プレビュー・保存・レビュー承認まで行えます。公開、記事の公開終了・復元、メンバー管理など、外部公開やアクセス権に影響する操作はStudio画面で行います。
 
 ## はじめに確認すること
 
@@ -70,7 +70,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 - `editor`: 編集者
 - `reviewer`: レビュー担当
 
-`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。ただし、MCPが公開するのは下書きの編集、画像の検索・追加・情報更新、レビュー依頼、修正依頼までです。画像の削除・アーカイブ、最終承認、公開はStudio画面で行います。
+`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。MCPでは権限に応じて下書き編集、画像管理、レビュー依頼・修正依頼・承認まで行えます。公開、記事の公開終了・復元、画像の完全削除、メンバー管理はStudio画面で行います。
 
 ## MCPでできること
 
@@ -81,14 +81,18 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_get_article` | なし | 記事IDから現在の本文と版情報を取得する |
 | `studio_list_assets` | なし | 画像を検索し、記事挿入用URLと利用状況を確認する |
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
+| `studio_preview_draft` | なし | 保存せず、公開サイトと同じレンダラーで本文HTMLと検証結果を返す |
 | `studio_create_draft` | 下書きを作成 | 記事と最初の版を作成する |
 | `studio_update_draft` | 下書きを更新 | 競合を確認して新しい版を追加する |
 | `studio_upload_asset` | 画像を追加 | R2へ画像を保存し、記事挿入用Markdownを返す |
 | `studio_update_asset` | 画像情報を更新 | 競合を確認してactiveな画像のaltと管理用タグを更新する |
+| `studio_archive_asset` | 画像をアーカイブ | 未使用のactive画像を競合検知付きで一覧から退避する |
+| `studio_restore_asset` | 画像を復元 | アーカイブ済み画像を競合検知付きでactiveへ戻す |
 | `studio_request_review` | レビュー状態を変更 | 原稿を検証してレビュー中へ進める |
 | `studio_request_changes` | レビュー状態を変更 | レビュー担当が具体的な指摘を記録して要修正へ戻す |
+| `studio_approve_article` | レビュー状態を変更 | レビュー担当が理由を記録して最新版を承認する。公開はしない |
 
-MCPでは、画像の削除・アーカイブ、最終承認、公開、記事の保管・復元・削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。
+MCPでは、公開、記事の保管・復元・削除、画像の完全削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。承認しても記事は公開されず、`publicationStatus`は変わりません。
 
 ## 下書きを作成・更新する
 
@@ -130,6 +134,12 @@ MCPでは、画像の削除・アーカイブ、最終承認、公開、記事�
 ```
 
 `studio_validate_draft`では`requestId`を除いてください。この検証はD1を変更しません。
+
+### 保存前に表示を確認する
+
+`studio_preview_draft`へ`studio_validate_draft`と同じ入力を渡すと、保存せずに`html`、`mediaType: "text/html"`、検証結果の`issues`と`valid`を返します。公開サイトと同じMarkdown、コードハイライト、KaTeXレンダラーを使います。Markdownのraw HTMLは実行されず、危険なリンクはリンク化されません。
+
+プレビュー入力のMarkdownは256KiB、生成HTMLは2MiBまでです。上限を超える場合は、原稿を分割して確認してください。これは本文のレンダリング確認であり、ブラウザ幅、CSS、フォントを含む最終的な見た目の確認はStudio画面で行います。
 
 ### 既存の下書きを更新する例
 
@@ -214,6 +224,20 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 }
 ```
 
+### 画像をアーカイブ・復元する
+
+使わなくなった画像は`studio_archive_asset`でアーカイブできます。R2の画像ファイルは削除されないため、必要になれば`studio_restore_asset`で復元できます。記事の本文またはヒーロー画像から参照されている画像は`asset_in_use`となり、アーカイブできません。
+
+```json
+{
+  "assetId": "11111111-1111-4111-8111-111111111111",
+  "expectedUpdatedAt": "2026-08-19T05:30:00.000Z",
+  "requestId": "00000000-0000-4000-8000-000000000007"
+}
+```
+
+アーカイブ結果の新しい`updatedAt`を、復元時の`expectedUpdatedAt`へ指定します。通信結果が分からない再送だけ同じ入力と同じ`requestId`を使います。別の状態変更では新しい`requestId`が必要です。
+
 ### 記事へ挿入する
 
 1. `studio_get_article`で対象記事の最新版を取得します。
@@ -253,7 +277,22 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 }
 ```
 
-現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`と`reviewNote`で確認します。レビュー依頼と修正依頼も、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。最終承認と公開を依頼するMCPツールはありません。
+現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`と`reviewNote`で確認します。レビュー依頼、修正依頼、承認は、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。公開を実行するMCPツールはありません。
+
+### レビューを承認する
+
+レビュー担当者または管理者は、`studio_approve_article`でレビュー中の最新版を承認できます。`note`には、確認した内容を500文字以内で必ず記録します。レビュー担当者は自分が保存した最新版を自己承認できません。管理者には既存の緊急運用ルールが適用されます。
+
+```json
+{
+  "articleId": "11111111-1111-4111-8111-111111111111",
+  "expectedVersion": 4,
+  "requestId": "00000000-0000-4000-8000-000000000008",
+  "note": "構成、根拠となる一次情報、画像説明を確認しました。"
+}
+```
+
+承認対象は`studio_get_article`で取得した`lockVersion`の最新版です。承認後も記事は未公開のままです。公開はStudio画面で、承認済みrevisionと公開範囲を人が確認して実行します。
 
 ## 困ったとき
 
@@ -266,8 +305,10 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 | `idempotency_conflict` | 同じ`requestId`が異なる入力で使われています。新しい操作なら新しいUUIDを使います。 |
 | `invalid_asset` | 画像データとcontent typeが一致しない、altやタグが不正、または8MBを超えています。PNG、JPEG、WebP、GIFの元ファイルを確認します。 |
 | `asset_conflict` | 他の編集者が先に画像情報を更新しています。`studio_list_assets`を再実行し、新しい`updatedAt`と新しい`requestId`で変更をやり直します。 |
-| `invalid_transition` | 現在の記事状態ではそのレビュー操作を実行できません。`studio_get_article`で最新状態を確認します。 |
-| `forbidden` | 現在のStudio役割に必要な権限がありません。修正依頼にはレビュー担当または管理者の権限が必要です。 |
+| `asset_in_use` | 記事から参照されている画像です。本文とヒーロー画像の利用箇所を確認し、参照を外して保存してからアーカイブします。 |
+| `invalid_transition` | 現在の記事または画像の状態では操作できません。`studio_get_article`または`studio_list_assets`で最新状態を確認します。 |
+| `self_approval_forbidden` | レビュー担当者が自分で保存した最新版を承認しようとしています。別のレビュー担当者または管理者に確認を依頼します。 |
+| `forbidden` | 現在のStudio役割に必要な権限がありません。修正依頼と承認にはレビュー担当または管理者の権限が必要です。 |
 | `503 authentication_unavailable` | 認証基盤が一時的に利用できません。書き込み結果を推測せず、復旧後に同じ入力と同じ`requestId`で再送します。 |
 
 認証できたか不明な場合は、接続状態だけで判断せず`studio_whoami`が成功することを確認してください。
