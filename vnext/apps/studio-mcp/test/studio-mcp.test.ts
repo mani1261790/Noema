@@ -19,6 +19,7 @@ import {
 } from "../src/index";
 
 const testEnv = env as Env & { CMS_TEST_MIGRATIONS: D1Migration[] };
+const ONE_PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 const SESSION: CmsSession = {
   capabilities: {
     canApprove: false,
@@ -52,9 +53,14 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  const storedAssets = await testEnv.ARTICLE_ASSETS.list();
+  if (storedAssets.objects.length > 0) {
+    await testEnv.ARTICLE_ASSETS.delete(storedAssets.objects.map((asset) => asset.key));
+  }
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_asset_idempotency"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_idempotency"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_audit_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
@@ -93,9 +99,12 @@ describe("Studio MCP tools", () => {
       "studio_create_draft",
       "studio_get_article",
       "studio_list_articles",
+      "studio_list_assets",
       "studio_request_changes",
       "studio_request_review",
+      "studio_update_asset",
       "studio_update_draft",
+      "studio_upload_asset",
       "studio_validate_draft",
       "studio_whoami"
     ]);
@@ -109,6 +118,186 @@ describe("Studio MCP tools", () => {
       identity: SESSION.identity
     });
 
+    await connection.close();
+  });
+
+  it("uploads an image idempotently and inserts its Markdown into a draft", async () => {
+    const connection = await connectClient();
+    const uploadArguments = {
+      alt: "透明な1ピクセルのテスト画像",
+      contentType: "image/png",
+      dataBase64: ONE_PIXEL_PNG,
+      fileName: "transparent.png",
+      requestId: "00000000-0000-4000-8000-000000000030",
+      tags: ["MCP", "テスト"]
+    };
+    const [uploaded, replayedUpload] = await Promise.all([
+      connection.client.callTool({
+        name: "studio_upload_asset",
+        arguments: uploadArguments
+      }),
+      connection.client.callTool({
+        name: "studio_upload_asset",
+        arguments: uploadArguments
+      })
+    ]);
+    const asset = assetFrom(uploaded.structuredContent);
+    expect(assetFrom(replayedUpload.structuredContent).id).toBe(asset.id);
+    expect(uploaded.structuredContent).toMatchObject({
+      markdown: `![${uploadArguments.alt}](${asset.markdownUrl})`
+    });
+
+    const stored = await testEnv.ARTICLE_ASSETS.get(asset.r2Key);
+    expect(stored).not.toBeNull();
+    expect(stored?.httpMetadata?.contentType).toBe("image/png");
+    expect(await testEnv.ARTICLE_ASSETS.list()).toMatchObject({
+      objects: [{ key: asset.r2Key }]
+    });
+
+    const listed = await connection.client.callTool({
+      name: "studio_list_assets",
+      arguments: { query: "テスト" }
+    });
+    expect(listed.structuredContent).toMatchObject({
+      assets: [{ id: asset.id, referenceCount: 0 }],
+      count: 1
+    });
+
+    const draftInput = validArticle("mcp-asset-draft");
+    const createdResult = await connection.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...draftInput,
+        requestId: "00000000-0000-4000-8000-000000000031"
+      }
+    });
+    const created = articleFrom(createdResult.structuredContent);
+    const markdown = (uploaded.structuredContent as { markdown: string }).markdown;
+    const updated = await connection.client.callTool({
+      name: "studio_update_draft",
+      arguments: {
+        ...draftInput,
+        articleId: created.id,
+        expectedVersion: created.lockVersion,
+        markdown: `${draftInput.markdown}\n\n${markdown}`,
+        requestId: "00000000-0000-4000-8000-000000000032"
+      }
+    });
+    expect(articleFrom(updated.structuredContent).lockVersion).toBe(2);
+
+    const referenceCount = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_asset_references WHERE asset_id = ?1 AND article_id = ?2 AND location = 'markdown'"
+    ).bind(asset.id, created.id).first<number>("count");
+    expect(referenceCount).toBe(1);
+
+    const updateAssetArguments = {
+      alt: "更新した透明画像の説明",
+      assetId: asset.id,
+      expectedUpdatedAt: asset.updatedAt,
+      requestId: "00000000-0000-4000-8000-000000000035",
+      tags: ["更新済み"]
+    };
+    const updatedAssetResult = await connection.client.callTool({
+      name: "studio_update_asset",
+      arguments: updateAssetArguments
+    });
+    const replayedAssetUpdate = await connection.client.callTool({
+      name: "studio_update_asset",
+      arguments: updateAssetArguments
+    });
+    const updatedAsset = assetFrom(updatedAssetResult.structuredContent);
+    expect(updatedAssetResult.structuredContent).toMatchObject({
+      asset: { alt: updateAssetArguments.alt, tags: ["更新済み"] }
+    });
+    expect(assetFrom(replayedAssetUpdate.structuredContent).updatedAt)
+      .toBe(updatedAsset.updatedAt);
+
+    const changedAssetUpdate = await connection.client.callTool({
+      name: "studio_update_asset",
+      arguments: { ...updateAssetArguments, alt: "別の説明" }
+    });
+    expect(toolErrorCode(changedAssetUpdate)).toBe("idempotency_conflict");
+    const staleAssetUpdate = await connection.client.callTool({
+      name: "studio_update_asset",
+      arguments: {
+        ...updateAssetArguments,
+        requestId: "00000000-0000-4000-8000-000000000036"
+      }
+    });
+    expect(toolErrorCode(staleAssetUpdate)).toBe("asset_conflict");
+
+    const counts = await testEnv.CMS_DB.prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM cms_assets) AS assets,
+        (SELECT COUNT(*) FROM cms_mcp_asset_idempotency) AS idempotency_keys,
+        (SELECT COUNT(*) FROM cms_audit_events WHERE action = 'asset.updated') AS update_audits,
+        (SELECT COUNT(*) FROM cms_audit_events WHERE action = 'asset.uploaded') AS upload_audits`
+    ).first<{
+      assets: number;
+      idempotency_keys: number;
+      update_audits: number;
+      upload_audits: number;
+    }>();
+    expect(counts).toEqual({
+      assets: 1,
+      idempotency_keys: 2,
+      update_audits: 1,
+      upload_audits: 1
+    });
+    const audit = await testEnv.CMS_DB.prepare(
+      "SELECT metadata_json FROM cms_audit_events WHERE action = 'asset.uploaded'"
+    ).first<{ metadata_json: string }>();
+    expect(JSON.parse(audit?.metadata_json ?? "{}")).toMatchObject({
+      assetId: asset.id,
+      channel: "mcp",
+      client: "Noema MCP test",
+      contentType: "image/png",
+      originalName: "transparent.png",
+      requestId: uploadArguments.requestId,
+      tool: "studio_upload_asset"
+    });
+    expect(audit?.metadata_json).not.toContain(ONE_PIXEL_PNG);
+
+    await connection.close();
+  });
+
+  it("rejects invalid image bytes and conflicting upload retries", async () => {
+    const connection = await connectClient();
+    const invalid = await connection.client.callTool({
+      name: "studio_upload_asset",
+      arguments: {
+        alt: "PNGではないデータ",
+        contentType: "image/png",
+        dataBase64: "bm90IGEgcG5n",
+        fileName: "invalid.png",
+        requestId: "00000000-0000-4000-8000-000000000033"
+      }
+    });
+    expect(toolErrorCode(invalid)).toBe("invalid_asset");
+
+    const requestId = "00000000-0000-4000-8000-000000000034";
+    await connection.client.callTool({
+      name: "studio_upload_asset",
+      arguments: {
+        alt: "最初の説明",
+        contentType: "image/png",
+        dataBase64: ONE_PIXEL_PNG,
+        fileName: "first.png",
+        requestId
+      }
+    });
+    const conflict = await connection.client.callTool({
+      name: "studio_upload_asset",
+      arguments: {
+        alt: "異なる説明",
+        contentType: "image/png",
+        dataBase64: ONE_PIXEL_PNG,
+        fileName: "first.png",
+        requestId
+      }
+    });
+    expect(toolErrorCode(conflict)).toBe("idempotency_conflict");
+    expect((await testEnv.ARTICLE_ASSETS.list()).objects).toHaveLength(1);
     await connection.close();
   });
 
@@ -401,6 +590,21 @@ describe("Studio MCP HTTP boundary", () => {
     expect(unauthorized.status).toBe(401);
   });
 
+  it("rejects an oversized MCP request before parsing or authentication", async () => {
+    const result = await handleStudioMcpRequest(
+      new Request("https://mcp.noema-learn.uk/mcp", {
+        headers: { "content-length": String(12 * 1024 * 1024) },
+        method: "POST"
+      }),
+      testEnv,
+      createExecutionContext()
+    );
+    expect(result.status).toBe(413);
+    await expect(result.json()).resolves.toMatchObject({
+      error: { code: "request_too_large" }
+    });
+  });
+
   it("rejects an invalid Access assertion before MCP dispatch", async () => {
     const result = await handleStudioMcpRequest(
       new Request("https://mcp.noema-learn.uk/mcp", {
@@ -471,10 +675,15 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(8);
+    expect(tools.tools).toHaveLength(11);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_list_assets")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_request_review")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_request_changes")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_upload_asset")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_update_asset")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_archive_asset")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "studio_delete_asset")).toBe(false);
     expect(tools.tools.some((tool) => tool.name === "studio_approve")).toBe(false);
     expect(tools.tools.some((tool) => tool.name === "studio_publish")).toBe(false);
     await client.close();
@@ -482,7 +691,12 @@ describe("Studio MCP HTTP boundary", () => {
 });
 
 async function connectClient(session: CmsSession = SESSION) {
-  const server = createStudioMcpServer(testEnv.CMS_DB, session, "Noema MCP test");
+  const server = createStudioMcpServer(
+    testEnv.CMS_DB,
+    testEnv.ARTICLE_ASSETS,
+    session,
+    "Noema MCP test"
+  );
   const client = new Client({ name: "noema-test", version: "0.1.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([
@@ -494,6 +708,30 @@ async function connectClient(session: CmsSession = SESSION) {
     async close() {
       await Promise.all([client.close(), server.close()]);
     }
+  };
+}
+
+function assetFrom(value: unknown): {
+  id: string;
+  markdownUrl: string;
+  r2Key: string;
+  updatedAt: string;
+} {
+  const asset = (value as { asset?: unknown } | undefined)?.asset;
+  if (!asset || typeof asset !== "object") throw new Error("Missing asset result.");
+  const result = asset as {
+    id: string;
+    markdownUrl: string;
+    previewUrl: string;
+    updatedAt: string;
+  };
+  const match = result.markdownUrl.match(/^\/media\/(articles\/.+)$/u);
+  if (!match?.[1]) throw new Error("Missing asset R2 key.");
+  return {
+    id: result.id,
+    markdownUrl: result.markdownUrl,
+    r2Key: match[1],
+    updatedAt: result.updatedAt
   };
 }
 
