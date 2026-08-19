@@ -560,11 +560,11 @@ export async function updateCmsAsset(
   now = new Date()
 ): Promise<CmsAsset> {
   requirePermission(identity.role, "edit");
-  const parsed = cmsAssetMutationSchema.safeParse(input);
-  if (!parsed.success) {
+  const status = cmsAssetStatusSchema.safeParse(input.status);
+  if (!status.success) {
     throw new CmsRepositoryError("invalid_asset", "画像情報を確認してください。");
   }
-  const tags = [...new Set(parsed.data.tags.map((tag) => tag.trim()).filter(Boolean))];
+  const metadata = parseAssetMetadata(input.alt, input.tags);
   const result = await db.prepare(
     `UPDATE cms_assets
      SET alt = ?1, tags_json = ?2, status = ?3,
@@ -574,9 +574,9 @@ export async function updateCmsAsset(
          SELECT 1 FROM cms_asset_references WHERE asset_id = ?6
        ))`
   ).bind(
-    parsed.data.alt.trim(),
-    JSON.stringify(tags),
-    parsed.data.status,
+    metadata.alt,
+    JSON.stringify(metadata.tags),
+    status.data,
     identity.subject,
     now.toISOString(),
     assetId

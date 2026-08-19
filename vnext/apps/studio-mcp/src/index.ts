@@ -88,7 +88,7 @@ const uploadAssetSchema = z.object({
 const updateAssetSchema = z.object({
   alt: z.string().trim().min(1).max(500),
   assetId: z.string().uuid(),
-  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  expectedUpdatedAt: z.iso.datetime({ offset: true }),
   requestId: REQUEST_ID_SCHEMA,
   tags: z.array(z.string().trim().min(1).max(80)).max(30).default([])
 }).strict();
@@ -329,10 +329,10 @@ export function createStudioMcpServer(
             requestId,
             client
           );
-          if (!registration.created) await bucket.delete(r2Key);
+          if (!registration.created) await discardAsset(bucket, r2Key);
           return uploadedAssetResult(registration.asset);
         } catch (error) {
-          await bucket.delete(r2Key);
+          await discardAsset(bucket, r2Key);
           throw error;
         }
       })
@@ -347,18 +347,26 @@ export function createStudioMcpServer(
       annotations: writeAnnotations(true)
     },
     async ({ alt, assetId, expectedUpdatedAt, requestId, tags }) =>
-      executeTool(async () => ({
-        asset: await updateIdempotentCmsAssetMetadata(
-          db,
-          session.identity,
-          assetId,
-          expectedUpdatedAt,
-          { alt, tags },
-          requestId,
-          await assetMetadataChecksum({ alt, assetId, expectedUpdatedAt, tags }),
-          client
-        )
-      }))
+      executeTool(async () => {
+        const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
+        return {
+          asset: await updateIdempotentCmsAssetMetadata(
+            db,
+            session.identity,
+            assetId,
+            normalizedExpectedUpdatedAt,
+            { alt, tags },
+            requestId,
+            await assetMetadataChecksum({
+              alt,
+              assetId,
+              expectedUpdatedAt: normalizedExpectedUpdatedAt,
+              tags
+            }),
+            client
+          )
+        };
+      })
   );
 
   server.registerTool(
@@ -563,11 +571,11 @@ function matchesImageSignature(
     case "image/gif":
       return bytes.byteLength >= 14 &&
         ["GIF87a", "GIF89a"].includes(String.fromCharCode(...bytes.subarray(0, 6))) &&
-        bytes.at(-1) === 0x3b;
+        bytes.lastIndexOf(0x3b) >= 13;
     case "image/jpeg":
       return bytes.byteLength >= 4 &&
         bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff &&
-        bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9;
+        hasJpegEndMarker(bytes);
     case "image/png":
       return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) &&
         endsWith(bytes, [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
@@ -576,6 +584,25 @@ function matchesImageSignature(
         startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
         startsWith(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50]) &&
         readLittleEndianUint32(bytes, 4) === bytes.byteLength - 8;
+  }
+}
+
+function hasJpegEndMarker(bytes: Uint8Array): boolean {
+  for (let index = bytes.byteLength - 2; index >= 2; index -= 1) {
+    if (bytes[index] === 0xff && bytes[index + 1] === 0xd9) return true;
+  }
+  return false;
+}
+
+async function discardAsset(bucket: R2Bucket, r2Key: string): Promise<void> {
+  try {
+    await bucket.delete(r2Key);
+  } catch (error) {
+    console.error({
+      error: error instanceof Error ? error.message : String(error),
+      event: "studio_mcp_asset_cleanup_failed",
+      r2Key
+    });
   }
 }
 

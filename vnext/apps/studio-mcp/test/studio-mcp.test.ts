@@ -193,7 +193,7 @@ describe("Studio MCP tools", () => {
     const updateAssetArguments = {
       alt: "更新した透明画像の説明",
       assetId: asset.id,
-      expectedUpdatedAt: asset.updatedAt,
+      expectedUpdatedAt: asset.updatedAt.replace(/Z$/u, "+00:00"),
       requestId: "00000000-0000-4000-8000-000000000035",
       tags: ["更新済み"]
     };
@@ -298,6 +298,36 @@ describe("Studio MCP tools", () => {
     });
     expect(toolErrorCode(conflict)).toBe("idempotency_conflict");
     expect((await testEnv.ARTICLE_ASSETS.list()).objects).toHaveLength(1);
+    await connection.close();
+  });
+
+  it("accepts JPEG and GIF data with bytes after the end marker", async () => {
+    const connection = await connectClient();
+    const uploads = await Promise.all([
+      connection.client.callTool({
+        name: "studio_upload_asset",
+        arguments: {
+          alt: "末尾にパディングがあるJPEG",
+          contentType: "image/jpeg",
+          dataBase64: "/9j/2wAA/9kAAA==",
+          fileName: "padded.jpg",
+          requestId: "00000000-0000-4000-8000-000000000037"
+        }
+      }),
+      connection.client.callTool({
+        name: "studio_upload_asset",
+        arguments: {
+          alt: "末尾にパディングがあるGIF",
+          contentType: "image/gif",
+          dataBase64: "R0lGODlhAAAAAAAAADsAAA==",
+          fileName: "padded.gif",
+          requestId: "00000000-0000-4000-8000-000000000038"
+        }
+      })
+    ]);
+
+    expect(uploads.every((upload) => !upload.isError)).toBe(true);
+    expect((await testEnv.ARTICLE_ASSETS.list()).objects).toHaveLength(2);
     await connection.close();
   });
 
@@ -720,11 +750,15 @@ function assetFrom(value: unknown): {
   const asset = (value as { asset?: unknown } | undefined)?.asset;
   if (!asset || typeof asset !== "object") throw new Error("Missing asset result.");
   const result = asset as {
-    id: string;
-    markdownUrl: string;
-    previewUrl: string;
-    updatedAt: string;
+    id?: unknown;
+    markdownUrl?: unknown;
+    updatedAt?: unknown;
   };
+  if (
+    typeof result.id !== "string" ||
+    typeof result.markdownUrl !== "string" ||
+    typeof result.updatedAt !== "string"
+  ) throw new Error("Invalid asset result.");
   const match = result.markdownUrl.match(/^\/media\/(articles\/.+)$/u);
   if (!match?.[1]) throw new Error("Missing asset R2 key.");
   return {

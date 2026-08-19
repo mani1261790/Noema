@@ -169,7 +169,7 @@ MCPでは、画像の削除・アーカイブ、最終承認、公開、記事�
 
 ### 既存の画像を探す
 
-`studio_list_assets`でファイル名、alt、管理用タグを検索できます。応答の`markdownUrl`は記事本文で使う永続URLです。`previewUrl`はStudio画面での確認用URLなので、Markdownには使いません。
+`studio_list_assets`でファイル名、alt、管理用タグを検索できます。`status`を省略すると`active`だけを検索します。アーカイブ済みの画像を探す場合だけ、`status: "archived"`を明示します。応答の`markdownUrl`は記事本文で使う永続URLです。`previewUrl`はStudio画面での確認用URLなので、Markdownには使いません。
 
 ```json
 {
@@ -181,7 +181,7 @@ MCPでは、画像の削除・アーカイブ、最終承認、公開、記事�
 
 ### 新しい画像を追加する
 
-PNG、JPEG、WebP、GIFのいずれかをBase64へ変換し、`studio_upload_asset`へ渡します。画像は8MB以下、`alt`は必須です。`requestId`は画像1点のアップロードごとに新しいUUIDを使います。
+PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base64へ変換し、`studio_upload_asset`へ渡します。Data URLや非標準Base64は`invalid_asset`として拒否されます。画像は8MB以下、`alt`は必須です。`requestId`は画像1点のアップロードごとに新しいUUIDを使います。
 
 ```json
 {
@@ -200,7 +200,7 @@ PNG、JPEG、WebP、GIFのいずれかをBase64へ変換し、`studio_upload_ass
 ![Cloudflare WorkerとD1、R2の接続構成図](/media/articles/11111111-1111-4111-8111-111111111111.png)
 ```
 
-通信結果が分からない場合だけ、同じ入力と同じ`requestId`で再送してください。R2オブジェクト、Asset台帳、監査イベントは重複しません。別の画像や異なるaltで同じ`requestId`を使うと`idempotency_conflict`になります。
+通信結果が分からない場合だけ、同じ入力と同じ`requestId`で再送してください。D1のAsset台帳と監査イベントは重複しません。R2書き込み直後に処理が停止した場合は、台帳に登録されない孤立オブジェクトが残る可能性があります。別の画像や異なるaltで同じ`requestId`を使うと`idempotency_conflict`になります。
 
 既存画像のaltや管理用タグを直す場合は、`studio_list_assets`が返した`id`と`updatedAt`を、`studio_update_asset`の`assetId`と`expectedUpdatedAt`へ指定します。新しい`requestId`も必要です。画像ファイル、URL、active／archived状態はこのツールでは変更されません。
 
