@@ -44,7 +44,7 @@ const REQUEST_ID_SCHEMA = z.string().uuid();
 const MAX_ASSET_BYTES = 8 * 1024 * 1024;
 const MAX_ASSET_BASE64_LENGTH = Math.ceil(MAX_ASSET_BYTES / 3) * 4;
 const MAX_MCP_REQUEST_BYTES = MAX_ASSET_BASE64_LENGTH + 128 * 1024;
-const MAX_PREVIEW_MARKDOWN_CHARS = 256 * 1024;
+const MAX_PREVIEW_MARKDOWN_CHARS = 64 * 1024;
 const MAX_PREVIEW_HTML_CHARS = 2 * 1024 * 1024;
 const SUPPORTED_IMAGE_TYPES = [
   "image/gif",
@@ -387,63 +387,19 @@ export function createStudioMcpServer(
       })
   );
 
-  server.registerTool(
-    "studio_archive_asset",
-    {
-      title: "Archive Studio asset",
-      description: "未使用のactive画像を競合検知付きでアーカイブします。R2オブジェクトは削除しません。",
-      inputSchema: assetStatusSchema,
-      annotations: writeAnnotations(true)
-    },
-    async ({ assetId, expectedUpdatedAt, requestId }) => executeTool(async () => {
-      const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
-      return {
-        asset: await updateIdempotentCmsAssetStatus(
-          db,
-          session.identity,
-          assetId,
-          normalizedExpectedUpdatedAt,
-          "archived",
-          requestId,
-          await assetStatusChecksum({
-            assetId,
-            expectedUpdatedAt: normalizedExpectedUpdatedAt,
-            targetStatus: "archived"
-          }),
-          client
-        )
-      };
-    })
-  );
+  registerAssetStatusTool(server, db, session, client, {
+    description: "未使用のactive画像を競合検知付きでアーカイブします。R2オブジェクトは削除しません。",
+    name: "studio_archive_asset",
+    targetStatus: "archived",
+    title: "Archive Studio asset"
+  });
 
-  server.registerTool(
-    "studio_restore_asset",
-    {
-      title: "Restore Studio asset",
-      description: "アーカイブ済み画像を競合検知付きでactiveへ復元します。",
-      inputSchema: assetStatusSchema,
-      annotations: writeAnnotations(true)
-    },
-    async ({ assetId, expectedUpdatedAt, requestId }) => executeTool(async () => {
-      const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
-      return {
-        asset: await updateIdempotentCmsAssetStatus(
-          db,
-          session.identity,
-          assetId,
-          normalizedExpectedUpdatedAt,
-          "active",
-          requestId,
-          await assetStatusChecksum({
-            assetId,
-            expectedUpdatedAt: normalizedExpectedUpdatedAt,
-            targetStatus: "active"
-          }),
-          client
-        )
-      };
-    })
-  );
+  registerAssetStatusTool(server, db, session, client, {
+    description: "アーカイブ済み画像を競合検知付きでactiveへ復元します。",
+    name: "studio_restore_asset",
+    targetStatus: "active",
+    title: "Restore Studio asset"
+  });
 
   server.registerTool(
     "studio_validate_draft",
@@ -614,6 +570,48 @@ export function createStudioMcpServer(
   );
 
   return server;
+}
+
+function registerAssetStatusTool(
+  server: McpServer,
+  db: D1Database,
+  session: CmsSession,
+  client: string | undefined,
+  config: {
+    description: string;
+    name: "studio_archive_asset" | "studio_restore_asset";
+    targetStatus: "active" | "archived";
+    title: string;
+  }
+): void {
+  server.registerTool(
+    config.name,
+    {
+      title: config.title,
+      description: config.description,
+      inputSchema: assetStatusSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ assetId, expectedUpdatedAt, requestId }) => executeTool(async () => {
+      const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
+      return {
+        asset: await updateIdempotentCmsAssetStatus(
+          db,
+          session.identity,
+          assetId,
+          normalizedExpectedUpdatedAt,
+          config.targetStatus,
+          requestId,
+          await assetStatusChecksum({
+            assetId,
+            expectedUpdatedAt: normalizedExpectedUpdatedAt,
+            targetStatus: config.targetStatus
+          }),
+          client
+        )
+      };
+    })
+  );
 }
 
 function readOnlyAnnotations() {

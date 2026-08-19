@@ -387,6 +387,17 @@ describe("Studio MCP tools", () => {
     expect(restored.structuredContent).toMatchObject({ asset: { status: "active" } });
     expect(replayedRestore.structuredContent).toEqual(restored.structuredContent);
 
+    const restoredAsset = assetFrom(restored.structuredContent);
+    const invalidRestore = await connection.client.callTool({
+      name: "studio_restore_asset",
+      arguments: {
+        assetId: asset.id,
+        expectedUpdatedAt: restoredAsset.updatedAt,
+        requestId: "00000000-0000-4000-8000-000000000047"
+      }
+    });
+    expect(toolErrorCode(invalidRestore)).toBe("invalid_transition");
+
     const staleArchive = await connection.client.callTool({
       name: "studio_archive_asset",
       arguments: {
