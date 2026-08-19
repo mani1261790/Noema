@@ -1,13 +1,16 @@
 import { createMcpHandler } from "agents/mcp/server";
 import { McpServer } from "@modelcontextprotocol/server";
+import { Buffer } from "node:buffer";
 import {
   cmsArticleContentSchema,
+  cmsAssetStatusSchema,
   cmsCreateArticleRequestSchema,
   cmsPublicationStatusSchema,
   cmsReviewStatusSchema,
   cmsUpdateArticleRequestSchema,
   cmsVisibilitySchema,
   validateCmsArticleForReview,
+  type CmsAsset,
   type CmsSession
 } from "@noema/cms";
 import { z } from "zod";
@@ -23,15 +26,34 @@ import {
 import {
   CmsRepositoryError,
   createCmsArticle,
+  findIdempotentCmsAssetUpload,
   getCmsArticle,
   listCmsArticles,
+  listCmsAssets,
+  registerIdempotentCmsAssetUpload,
   resolveExistingCmsSession,
   transitionCmsArticle,
+  updateIdempotentCmsAssetMetadata,
   updateCmsArticle
 } from "../../studio/worker/cms-repository";
 
 const MCP_PATH = "/mcp";
 const REQUEST_ID_SCHEMA = z.string().uuid();
+const MAX_ASSET_BYTES = 8 * 1024 * 1024;
+const MAX_ASSET_BASE64_LENGTH = Math.ceil(MAX_ASSET_BYTES / 3) * 4;
+const MAX_MCP_REQUEST_BYTES = MAX_ASSET_BASE64_LENGTH + 128 * 1024;
+const SUPPORTED_IMAGE_TYPES = [
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+] as const;
+const IMAGE_EXTENSIONS = {
+  "image/gif": "gif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp"
+} as const satisfies Record<(typeof SUPPORTED_IMAGE_TYPES)[number], string>;
 
 const listArticlesSchema = z.object({
   limit: z.number().int().min(1).max(200).default(50),
@@ -43,6 +65,32 @@ const listArticlesSchema = z.object({
 
 const getArticleSchema = z.object({
   articleId: z.string().uuid()
+}).strict();
+
+const listAssetsSchema = z.object({
+  limit: z.number().int().min(1).max(500).default(100),
+  query: z.string().trim().max(200).optional(),
+  status: cmsAssetStatusSchema.default("active")
+}).strict();
+
+const uploadAssetSchema = z.object({
+  alt: z.string().trim().min(1).max(500),
+  contentType: z.enum(SUPPORTED_IMAGE_TYPES),
+  dataBase64: z.string()
+    .min(4)
+    .max(MAX_ASSET_BASE64_LENGTH)
+    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u),
+  fileName: z.string().trim().min(1).max(200),
+  requestId: REQUEST_ID_SCHEMA,
+  tags: z.array(z.string().trim().min(1).max(80)).max(30).default([])
+}).strict();
+
+const updateAssetSchema = z.object({
+  alt: z.string().trim().min(1).max(500),
+  assetId: z.string().uuid(),
+  expectedUpdatedAt: z.iso.datetime({ offset: true }),
+  requestId: REQUEST_ID_SCHEMA,
+  tags: z.array(z.string().trim().min(1).max(80)).max(30).default([])
 }).strict();
 
 const createDraftSchema = cmsCreateArticleRequestSchema.extend({
@@ -90,6 +138,10 @@ export async function handleStudioMcpRequest(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname !== MCP_PATH) return response(404, "not_found", "Not found.");
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_MCP_REQUEST_BYTES) {
+    return response(413, "request_too_large", "MCP request is too large.");
+  }
 
   const configuration = readAccessConfiguration({
     ACCESS_POLICY_AUD: env.MCP_ACCESS_POLICY_AUD,
@@ -135,7 +187,7 @@ export async function handleStudioMcpRequest(
 
   const client = request.headers.get("user-agent")?.trim().slice(0, 200);
   const handler = createMcpHandler(
-    () => createStudioMcpServer(env.CMS_DB, session, client),
+    () => createStudioMcpServer(env.CMS_DB, env.ARTICLE_ASSETS, session, client),
     {
       allowedHostnames: ["mcp.noema-learn.uk"],
       corsOptions: false,
@@ -152,6 +204,7 @@ export async function handleStudioMcpRequest(
 
 export function createStudioMcpServer(
   db: D1Database,
+  bucket: R2Bucket,
   session: CmsSession,
   client?: string
 ): McpServer {
@@ -206,6 +259,114 @@ export function createStudioMcpServer(
     async ({ articleId }) => executeTool(async () => ({
       article: await getCmsArticle(db, session.identity, articleId)
     }))
+  );
+
+  server.registerTool(
+    "studio_list_assets",
+    {
+      title: "List Studio assets",
+      description: "Studioの画像Assetを検索し、記事へ挿入できるMarkdown URLを返します。",
+      inputSchema: listAssetsSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async (input) => executeTool(async () => {
+      const query = input.query?.toLocaleLowerCase("ja") ?? "";
+      const assets = (await listCmsAssets(db, session.identity))
+        .filter((asset) => asset.status === input.status)
+        .filter((asset) => !query || [asset.alt, asset.originalName, ...asset.tags]
+          .some((value) => value.toLocaleLowerCase("ja").includes(query)))
+        .slice(0, input.limit);
+      return { assets, count: assets.length };
+    })
+  );
+
+  server.registerTool(
+    "studio_upload_asset",
+    {
+      title: "Upload Studio asset",
+      description: "8MB以下の画像をStudioへ冪等アップロードし、記事挿入用Markdownを返します。",
+      inputSchema: uploadAssetSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ alt, contentType, dataBase64, fileName, requestId, tags }) =>
+      executeTool(async () => {
+        const bytes = decodeImage(dataBase64, contentType);
+        const inputSha256 = await assetUploadChecksum({
+          alt,
+          bytes,
+          contentType,
+          fileName,
+          tags
+        });
+        const replay = await findIdempotentCmsAssetUpload(
+          db,
+          session.identity,
+          requestId,
+          inputSha256
+        );
+        if (replay) return uploadedAssetResult(replay);
+
+        const assetId = crypto.randomUUID();
+        const r2Key = `articles/${assetId}.${IMAGE_EXTENSIONS[contentType]}`;
+        await bucket.put(r2Key, bytes, {
+          httpMetadata: { contentType },
+          customMetadata: { originalName: fileName.slice(0, 200) }
+        });
+        try {
+          const registration = await registerIdempotentCmsAssetUpload(
+            db,
+            session.identity,
+            {
+              alt,
+              byteSize: bytes.byteLength,
+              contentType,
+              id: assetId,
+              inputSha256,
+              originalName: fileName,
+              r2Key,
+              tags
+            },
+            requestId,
+            client
+          );
+          if (!registration.created) await discardAsset(bucket, r2Key);
+          return uploadedAssetResult(registration.asset);
+        } catch (error) {
+          await discardAsset(bucket, r2Key);
+          throw error;
+        }
+      })
+  );
+
+  server.registerTool(
+    "studio_update_asset",
+    {
+      title: "Update Studio asset",
+      description: "activeな画像のaltと管理用タグを競合検知付きで更新します。状態は変更しません。",
+      inputSchema: updateAssetSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ alt, assetId, expectedUpdatedAt, requestId, tags }) =>
+      executeTool(async () => {
+        const normalizedExpectedUpdatedAt = new Date(expectedUpdatedAt).toISOString();
+        return {
+          asset: await updateIdempotentCmsAssetMetadata(
+            db,
+            session.identity,
+            assetId,
+            normalizedExpectedUpdatedAt,
+            { alt, tags },
+            requestId,
+            await assetMetadataChecksum({
+              alt,
+              assetId,
+              expectedUpdatedAt: normalizedExpectedUpdatedAt,
+              tags
+            }),
+            client
+          )
+        };
+      })
   );
 
   server.registerTool(
@@ -380,6 +541,134 @@ function toolSuccess(result: Record<string, unknown>) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(result) }],
     structuredContent: result
+  };
+}
+
+function decodeImage(
+  dataBase64: string,
+  contentType: (typeof SUPPORTED_IMAGE_TYPES)[number]
+): Uint8Array {
+  const decoded = Buffer.from(dataBase64, "base64");
+  if (
+    decoded.byteLength === 0 ||
+    decoded.byteLength > MAX_ASSET_BYTES ||
+    decoded.toString("base64") !== dataBase64 ||
+    !matchesImageSignature(decoded, contentType)
+  ) {
+    throw new CmsRepositoryError(
+      "invalid_asset",
+      "画像データ、形式、または8MBの容量制限を確認してください。"
+    );
+  }
+  return decoded;
+}
+
+function matchesImageSignature(
+  bytes: Uint8Array,
+  contentType: (typeof SUPPORTED_IMAGE_TYPES)[number]
+): boolean {
+  switch (contentType) {
+    case "image/gif":
+      return bytes.byteLength >= 14 &&
+        ["GIF87a", "GIF89a"].includes(String.fromCharCode(...bytes.subarray(0, 6))) &&
+        bytes.lastIndexOf(0x3b) >= 13;
+    case "image/jpeg":
+      return bytes.byteLength >= 4 &&
+        bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff &&
+        hasJpegEndMarker(bytes);
+    case "image/png":
+      return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) &&
+        endsWith(bytes, [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+    case "image/webp":
+      return bytes.byteLength >= 12 &&
+        startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+        startsWith(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50]) &&
+        readLittleEndianUint32(bytes, 4) === bytes.byteLength - 8;
+  }
+}
+
+function hasJpegEndMarker(bytes: Uint8Array): boolean {
+  for (let index = bytes.byteLength - 2; index >= 2; index -= 1) {
+    if (bytes[index] === 0xff && bytes[index + 1] === 0xd9) return true;
+  }
+  return false;
+}
+
+async function discardAsset(bucket: R2Bucket, r2Key: string): Promise<void> {
+  try {
+    await bucket.delete(r2Key);
+  } catch (error) {
+    console.error({
+      error: error instanceof Error ? error.message : String(error),
+      event: "studio_mcp_asset_cleanup_failed",
+      r2Key
+    });
+  }
+}
+
+function endsWith(bytes: Uint8Array, signature: number[]): boolean {
+  return bytes.byteLength >= signature.length &&
+    signature.every((value, index) =>
+      bytes[bytes.byteLength - signature.length + index] === value
+    );
+}
+
+function readLittleEndianUint32(bytes: Uint8Array, offset: number): number {
+  return (
+    (bytes[offset] ?? 0) |
+    ((bytes[offset + 1] ?? 0) << 8) |
+    ((bytes[offset + 2] ?? 0) << 16) |
+    ((bytes[offset + 3] ?? 0) << 24)
+  ) >>> 0;
+}
+
+function startsWith(bytes: Uint8Array, signature: number[]): boolean {
+  return bytes.byteLength >= signature.length &&
+    signature.every((value, index) => bytes[index] === value);
+}
+
+async function assetUploadChecksum(input: {
+  alt: string;
+  bytes: Uint8Array;
+  contentType: string;
+  fileName: string;
+  tags: string[];
+}): Promise<string> {
+  const contentSha256 = await sha256Hex(input.bytes);
+  return sha256Hex(new TextEncoder().encode(JSON.stringify({
+    alt: input.alt,
+    contentSha256,
+    contentType: input.contentType,
+    fileName: input.fileName,
+    tags: input.tags
+  })));
+}
+
+function assetMetadataChecksum(input: {
+  alt: string;
+  assetId: string;
+  expectedUpdatedAt: string;
+  tags: string[];
+}): Promise<string> {
+  return sha256Hex(new TextEncoder().encode(JSON.stringify(input)));
+}
+
+async function sha256Hex(value: BufferSource): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", value);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function uploadedAssetResult(asset: CmsAsset): Record<string, unknown> {
+  const markdownAlt = asset.alt
+    .replace(/\s+/gu, " ")
+    .replace(/\\/gu, "\\\\")
+    .replace(/\[/gu, "\\[")
+    .replace(/\]/gu, "\\]");
+  return {
+    asset,
+    markdown: `![${markdownAlt}](${asset.markdownUrl})`
   };
 }
 

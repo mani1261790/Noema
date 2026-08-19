@@ -25,6 +25,12 @@
       "migrations_dir": "../studio/migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_ASSETS",
+      "bucket_name": "noema-article-assets"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

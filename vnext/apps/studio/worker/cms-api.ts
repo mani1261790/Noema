@@ -413,6 +413,7 @@ function cmsRepositoryError(error: unknown): Response {
 
   const status = {
     article_not_found: 404,
+    asset_conflict: 409,
     asset_in_use: 409,
     asset_not_found: 404,
     cms_not_configured: 503,
