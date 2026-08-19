@@ -151,7 +151,11 @@ export interface CmsMutationContext {
   client?: string;
   idempotency?: {
     requestId: string;
-    toolName: "studio_create_draft" | "studio_update_draft";
+    toolName:
+      | "studio_create_draft"
+      | "studio_request_changes"
+      | "studio_request_review"
+      | "studio_update_draft";
   };
 }
 
@@ -668,8 +672,23 @@ export async function transitionCmsArticle(
   action: CmsArticleAction,
   expectedVersion: number,
   options: { note?: string; visibility?: CmsVisibility } = {},
-  now = new Date()
+  now = new Date(),
+  context: CmsMutationContext = {}
 ): Promise<CmsArticleDetail> {
+  const checksum = await transitionChecksum({
+    action,
+    articleId,
+    expectedVersion,
+    note: options.note,
+    visibility: options.visibility
+  });
+  const replayArticleId = await findIdempotentArticle(
+    db,
+    identity,
+    context,
+    checksum
+  );
+  if (replayArticleId) return getCmsArticle(db, identity, replayArticleId);
   const current = await getCurrentArticleRow(db, articleId);
   if (current.lock_version !== expectedVersion) throw revisionConflict();
   const detail = await getCmsArticle(db, identity, articleId);
@@ -681,6 +700,24 @@ export async function transitionCmsArticle(
   let result: D1Result[];
   try {
     result = await db.batch([
+      db.prepare(
+        `INSERT INTO cms_audit_events
+          (id, article_id, actor_subject, action, metadata_json, created_at)
+         SELECT ?1, id, ?2, ?3, ?4, ?5
+         FROM cms_articles
+         WHERE id = ?6 AND lock_version = ?7`
+      ).bind(
+        auditId,
+        identity.subject,
+        `article.${action}`,
+        JSON.stringify(auditMetadata({
+          revisionId: current.current_revision_id,
+          visibility: transition.publishedVisibility ?? transition.draftVisibility
+        }, context)),
+        timestamp,
+        articleId,
+        expectedVersion
+      ),
       db.prepare(
         `UPDATE cms_articles
          SET review_status = ?1,
@@ -720,33 +757,41 @@ export async function transitionCmsArticle(
         articleId,
         expectedVersion
       ),
-      db.prepare(
-        `INSERT INTO cms_audit_events
-          (id, article_id, actor_subject, action, metadata_json, created_at)
-         SELECT ?1, id, ?2, ?3, ?4, ?5
-         FROM cms_articles
-         WHERE id = ?6 AND lock_version = ?7`
-      ).bind(
+      ...idempotencyStatementForAudit(
+        db,
+        identity,
+        context,
+        checksum,
         auditId,
-        identity.subject,
-        `article.${action}`,
-        JSON.stringify({
-          revisionId: current.current_revision_id,
-          visibility: transition.publishedVisibility ?? transition.draftVisibility
-        }),
-        timestamp,
-        articleId,
-        nextVersion
+        timestamp
       )
     ]);
   } catch (error) {
+    if (isIdempotencyConstraint(error)) {
+      const replay = await findIdempotentArticle(
+        db,
+        identity,
+        context,
+        checksum
+      );
+      if (replay) return getCmsArticle(db, identity, replay);
+    }
     if (isUniqueConstraint(error, "cms_articles.published_slug")) {
       throw slugConflict();
     }
     throw error;
   }
 
-  if (result[0]?.meta.changes !== 1) throw revisionConflict();
+  if (result[0]?.meta.changes !== 1 || result[1]?.meta.changes !== 1) {
+    const replay = await findIdempotentArticle(
+      db,
+      identity,
+      context,
+      checksum
+    );
+    if (replay) return getCmsArticle(db, identity, replay);
+    throw revisionConflict();
+  }
   return getCmsArticle(db, identity, articleId);
 }
 
@@ -1271,6 +1316,22 @@ async function operationChecksum(input: {
   return sha256(JSON.stringify(input));
 }
 
+async function transitionChecksum(input: {
+  action: CmsArticleAction;
+  articleId: string;
+  expectedVersion: number;
+  note?: string;
+  visibility?: CmsVisibility;
+}): Promise<string> {
+  return sha256(JSON.stringify({
+    action: input.action,
+    articleId: input.articleId,
+    expectedVersion: input.expectedVersion,
+    note: input.note ?? null,
+    visibility: input.visibility ?? null
+  }));
+}
+
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -1333,6 +1394,31 @@ function idempotencyStatements(
     checksum,
     articleId,
     timestamp
+  )];
+}
+
+function idempotencyStatementForAudit(
+  db: D1Database,
+  identity: CmsIdentity,
+  context: CmsMutationContext,
+  checksum: string,
+  auditId: string,
+  timestamp: string
+): D1PreparedStatement[] {
+  if (!context.idempotency) return [];
+  return [db.prepare(
+    `INSERT INTO cms_mcp_idempotency
+      (actor_subject, tool_name, request_id, input_sha256, article_id, created_at)
+     SELECT ?1, ?2, ?3, ?4, article_id, ?5
+     FROM cms_audit_events
+     WHERE id = ?6 AND actor_subject = ?1`
+  ).bind(
+    identity.subject,
+    context.idempotency.toolName,
+    context.idempotency.requestId,
+    checksum,
+    timestamp,
+    auditId
   )];
 }
 

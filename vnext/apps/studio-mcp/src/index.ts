@@ -26,6 +26,7 @@ import {
   getCmsArticle,
   listCmsArticles,
   resolveExistingCmsSession,
+  transitionCmsArticle,
   updateCmsArticle
 } from "../../studio/worker/cms-repository";
 
@@ -51,6 +52,17 @@ const createDraftSchema = cmsCreateArticleRequestSchema.extend({
 const updateDraftSchema = cmsUpdateArticleRequestSchema.extend({
   articleId: z.string().uuid(),
   requestId: REQUEST_ID_SCHEMA
+}).strict();
+
+const requestReviewSchema = z.object({
+  articleId: z.string().uuid(),
+  expectedVersion: z.number().int().nonnegative(),
+  note: z.string().trim().max(500).optional(),
+  requestId: REQUEST_ID_SCHEMA
+}).strict();
+
+const requestChangesSchema = requestReviewSchema.extend({
+  note: z.string().trim().min(1).max(500)
 }).strict();
 
 type AccessTokenVerifier = (
@@ -253,6 +265,58 @@ export function createStudioMcpServer(
           channel: "mcp",
           client,
           idempotency: { requestId, toolName: "studio_update_draft" }
+        }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_request_review",
+    {
+      title: "Request Studio review",
+      description: "下書きを検証してレビュー依頼へ進めます。承認や公開は行いません。",
+      inputSchema: requestReviewSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ articleId, expectedVersion, note, requestId }) => executeTool(async () => ({
+      article: await transitionCmsArticle(
+        db,
+        session.identity,
+        articleId,
+        "request_review",
+        expectedVersion,
+        { note },
+        new Date(),
+        {
+          channel: "mcp",
+          client,
+          idempotency: { requestId, toolName: "studio_request_review" }
+        }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_request_changes",
+    {
+      title: "Request Studio changes",
+      description: "レビュー中の記事へ具体的な修正指摘を記録します。承認や公開は行いません。",
+      inputSchema: requestChangesSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ articleId, expectedVersion, note, requestId }) => executeTool(async () => ({
+      article: await transitionCmsArticle(
+        db,
+        session.identity,
+        articleId,
+        "request_changes",
+        expectedVersion,
+        { note },
+        new Date(),
+        {
+          channel: "mcp",
+          client,
+          idempotency: { requestId, toolName: "studio_request_changes" }
         }
       )
     }))
