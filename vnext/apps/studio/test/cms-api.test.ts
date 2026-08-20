@@ -176,6 +176,26 @@ describe("CMS HTTP API", () => {
     expect(history.versions).toHaveLength(1);
     expect(history.versions[0]?.checkpointCount).toBe(2);
 
+    const checkpointsResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints`),
+      cmsEnv(),
+      ADMIN
+    );
+    const checkpoints = (await checkpointsResponse.json()) as {
+      checkpoints: Array<{ number: number }>;
+      nextBeforeRevisionNumber: number | null;
+    };
+    expect(checkpointsResponse.status).toBe(200);
+    expect(checkpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([2, 1]);
+    expect(checkpoints.nextBeforeRevisionNumber).toBeNull();
+
+    const invalidCursorResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints?before=99999999999999999999`),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(invalidCursorResponse.status).toBe(400);
+
     const detailResponse = await handleCmsApiRequest(
       cmsRequest(`/api/cms/articles/${created.article.id}/versions/${history.versions[0]?.latestRevisionId}`),
       cmsEnv(),

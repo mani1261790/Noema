@@ -14,6 +14,7 @@ import {
   listCmsAssets,
   listCmsArticles,
   listCmsArticleVersions,
+  listCmsArticleVersionCheckpoints,
   listCmsMembers,
   resolveCmsSession,
   registerCmsAsset,
@@ -195,6 +196,25 @@ export async function handleCmsApiRequest(
       });
     }
 
+    if (route.kind === "checkpoints") {
+      if (request.method !== "GET") return methodNotAllowed("GET");
+      const before = new URL(request.url).searchParams.get("before");
+      const beforeRevisionNumber = before === null ? undefined : Number(before);
+      if (
+        before !== null &&
+        (!/^[1-9]\d*$/u.test(before) || !Number.isSafeInteger(beforeRevisionNumber))
+      ) {
+        return cmsError(400, "invalid_checkpoint_cursor", "履歴の読込位置を確認してください。");
+      }
+      return cmsJson(await listCmsArticleVersionCheckpoints(
+        env.CMS_DB,
+        session.identity,
+        route.id,
+        route.versionId,
+        beforeRevisionNumber
+      ));
+    }
+
     if (request.method !== "POST") return methodNotAllowed("POST");
     const body = await readCmsJson(request);
     if (!body.ok) return body.response;
@@ -338,7 +358,8 @@ type ArticleRoute =
   | { id: string; kind: "article" }
   | { id: string; kind: "actions" }
   | { id: string; kind: "versions" }
-  | { id: string; kind: "version"; revisionId: string };
+  | { id: string; kind: "version"; revisionId: string }
+  | { id: string; kind: "checkpoints"; versionId: string };
 
 function parseArticleRoute(pathname: string): ArticleRoute | null {
   const segments = pathname.split("/").filter(Boolean);
@@ -360,6 +381,14 @@ function parseArticleRoute(pathname: string): ArticleRoute | null {
     /^[0-9a-f-]{36}$/i.test(segments[5] ?? "")
   ) {
     return { id, kind: "version", revisionId: segments[5] ?? "" };
+  }
+  if (
+    segments.length === 7 &&
+    segments[4] === "versions" &&
+    /^[0-9a-f-]{36}$/i.test(segments[5] ?? "") &&
+    segments[6] === "checkpoints"
+  ) {
+    return { id, kind: "checkpoints", versionId: segments[5] ?? "" };
   }
   return null;
 }

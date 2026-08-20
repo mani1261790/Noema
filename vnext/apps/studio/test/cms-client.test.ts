@@ -3,6 +3,7 @@ import { createBlankArticle } from "../src/draft-storage";
 import {
   fetchCmsArticles,
   fetchCmsArticleVersion,
+  fetchCmsArticleVersionCheckpoints,
   fetchCmsArticleVersions,
   fetchCmsMembers,
   runCmsArticleAction,
@@ -111,6 +112,19 @@ describe("CMS version history client", () => {
         sourceRevisionId: null,
         updatedAt: "2026-07-18T00:02:00.000Z"
       }] });
+      if (path.includes("/checkpoints")) return jsonResponse({
+        checkpoints: [{
+          createdAt: "2026-07-18T00:02:00.000Z",
+          createdByEmail: "editor@example.com",
+          id: "22222222-2222-4222-8222-222222222222",
+          isApproved: false,
+          isCurrent: true,
+          isPublished: false,
+          number: 3,
+          reason: "manual"
+        }],
+        nextBeforeRevisionNumber: null
+      });
       return jsonResponse({ version: {
         isApproved: false,
         isCurrent: true,
@@ -131,6 +145,12 @@ describe("CMS version history client", () => {
       "22222222-2222-4222-8222-222222222222",
       { fetchFn }
     );
+    const checkpoints = await fetchCmsArticleVersionCheckpoints(
+      "11111111-1111-4111-8111-111111111111",
+      "33333333-3333-4333-8333-333333333333",
+      undefined,
+      { fetchFn }
+    );
 
     expect(versions.ok && versions.value[0]).toMatchObject({
       checkpointCount: 3,
@@ -139,6 +159,10 @@ describe("CMS version history client", () => {
     expect(version.ok && version.value).toMatchObject({
       reason: "manual",
       visibility: "public"
+    });
+    expect(checkpoints.ok && checkpoints.value.checkpoints[0]).toMatchObject({
+      number: 3,
+      reason: "manual"
     });
   });
 });

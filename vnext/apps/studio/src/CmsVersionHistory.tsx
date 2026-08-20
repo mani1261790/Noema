@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type {
   CmsArticleDetail,
+  CmsArticleVersionCheckpoint,
   CmsArticleVersionDetail,
   CmsArticleVersionSummary,
   CmsRevisionSaveReason,
@@ -8,7 +9,11 @@ import type {
 } from "@noema/cms";
 import type { ArticleFrontmatter } from "@noema/content";
 import { buildCmsBodyConflictBlocks, changedCmsMetadataFields } from "./cms-conflict";
-import { fetchCmsArticleVersion, fetchCmsArticleVersions } from "./cms-client";
+import {
+  fetchCmsArticleVersion,
+  fetchCmsArticleVersionCheckpoints,
+  fetchCmsArticleVersions
+} from "./cms-client";
 import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
 
 const reasonLabels: Record<CmsRevisionSaveReason, string> = {
@@ -46,7 +51,12 @@ type VersionState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { error: string; kind: "error" }
-  | { kind: "ready"; version: CmsArticleVersionDetail };
+  | { kind: "ready"; version: CmsArticleVersionDetail; versionId: string };
+
+interface SelectedVersion {
+  revisionId: string;
+  versionId: string;
+}
 
 export function CmsVersionHistory({
   article,
@@ -64,8 +74,9 @@ export function CmsVersionHistory({
   const confirmRef = useRef<HTMLHeadingElement>(null);
   const [refresh, setRefresh] = useState(0);
   const [historyState, setHistoryState] = useState<HistoryState>({ kind: "loading" });
-  const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<SelectedVersion | null>(null);
   const [versionState, setVersionState] = useState<VersionState>({ kind: "idle" });
+  const [loadingRevisionId, setLoadingRevisionId] = useState<string | null>(null);
   const [confirmingRestore, setConfirmingRestore] = useState(false);
 
   useEffect(() => headingRef.current?.focus(), []);
@@ -104,27 +115,41 @@ export function CmsVersionHistory({
         return;
       }
       setHistoryState({ kind: "ready", versions: result.value });
-      setSelectedRevisionId((current) => current ?? result.value[0]?.latestRevisionId ?? null);
+      setSelectedVersion((current) => current ?? (result.value[0]
+        ? {
+            revisionId: result.value[0].latestRevisionId,
+            versionId: result.value[0].id
+          }
+        : null));
     });
     return () => controller.abort();
   }, [article.id, refresh]);
 
   useEffect(() => {
-    if (!selectedRevisionId) {
+    if (!selectedVersion) {
       setVersionState({ kind: "idle" });
+      setLoadingRevisionId(null);
       return;
     }
     const controller = new AbortController();
     setConfirmingRestore(false);
-    setVersionState({ kind: "loading" });
-    void fetchCmsArticleVersion(article.id, selectedRevisionId, { signal: controller.signal }).then((result) => {
+    setLoadingRevisionId(selectedVersion.revisionId);
+    setVersionState((current) => current.kind === "ready" && current.versionId === selectedVersion.versionId
+      ? current
+      : { kind: "loading" });
+    void fetchCmsArticleVersion(article.id, selectedVersion.revisionId, { signal: controller.signal }).then((result) => {
       if (controller.signal.aborted) return;
       setVersionState(result.ok
-        ? { kind: "ready", version: result.value }
+        ? { kind: "ready", version: result.value, versionId: selectedVersion.versionId }
         : { error: result.error.message, kind: "error" });
+      setLoadingRevisionId(null);
     });
     return () => controller.abort();
-  }, [article.id, selectedRevisionId]);
+  }, [article.id, selectedVersion]);
+
+  const selectedSummary = historyState.kind === "ready" && selectedVersion
+    ? historyState.versions.find((version) => version.id === selectedVersion.versionId) ?? null
+    : null;
 
   useEffect(() => {
     if (confirmingRestore) confirmRef.current?.focus();
@@ -160,9 +185,12 @@ export function CmsVersionHistory({
               {historyState.versions.map((version) => (
                 <li key={version.id}>
                   <button
-                    aria-current={selectedRevisionId === version.latestRevisionId ? "true" : undefined}
-                    className={selectedRevisionId === version.latestRevisionId ? "is-selected" : ""}
-                    onClick={() => setSelectedRevisionId(version.latestRevisionId)}
+                    aria-pressed={selectedVersion?.versionId === version.id}
+                    className={selectedVersion?.versionId === version.id ? "is-selected" : ""}
+                    onClick={() => setSelectedVersion({
+                      revisionId: version.latestRevisionId,
+                      versionId: version.id
+                    })}
                     type="button"
                   >
                     <span className="studio-version-history__version-heading">
@@ -189,7 +217,13 @@ export function CmsVersionHistory({
           hasUnsavedChanges={hasUnsavedChanges}
           onCancelRestore={() => setConfirmingRestore(false)}
           onConfirmRestore={(version) => onRestore(version)}
+          onSelectCheckpoint={(revisionId) => setSelectedVersion((current) => current
+            ? { ...current, revisionId }
+            : null)}
           onStartRestore={() => setConfirmingRestore(true)}
+          loadingRevisionId={loadingRevisionId}
+          selectedRevisionId={selectedVersion?.revisionId ?? null}
+          summary={selectedSummary}
           state={versionState}
         />
       </div>
@@ -204,8 +238,12 @@ function VersionComparison({
   hasUnsavedChanges,
   onCancelRestore,
   onConfirmRestore,
+  onSelectCheckpoint,
   onStartRestore,
-  state
+  loadingRevisionId,
+  selectedRevisionId,
+  state,
+  summary
 }: {
   article: CmsArticleDetail;
   confirmingRestore: boolean;
@@ -213,8 +251,12 @@ function VersionComparison({
   hasUnsavedChanges: boolean;
   onCancelRestore: () => void;
   onConfirmRestore: (version: CmsArticleVersionDetail) => void;
+  onSelectCheckpoint: (revisionId: string) => void;
   onStartRestore: () => void;
+  loadingRevisionId: string | null;
+  selectedRevisionId: string | null;
   state: VersionState;
+  summary: CmsArticleVersionSummary | null;
 }) {
   const comparison = useMemo(() => {
     if (state.kind !== "ready") return null;
@@ -239,18 +281,27 @@ function VersionComparison({
   const { version } = state;
   const sameAsCurrent = version.revision.id === article.currentRevision.id;
   return (
-    <article className="studio-version-history__detail">
+    <article aria-busy={loadingRevisionId !== null} className="studio-version-history__detail">
       <header>
         <p className="studio-version-history__eyebrow">選択した版</p>
         <h3>revision {version.revision.number}</h3>
         <p>{formatDateTime(version.revision.createdAt)}・{version.revision.createdByEmail}</p>
       </header>
+      {loadingRevisionId !== null ? <p role="status">選択した保存時点を読み込んでいます…</p> : null}
       <dl className="studio-version-history__summary">
         <div><dt>タイトル</dt><dd>{version.revision.frontmatter.title || "（未入力）"}</dd></div>
         <div><dt>本文</dt><dd>{version.revision.markdown.length.toLocaleString("ja-JP")}文字</dd></div>
         <div><dt>現在版との差</dt><dd>{comparison?.metadataFields.length ?? 0}項目・本文{comparison?.bodyChanges.length ?? 0}か所</dd></div>
         <div><dt>公開範囲</dt><dd>{formatVisibility(version.visibility)}</dd></div>
       </dl>
+      {summary && summary.checkpointCount > 1 ? (
+        <VersionCheckpoints
+          articleId={article.id}
+          onSelect={onSelectCheckpoint}
+          selectedRevisionId={selectedRevisionId}
+          summary={summary}
+        />
+      ) : null}
       {comparison && (comparison.metadataFields.length > 0 || comparison.bodyChanges.length > 0) ? (
         <details className="studio-version-history__changes">
           <summary>現在版との差分を見る</summary>
@@ -266,7 +317,7 @@ function VersionComparison({
           ))}
         </details>
       ) : <p>この版は現在版と同じ内容です。</p>}
-      {!sameAsCurrent && !confirmingRestore ? (
+      {!sameAsCurrent && !confirmingRestore && loadingRevisionId === null ? (
         <button className="dads-button" data-size="md" data-type="solid-fill" onClick={onStartRestore} type="button">この版をもとに編集</button>
       ) : null}
       {confirmingRestore ? (
@@ -280,6 +331,101 @@ function VersionComparison({
         </section>
       ) : null}
     </article>
+  );
+}
+
+function VersionCheckpoints({
+  articleId,
+  onSelect,
+  selectedRevisionId,
+  summary
+}: {
+  articleId: string;
+  onSelect: (revisionId: string) => void;
+  selectedRevisionId: string | null;
+  summary: CmsArticleVersionSummary;
+}) {
+  const [checkpoints, setCheckpoints] = useState<CmsArticleVersionCheckpoint[]>([]);
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCheckpoints([]);
+    setNextBefore(null);
+    setLoading(true);
+    setError(null);
+    void fetchCmsArticleVersionCheckpoints(
+      articleId,
+      summary.id,
+      undefined,
+      { signal: controller.signal }
+    ).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.ok) {
+        setCheckpoints(result.value.checkpoints);
+        setNextBefore(result.value.nextBeforeRevisionNumber);
+      } else {
+        setError(result.error.message);
+      }
+      setLoading(false);
+    });
+    return () => controller.abort();
+  }, [articleId, refresh, summary.id]);
+
+  const loadMore = async () => {
+    if (nextBefore === null || loading) return;
+    setLoading(true);
+    setError(null);
+    const result = await fetchCmsArticleVersionCheckpoints(articleId, summary.id, nextBefore);
+    if (result.ok) {
+      setCheckpoints((current) => [...current, ...result.value.checkpoints]);
+      setNextBefore(result.value.nextBeforeRevisionNumber);
+    } else {
+      setError(result.error.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <details className="studio-version-history__checkpoints">
+      <summary>自動保存の内訳（{summary.checkpointCount}件）</summary>
+      <div>
+        <p>版の途中へ戻す必要がある場合に、保存時点を選べます。</p>
+        {error ? (
+          <div role="alert">
+            <p>{error}</p>
+            <button className="dads-button" data-size="sm" data-type="outline" onClick={() => setRefresh((value) => value + 1)} type="button">もう一度読み込む</button>
+          </div>
+        ) : null}
+        <ol>
+          {checkpoints.map((checkpoint) => (
+            <li key={checkpoint.id}>
+              <button
+                aria-pressed={selectedRevisionId === checkpoint.id}
+                className={selectedRevisionId === checkpoint.id ? "is-selected" : ""}
+                onClick={() => onSelect(checkpoint.id)}
+                type="button"
+              >
+                <span><strong>revision {checkpoint.number}</strong>・{formatDateTime(checkpoint.createdAt)}</span>
+                <small>{checkpoint.createdByEmail}</small>
+                <span className="studio-version-history__badges">
+                  {checkpoint.isCurrent ? <em>現在編集中</em> : null}
+                  {checkpoint.isApproved ? <em>承認済み</em> : null}
+                  {checkpoint.isPublished ? <em>公開中</em> : null}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        {loading ? <p role="status">自動保存の内訳を読み込んでいます…</p> : null}
+        {nextBefore !== null && !loading ? (
+          <button className="dads-button" data-size="sm" data-type="outline" onClick={() => void loadMore()} type="button">以前の保存をさらに表示</button>
+        ) : null}
+      </div>
+    </details>
   );
 }
 

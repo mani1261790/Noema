@@ -10,6 +10,8 @@ import {
   type CmsArticleDetail,
   type CmsArticleSummary,
   type CmsArticleVersionDetail,
+  type CmsArticleVersionCheckpoint,
+  type CmsArticleVersionCheckpointPage,
   type CmsArticleVersionSummary,
   type CmsAsset,
   type CmsAssetStatus,
@@ -150,6 +152,36 @@ export async function fetchCmsArticleVersion(
   if (!isRecord(result.value)) return invalidResponse(result.status);
   const version = parseCmsArticleVersionDetail(result.value.version);
   return version ? { ok: true, value: version } : invalidResponse(result.status);
+}
+
+export async function fetchCmsArticleVersionCheckpoints(
+  articleId: string,
+  versionId: string,
+  beforeRevisionNumber?: number,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsArticleVersionCheckpointPage>> {
+  const query = beforeRevisionNumber === undefined ? "" : `?before=${beforeRevisionNumber}`;
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/versions/${encodeURIComponent(versionId)}/checkpoints${query}`,
+    { method: "GET" },
+    options
+  );
+  if (!result.ok) return result;
+  if (
+    !isRecord(result.value) ||
+    !Array.isArray(result.value.checkpoints) ||
+    !(result.value.nextBeforeRevisionNumber === null || isNonnegativeInteger(result.value.nextBeforeRevisionNumber))
+  ) return invalidResponse(result.status);
+  const checkpoints = result.value.checkpoints.map(parseCmsArticleVersionCheckpoint);
+  return checkpoints.every((checkpoint): checkpoint is CmsArticleVersionCheckpoint => checkpoint !== null)
+    ? {
+        ok: true,
+        value: {
+          checkpoints,
+          nextBeforeRevisionNumber: result.value.nextBeforeRevisionNumber
+        }
+      }
+    : invalidResponse(result.status);
 }
 
 export async function fetchCmsMembers(
@@ -518,6 +550,31 @@ function parseCmsArticleVersionDetail(value: unknown): CmsArticleVersionDetail |
     },
     sourceRevisionId: value.sourceRevisionId,
     visibility: visibility.data
+  };
+}
+
+function parseCmsArticleVersionCheckpoint(value: unknown): CmsArticleVersionCheckpoint | null {
+  if (!isRecord(value)) return null;
+  const reason = cmsRevisionSaveReasonSchema.safeParse(value.reason);
+  if (
+    !reason.success ||
+    !isString(value.createdAt) ||
+    !isString(value.createdByEmail) ||
+    !isString(value.id) ||
+    !isBoolean(value.isApproved) ||
+    !isBoolean(value.isCurrent) ||
+    !isBoolean(value.isPublished) ||
+    !isNonnegativeInteger(value.number)
+  ) return null;
+  return {
+    createdAt: value.createdAt,
+    createdByEmail: value.createdByEmail,
+    id: value.id,
+    isApproved: value.isApproved,
+    isCurrent: value.isCurrent,
+    isPublished: value.isPublished,
+    number: value.number,
+    reason: reason.data
   };
 }
 

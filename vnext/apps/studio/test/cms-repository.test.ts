@@ -10,6 +10,7 @@ import {
   listCmsAssets,
   listCmsArticles,
   listCmsArticleVersions,
+  listCmsArticleVersionCheckpoints,
   registerCmsAsset,
   resolveCmsSession,
   transitionCmsArticle,
@@ -619,6 +620,15 @@ describe("CMS repository", () => {
       latestRevisionNumber: 3,
       reason: "manual"
     });
+    const checkpoints = await listCmsArticleVersionCheckpoints(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      firstSession
+    );
+    expect(checkpoints.nextBeforeRevisionNumber).toBeNull();
+    expect(checkpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([3, 2, 1]);
+    expect(checkpoints.checkpoints[0]).toMatchObject({ reason: "manual" });
 
     const restored = await getCmsArticleVersion(
       testEnv.CMS_DB,

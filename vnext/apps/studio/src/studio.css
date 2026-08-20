@@ -1334,6 +1334,63 @@ a {
   border: 1px solid #949494;
 }
 
+.studio-version-history__checkpoints {
+  margin-block: 1rem;
+  border: 1px solid #949494;
+}
+
+.studio-version-history__checkpoints > summary {
+  min-height: 44px;
+  padding: .7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.studio-version-history__checkpoints > div {
+  padding: .75rem;
+  border-top: 1px solid #ccc;
+}
+
+.studio-version-history__checkpoints > div > p:first-child {
+  margin-top: 0;
+}
+
+.studio-version-history__checkpoints ol {
+  display: grid;
+  gap: .4rem;
+  margin: .75rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.studio-version-history__checkpoints li > button {
+  display: grid;
+  gap: .2rem;
+  width: 100%;
+  min-height: 44px;
+  padding: .65rem;
+  color: inherit;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #949494;
+  cursor: pointer;
+}
+
+.studio-version-history__checkpoints li > button:hover,
+.studio-version-history__checkpoints li > button.is-selected {
+  background: #f1f6fb;
+  border-color: #005ea8;
+}
+
+.studio-version-history__checkpoints li > button:focus-visible {
+  outline: 3px solid #ffbf47;
+  outline-offset: 2px;
+}
+
+.studio-version-history__checkpoints small {
+  color: #555;
+}
+
 .studio-version-history__changes > summary {
   min-height: 44px;
   padding: .7rem;

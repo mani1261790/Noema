@@ -212,6 +212,22 @@ export interface CmsArticleVersionDetail {
   visibility: CmsVisibility | null;
 }
 
+export interface CmsArticleVersionCheckpoint {
+  createdAt: string;
+  createdByEmail: string;
+  id: string;
+  isApproved: boolean;
+  isCurrent: boolean;
+  isPublished: boolean;
+  number: number;
+  reason: CmsRevisionSaveReason;
+}
+
+export interface CmsArticleVersionCheckpointPage {
+  checkpoints: CmsArticleVersionCheckpoint[];
+  nextBeforeRevisionNumber: number | null;
+}
+
 export interface CmsArticleDetail extends CmsArticleSummary {
   currentRevision: CmsArticleRevision;
   publishedRevisionNumber: number | null;

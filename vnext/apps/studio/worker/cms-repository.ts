@@ -15,6 +15,8 @@ import {
   type CmsArticleDetail,
   type CmsArticleSummary,
   type CmsArticleVersionDetail,
+  type CmsArticleVersionCheckpoint,
+  type CmsArticleVersionCheckpointPage,
   type CmsArticleVersionSummary,
   type CmsIdentity,
   type CmsMember,
@@ -121,6 +123,17 @@ interface ArticleVersionDetailRow {
   revision_number: number;
   source_revision_id: string | null;
   visibility: string | null;
+}
+
+interface ArticleVersionCheckpointRow {
+  created_at: string;
+  created_by_email: string;
+  id: string;
+  is_approved: number;
+  is_current: number;
+  is_published: number;
+  reason: string;
+  revision_number: number;
 }
 
 interface MemberListRow {
@@ -928,6 +941,46 @@ export async function getCmsArticleVersion(
   return parseArticleVersionDetail(row);
 }
 
+export async function listCmsArticleVersionCheckpoints(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string,
+  versionId: string,
+  beforeRevisionNumber?: number
+): Promise<CmsArticleVersionCheckpointPage> {
+  requirePermission(identity.role, "edit");
+  await getCurrentArticleRow(db, articleId);
+  const result = await db.prepare(
+    `SELECT
+       r.id,
+       r.revision_number,
+       r.created_at,
+       r.save_reason AS reason,
+       COALESCE(m.email, 'unknown') AS created_by_email,
+       CASE WHEN r.id = a.current_revision_id THEN 1 ELSE 0 END AS is_current,
+       CASE WHEN r.id = a.approved_revision_id THEN 1 ELSE 0 END AS is_approved,
+       CASE WHEN r.id = a.published_revision_id THEN 1 ELSE 0 END AS is_published
+     FROM cms_article_revisions r
+     JOIN cms_articles a ON a.id = r.article_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
+     WHERE r.article_id = ?1
+       AND (r.edit_session_id = ?2 OR (r.edit_session_id IS NULL AND r.id = ?2))
+       AND (?3 IS NULL OR r.revision_number < ?3)
+     ORDER BY r.revision_number DESC
+     LIMIT 101`
+  ).bind(articleId, versionId, beforeRevisionNumber ?? null).all<ArticleVersionCheckpointRow>();
+  if (result.results.length === 0 && beforeRevisionNumber === undefined) {
+    throw articleNotFound();
+  }
+  const visible = result.results.slice(0, 100);
+  return {
+    checkpoints: visible.map(parseArticleVersionCheckpoint),
+    nextBeforeRevisionNumber: result.results.length > 100
+      ? visible.at(-1)?.revision_number ?? null
+      : null
+  };
+}
+
 export async function createCmsArticle(
   db: D1Database,
   identity: CmsIdentity,
@@ -1687,6 +1740,21 @@ function parseArticleVersionDetail(row: ArticleVersionDetailRow): CmsArticleVers
     },
     sourceRevisionId: row.source_revision_id,
     visibility: visibility.data
+  };
+}
+
+function parseArticleVersionCheckpoint(row: ArticleVersionCheckpointRow): CmsArticleVersionCheckpoint {
+  const reason = cmsRevisionSaveReasonSchema.safeParse(row.reason);
+  if (!reason.success) throw new Error("CMS revision checkpoint reason is invalid.");
+  return {
+    createdAt: row.created_at,
+    createdByEmail: row.created_by_email,
+    id: row.id,
+    isApproved: row.is_approved === 1,
+    isCurrent: row.is_current === 1,
+    isPublished: row.is_published === 1,
+    number: row.revision_number,
+    reason: reason.data
   };
 }
 
