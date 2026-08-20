@@ -9,9 +9,11 @@ import {
 import {
   CmsRepositoryError,
   createCmsArticle,
+  getCmsArticleVersion,
   getCmsArticle,
   listCmsAssets,
   listCmsArticles,
+  listCmsArticleVersions,
   listCmsMembers,
   resolveCmsSession,
   registerCmsAsset,
@@ -104,10 +106,14 @@ export async function handleCmsApiRequest(
         if (!body.ok) return body.response;
         const parsed = cmsCreateArticleRequestSchema.safeParse(body.value);
         if (!parsed.success) return invalidRequest(parsed.error.issues);
+        const { editSessionId, ...content } = parsed.data;
         const article = await createCmsArticle(
           env.CMS_DB,
           session.identity,
-          parsed.data
+          content,
+          undefined,
+          {},
+          { editSessionId }
         );
         return cmsJson({ article }, 201, article.lockVersion);
       }
@@ -148,16 +154,45 @@ export async function handleCmsApiRequest(
         if (!parsed.success) return invalidRequest(parsed.error.issues);
         const precondition = requireIfMatch(request, parsed.data.expectedVersion);
         if (precondition) return precondition;
+        const {
+          editSessionId,
+          expectedVersion,
+          saveReason,
+          sourceRevisionId,
+          ...content
+        } = parsed.data;
         const article = await updateCmsArticle(
           env.CMS_DB,
           session.identity,
           route.id,
-          parsed.data.expectedVersion,
-          parsed.data
+          expectedVersion,
+          content,
+          undefined,
+          {},
+          { editSessionId, saveReason, sourceRevisionId }
         );
         return cmsJson({ article }, 200, article.lockVersion);
       }
       return methodNotAllowed("GET, PUT");
+    }
+
+    if (route.kind === "versions") {
+      if (request.method !== "GET") return methodNotAllowed("GET");
+      return cmsJson({
+        versions: await listCmsArticleVersions(env.CMS_DB, session.identity, route.id)
+      });
+    }
+
+    if (route.kind === "version") {
+      if (request.method !== "GET") return methodNotAllowed("GET");
+      return cmsJson({
+        version: await getCmsArticleVersion(
+          env.CMS_DB,
+          session.identity,
+          route.id,
+          route.revisionId
+        )
+      });
     }
 
     if (request.method !== "POST") return methodNotAllowed("POST");
@@ -301,7 +336,9 @@ function contentTypeFromKey(key: string): string {
 
 type ArticleRoute =
   | { id: string; kind: "article" }
-  | { id: string; kind: "actions" };
+  | { id: string; kind: "actions" }
+  | { id: string; kind: "versions" }
+  | { id: string; kind: "version"; revisionId: string };
 
 function parseArticleRoute(pathname: string): ArticleRoute | null {
   const segments = pathname.split("/").filter(Boolean);
@@ -313,6 +350,16 @@ function parseArticleRoute(pathname: string): ArticleRoute | null {
   if (segments.length === 4) return { id, kind: "article" };
   if (segments.length === 5 && segments[4] === "actions") {
     return { id, kind: "actions" };
+  }
+  if (segments.length === 5 && segments[4] === "versions") {
+    return { id, kind: "versions" };
+  }
+  if (
+    segments.length === 6 &&
+    segments[4] === "versions" &&
+    /^[0-9a-f-]{36}$/i.test(segments[5] ?? "")
+  ) {
+    return { id, kind: "version", revisionId: segments[5] ?? "" };
   }
   return null;
 }

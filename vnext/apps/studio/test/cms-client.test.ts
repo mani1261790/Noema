@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createBlankArticle } from "../src/draft-storage";
 import {
   fetchCmsArticles,
+  fetchCmsArticleVersion,
+  fetchCmsArticleVersions,
   fetchCmsMembers,
   runCmsArticleAction,
   updateCmsArticle
@@ -90,6 +92,57 @@ describe("CMS article list client", () => {
   });
 });
 
+describe("CMS version history client", () => {
+  it("parses grouped versions and a restorable revision", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async (input) => {
+      const path = String(input);
+      if (path.endsWith("/versions")) return jsonResponse({ versions: [{
+        checkpointCount: 3,
+        createdAt: "2026-07-18T00:00:00.000Z",
+        createdByEmail: "editor@example.com",
+        firstRevisionNumber: 1,
+        id: "33333333-3333-4333-8333-333333333333",
+        isApproved: false,
+        isCurrent: true,
+        isPublished: false,
+        latestRevisionId: "22222222-2222-4222-8222-222222222222",
+        latestRevisionNumber: 3,
+        reason: "manual",
+        sourceRevisionId: null,
+        updatedAt: "2026-07-18T00:02:00.000Z"
+      }] });
+      return jsonResponse({ version: {
+        isApproved: false,
+        isCurrent: true,
+        isPublished: false,
+        reason: "manual",
+        revision: articleDetail().currentRevision,
+        sourceRevisionId: null,
+        visibility: "public"
+      } });
+    });
+
+    const versions = await fetchCmsArticleVersions(
+      "11111111-1111-4111-8111-111111111111",
+      { fetchFn }
+    );
+    const version = await fetchCmsArticleVersion(
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      { fetchFn }
+    );
+
+    expect(versions.ok && versions.value[0]).toMatchObject({
+      checkpointCount: 3,
+      reason: "manual"
+    });
+    expect(version.ok && version.value).toMatchObject({
+      reason: "manual",
+      visibility: "public"
+    });
+  });
+});
+
 describe("CMS client optimistic updates", () => {
   it("sends the expected revision in both the body and If-Match", async () => {
     const fetchFn = vi.fn<typeof fetch>(async (_input, init) => {
@@ -112,6 +165,31 @@ describe("CMS client optimistic updates", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.lockVersion).toBe(4);
+  });
+
+  it("sends the editing session and restore provenance with a save", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async (_input, init) => {
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        editSessionId: "33333333-3333-4333-8333-333333333333",
+        saveReason: "restored",
+        sourceRevisionId: "22222222-2222-4222-8222-222222222222"
+      });
+      return jsonResponse({ article: articleDetail() });
+    });
+
+    const result = await updateCmsArticle(
+      "11111111-1111-4111-8111-111111111111",
+      3,
+      { frontmatter: createBlankArticle(), markdown: "restored", visibility: "public" },
+      { fetchFn },
+      {
+        editSessionId: "33333333-3333-4333-8333-333333333333",
+        saveReason: "restored",
+        sourceRevisionId: "22222222-2222-4222-8222-222222222222"
+      }
+    );
+
+    expect(result.ok).toBe(true);
   });
 
   it("preserves a server revision conflict as a recoverable client result", async () => {

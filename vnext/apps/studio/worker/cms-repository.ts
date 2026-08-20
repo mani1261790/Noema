@@ -5,6 +5,7 @@ import {
   cmsAssetStatusSchema,
   cmsDraftFrontmatterSchema,
   cmsPublicationStatusSchema,
+  cmsRevisionSaveReasonSchema,
   cmsReviewStatusSchema,
   cmsRoleSchema,
   cmsVisibilitySchema,
@@ -13,10 +14,13 @@ import {
   type CmsAsset,
   type CmsArticleDetail,
   type CmsArticleSummary,
+  type CmsArticleVersionDetail,
+  type CmsArticleVersionSummary,
   type CmsIdentity,
   type CmsMember,
   type CmsPublicationStatus,
   type CmsReviewStatus,
+  type CmsRevisionSaveReason,
   type CmsRole,
   type CmsSession,
   type CmsVisibility
@@ -88,6 +92,37 @@ interface CurrentArticleRow {
   slug: string;
 }
 
+interface ArticleVersionSummaryRow {
+  checkpoint_count: number;
+  created_at: string;
+  created_by_email: string;
+  first_revision_number: number;
+  is_approved: number;
+  is_current: number;
+  is_published: number;
+  latest_revision_id: string;
+  latest_revision_number: number;
+  reason: string;
+  source_revision_id: string | null;
+  updated_at: string;
+  version_id: string;
+}
+
+interface ArticleVersionDetailRow {
+  created_at: string;
+  created_by_email: string;
+  frontmatter_json: string;
+  id: string;
+  is_approved: number;
+  is_current: number;
+  is_published: number;
+  markdown: string;
+  reason: string;
+  revision_number: number;
+  source_revision_id: string | null;
+  visibility: string | null;
+}
+
 interface MemberListRow {
   active: number;
   email: string;
@@ -147,6 +182,12 @@ export interface CmsArticleContentInput {
   frontmatter: ArticleFrontmatter;
   markdown: string;
   visibility: CmsVisibility;
+}
+
+export interface CmsRevisionWriteContext {
+  editSessionId?: string;
+  saveReason?: Exclude<CmsRevisionSaveReason, "legacy" | "created">;
+  sourceRevisionId?: string;
 }
 
 export interface CmsMutationContext {
@@ -808,12 +849,92 @@ export async function getCmsArticle(
   return parseArticleDetail(row);
 }
 
+export async function listCmsArticleVersions(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string
+): Promise<CmsArticleVersionSummary[]> {
+  requirePermission(identity.role, "edit");
+  await getCurrentArticleRow(db, articleId);
+  const result = await db.prepare(
+    `WITH version_groups AS (
+       SELECT
+         COALESCE(r.edit_session_id, r.id) AS version_id,
+         MIN(r.revision_number) AS first_revision_number,
+         MAX(r.revision_number) AS latest_revision_number,
+         COUNT(*) AS checkpoint_count,
+         MIN(r.created_at) AS created_at,
+         MAX(r.created_at) AS updated_at,
+         MAX(CASE WHEN r.id = a.current_revision_id THEN 1 ELSE 0 END) AS is_current,
+         MAX(CASE WHEN r.id = a.approved_revision_id THEN 1 ELSE 0 END) AS is_approved,
+         MAX(CASE WHEN r.id = a.published_revision_id THEN 1 ELSE 0 END) AS is_published
+       FROM cms_article_revisions r
+       JOIN cms_articles a ON a.id = r.article_id
+       WHERE r.article_id = ?1
+       GROUP BY COALESCE(r.edit_session_id, r.id)
+       ORDER BY latest_revision_number DESC
+       LIMIT 50
+     )
+     SELECT
+       g.version_id,
+       g.first_revision_number,
+       g.latest_revision_number,
+       g.checkpoint_count,
+       g.created_at,
+       g.updated_at,
+       g.is_current,
+       g.is_approved,
+       g.is_published,
+       r.id AS latest_revision_id,
+       r.save_reason AS reason,
+       r.source_revision_id,
+       COALESCE(m.email, 'unknown') AS created_by_email
+     FROM version_groups g
+     JOIN cms_article_revisions r
+       ON r.article_id = ?1 AND r.revision_number = g.latest_revision_number
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
+     ORDER BY g.latest_revision_number DESC`
+  ).bind(articleId).all<ArticleVersionSummaryRow>();
+  return result.results.map(parseArticleVersionSummary);
+}
+
+export async function getCmsArticleVersion(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string,
+  revisionId: string
+): Promise<CmsArticleVersionDetail> {
+  requirePermission(identity.role, "edit");
+  const row = await db.prepare(
+    `SELECT
+       r.id,
+       r.revision_number,
+       r.frontmatter_json,
+       r.markdown,
+       r.created_at,
+       r.save_reason AS reason,
+       r.source_revision_id,
+       r.draft_visibility AS visibility,
+       COALESCE(m.email, 'unknown') AS created_by_email,
+       CASE WHEN r.id = a.current_revision_id THEN 1 ELSE 0 END AS is_current,
+       CASE WHEN r.id = a.approved_revision_id THEN 1 ELSE 0 END AS is_approved,
+       CASE WHEN r.id = a.published_revision_id THEN 1 ELSE 0 END AS is_published
+     FROM cms_article_revisions r
+     JOIN cms_articles a ON a.id = r.article_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
+     WHERE r.article_id = ?1 AND r.id = ?2`
+  ).bind(articleId, revisionId).first<ArticleVersionDetailRow>();
+  if (!row) throw articleNotFound();
+  return parseArticleVersionDetail(row);
+}
+
 export async function createCmsArticle(
   db: D1Database,
   identity: CmsIdentity,
   input: CmsArticleContentInput,
   now = new Date(),
-  context: CmsMutationContext = {}
+  context: CmsMutationContext = {},
+  revisionContext: Pick<CmsRevisionWriteContext, "editSessionId"> = {}
 ): Promise<CmsArticleDetail> {
   requirePermission(identity.role, "edit");
   const content = parseDraftContent(input);
@@ -862,8 +983,9 @@ export async function createCmsArticle(
       db.prepare(
         `INSERT INTO cms_article_revisions (
           id, article_id, revision_number, frontmatter_json, markdown,
-          content_sha256, created_by_subject, created_at
-        ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7)`
+          content_sha256, created_by_subject, created_at, edit_session_id,
+          save_reason, draft_visibility
+        ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, ?8, 'created', ?9)`
       ).bind(
         revisionId,
         articleId,
@@ -871,7 +993,9 @@ export async function createCmsArticle(
         content.markdown,
         checksum,
         identity.subject,
-        timestamp
+        timestamp,
+        revisionContext.editSessionId ?? null,
+        content.visibility
       ),
       db.prepare(
         `INSERT INTO cms_audit_events
@@ -919,7 +1043,8 @@ export async function updateCmsArticle(
   expectedVersion: number,
   input: CmsArticleContentInput,
   now = new Date(),
-  context: CmsMutationContext = {}
+  context: CmsMutationContext = {},
+  revisionContext: CmsRevisionWriteContext = {}
 ): Promise<CmsArticleDetail> {
   requirePermission(identity.role, "edit");
   const content = parseDraftContent(input);
@@ -945,17 +1070,31 @@ export async function updateCmsArticle(
   const nextVersion = expectedVersion + 1;
   const slug = canonicalDraftSlug(content.frontmatter.slug, articleId);
   const contentSha256 = await contentChecksum(content);
+  const saveReason = revisionContext.saveReason ?? "autosave";
+  if (saveReason === "restored" && !revisionContext.sourceRevisionId) {
+    throw new CmsRepositoryError("invalid_article", "復元元の版を指定してください。");
+  }
+  if (saveReason !== "restored" && revisionContext.sourceRevisionId) {
+    throw new CmsRepositoryError("invalid_article", "復元時以外は復元元の版を指定できません。");
+  }
+  if (revisionContext.sourceRevisionId) {
+    const sourceExists = await db.prepare(
+      "SELECT 1 AS present FROM cms_article_revisions WHERE article_id = ?1 AND id = ?2"
+    ).bind(articleId, revisionContext.sourceRevisionId).first<number>("present");
+    if (!sourceExists) throw articleNotFound();
+  }
 
   try {
     const results = await db.batch([
       db.prepare(
         `INSERT INTO cms_article_revisions (
           id, article_id, revision_number, frontmatter_json, markdown,
-          content_sha256, created_by_subject, created_at
+          content_sha256, created_by_subject, created_at, edit_session_id,
+          save_reason, source_revision_id, draft_visibility
         )
-        SELECT ?1, id, ?2, ?3, ?4, ?5, ?6, ?7
+        SELECT ?1, id, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
         FROM cms_articles
-        WHERE id = ?8 AND lock_version = ?9`
+        WHERE id = ?12 AND lock_version = ?13`
       ).bind(
         revisionId,
         nextRevision,
@@ -964,6 +1103,10 @@ export async function updateCmsArticle(
         contentSha256,
         identity.subject,
         timestamp,
+        revisionContext.editSessionId ?? null,
+        saveReason,
+        revisionContext.sourceRevisionId ?? null,
+        content.visibility,
         articleId,
         expectedVersion
       ),
@@ -1003,7 +1146,12 @@ export async function updateCmsArticle(
         auditId,
         identity.subject,
         JSON.stringify(auditMetadata(
-          { revisionId, revisionNumber: nextRevision },
+          {
+            revisionId,
+            revisionNumber: nextRevision,
+            saveReason,
+            sourceRevisionId: revisionContext.sourceRevisionId
+          },
           context
         )),
         timestamp,
@@ -1486,6 +1634,59 @@ function parseArticleDetail(row: ArticleDetailRow): CmsArticleDetail {
     publishedSlug: row.published_slug,
     publishedVisibility: publishedVisibility === null ? null : publishedVisibility.data,
     reviewNote: row.review_note
+  };
+}
+
+function parseArticleVersionSummary(row: ArticleVersionSummaryRow): CmsArticleVersionSummary {
+  const reason = cmsRevisionSaveReasonSchema.safeParse(row.reason);
+  if (!reason.success) throw new Error("CMS revision history reason is invalid.");
+  return {
+    checkpointCount: row.checkpoint_count,
+    createdAt: row.created_at,
+    createdByEmail: row.created_by_email,
+    firstRevisionNumber: row.first_revision_number,
+    id: row.version_id,
+    isApproved: row.is_approved === 1,
+    isCurrent: row.is_current === 1,
+    isPublished: row.is_published === 1,
+    latestRevisionId: row.latest_revision_id,
+    latestRevisionNumber: row.latest_revision_number,
+    reason: reason.data,
+    sourceRevisionId: row.source_revision_id,
+    updatedAt: row.updated_at
+  };
+}
+
+function parseArticleVersionDetail(row: ArticleVersionDetailRow): CmsArticleVersionDetail {
+  let rawFrontmatter: unknown;
+  try {
+    rawFrontmatter = JSON.parse(row.frontmatter_json) as unknown;
+  } catch {
+    throw new Error("CMS revision frontmatter is not valid JSON.");
+  }
+  const frontmatter = cmsDraftFrontmatterSchema.safeParse(rawFrontmatter);
+  const reason = cmsRevisionSaveReasonSchema.safeParse(row.reason);
+  const visibility = row.visibility === null
+    ? { data: null, success: true } as const
+    : cmsVisibilitySchema.safeParse(row.visibility);
+  if (!frontmatter.success || !reason.success || !visibility.success) {
+    throw new Error("CMS revision history data is invalid.");
+  }
+  return {
+    isApproved: row.is_approved === 1,
+    isCurrent: row.is_current === 1,
+    isPublished: row.is_published === 1,
+    reason: reason.data,
+    revision: {
+      createdAt: row.created_at,
+      createdByEmail: row.created_by_email,
+      frontmatter: frontmatter.data,
+      id: row.id,
+      markdown: row.markdown,
+      number: row.revision_number
+    },
+    sourceRevisionId: row.source_revision_id,
+    visibility: visibility.data
   };
 }
 

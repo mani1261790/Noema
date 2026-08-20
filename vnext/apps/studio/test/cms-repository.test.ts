@@ -6,8 +6,10 @@ import {
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createCmsArticle,
+  getCmsArticleVersion,
   listCmsAssets,
   listCmsArticles,
+  listCmsArticleVersions,
   registerCmsAsset,
   resolveCmsSession,
   transitionCmsArticle,
@@ -550,6 +552,86 @@ describe("CMS repository", () => {
       email: "owner@example.com",
       role: "admin"
     }));
+  });
+
+  it("groups autosave checkpoints into editing sessions and preserves restore provenance", async () => {
+    const admin = await bootstrapAdmin();
+    const firstSession = "11111111-1111-4111-8111-111111111111";
+    const restoreSession = "22222222-2222-4222-8222-222222222222";
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("version-history"),
+      NOW,
+      {},
+      { editSessionId: firstSession }
+    );
+    const originalRevisionId = article.currentRevision.id;
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      { ...validArticle("version-history"), markdown: "## 自動保存\n\n入力途中です。" },
+      new Date("2026-07-18T00:01:00.000Z"),
+      {},
+      { editSessionId: firstSession, saveReason: "autosave" }
+    );
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      { ...validArticle("version-history"), markdown: "## 手動記録\n\n版として残します。" },
+      new Date("2026-07-18T00:02:00.000Z"),
+      {},
+      { editSessionId: firstSession, saveReason: "manual" }
+    );
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("version-history"),
+      new Date("2026-07-18T00:03:00.000Z"),
+      {},
+      {
+        editSessionId: restoreSession,
+        saveReason: "restored",
+        sourceRevisionId: originalRevisionId
+      }
+    );
+
+    const versions = await listCmsArticleVersions(testEnv.CMS_DB, admin.identity, article.id);
+    expect(versions).toHaveLength(2);
+    expect(versions[0]).toMatchObject({
+      checkpointCount: 1,
+      id: restoreSession,
+      isCurrent: true,
+      latestRevisionNumber: 4,
+      reason: "restored",
+      sourceRevisionId: originalRevisionId
+    });
+    expect(versions[1]).toMatchObject({
+      checkpointCount: 3,
+      firstRevisionNumber: 1,
+      id: firstSession,
+      latestRevisionNumber: 3,
+      reason: "manual"
+    });
+
+    const restored = await getCmsArticleVersion(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.currentRevision.id
+    );
+    expect(restored).toMatchObject({
+      isCurrent: true,
+      reason: "restored",
+      sourceRevisionId: originalRevisionId,
+      visibility: "internal"
+    });
   });
 });
 

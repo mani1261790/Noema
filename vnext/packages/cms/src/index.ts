@@ -28,12 +28,21 @@ export const cmsVisibilitySchema = z.enum([
   "internal"
 ]);
 export const cmsAssetStatusSchema = z.enum(["active", "archived"]);
+export const cmsRevisionSaveReasonSchema = z.enum([
+  "legacy",
+  "created",
+  "autosave",
+  "manual",
+  "conflict_resolution",
+  "restored"
+]);
 
 export type CmsRole = z.infer<typeof cmsRoleSchema>;
 export type CmsReviewStatus = z.infer<typeof cmsReviewStatusSchema>;
 export type CmsPublicationStatus = z.infer<typeof cmsPublicationStatusSchema>;
 export type CmsVisibility = z.infer<typeof cmsVisibilitySchema>;
 export type CmsAssetStatus = z.infer<typeof cmsAssetStatusSchema>;
+export type CmsRevisionSaveReason = z.infer<typeof cmsRevisionSaveReasonSchema>;
 
 export const cmsRoleLabels = {
   admin: "管理者",
@@ -93,9 +102,18 @@ export const cmsArticleContentSchema = z.object({
   visibility: cmsVisibilitySchema
 }).strict();
 
-export const cmsCreateArticleRequestSchema = cmsArticleContentSchema;
+const cmsRevisionWriteContextSchema = z.object({
+  editSessionId: z.uuid().optional(),
+  saveReason: cmsRevisionSaveReasonSchema.exclude(["legacy", "created"]).optional(),
+  sourceRevisionId: z.uuid().optional()
+}).strict();
+
+export const cmsCreateArticleRequestSchema = cmsArticleContentSchema.extend({
+  editSessionId: z.uuid().optional()
+});
 
 export const cmsUpdateArticleRequestSchema = cmsArticleContentSchema.extend({
+  ...cmsRevisionWriteContextSchema.shape,
   expectedVersion: z.number().int().nonnegative()
 });
 
@@ -166,6 +184,32 @@ export interface CmsArticleRevision {
   id: string;
   markdown: string;
   number: number;
+}
+
+export interface CmsArticleVersionSummary {
+  checkpointCount: number;
+  createdAt: string;
+  createdByEmail: string;
+  firstRevisionNumber: number;
+  id: string;
+  isApproved: boolean;
+  isCurrent: boolean;
+  isPublished: boolean;
+  latestRevisionId: string;
+  latestRevisionNumber: number;
+  reason: CmsRevisionSaveReason;
+  sourceRevisionId: string | null;
+  updatedAt: string;
+}
+
+export interface CmsArticleVersionDetail {
+  isApproved: boolean;
+  isCurrent: boolean;
+  isPublished: boolean;
+  reason: CmsRevisionSaveReason;
+  revision: CmsArticleRevision;
+  sourceRevisionId: string | null;
+  visibility: CmsVisibility | null;
 }
 
 export interface CmsArticleDetail extends CmsArticleSummary {
