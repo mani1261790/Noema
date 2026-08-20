@@ -16,6 +16,15 @@ export function initialCmsRecoverySaveState(
   return reference ? "dirty" : "local";
 }
 
+export function cmsRecoveryNeedsConflictCheck(
+  reference: StudioDraftCmsArticle | null,
+  currentLockVersion: number | null
+): boolean {
+  return reference !== null &&
+    currentLockVersion !== null &&
+    reference.lockVersion !== currentLockVersion;
+}
+
 function contentFingerprint(
   frontmatter: ArticleFrontmatter,
   body: string,
