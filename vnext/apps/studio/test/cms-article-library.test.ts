@@ -41,6 +41,7 @@ const baseProps: ComponentProps<typeof CmsArticleLibrary> = {
   recoveryNeedsArticleAssociation: false,
   recoverySaveStatus: "ブラウザに保存済み",
   recoveryTitle: "",
+  workingArticleActionLabel: "編集画面に戻る",
   workingArticleStatus: null
 };
 
@@ -118,5 +119,21 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain("revision 3");
     expect(html).not.toContain("editor@example.com");
     expect(html).not.toContain("1 / 4");
+  });
+
+  it("keeps article editing and an explicit recovery action available for a held recovery copy", () => {
+    const html = renderLibrary({
+      articles: [article],
+      hasWorkingEditor: true,
+      workingArticleActionLabel: "復旧コピーを開く",
+      workingArticleStatus: {
+        text: "復旧コピーがあります。開くとCMS最新版と比較します。",
+        tone: "info"
+      }
+    });
+
+    expect(html).toContain("復旧コピーを開く");
+    expect(html).toContain(">編集する</button>");
+    expect(html).not.toMatch(/studio-library-item__edit[^>]*disabled/);
   });
 });

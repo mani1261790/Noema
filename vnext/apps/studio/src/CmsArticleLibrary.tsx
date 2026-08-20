@@ -32,6 +32,7 @@ interface CmsArticleLibraryProps {
   recoveryCharacterCount: number;
   recoverySaveStatus: string;
   recoveryTitle: string;
+  workingArticleActionLabel: string;
   workingArticleStatus: { text: string; tone: "error" | "info" } | null;
   onContinueRecovery: () => void;
   onContinueRecoveryAsNew: () => void;
@@ -174,6 +175,7 @@ export function CmsArticleLibrary({
   recoveryCharacterCount,
   recoverySaveStatus,
   recoveryTitle,
+  workingArticleActionLabel,
   workingArticleStatus,
   onContinueRecovery,
   onContinueRecoveryAsNew,
@@ -238,12 +240,25 @@ export function CmsArticleLibrary({
         </header>
 
         {workingArticleStatus ? (
-          <p
-            className={`studio-library-save-state is-${workingArticleStatus.tone}`}
-            role={workingArticleStatus.tone === "error" ? "alert" : "status"}
-          >
-            {workingArticleStatus.text}
-          </p>
+          <div className={`studio-library-working-state is-${workingArticleStatus.tone}`}>
+            <p
+              className="studio-library-save-state"
+              role={workingArticleStatus.tone === "error" ? "alert" : "status"}
+            >
+              {workingArticleStatus.text}
+            </p>
+            {hasWorkingEditor ? (
+              <button
+                className="dads-button"
+                data-size="md"
+                data-type="solid-fill"
+                onClick={onReturnToEditor}
+                type="button"
+              >
+                {workingArticleActionLabel}
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {hasRecoveryDraft ? (
