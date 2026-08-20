@@ -8,6 +8,8 @@ import {
   createCmsArticle,
   listCmsAssets,
   listCmsArticles,
+  listCmsMembers,
+  markCmsPasswordLoginReady,
   registerCmsAsset,
   resolveCmsSession,
   transitionCmsArticle,
@@ -154,10 +156,37 @@ describe("CMS repository", () => {
 
     expect(first.identity).toEqual(second.identity);
     expect(first.identity.role).toBe("admin");
+    expect(first.passwordLoginReadyAt).toBeNull();
     const memberCount = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_members"
     ).first<number>("count");
     expect(memberCount).toBe(1);
+  });
+
+  it("records password login readiness once without changing CMS membership", async () => {
+    const admin = await bootstrapAdmin();
+
+    const first = await markCmsPasswordLoginReady(testEnv.CMS_DB, admin.identity, NOW);
+    const second = await markCmsPasswordLoginReady(
+      testEnv.CMS_DB,
+      admin.identity,
+      new Date("2026-07-19T00:00:00.000Z")
+    );
+    const [member] = await listCmsMembers(testEnv.CMS_DB, admin.identity);
+    const auditCount = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_audit_events WHERE action = 'member.password_login_ready'"
+    ).first<number>("count");
+
+    expect(first.identity).toEqual(admin.identity);
+    expect(first.passwordLoginReadyAt).toBe(NOW.toISOString());
+    expect(second.passwordLoginReadyAt).toBe(NOW.toISOString());
+    expect(member).toMatchObject({
+      email: admin.identity.email,
+      passwordLoginReadyAt: NOW.toISOString(),
+      provisioned: true,
+      role: "admin"
+    });
+    expect(auditCount).toBe(1);
   });
 
   it("atomically provisions an active invitation and refuses a revoked one", async () => {

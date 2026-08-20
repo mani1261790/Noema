@@ -470,6 +470,80 @@ a {
   gap: .5rem;
 }
 
+.studio-password-migration {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 28rem);
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem clamp(1rem, 4vw, 2rem);
+  color: #003e73;
+  background: #e8f1f8;
+  border-bottom: 1px solid #0066a4;
+}
+
+.studio-password-migration.is-ready {
+  grid-template-columns: minmax(0, 1fr);
+  color: #003c39;
+  background: #eaf4f3;
+  border-color: #6b918e;
+}
+
+.studio-password-migration__eyebrow {
+  margin: 0 0 .2rem;
+  font-size: calc(14 / 16 * 1rem);
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.studio-password-migration h2 {
+  margin: 0;
+  font-size: calc(20 / 16 * 1rem);
+  line-height: 1.5;
+}
+
+.studio-password-migration__content > p:last-of-type,
+.studio-password-migration.is-ready p:last-child {
+  max-width: 58rem;
+  margin: .35rem 0 0;
+  line-height: 1.65;
+}
+
+.studio-password-migration__content > .dads-button {
+  margin-top: .75rem;
+}
+
+.studio-password-migration__confirmation {
+  display: grid;
+  gap: .75rem;
+}
+
+.studio-password-migration__confirmation label {
+  display: flex;
+  min-height: 44px;
+  align-items: start;
+  gap: .6rem;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+.studio-password-migration__confirmation input {
+  flex: 0 0 1.2rem;
+  width: 1.2rem;
+  min-height: 1.2rem;
+  margin-top: .2rem;
+  accent-color: var(--color-key-900);
+}
+
+.studio-password-migration__error {
+  margin: 0;
+  padding: .75rem;
+  color: #5c0011;
+  background: #fff4f5;
+  border-left: 5px solid #b40000;
+  line-height: 1.6;
+}
+
 .studio-conflict-resolver {
   flex: 1 1 auto;
   min-height: 0;
@@ -1669,6 +1743,13 @@ a {
   color: #555;
   font-size: calc(13 / 16 * 1rem);
   line-height: 1.5;
+}
+
+.studio-team__member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: .5rem;
 }
 
 .studio-team__self {
@@ -3260,13 +3341,15 @@ textarea.studio-control {
   }
 
   .studio-cms-association,
-  .studio-cms-association__actions {
+  .studio-cms-association__actions,
+  .studio-password-migration {
     display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
   }
 
-  .studio-cms-association__actions .dads-button {
+  .studio-cms-association__actions .dads-button,
+  .studio-password-migration .dads-button {
     width: 100%;
   }
 

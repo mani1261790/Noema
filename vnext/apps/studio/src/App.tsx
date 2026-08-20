@@ -45,6 +45,7 @@ import {
   fetchCmsAssets,
   fetchCmsMembers,
   fetchCmsSession,
+  markPasswordLoginReady,
   runCmsArticleAction,
   updateCmsArticle as updateCmsArticleRecord,
   updateCmsAsset as updateCmsAssetRecord,
@@ -85,6 +86,8 @@ import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsTeamSettings } from "./CmsTeamSettings";
+import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
+import { buildPasswordLoginInstructions } from "./password-login-migration";
 import {
   CmsConflictResolver,
   type ResolvedCmsConflictDraft
@@ -660,6 +663,8 @@ export function App() {
   const [cmsMembers, setCmsMembers] = useState<CmsMember[]>([]);
   const [cmsMembersBusy, setCmsMembersBusy] = useState(false);
   const [cmsMembersError, setCmsMembersError] = useState<string | null>(null);
+  const [passwordMigrationBusy, setPasswordMigrationBusy] = useState(false);
+  const [passwordMigrationError, setPasswordMigrationError] = useState<string | null>(null);
   const [cmsMemberEmail, setCmsMemberEmail] = useState("");
   const [cmsMemberRole, setCmsMemberRole] = useState<CmsRole>("editor");
   const [cmsMemberActive, setCmsMemberActive] = useState(true);
@@ -1566,6 +1571,38 @@ export function App() {
     setCmsMembersBusy(false);
   };
 
+  const markPasswordMigrationReady = async () => {
+    if (cmsSessionState.kind !== "ready" || cmsSessionState.session.passwordLoginReadyAt) return;
+    setPasswordMigrationBusy(true);
+    setPasswordMigrationError(null);
+    const result = await markPasswordLoginReady();
+    if (result.ok) {
+      setCmsSessionState({ kind: "ready", session: result.value });
+      setCmsMembers((current) => current.map((member) =>
+        member.email.toLowerCase() === result.value.identity.email.toLowerCase()
+          ? { ...member, passwordLoginReadyAt: result.value.passwordLoginReadyAt }
+          : member
+      ));
+      showNotification({
+        text: "管理者がAccessのログイン結果を確認するまで、メールコードも引き続き利用できます。",
+        title: "パスワードの準備を記録しました",
+        tone: "info"
+      });
+    } else {
+      setPasswordMigrationError(result.error.message);
+    }
+    setPasswordMigrationBusy(false);
+  };
+
+  const copyPasswordLoginInstructions = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(buildPasswordLoginInstructions(email));
+      showNotification({ text: `${email}向けの案内をクリップボードにコピーしました。`, tone: "info" });
+    } catch {
+      setCmsMembersError("案内をコピーできませんでした。ブラウザのクリップボード権限を確認してください。");
+    }
+  };
+
   useEffect(() => {
     if (
       !cmsArticle ||
@@ -1981,6 +2018,15 @@ export function App() {
         <StudioNotification message={operationMessage} onDismiss={() => setOperationMessage(null)} />
       ) : null}
 
+      {cmsSession ? (
+        <CmsPasswordLoginMigration
+          busy={passwordMigrationBusy}
+          error={passwordMigrationError}
+          onReady={markPasswordMigrationReady}
+          session={cmsSession}
+        />
+      ) : null}
+
       {studioView === "articles" ? (
         <CmsArticleLibrary
           articles={cmsArticles}
@@ -2034,6 +2080,7 @@ export function App() {
             window.requestAnimationFrame(() => document.getElementById("cms-member-email")?.focus());
           }}
           onEmailChange={setCmsMemberEmail}
+          onCopyInstructions={(email) => { void copyPasswordLoginInstructions(email); }}
           onRetry={() => setCmsRefresh((current) => current + 1)}
           onRoleChange={setCmsMemberRole}
           onSubmit={(event) => void saveCmsMember(event)}

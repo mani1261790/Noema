@@ -27,6 +27,7 @@ import { z } from "zod";
 interface MemberRow {
   active: number;
   email: string;
+  password_login_ready_at: string | null;
   role: string;
   subject: string;
 }
@@ -90,6 +91,7 @@ interface CurrentArticleRow {
 interface MemberListRow {
   active: number;
   email: string;
+  password_login_ready_at: string | null;
   provisioned: number;
   role: string;
   updated_at: string;
@@ -185,7 +187,7 @@ export async function resolveCmsSession(
 ): Promise<CmsSession> {
   const normalizedEmail = accessIdentity.email.trim().toLowerCase();
   let member = await db.prepare(
-    "SELECT subject, email, role, active FROM cms_members WHERE subject = ?1"
+    "SELECT subject, email, role, active, password_login_ready_at FROM cms_members WHERE subject = ?1"
   ).bind(accessIdentity.subject).first<MemberRow>();
 
   if (!member) {
@@ -213,7 +215,7 @@ export async function resolveCmsSession(
        ON CONFLICT DO NOTHING`
     ).bind(accessIdentity.subject, normalizedEmail, timestamp).run();
     member = await db.prepare(
-      "SELECT subject, email, role, active FROM cms_members WHERE subject = ?1"
+      "SELECT subject, email, role, active, password_login_ready_at FROM cms_members WHERE subject = ?1"
     ).bind(accessIdentity.subject).first<MemberRow>();
     if (!member) {
       throw new CmsRepositoryError(
@@ -231,7 +233,7 @@ export async function resolveExistingCmsSession(
   accessIdentity: { email: string; subject: string }
 ): Promise<CmsSession> {
   const member = await db.prepare(
-    "SELECT subject, email, role, active FROM cms_members WHERE subject = ?1"
+    "SELECT subject, email, role, active, password_login_ready_at FROM cms_members WHERE subject = ?1"
   ).bind(accessIdentity.subject).first<MemberRow>();
   if (!member) {
     throw new CmsRepositoryError(
@@ -258,8 +260,37 @@ function sessionFromMember(member: MemberRow): CmsSession {
       email: member.email,
       role,
       subject: member.subject
-    }
+    },
+    passwordLoginReadyAt: member.password_login_ready_at
   };
+}
+
+export async function markCmsPasswordLoginReady(
+  db: D1Database,
+  identity: CmsIdentity,
+  now = new Date()
+): Promise<CmsSession> {
+  const timestamp = now.toISOString();
+  const result = await db.prepare(
+    `UPDATE cms_members
+     SET password_login_ready_at = ?1, updated_at = ?1
+     WHERE subject = ?2 AND password_login_ready_at IS NULL`
+  ).bind(timestamp, identity.subject).run();
+
+  if (result.meta.changes === 1) {
+    await db.prepare(
+      `INSERT INTO cms_audit_events
+        (id, article_id, actor_subject, action, metadata_json, created_at)
+       VALUES (?1, NULL, ?2, 'member.password_login_ready', ?3, ?4)`
+    ).bind(
+      crypto.randomUUID(),
+      identity.subject,
+      JSON.stringify({ email: identity.email }),
+      timestamp
+    ).run();
+  }
+
+  return resolveExistingCmsSession(db, identity);
 }
 
 export async function listCmsArticles(
@@ -1198,6 +1229,7 @@ export async function listCmsMembers(
        i.email,
        COALESCE(m.role, i.role) AS role,
        COALESCE(m.active, i.active) AS active,
+       m.password_login_ready_at,
        CASE WHEN m.subject IS NULL THEN 0 ELSE 1 END AS provisioned,
        CASE WHEN m.updated_at > i.updated_at THEN m.updated_at ELSE i.updated_at END AS updated_at
      FROM cms_member_invitations i
@@ -1211,6 +1243,7 @@ export async function listCmsMembers(
     return {
       active: row.active === 1,
       email: row.email,
+      passwordLoginReadyAt: row.password_login_ready_at,
       provisioned: row.provisioned === 1,
       role,
       updatedAt: row.updated_at
