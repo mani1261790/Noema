@@ -232,13 +232,13 @@ function getInitialState(): InitialState {
       hasRecoveryDraft,
       message: cmsReference
           ? {
-              text: "前回編集中だったCMS記事へ再接続しています。入力内容は復旧コピーから保持しています。",
-              title: "復旧原稿を確認しています",
+              text: "前回編集中だったCMS記事の復旧コピーを保持しています。編集画面へ戻るまでCMSには再接続しません。",
+              title: "復旧原稿を保持しています",
               tone: "info"
             }
           : null,
       saveStatus: cmsReference
-        ? "CMS記事へ再接続中…"
+        ? "復旧コピーをブラウザに保持中"
         : cmsAssociationRequired
           ? "元の記事を確認してください"
         : hasRecoveryDraft
@@ -612,12 +612,9 @@ export function App() {
   const [initialState] = useState(getInitialState);
   const storage = initialState.storage;
   const [initialStudioView] = useState<StudioView>(() => {
-    const fallback = initialState.cmsReference || initialState.hasRecoveryDraft
-      ? "editor"
-      : "articles";
     return typeof window === "undefined"
-      ? fallback
-      : readStudioView(window.location.pathname, fallback);
+      ? "articles"
+      : readStudioView(window.location.pathname);
   });
   const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>({
     ...initialState.frontmatter,
@@ -939,6 +936,7 @@ export function App() {
 
   useEffect(() => {
     if (
+      studioView !== "editor" ||
       cmsSessionState.kind !== "ready" ||
       !cmsRecoveryReference ||
       cmsArticle ||
@@ -1021,9 +1019,10 @@ export function App() {
       controller.abort();
       if (cmsRecoveryReconnectInFlight.current === reference.id) {
         cmsRecoveryReconnectInFlight.current = null;
+        setCmsOperationBusy(false);
       }
     };
-  }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, showNotification, storage, updateCmsArticleList]);
+  }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, showNotification, storage, studioView, updateCmsArticleList]);
 
   const changeStudioView = (view: StudioView) => {
     if (studioViewRef.current !== view) writeStudioHistory(view);
@@ -1082,7 +1081,7 @@ export function App() {
 
   useEffect(() => {
     const restoreStudioView = () => {
-      const nextView = readStudioView(window.location.pathname, "articles");
+      const nextView = readStudioView(window.location.pathname);
       if (studioViewRef.current === "editor" && nextView !== "editor") {
         const current = cmsContentRef.current;
         if (hasMeaningfulArticleInput(current.frontmatter, current.body)) {
@@ -1825,7 +1824,9 @@ export function App() {
   const cmsWorkingArticleTitle = frontmatter.title || cmsArticle?.title || "編集中の記事";
   const cmsLibraryWorkingStatus: { text: string; tone: "error" | "info" } | null = cmsRecoveryReference
     ? {
-        text: cmsConflict
+        text: studioView !== "editor"
+          ? `「${cmsWorkingArticleTitle}」の復旧コピーがあります。編集画面へ戻るまでCMSには再接続しません。`
+          : cmsConflict
           ? `「${cmsWorkingArticleTitle}」は別の編集者による更新と競合しています。入力内容はブラウザに保持しています。`
           : cmsSaveState === "error"
             ? `「${cmsWorkingArticleTitle}」を元のCMS記事へ再接続できません。入力内容はブラウザに保持しています。`
