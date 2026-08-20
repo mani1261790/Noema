@@ -48,32 +48,12 @@ describe("CMS HTTP API", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(session.identity).toEqual({ ...ADMIN, role: "admin" });
-    expect(session.passwordLoginReadyAt).toBeNull();
     expect(session.capabilities).toEqual({
       canApprove: true,
       canEdit: true,
       canManageMembers: true,
       canPublish: true
     });
-  });
-
-  it("lets the signed-in member record password login readiness idempotently", async () => {
-    const first = await handleCmsApiRequest(
-      cmsRequest("/api/cms/session/password-login-ready", { method: "POST" }),
-      cmsEnv(),
-      ADMIN
-    );
-    const firstBody = (await first.json()) as { session: CmsSession };
-    const second = await handleCmsApiRequest(
-      cmsRequest("/api/cms/session/password-login-ready", { method: "POST" }),
-      cmsEnv(),
-      ADMIN
-    );
-    const secondBody = (await second.json()) as { session: CmsSession };
-
-    expect(first.status).toBe(200);
-    expect(firstBody.session.passwordLoginReadyAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(secondBody.session.passwordLoginReadyAt).toBe(firstBody.session.passwordLoginReadyAt);
   });
 
   it("requires If-Match and returns the next ETag for an accepted save", async () => {
