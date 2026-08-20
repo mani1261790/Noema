@@ -3,6 +3,8 @@ import { createBlankArticle } from "../src/draft-storage";
 import {
   fetchCmsArticles,
   fetchCmsMembers,
+  fetchCmsSession,
+  markPasswordLoginReady,
   runCmsArticleAction,
   updateCmsArticle
 } from "../src/cms-client";
@@ -172,6 +174,7 @@ describe("CMS member client", () => {
         {
           active: true,
           email: "pending@example.com",
+          passwordLoginReadyAt: null,
           provisioned: false,
           role: "editor",
           updatedAt: "2026-07-18T00:00:00.000Z"
@@ -179,6 +182,7 @@ describe("CMS member client", () => {
         {
           active: true,
           email: "reviewer@example.com",
+          passwordLoginReadyAt: "2026-08-20T00:00:00.000Z",
           provisioned: true,
           role: "reviewer",
           updatedAt: "2026-07-18T00:00:01.000Z"
@@ -189,7 +193,13 @@ describe("CMS member client", () => {
     const result = await fetchCmsMembers({ fetchFn });
 
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.map((member) => member.provisioned)).toEqual([false, true]);
+    if (result.ok) {
+      expect(result.value.map((member) => member.provisioned)).toEqual([false, true]);
+      expect(result.value.map((member) => member.passwordLoginReadyAt)).toEqual([
+        null,
+        "2026-08-20T00:00:00.000Z"
+      ]);
+    }
   });
 
   it("rejects malformed JSON even when the response claims to be JSON", async () => {
@@ -209,5 +219,46 @@ describe("CMS member client", () => {
       },
       ok: false
     });
+  });
+});
+
+describe("CMS password login migration client", () => {
+  const session = {
+    capabilities: {
+      canApprove: false,
+      canEdit: true,
+      canManageMembers: false,
+      canPublish: false
+    },
+    identity: {
+      email: "editor@example.com",
+      role: "editor",
+      subject: "editor-subject"
+    },
+    passwordLoginReadyAt: null
+  };
+
+  it("parses the current migration state from the CMS session", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse(session));
+
+    const result = await fetchCmsSession({ fetchFn });
+
+    expect(result).toEqual({ ok: true, value: session });
+  });
+
+  it("records readiness through the dedicated session endpoint", async () => {
+    const readySession = {
+      ...session,
+      passwordLoginReadyAt: "2026-08-20T00:00:00.000Z"
+    };
+    const fetchFn = vi.fn<typeof fetch>(async (input, init) => {
+      expect(String(input)).toBe("/api/cms/session/password-login-ready");
+      expect(init?.method).toBe("POST");
+      return jsonResponse({ session: readySession });
+    });
+
+    const result = await markPasswordLoginReady({ fetchFn });
+
+    expect(result).toEqual({ ok: true, value: readySession });
   });
 });

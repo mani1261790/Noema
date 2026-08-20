@@ -13,6 +13,7 @@ import {
   listCmsAssets,
   listCmsArticles,
   listCmsMembers,
+  markCmsPasswordLoginReady,
   resolveCmsSession,
   registerCmsAsset,
   transitionCmsArticle,
@@ -56,6 +57,13 @@ export async function handleCmsApiRequest(
     if (pathname === `${CMS_API_PREFIX}/session`) {
       if (request.method !== "GET") return methodNotAllowed("GET");
       return cmsJson(session);
+    }
+
+    if (pathname === `${CMS_API_PREFIX}/session/password-login-ready`) {
+      if (request.method !== "POST") return methodNotAllowed("POST");
+      return cmsJson({
+        session: await markCmsPasswordLoginReady(env.CMS_DB, session.identity)
+      });
     }
 
     if (pathname === `${CMS_API_PREFIX}/assets`) {
