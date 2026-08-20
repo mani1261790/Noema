@@ -30,6 +30,7 @@ import {
   type CmsArticleAction,
   type CmsArticleDetail,
   type CmsArticleSummary,
+  type CmsArticleVersionDetail,
   type CmsAsset,
   type CmsAssetStatus,
   type CmsEditorialIssue,
@@ -90,6 +91,7 @@ import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
+import { CmsVersionHistory } from "./CmsVersionHistory";
 import { CmsTeamSettings } from "./CmsTeamSettings";
 import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
 import { CmsLogin } from "./CmsLogin";
@@ -113,6 +115,11 @@ import {
   writeStudioHistory,
   type StudioView
 } from "./studio-navigation";
+import {
+  completeCmsEditSessionSave,
+  createCmsEditSession,
+  ensureActiveCmsEditSession
+} from "./cms-versioning";
 
 type StudioSettingsMode = "metadata" | "workflow";
 type CmsSessionState =
@@ -643,6 +650,7 @@ export function App() {
   const [cmsArticleQuery, setCmsArticleQuery] = useState("");
   const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>("all");
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
+  const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [cmsRecoveryReference, setCmsRecoveryReference] = useState<StudioDraftCmsArticle | null>(
     initialState.cmsReference
   );
@@ -690,9 +698,15 @@ export function App() {
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
   const assetTrigger = useRef<HTMLButtonElement>(null);
+  const versionHistoryTrigger = useRef<HTMLButtonElement>(null);
   const validationSection = useRef<HTMLElement>(null);
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
+  const editSession = useRef(createCmsEditSession());
+  const pendingRevisionReason = useRef<{
+    reason: "conflict_resolution" | "restored";
+    sourceRevisionId?: string;
+  } | null>(null);
   const pendingViewFocus = useRef<string | null>(null);
   const studioViewRef = useRef(studioView);
   const cmsContentRef = useRef({ body, frontmatter, visibility: cmsVisibility });
@@ -1130,6 +1144,8 @@ export function App() {
       preserveLocalVisibility?: boolean;
     } = {}
   ) => {
+    editSession.current = createCmsEditSession();
+    pendingRevisionReason.current = null;
     const nextFrontmatter: ArticleFrontmatter = {
       ...article.currentRevision.frontmatter,
       status: "draft"
@@ -1246,7 +1262,9 @@ export function App() {
     return result.ok;
   };
 
-  const saveCmsDraft = useCallback(async (): Promise<CmsArticleDetail | null> => {
+  const saveCmsDraft = useCallback(async (
+    requestedReason: "autosave" | "manual" = "manual"
+  ): Promise<CmsArticleDetail | null> => {
     if (
       cmsSaveInFlight.current ||
       cmsConflict ||
@@ -1258,6 +1276,15 @@ export function App() {
     ) return null;
 
     const snapshot = cmsContentRef.current;
+    editSession.current = ensureActiveCmsEditSession(editSession.current);
+    const pendingReason = pendingRevisionReason.current;
+    const revisionContext = {
+      editSessionId: editSession.current.id,
+      saveReason: pendingReason?.reason ?? requestedReason,
+      ...(pendingReason?.sourceRevisionId
+        ? { sourceRevisionId: pendingReason.sourceRevisionId }
+        : {})
+    } as const;
     const draftFrontmatter: ArticleFrontmatter = {
       ...snapshot.frontmatter,
       status: "draft"
@@ -1277,13 +1304,15 @@ export function App() {
             frontmatter: draftFrontmatter,
             markdown: snapshot.body,
             visibility: snapshot.visibility
-          }
+          },
+          {},
+          revisionContext
         )
       : await createCmsArticleRecord({
           frontmatter: draftFrontmatter,
           markdown: snapshot.body,
           visibility: snapshot.visibility
-        });
+        }, {}, { editSessionId: editSession.current.id });
 
     cmsSaveInFlight.current = false;
     if (!result.ok) {
@@ -1325,6 +1354,11 @@ export function App() {
       latest.visibility
     ) !== snapshotFingerprint;
     setCmsSaveState(hasNewerLocalChanges ? "dirty" : "saved");
+    editSession.current = completeCmsEditSessionSave(
+      editSession.current,
+      revisionContext.saveReason
+    );
+    pendingRevisionReason.current = null;
     return result.value;
   }, [cmsArticle, cmsAssociationRequired, cmsConflict, cmsRecoveryReference, cmsSessionState, editorLocked, showNotification, storage, updateCmsArticleList]);
 
@@ -1362,6 +1396,8 @@ export function App() {
     setLastCmsFingerprint(null);
     setCmsSaveState("local");
     setCmsConflict(false);
+    editSession.current = createCmsEditSession();
+    pendingRevisionReason.current = null;
     setPublicationIssues([]);
     setValidationRequested(false);
     manuallyEditedMetadata.current.clear();
@@ -1401,6 +1437,8 @@ export function App() {
     setLastCmsFingerprint(serverFingerprint);
     setCmsSaveState("dirty");
     setCmsAutosavePaused(true);
+    editSession.current = createCmsEditSession();
+    pendingRevisionReason.current = { reason: "conflict_resolution" };
     setCmsConflict(false);
     setCmsConflictLatestState({ kind: "idle" });
     setCmsRecoveryReference(null);
@@ -1622,7 +1660,7 @@ export function App() {
       !cmsSessionState.session.capabilities.canEdit
     ) return;
     const timer = window.setTimeout(() => {
-      void saveCmsDraft();
+      void saveCmsDraft("autosave");
     }, 1_200);
     return () => window.clearTimeout(timer);
   }, [
@@ -1636,6 +1674,48 @@ export function App() {
     editorLocked,
     saveCmsDraft
   ]);
+
+  const closeVersionHistory = () => {
+    setVersionHistoryOpen(false);
+    window.requestAnimationFrame(() => versionHistoryTrigger.current?.focus());
+  };
+
+  const restoreCmsVersion = (version: CmsArticleVersionDetail) => {
+    if (!cmsArticle) return;
+    const nextFrontmatter = { ...version.revision.frontmatter, status: "draft" as const };
+    const nextVisibility = version.visibility ?? cmsVisibility;
+    setFrontmatter(nextFrontmatter);
+    setBody(version.revision.markdown);
+    setCmsVisibility(nextVisibility);
+    setCmsAutosavePaused(true);
+    setCmsSaveState("dirty");
+    setPublicationIssues([]);
+    setValidationRequested(false);
+    editSession.current = createCmsEditSession();
+    pendingRevisionReason.current = {
+      reason: "restored",
+      sourceRevisionId: version.revision.id
+    };
+    manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
+    saveDraft(storage, {
+      body: version.revision.markdown,
+      frontmatter: nextFrontmatter,
+      cmsArticle: {
+        autosavePaused: true,
+        id: cmsArticle.id,
+        lockVersion: cmsArticle.lockVersion,
+        visibility: nextVisibility
+      }
+    });
+    setVersionHistoryOpen(false);
+    setSettingsOpen(false);
+    showNotification({
+      text: `revision ${version.revision.number}を編集画面へ戻しました。内容を確認し、「保存」で新しい版として記録してください。`,
+      title: "過去の版はまだ保存されていません",
+      tone: "info"
+    });
+    window.requestAnimationFrame(() => bodyInput.current?.focus());
+  };
 
   const focusValidation = () => {
     setValidationRequested(true);
@@ -1942,7 +2022,7 @@ export function App() {
 
   return (
     <div className="studio-shell">
-      {studioView === "editor" ? (
+      {studioView === "editor" && !versionHistoryOpen ? (
         <div className="studio-editor-toolbar" aria-label="記事編集の操作" role="group">
           <a
             className="dads-button studio-library-shortcut"
@@ -2145,9 +2225,17 @@ export function App() {
           onUseLatest={useLatestConflictArticle}
         />
       ) : null}
+      {versionHistoryOpen && cmsArticle ? (
+        <CmsVersionHistory
+          article={cmsArticle}
+          hasUnsavedChanges={cmsDirty || cmsAutosavePaused}
+          onClose={closeVersionHistory}
+          onRestore={restoreCmsVersion}
+        />
+      ) : null}
       <main
         className="studio-workspace"
-        hidden={cmsConflict && cmsArticle !== null}
+        hidden={(cmsConflict && cmsArticle !== null) || versionHistoryOpen}
         style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
       >
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
@@ -2213,6 +2301,19 @@ export function App() {
               <strong>{frontmatter.title || "新しい記事"}</strong>
               <small>{cmsArticle ? `revision ${cmsArticle.revisionNumber}` : "最初の保存でCMSに登録されます"}</small>
             </div>
+            {cmsArticle ? (
+              <button
+                aria-controls="cms-version-history"
+                className="dads-button studio-cms__history-button"
+                data-size="md"
+                data-type="outline"
+                onClick={() => setVersionHistoryOpen(true)}
+                ref={versionHistoryTrigger}
+                type="button"
+              >
+                版の履歴を見る
+              </button>
+            ) : null}
 
             <CmsPublicationJourney
               publicationStatus={cmsArticle?.publicationStatus ?? "unpublished"}
