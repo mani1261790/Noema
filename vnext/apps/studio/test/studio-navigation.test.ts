@@ -10,12 +10,13 @@ describe("Studio navigation", () => {
   });
 
   it("restores a Studio page from browser history", () => {
-    expect(readStudioView("/assets", "articles")).toBe("assets");
-    expect(readStudioView("/editor/", "articles")).toBe("editor");
+    expect(readStudioView("/assets")).toBe("assets");
+    expect(readStudioView("/editor/")).toBe("editor");
   });
 
-  it("keeps the safe initial page for an unknown route", () => {
-    expect(readStudioView("/unknown", "articles")).toBe("articles");
-    expect(readStudioView("", "editor")).toBe("editor");
+  it("uses the article library as the safe landing page", () => {
+    expect(readStudioView("/")).toBe("articles");
+    expect(readStudioView("")).toBe("articles");
+    expect(readStudioView("/unknown")).toBe("articles");
   });
 });

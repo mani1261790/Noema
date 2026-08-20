@@ -11,10 +11,10 @@ export function studioViewHref(view: StudioView): string {
   return studioViewPaths[view];
 }
 
-export function readStudioView(pathname: string, fallback: StudioView): StudioView {
+export function readStudioView(pathname: string): StudioView {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/u, "") : pathname;
   const match = Object.entries(studioViewPaths).find(([, value]) => value === path);
-  return match ? (match[0] as StudioView) : fallback;
+  return match ? (match[0] as StudioView) : "articles";
 }
 
 export function writeStudioHistory(view: StudioView, mode: "push" | "replace" = "push"): void {
