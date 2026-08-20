@@ -26,8 +26,6 @@ Git repository内のMarkdownや旧GitHub Draft Pull Request flowを、現行記�
 
 Cloudflare Access identityは入口の認証であり、それだけではCMS権限になりません。Accessで検証したemailとsubjectを、管理者が登録した招待またはbootstrap admin設定と照合してCMS memberへ結び付けます。
 
-OTPからCloudflareアカウントのパスワード認証へ移行するときも、CMS memberの登録emailを変えません。メンバー本人が同じemailでCloudflareアカウントを準備したことを記録し、管理者がAccess認証ログでCloudflare IdPからの成功を確認するまでOTPを残します。`password_login_ready_at`は本人の準備申告であり、認証成功の証明やCMS権限の付与には使用しません。
-
 ## Reviewとpublication
 
 Review状態:
@@ -98,7 +96,6 @@ Blog rendererもraw HTMLをescapeし、危険なlink・image URLを無効化し�
 Studio Workerは次のCMS endpointを提供します。
 
 - `GET /api/cms/session`
-- `POST /api/cms/session/password-login-ready`
 - `GET /api/cms/articles`
 - `POST /api/cms/articles`
 - `GET /api/cms/articles/{id}`

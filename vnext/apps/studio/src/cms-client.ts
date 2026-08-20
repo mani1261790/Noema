@@ -21,7 +21,6 @@ import type { ArticleFrontmatter } from "@noema/content";
 const CMS_ARTICLES_PATH = "/api/cms/articles";
 const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
-const CMS_PASSWORD_LOGIN_READY_PATH = `${CMS_SESSION_PATH}/password-login-ready`;
 const CMS_ASSETS_PATH = "/api/cms/assets";
 
 export interface CmsClientError {
@@ -53,18 +52,6 @@ export async function fetchCmsSession(
   const result = await cmsRequest(CMS_SESSION_PATH, { method: "GET" }, options);
   if (!result.ok) return result;
   const session = parseCmsSession(result.value);
-  return session
-    ? { ok: true, value: session }
-    : invalidResponse(result.status);
-}
-
-export async function markPasswordLoginReady(
-  options: CmsRequestOptions = {}
-): Promise<CmsClientResult<CmsSession>> {
-  const result = await cmsRequest(CMS_PASSWORD_LOGIN_READY_PATH, { method: "POST" }, options);
-  if (!result.ok) return result;
-  if (!isRecord(result.value)) return invalidResponse(result.status);
-  const session = parseCmsSession(result.value.session);
   return session
     ? { ok: true, value: session }
     : invalidResponse(result.status);
@@ -297,7 +284,6 @@ function parseCmsSession(value: unknown): CmsSession | null {
     !role.success ||
     !isString(value.identity.email) ||
     !isString(value.identity.subject) ||
-    !(value.passwordLoginReadyAt === null || isString(value.passwordLoginReadyAt)) ||
     !isBoolean(capabilities.canApprove) ||
     !isBoolean(capabilities.canEdit) ||
     !isBoolean(capabilities.canManageMembers) ||
@@ -314,8 +300,7 @@ function parseCmsSession(value: unknown): CmsSession | null {
       email: value.identity.email,
       role: role.data,
       subject: value.identity.subject
-    },
-    passwordLoginReadyAt: value.passwordLoginReadyAt
+    }
   };
 }
 
@@ -394,14 +379,12 @@ function parseCmsMember(value: unknown): CmsMember | null {
     !role.success ||
     !isBoolean(value.active) ||
     !isString(value.email) ||
-    !(value.passwordLoginReadyAt === null || isString(value.passwordLoginReadyAt)) ||
     !isBoolean(value.provisioned) ||
     !isString(value.updatedAt)
   ) return null;
   return {
     active: value.active,
     email: value.email,
-    passwordLoginReadyAt: value.passwordLoginReadyAt,
     provisioned: value.provisioned,
     role: role.data,
     updatedAt: value.updatedAt

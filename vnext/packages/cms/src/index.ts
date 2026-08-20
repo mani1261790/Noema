@@ -143,7 +143,6 @@ export interface CmsCapabilities {
 export interface CmsSession {
   capabilities: CmsCapabilities;
   identity: CmsIdentity;
-  passwordLoginReadyAt: string | null;
 }
 
 export interface CmsArticleSummary {
@@ -179,7 +178,6 @@ export interface CmsArticleDetail extends CmsArticleSummary {
 export interface CmsMember {
   active: boolean;
   email: string;
-  passwordLoginReadyAt: string | null;
   provisioned: boolean;
   role: CmsRole;
   updatedAt: string;

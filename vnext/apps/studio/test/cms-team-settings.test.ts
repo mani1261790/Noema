@@ -8,7 +8,6 @@ const members: CmsMember[] = [
   {
     active: true,
     email: "owner@example.com",
-    passwordLoginReadyAt: "2026-08-20T00:00:00.000Z",
     provisioned: true,
     role: "admin",
     updatedAt: "2026-08-12T00:00:00.000Z"
@@ -16,7 +15,6 @@ const members: CmsMember[] = [
   {
     active: true,
     email: "editor@example.com",
-    passwordLoginReadyAt: null,
     provisioned: false,
     role: "editor",
     updatedAt: "2026-08-12T00:00:00.000Z"
@@ -33,7 +31,6 @@ const baseProps: ComponentProps<typeof CmsTeamSettings> = {
   onActiveChange: () => undefined,
   onEdit: () => undefined,
   onEmailChange: () => undefined,
-  onCopyInstructions: () => undefined,
   onRetry: () => undefined,
   onRoleChange: () => undefined,
   onSubmit: () => undefined,
@@ -54,9 +51,6 @@ describe("CmsTeamSettings", () => {
     expect(html).toContain('type="email"');
     expect(html).toContain("2人");
     expect(html).toContain("招待待ち");
-    expect(html).toContain("1/1人準備済み");
-    expect(html).toContain("パスワード準備済み");
-    expect(html).toContain("利用開始後にパスワードを案内");
   });
 
   it("protects the signed-in member and offers editing for other members", () => {
@@ -64,7 +58,6 @@ describe("CmsTeamSettings", () => {
 
     expect(html.match(/設定を編集/g)).toHaveLength(1);
     expect(html.match(/>自分</g)).toHaveLength(1);
-    expect(html.match(/案内をコピー/g)).toHaveLength(2);
   });
 
   it("shows connection failures without rendering the invitation form", () => {
