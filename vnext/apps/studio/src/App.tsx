@@ -1014,6 +1014,7 @@ export function App() {
       controller.abort();
       if (cmsRecoveryReconnectInFlight.current === reference.id) {
         cmsRecoveryReconnectInFlight.current = null;
+        setCmsOperationBusy(false);
       }
     };
   }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsSessionState, showNotification, storage, studioView, updateCmsArticleList]);
