@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { CmsArticleDetail } from "@noema/cms";
-import { initialCmsRecoverySaveState, resolveCmsRecoveryState } from "../src/cms-recovery";
+import {
+  cmsRecoveryNeedsConflictCheck,
+  initialCmsRecoverySaveState,
+  resolveCmsRecoveryState
+} from "../src/cms-recovery";
 import { createBlankArticle, type StudioDraftCmsArticle } from "../src/draft-storage";
 
 const frontmatter = {
@@ -48,6 +52,12 @@ describe("resolveCmsRecoveryState", () => {
   it("keeps a held recovery copy actionable instead of marking it as an in-flight save", () => {
     expect(initialCmsRecoverySaveState(reference(4))).toBe("dirty");
     expect(initialCmsRecoverySaveState(null)).toBe("local");
+  });
+
+  it("identifies when the CMS version advanced and conflict confirmation is required", () => {
+    expect(cmsRecoveryNeedsConflictCheck(reference(4), 5)).toBe(true);
+    expect(cmsRecoveryNeedsConflictCheck(reference(4), 4)).toBe(false);
+    expect(cmsRecoveryNeedsConflictCheck(null, 5)).toBe(false);
   });
 
   it("reattaches unchanged content even when only workflow metadata advanced", () => {

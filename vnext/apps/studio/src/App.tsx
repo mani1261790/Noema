@@ -75,7 +75,11 @@ import {
   isArticleTopicChoiceDisabled,
   toggleArticleTopic
 } from "./topic-selection";
-import { initialCmsRecoverySaveState, resolveCmsRecoveryState } from "./cms-recovery";
+import {
+  cmsRecoveryNeedsConflictCheck,
+  initialCmsRecoverySaveState,
+  resolveCmsRecoveryState
+} from "./cms-recovery";
 import {
   CmsArticleLibrary,
   type CmsLibraryConnection
@@ -233,7 +237,7 @@ function getInitialState(): InitialState {
       hasRecoveryDraft,
       message: cmsReference
           ? {
-              text: "前回編集中だったCMS記事の復旧コピーを保持しています。「復旧コピーを開く」からCMS最新版との比較へ進めます。",
+              text: "前回編集中だったCMS記事の復旧内容を保持しています。記事一覧からCMS最新版との比較へ進めます。",
               title: "復旧原稿を保持しています",
               tone: "info"
             }
@@ -1812,6 +1816,13 @@ export function App() {
 
   const validationVisible = validationRequested || publicationIssues.length > 0;
   const cmsSession = cmsSessionState.kind === "ready" ? cmsSessionState.session : null;
+  const recoveryArticleSummary = cmsRecoveryReference
+    ? cmsArticles.find((article) => article.id === cmsRecoveryReference.id) ?? null
+    : null;
+  const recoveryNeedsConflictCheck = cmsRecoveryNeedsConflictCheck(
+    cmsRecoveryReference,
+    recoveryArticleSummary?.lockVersion ?? null
+  );
   const cmsSaveLabel: Record<CmsSaveState, string> = {
     conflict: "保存競合・入力内容を保持中",
     dirty: "未保存の変更あり",
@@ -1827,7 +1838,9 @@ export function App() {
   const cmsLibraryWorkingStatus: { text: string; tone: "error" | "info" } | null = cmsRecoveryReference
     ? {
         text: studioView !== "editor"
-          ? `「${cmsWorkingArticleTitle}」の復旧コピーがあります。開くとCMS最新版を取得し、更新があれば競合解消へ進みます。`
+          ? recoveryNeedsConflictCheck
+            ? `「${cmsWorkingArticleTitle}」はCMS側でも更新されています。競合を確認し、必要な内容を選んで解消してください。`
+            : `「${cmsWorkingArticleTitle}」の未反映内容があります。CMS最新版と比較して編集を再開できます。`
           : cmsConflict
           ? `「${cmsWorkingArticleTitle}」は別の編集者による更新と競合しています。入力内容はブラウザに保持しています。`
           : cmsSaveState === "error"
@@ -2062,7 +2075,11 @@ export function App() {
           recoveryNeedsArticleAssociation={cmsAssociationRequired}
           recoverySaveStatus={saveStatus}
           recoveryTitle={frontmatter.title}
-          workingArticleActionLabel={cmsRecoveryReference ? "復旧コピーを開く" : "編集画面に戻る"}
+          workingArticleActionLabel={cmsRecoveryReference
+            ? recoveryNeedsConflictCheck
+              ? "競合を確認・解消"
+              : "CMS最新版と比較"
+            : "編集画面に戻る"}
           workingArticleStatus={cmsLibraryWorkingStatus}
         />
       ) : studioView === "assets" ? (

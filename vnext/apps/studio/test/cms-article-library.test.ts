@@ -125,14 +125,14 @@ describe("CmsArticleLibrary", () => {
     const html = renderLibrary({
       articles: [article],
       hasWorkingEditor: true,
-      workingArticleActionLabel: "復旧コピーを開く",
+      workingArticleActionLabel: "競合を確認・解消",
       workingArticleStatus: {
         text: "復旧コピーがあります。開くとCMS最新版と比較します。",
         tone: "info"
       }
     });
 
-    expect(html).toContain("復旧コピーを開く");
+    expect(html).toContain("競合を確認・解消");
     expect(html).toContain(">編集する</button>");
     expect(html).not.toMatch(/studio-library-item__edit[^>]*disabled/);
   });
