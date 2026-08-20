@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CmsArticleDetail } from "@noema/cms";
-import { resolveCmsRecoveryState } from "../src/cms-recovery";
+import { initialCmsRecoverySaveState, resolveCmsRecoveryState } from "../src/cms-recovery";
 import { createBlankArticle, type StudioDraftCmsArticle } from "../src/draft-storage";
 
 const frontmatter = {
@@ -45,6 +45,11 @@ function reference(lockVersion: number): StudioDraftCmsArticle {
 }
 
 describe("resolveCmsRecoveryState", () => {
+  it("keeps a held recovery copy actionable instead of marking it as an in-flight save", () => {
+    expect(initialCmsRecoverySaveState(reference(4))).toBe("dirty");
+    expect(initialCmsRecoverySaveState(null)).toBe("local");
+  });
+
   it("reattaches unchanged content even when only workflow metadata advanced", () => {
     expect(resolveCmsRecoveryState({
       article: article(5),

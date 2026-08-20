@@ -8,6 +8,14 @@ export interface CmsRecoveryResolution {
   serverFingerprint: string;
 }
 
+export function initialCmsRecoverySaveState(
+  reference: StudioDraftCmsArticle | null
+): "dirty" | "local" {
+  // A held browser recovery copy is not an in-flight CMS save. Treating it as
+  // "saving" disables the only controls that can enter the recovery flow.
+  return reference ? "dirty" : "local";
+}
+
 function contentFingerprint(
   frontmatter: ArticleFrontmatter,
   body: string,
