@@ -81,7 +81,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/studio
           wranglerVersion: "4.120.1"
+          secrets: |
+            BETTER_AUTH_SECRET
           command: deploy --config wrangler.jsonc
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
 
       - name: Deploy Studio MCP Worker
         uses: cloudflare/wrangler-action@v3

@@ -77,7 +77,7 @@ export function CmsTeamSettings({
             <div>
               <p className="studio-library__eyebrow">メンバーを追加</p>
               <h2 id="studio-team-invite-heading">メールアドレスと役割を設定</h2>
-              <p>登録したメールアドレスでCloudflare Accessへ初めてログインすると、Studioの役割が有効になります。</p>
+              <p>登録したメールアドレスで初回の本人確認を行うと、Studioの役割とNoemaのパスワードを設定できます。</p>
             </div>
             <form onSubmit={onSubmit}>
               <label htmlFor="cms-member-email">メールアドレス</label>
@@ -137,7 +137,11 @@ export function CmsTeamSettings({
                       <div>
                         <strong>{member.email}</strong>
                         <span>{cmsRoleLabels[member.role]}</span>
-                        <small>{member.active ? "有効" : "停止"}・{member.provisioned ? "利用開始済み" : "招待待ち"}</small>
+                        <small>
+                          {member.active ? "有効" : "停止"}・
+                          {member.provisioned ? "利用開始済み" : "招待待ち"}・
+                          {member.passwordLoginReadyAt ? "パスワード設定済み" : "パスワード未設定"}
+                        </small>
                       </div>
                       {isSelf ? (
                         <span className="studio-team__self">自分</span>

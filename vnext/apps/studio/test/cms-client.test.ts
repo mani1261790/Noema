@@ -172,6 +172,7 @@ describe("CMS member client", () => {
         {
           active: true,
           email: "pending@example.com",
+          passwordLoginReadyAt: null,
           provisioned: false,
           role: "editor",
           updatedAt: "2026-07-18T00:00:00.000Z"
@@ -179,6 +180,7 @@ describe("CMS member client", () => {
         {
           active: true,
           email: "reviewer@example.com",
+          passwordLoginReadyAt: "2026-07-18T00:00:00.000Z",
           provisioned: true,
           role: "reviewer",
           updatedAt: "2026-07-18T00:00:01.000Z"

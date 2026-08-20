@@ -2,7 +2,7 @@
 
 `@noema/cms`は、Noema StudioとブログWorkerが共有するCMS domain contractです。Cloudflare D1に保存する記事、revision、role、review状態、publication状態、公開範囲と、HTTP APIの入力を定義します。
 
-このpackage自身はD1やnetworkへ接続しません。D1 repositoryとAccess認証は`apps/studio`、公開記事のread modelは`apps/blog`が実装します。
+このpackage自身はD1やnetworkへ接続しません。D1 repositoryとStudio認証は`apps/studio`、公開記事のread modelは`apps/blog`が実装します。
 
 ## Source of truth
 
@@ -24,7 +24,9 @@ Git repository内のMarkdownや旧GitHub Draft Pull Request flowを、現行記�
 
 レビュー担当は、自分が保存したcurrent revisionを自己承認できません。管理者は初期運用と障害対応のため全操作を実行できます。
 
-Cloudflare Access identityは入口の認証であり、それだけではCMS権限になりません。Accessで検証したemailとsubjectを、管理者が登録した招待またはbootstrap admin設定と照合してCMS memberへ結び付けます。
+Noema Studioのユーザー、credential、sessionはBetter Authを介してD1に保存します。認証ユーザーIDは`cms_auth_identities`を介して既存のCMS memberへ結び付け、roleは引き続き`cms_members`だけが決定します。認証ユーザーを作っただけではCMS権限を取得できません。
+
+既存メンバーの移行期間中は、Cloudflare Accessのメールコードを初回設定・復旧用の本人確認として残します。本人確認済みの有効なCMS memberだけが、登録済みメールアドレスへNoemaのパスワードを設定できます。全員の設定と復旧手段を確認する前にAccess境界を撤去しません。
 
 ## Reviewとpublication
 
@@ -103,8 +105,12 @@ Studio Workerは次のCMS endpointを提供します。
 - `POST /api/cms/articles/{id}/actions`
 - `GET /api/cms/members`
 - `PUT /api/cms/members`
+- `POST /api/studio-auth/password`（既存メンバーの初回設定）
+- `POST /api/auth/sign-in/email`
+- `POST /api/auth/sign-out`
+- `GET /api/auth/get-session`
 
-Mutationは固定Studio origin、Access JWT、CMS role、`application/json`、streaming request上限、strict schemaを検証します。Article updateとactionには`If-Match`が必須です。CMS responseは`private, no-store`とし、API errorをStudio SPAのHTMLへフォールバックさせません。
+Mutationは固定Studio origin、Noema sessionまたは移行中のAccess JWT、CMS role、`application/json`、streaming request上限、strict schemaを検証します。公開signup endpointは提供しません。Article updateとactionには`If-Match`が必須です。CMS responseは`private, no-store`とし、API errorをStudio SPAのHTMLへフォールバックさせません。
 
 ## R2 asset plan
 
