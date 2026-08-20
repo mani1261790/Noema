@@ -127,12 +127,13 @@ describe("CmsArticleLibrary", () => {
       hasWorkingEditor: true,
       workingArticleActionLabel: "競合を確認・解消",
       workingArticleStatus: {
-        text: "復旧コピーがあります。開くとCMS最新版と比較します。",
+        text: "CMS側でも更新されています。競合を確認し、必要な内容を選んで解消してください。",
         tone: "info"
       }
     });
 
     expect(html).toContain("競合を確認・解消");
+    expect(html).toContain("競合を確認し、必要な内容を選んで解消してください。");
     expect(html).toContain(">編集する</button>");
     expect(html).not.toMatch(/studio-library-item__edit[^>]*disabled/);
   });

@@ -237,7 +237,7 @@ function getInitialState(): InitialState {
       hasRecoveryDraft,
       message: cmsReference
           ? {
-              text: "前回編集中だったCMS記事の復旧内容を保持しています。記事一覧からCMS最新版との比較へ進めます。",
+              text: "前回編集中だったCMS記事の復旧内容を保持しています。記事一覧からCMS最新版と比較し、競合がある場合は解消へ進めます。",
               title: "復旧原稿を保持しています",
               tone: "info"
             }

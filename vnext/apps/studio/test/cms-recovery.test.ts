@@ -57,6 +57,7 @@ describe("resolveCmsRecoveryState", () => {
   it("identifies when the CMS version advanced and conflict confirmation is required", () => {
     expect(cmsRecoveryNeedsConflictCheck(reference(4), 5)).toBe(true);
     expect(cmsRecoveryNeedsConflictCheck(reference(4), 4)).toBe(false);
+    expect(cmsRecoveryNeedsConflictCheck(reference(4), null)).toBe(false);
     expect(cmsRecoveryNeedsConflictCheck(null, 5)).toBe(false);
   });
 
