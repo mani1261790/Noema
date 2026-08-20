@@ -22,6 +22,8 @@ const CMS_ARTICLES_PATH = "/api/cms/articles";
 const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
 const CMS_ASSETS_PATH = "/api/cms/assets";
+const AUTH_API_PREFIX = "/api/auth";
+const STUDIO_PASSWORD_PATH = "/api/studio-auth/password";
 
 export interface CmsClientError {
   code: string;
@@ -55,6 +57,31 @@ export async function fetchCmsSession(
   return session
     ? { ok: true, value: session }
     : invalidResponse(result.status);
+}
+
+export async function configureStudioPassword(
+  password: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<null>> {
+  const result = await cmsRequest(STUDIO_PASSWORD_PATH, {
+    body: JSON.stringify({ password }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  }, options);
+  return result.ok ? { ok: true, value: null } : result;
+}
+
+export async function signInStudio(
+  email: string,
+  password: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<null>> {
+  const result = await cmsRequest(`${AUTH_API_PREFIX}/sign-in/email`, {
+    body: JSON.stringify({ email, password }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  }, options);
+  return result.ok ? { ok: true, value: null } : result;
 }
 
 export async function fetchCmsArticles(
@@ -284,6 +311,7 @@ function parseCmsSession(value: unknown): CmsSession | null {
     !role.success ||
     !isString(value.identity.email) ||
     !isString(value.identity.subject) ||
+    !(value.passwordLoginReadyAt === null || isString(value.passwordLoginReadyAt)) ||
     !isBoolean(capabilities.canApprove) ||
     !isBoolean(capabilities.canEdit) ||
     !isBoolean(capabilities.canManageMembers) ||
@@ -300,7 +328,8 @@ function parseCmsSession(value: unknown): CmsSession | null {
       email: value.identity.email,
       role: role.data,
       subject: value.identity.subject
-    }
+    },
+    passwordLoginReadyAt: value.passwordLoginReadyAt
   };
 }
 
@@ -379,12 +408,14 @@ function parseCmsMember(value: unknown): CmsMember | null {
     !role.success ||
     !isBoolean(value.active) ||
     !isString(value.email) ||
+    !(value.passwordLoginReadyAt === null || isString(value.passwordLoginReadyAt)) ||
     !isBoolean(value.provisioned) ||
     !isString(value.updatedAt)
   ) return null;
   return {
     active: value.active,
     email: value.email,
+    passwordLoginReadyAt: value.passwordLoginReadyAt,
     provisioned: value.provisioned,
     role: role.data,
     updatedAt: value.updatedAt

@@ -40,11 +40,13 @@ import {
 } from "@noema/cms";
 import {
   createCmsArticle as createCmsArticleRecord,
+  configureStudioPassword,
   fetchCmsArticle,
   fetchCmsArticles,
   fetchCmsAssets,
   fetchCmsMembers,
   fetchCmsSession,
+  signInStudio,
   runCmsArticleAction,
   updateCmsArticle as updateCmsArticleRecord,
   updateCmsAsset as updateCmsAssetRecord,
@@ -85,6 +87,8 @@ import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsTeamSettings } from "./CmsTeamSettings";
+import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
+import { CmsLogin } from "./CmsLogin";
 import {
   CmsConflictResolver,
   type ResolvedCmsConflictDraft
@@ -660,6 +664,10 @@ export function App() {
   const [cmsMembers, setCmsMembers] = useState<CmsMember[]>([]);
   const [cmsMembersBusy, setCmsMembersBusy] = useState(false);
   const [cmsMembersError, setCmsMembersError] = useState<string | null>(null);
+  const [passwordMigrationBusy, setPasswordMigrationBusy] = useState(false);
+  const [passwordMigrationError, setPasswordMigrationError] = useState<string | null>(null);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [cmsMemberEmail, setCmsMemberEmail] = useState("");
   const [cmsMemberRole, setCmsMemberRole] = useState<CmsRole>("editor");
   const [cmsMemberActive, setCmsMemberActive] = useState(true);
@@ -1566,6 +1574,33 @@ export function App() {
     setCmsMembersBusy(false);
   };
 
+  const configurePasswordLogin = async (password: string) => {
+    if (cmsSessionState.kind !== "ready" || cmsSessionState.session.passwordLoginReadyAt) return;
+    setPasswordMigrationBusy(true);
+    setPasswordMigrationError(null);
+    const result = await configureStudioPassword(password);
+    if (result.ok) {
+      showNotification({
+        text: "Noemaのパスワードを設定しました。移行確認が終わるまではメールコードも利用できます。",
+        title: "パスワード設定が完了しました",
+        tone: "info"
+      });
+      setCmsRefresh((current) => current + 1);
+    } else {
+      setPasswordMigrationError(result.error.message);
+    }
+    setPasswordMigrationBusy(false);
+  };
+
+  const login = async (email: string, password: string) => {
+    setLoginBusy(true);
+    setLoginError(null);
+    const result = await signInStudio(email, password);
+    if (result.ok) setCmsRefresh((current) => current + 1);
+    else setLoginError(result.error.message);
+    setLoginBusy(false);
+  };
+
   useEffect(() => {
     if (
       !cmsArticle ||
@@ -1880,6 +1915,14 @@ export function App() {
       ? "保存"
       : "CMSに保存";
 
+  if (cmsSessionState.kind === "unavailable" && cmsSessionState.error.status === 401) {
+    return (
+      <div className="studio-shell">
+        <CmsLogin busy={loginBusy} error={loginError} onSubmit={login} />
+      </div>
+    );
+  }
+
   return (
     <div className="studio-shell">
       {studioView === "editor" ? (
@@ -1979,6 +2022,15 @@ export function App() {
 
       {operationMessage ? (
         <StudioNotification message={operationMessage} onDismiss={() => setOperationMessage(null)} />
+      ) : null}
+
+      {cmsSession ? (
+        <CmsPasswordLoginMigration
+          busy={passwordMigrationBusy}
+          error={passwordMigrationError}
+          onSubmit={configurePasswordLogin}
+          session={cmsSession}
+        />
       ) : null}
 
       {studioView === "articles" ? (

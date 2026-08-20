@@ -9,14 +9,20 @@ import {
 } from "./access";
 import {
   handleCmsApiRequest,
-  isCmsMutation,
   isCmsPath
 } from "./cms-api";
+import {
+  handleStudioAuthRequest,
+  isStudioAuthPath,
+  readStudioAuthConfiguration,
+  resolveNoemaIdentity,
+  type StudioAuthEnvironment
+} from "./studio-auth";
 
 type StudioApiEnvironment = AccessEnvironment & Partial<Pick<
   Env,
   "ARTICLE_ASSETS" | "CMS_BOOTSTRAP_ADMIN_EMAIL" | "CMS_DB" | "STUDIO_ALLOWED_ORIGIN"
->>;
+>> & Pick<StudioAuthEnvironment, "BETTER_AUTH_SECRET">;
 type StudioEnvironment = Env & StudioApiEnvironment;
 
 type AccessTokenVerifier = (
@@ -39,14 +45,14 @@ export async function handleStudioApiRequest(
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
 
-  if (!isCmsPath(pathname)) {
+  if (!isCmsPath(pathname) && !isStudioAuthPath(pathname)) {
     return errorResponse(404, "api_not_found", "APIが見つかりません。");
   }
   if (!env.CMS_DB) {
     return errorResponse(503, "cms_unavailable", "CMSは現在利用できません。", true);
   }
 
-  if (isCmsMutation(request)) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
     const allowedOrigin = readAllowedOrigin(env.STUDIO_ALLOWED_ORIGIN);
     if (!allowedOrigin) {
       return errorResponse(503, "cms_unavailable", "CMSは現在利用できません。", true);
@@ -60,7 +66,58 @@ export async function handleStudioApiRequest(
     }
   }
 
-  const authentication = await authenticate(request, env, dependencies);
+  const authConfiguration = readStudioAuthConfiguration(env);
+  if (isStudioAuthPath(pathname)) {
+    if (!authConfiguration.ok) {
+      return errorResponse(503, "auth_unavailable", "Noemaの認証は現在利用できません。", true);
+    }
+    let accessIdentity: AccessIdentity | null = null;
+    if (request.headers.has(ACCESS_JWT_HEADER)) {
+      const accessAuthentication = await authenticateAccess(request, env, dependencies);
+      if (accessAuthentication.ok) accessIdentity = accessAuthentication.identity;
+    }
+    return handleStudioAuthRequest(
+      request,
+      {
+        BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+        CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
+        CMS_DB: env.CMS_DB,
+        STUDIO_ALLOWED_ORIGIN: env.STUDIO_ALLOWED_ORIGIN
+      },
+      authConfiguration,
+      accessIdentity
+    );
+  }
+
+  if (authConfiguration.ok) {
+    try {
+      const identity = await resolveNoemaIdentity(
+        request,
+        {
+          BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+          CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
+          CMS_DB: env.CMS_DB,
+          STUDIO_ALLOWED_ORIGIN: env.STUDIO_ALLOWED_ORIGIN
+        },
+        authConfiguration
+      );
+      if (identity) {
+        return handleCmsApiRequest(
+          request,
+          {
+            ARTICLE_ASSETS: env.ARTICLE_ASSETS,
+            CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
+            CMS_DB: env.CMS_DB
+          },
+          identity
+        );
+      }
+    } catch {
+      // Access remains the recovery path while members migrate.
+    }
+  }
+
+  const authentication = await authenticateAccess(request, env, dependencies);
   if (!authentication.ok) return authentication.response;
   return handleCmsApiRequest(
     request,
@@ -84,7 +141,7 @@ export async function handleStudioRequest(
   return env.ASSETS.fetch(request);
 }
 
-async function authenticate(
+async function authenticateAccess(
   request: Request,
   env: AccessEnvironment,
   dependencies: StudioApiDependencies

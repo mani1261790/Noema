@@ -30,6 +30,12 @@ beforeEach(async () => {
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_assets"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_imports"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_auth_identities"),
+    testEnv.CMS_DB.prepare("DELETE FROM studio_auth_session"),
+    testEnv.CMS_DB.prepare("DELETE FROM studio_auth_account"),
+    testEnv.CMS_DB.prepare("DELETE FROM studio_auth_user"),
+    testEnv.CMS_DB.prepare("DELETE FROM studio_auth_verification"),
+    testEnv.CMS_DB.prepare("DELETE FROM studio_auth_rate_limit"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_members"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_member_invitations")
   ]);
@@ -190,6 +196,102 @@ describe("CMS HTTP API", () => {
     expect(response.status).toBe(403);
     await expectErrorCode(response, "same_origin_required");
     expect(verifyAccessToken).not.toHaveBeenCalled();
+  });
+
+  it("links an existing CMS member to a Noema password and accepts its session without Access", async () => {
+    const verifyAccessToken = vi.fn().mockResolvedValue(ADMIN);
+    const envWithAuth = {
+      ACCESS_POLICY_AUD: "test-audience",
+      ACCESS_TEAM_DOMAIN: "noema.cloudflareaccess.com",
+      BETTER_AUTH_SECRET: "test-secret-that-is-at-least-32-characters-long",
+      CMS_BOOTSTRAP_ADMIN_EMAIL: ADMIN.email,
+      CMS_DB: testEnv.CMS_DB,
+      STUDIO_ALLOWED_ORIGIN: ORIGIN
+    };
+    const accessHeaders = {
+      "cf-access-jwt-assertion": "test-token",
+      origin: ORIGIN
+    };
+
+    const bootstrap = await handleStudioApiRequest(
+      cmsRequest("/api/cms/session", { headers: accessHeaders }),
+      envWithAuth,
+      { verifyAccessToken }
+    );
+    expect(bootstrap.status).toBe(200);
+
+    const configured = await handleStudioApiRequest(
+      cmsRequest("/api/studio-auth/password", {
+        body: JSON.stringify({ password: "a-safe-test-password-123" }),
+        headers: { ...accessHeaders, "content-type": "application/json" },
+        method: "POST"
+      }),
+      envWithAuth,
+      { verifyAccessToken }
+    );
+    expect(configured.status).toBe(200);
+
+    const account = await testEnv.CMS_DB.prepare(
+      "SELECT password FROM studio_auth_account WHERE providerId = 'credential'"
+    ).first<{ password: string }>();
+    expect(account?.password).toBeTruthy();
+    expect(account?.password).not.toContain("a-safe-test-password-123");
+    expect(await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_auth_identities"
+    ).first<number>("count")).toBe(1);
+
+    const signIn = await handleStudioApiRequest(
+      cmsRequest("/api/auth/sign-in/email", {
+        body: JSON.stringify({
+          email: ADMIN.email,
+          password: "a-safe-test-password-123"
+        }),
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        method: "POST"
+      }),
+      envWithAuth,
+      { verifyAccessToken }
+    );
+    expect(signIn.status).toBe(200);
+    const cookie = signIn.headers.get("set-cookie")?.split(";", 1)[0];
+    expect(cookie).toBeTruthy();
+
+    const session = await handleStudioApiRequest(
+      cmsRequest("/api/cms/session", { headers: { cookie: cookie ?? "" } }),
+      envWithAuth,
+      { verifyAccessToken }
+    );
+    expect(session.status).toBe(200);
+    const cmsSession = await session.json() as CmsSession;
+    expect(cmsSession.identity).toEqual({ ...ADMIN, role: "admin" });
+    expect(cmsSession.passwordLoginReadyAt).toBeTruthy();
+    expect(verifyAccessToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not expose Better Auth public sign-up", async () => {
+    const response = await handleStudioApiRequest(
+      cmsRequest("/api/auth/sign-up/email", {
+        body: JSON.stringify({
+          email: "attacker@example.com",
+          name: "attacker",
+          password: "a-safe-test-password-123"
+        }),
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        method: "POST"
+      }),
+      {
+        ACCESS_POLICY_AUD: "test-audience",
+        ACCESS_TEAM_DOMAIN: "noema.cloudflareaccess.com",
+        BETTER_AUTH_SECRET: "test-secret-that-is-at-least-32-characters-long",
+        CMS_DB: testEnv.CMS_DB,
+        STUDIO_ALLOWED_ORIGIN: ORIGIN
+      }
+    );
+
+    expect(response.status).toBe(404);
+    expect(await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM studio_auth_user"
+    ).first<number>("count")).toBe(0);
   });
 
   it("stores supported images privately and serves them to authenticated Studio previews", async () => {

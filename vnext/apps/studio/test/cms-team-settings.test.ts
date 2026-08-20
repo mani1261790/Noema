@@ -8,6 +8,7 @@ const members: CmsMember[] = [
   {
     active: true,
     email: "owner@example.com",
+    passwordLoginReadyAt: null,
     provisioned: true,
     role: "admin",
     updatedAt: "2026-08-12T00:00:00.000Z"
@@ -15,6 +16,7 @@ const members: CmsMember[] = [
   {
     active: true,
     email: "editor@example.com",
+    passwordLoginReadyAt: null,
     provisioned: false,
     role: "editor",
     updatedAt: "2026-08-12T00:00:00.000Z"
