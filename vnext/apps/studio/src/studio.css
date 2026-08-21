@@ -1796,6 +1796,83 @@ a {
   border-bottom: 1px solid #949494;
 }
 
+.studio-review-comments {
+  display: grid;
+  gap: 0.875rem;
+  margin-block: 1.25rem;
+  padding-block: 1.25rem;
+  border-block: 1px solid var(--studio-border, #d8d8d8);
+}
+
+.studio-review-comments__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.studio-review-comments__heading h3,
+.studio-review-comments__list,
+.studio-review-comments__list p,
+.studio-review-comments__empty {
+  margin: 0;
+}
+
+.studio-review-comments__list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.studio-review-comments__list li {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.875rem;
+  border: 1px solid var(--studio-border, #d8d8d8);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.studio-review-comments__list small,
+.studio-review-comments__empty {
+  color: var(--studio-text-muted, #4b5563);
+}
+
+.studio-review-comments__form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.studio-review-comments__form select,
+.studio-review-comments__form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--studio-border-strong, #767676);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+
+.studio-review-comments__form textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.studio-review-comments__form select:focus-visible,
+.studio-review-comments__form textarea:focus-visible {
+  outline: 3px solid var(--studio-focus, #005fcc);
+  outline-offset: 2px;
+}
+
+.studio-review-comments__form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .studio-cms__heading {
   display: flex;
   flex-wrap: wrap;

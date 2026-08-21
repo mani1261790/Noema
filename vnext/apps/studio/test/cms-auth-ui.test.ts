@@ -8,6 +8,7 @@ import { CmsPasswordLoginMigration } from "../src/CmsPasswordLoginMigration";
 const session: CmsSession = {
   capabilities: {
     canApprove: true,
+    canComment: true,
     canEdit: true,
     canManageMembers: true,
     canPublish: true
