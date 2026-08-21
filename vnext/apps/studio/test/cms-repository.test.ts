@@ -158,6 +158,14 @@ describe("CMS repository", () => {
       updatedAt: "2026-07-18"
     });
     expect(created.currentRevision.frontmatter.publishedAt).toBeUndefined();
+    const storedChecksum = await testEnv.CMS_DB.prepare(
+      "SELECT content_sha256 FROM cms_article_revisions WHERE id = ?1"
+    ).bind(created.currentRevision.id).first<string>("content_sha256");
+    expect(storedChecksum).toBe(await sha256(JSON.stringify({
+      frontmatter: created.currentRevision.frontmatter,
+      markdown: created.currentRevision.markdown,
+      visibility: created.visibility
+    })));
 
     const updated = await updateCmsArticle(
       testEnv.CMS_DB,
@@ -869,4 +877,11 @@ function validArticle(slug: string) {
     markdown: "## CMSで管理する\n\n記事本文をD1のrevisionとして保存します。",
     visibility: "internal" as const
   };
+}
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
