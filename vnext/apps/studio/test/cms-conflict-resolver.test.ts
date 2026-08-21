@@ -42,6 +42,7 @@ const baseProps: ComponentProps<typeof CmsConflictResolver> = {
   localBody: "## 共通\n\nブラウザの本文\n",
   localFrontmatter: { ...latestFrontmatter, title: "ブラウザのタイトル" },
   localVisibility: "public",
+  onBack: () => undefined,
   onDownload: () => undefined,
   onResolve: () => undefined,
   onRetry: () => undefined,
@@ -56,10 +57,13 @@ describe("CmsConflictResolver", () => {
   it("puts the three resolution paths next to the conflict explanation", () => {
     const html = renderResolver();
 
-    expect(html).toContain("ブラウザの原稿とCMS最新版を統合してください");
+    expect(html).toContain("重なった変更を確認してください");
+    expect(html).toContain("重ならない変更はすでに取り込んでいます");
+    expect(html).toContain("新しいrevisionとしてCMSへ保存します");
     expect(html).toContain("ブラウザの原稿を採用");
     expect(html).toContain("CMS最新版を採用");
     expect(html).toContain("ブラウザの原稿を書き出す");
+    expect(html).toContain("編集画面に戻る");
     expect(html).toContain("revision 12");
     expect(html).toContain("editor@example.com");
   });
@@ -78,7 +82,7 @@ describe("CmsConflictResolver", () => {
     expect(html).toContain("aria-label=\"タイトル ブラウザ側の内容\"");
     expect(html).toContain("ブラウザ側を使う");
     expect(html).toContain("CMS側を使う");
-    expect(html).toContain("選んだ内容を編集画面へ戻す");
+    expect(html).toContain("選んだ内容で解消して保存");
   });
 
   it("keeps recovery actions available when the latest revision cannot load", () => {

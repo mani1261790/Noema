@@ -45,6 +45,7 @@ export function CmsConflictResolver({
   localBody,
   localFrontmatter,
   localVisibility,
+  onBack,
   onDownload,
   onResolve,
   onRetry,
@@ -55,6 +56,7 @@ export function CmsConflictResolver({
   localBody: string;
   localFrontmatter: ArticleFrontmatter;
   localVisibility: CmsVisibility;
+  onBack: () => void;
   onDownload: () => void;
   onResolve: (draft: ResolvedCmsConflictDraft) => void;
   onRetry: () => void;
@@ -66,8 +68,9 @@ export function CmsConflictResolver({
   if (latestState.kind === "loading") {
     return (
       <section aria-labelledby="cms-conflict-heading" aria-live="polite" className="studio-conflict-resolver">
-        <h2 id="cms-conflict-heading" ref={headingRef} tabIndex={-1}>保存競合を確認しています</h2>
+        <h2 id="cms-conflict-heading" ref={headingRef} tabIndex={-1}>CMS最新版を確認しています</h2>
         <p>ブラウザの入力は保持したまま、CMSの最新版を読み込んでいます。</p>
+        <button className="dads-button" data-size="md" data-type="outline" onClick={onBack} type="button">編集画面に戻る</button>
       </section>
     );
   }
@@ -79,6 +82,7 @@ export function CmsConflictResolver({
         <p>{latestState.message} ブラウザの入力は保持しています。</p>
         <div className="studio-conflict-resolver__actions">
           <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy} onClick={onRetry} type="button">もう一度読み込む</button>
+          <button className="dads-button" data-size="md" data-type="outline" onClick={onBack} type="button">編集画面に戻る</button>
           <button className="dads-button" data-size="md" data-type="outline" onClick={onDownload} type="button">ブラウザの原稿を書き出す</button>
         </div>
       </section>
@@ -93,6 +97,7 @@ export function CmsConflictResolver({
       localBody={localBody}
       localFrontmatter={localFrontmatter}
       localVisibility={localVisibility}
+      onBack={onBack}
       onDownload={onDownload}
       onResolve={onResolve}
       onUseLatest={onUseLatest}
@@ -107,6 +112,7 @@ function CmsConflictComparison({
   localBody,
   localFrontmatter,
   localVisibility,
+  onBack,
   onDownload,
   onResolve,
   onUseLatest
@@ -117,6 +123,7 @@ function CmsConflictComparison({
   localBody: string;
   localFrontmatter: ArticleFrontmatter;
   localVisibility: CmsVisibility;
+  onBack: () => void;
   onDownload: () => void;
   onResolve: (draft: ResolvedCmsConflictDraft) => void;
   onUseLatest: (article: CmsArticleDetail) => void;
@@ -162,8 +169,8 @@ function CmsConflictComparison({
     <section aria-labelledby="cms-conflict-heading" className="studio-conflict-resolver">
       <div className="studio-conflict-resolver__intro">
         <p className="studio-conflict-resolver__eyebrow">保存を止めています</p>
-        <h2 id="cms-conflict-heading" ref={headingRef} tabIndex={-1}>ブラウザの原稿とCMS最新版を統合してください</h2>
-        <p>どちらか一方をそのまま採用するか、変更箇所ごとに残す内容を選べます。選択した内容はすぐには保存せず、編集画面へ戻します。</p>
+        <h2 id="cms-conflict-heading" ref={headingRef} tabIndex={-1}>重なった変更を確認してください</h2>
+        <p>重ならない変更はすでに取り込んでいます。残す内容を変更箇所ごとに選び、確定すると新しいrevisionとしてCMSへ保存します。</p>
       </div>
 
       <div className="studio-conflict-resolver__versions">
@@ -180,6 +187,7 @@ function CmsConflictComparison({
       </div>
 
       <div className="studio-conflict-resolver__quick-actions">
+        <button className="dads-button" data-size="md" data-type="outline" onClick={onBack} type="button">編集画面に戻る</button>
         <button className="dads-button" data-size="md" data-type="outline" disabled={busy} onClick={() => resolveSelection("local")} type="button">ブラウザの原稿を採用</button>
         <button className="dads-button" data-size="md" data-type="outline" disabled={busy} onClick={() => onUseLatest(article)} type="button">CMS最新版を採用</button>
         <button className="dads-button" data-size="md" data-type="outline" onClick={onDownload} type="button">ブラウザの原稿を書き出す</button>
@@ -233,7 +241,7 @@ function CmsConflictComparison({
           </div>
 
           <div className="studio-conflict-resolver__actions">
-            <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy} onClick={() => resolveSelection()} type="button">選んだ内容を編集画面へ戻す</button>
+            <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy} onClick={() => resolveSelection()} type="button">選んだ内容で解消して保存</button>
             <button className="dads-button" data-size="md" data-type="outline" onClick={onDownload} type="button">先にMarkdownを書き出す</button>
           </div>
         </div>

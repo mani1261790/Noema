@@ -18,7 +18,7 @@ import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
 
 const reasonLabels: Record<CmsRevisionSaveReason, string> = {
   autosave: "編集セッション",
-  conflict_resolution: "競合を解消",
+  conflict_resolution: "CMS最新版へ統合",
   created: "記事を作成",
   legacy: "以前の保存",
   manual: "手動で記録",
@@ -169,12 +169,36 @@ export function CmsVersionHistory({
       role="dialog"
     >
       <StudioSurfaceHeader
-        description="自動保存は編集セッション単位でまとめています。過去の内容は消さずに、新しい版として復元できます。"
+        description="自動保存と最新版への統合を時系列で確認できます。過去の内容は消さずに、新しい版として復元します。"
         headingRef={headingRef}
         onClose={onClose}
-        title="版の履歴"
+        title="履歴と復元"
         titleId="cms-version-history-heading"
       />
+      {historyState.kind === "ready" && historyState.versions[1] ? (
+        <section className="studio-version-history__quick-restore" aria-labelledby="cms-quick-restore-heading">
+          <div>
+            <h3 id="cms-quick-restore-heading">直前の保存へ戻したいとき</h3>
+            <p>まず内容と現在版との差を確認します。復元しても過去の履歴は消えません。</p>
+          </div>
+          <button
+            className="dads-button"
+            data-size="md"
+            data-type="outline"
+            onClick={() => {
+              const previous = historyState.versions[1];
+              if (!previous) return;
+              setSelectedVersion({
+                revisionId: previous.latestRevisionId,
+                versionId: previous.id
+              });
+            }}
+            type="button"
+          >
+            直前の保存を確認
+          </button>
+        </section>
+      ) : null}
       <div className="studio-version-history__layout">
         <div className="studio-version-history__list" aria-label="保存された版">
           {historyState.kind === "loading" ? <p role="status">履歴を読み込んでいます…</p> : null}
