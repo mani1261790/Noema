@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import {
   getCmsPublishedArticleBySlug,
+  getCmsPublishedSeriesByArticleSlug,
   listCmsPublicArticleSummaries,
 } from "./cms-publication-repository";
 
@@ -10,4 +11,8 @@ export function listPublicArticleSummaries() {
 
 export function getPublishedArticleBySlug(slug: string) {
   return getCmsPublishedArticleBySlug(env.CMS_DB, slug);
+}
+
+export function getPublishedSeriesByArticleSlug(slug: string) {
+  return getCmsPublishedSeriesByArticleSlug(env.CMS_DB, slug);
 }

@@ -1,8 +1,11 @@
 import type { CmsVisibility } from "@noema/cms";
 import { describe, expect, it } from "vitest";
 import {
+  getCmsPublishedSeriesByArticleSlug,
   isCmsPublicationVisible,
   parseCmsPublishedArticleRow,
+  type CmsPublicationDatabase,
+  type CmsPublicationStatement,
 } from "./cms-publication-repository";
 
 const validFrontmatter = {
@@ -75,5 +78,69 @@ describe("CMS publication visibility", () => {
       revision_created_at: "2026-07-17T05:06:07.000Z",
       revision_number: 1,
     }, "listing")).toThrow(/does not match/);
+  });
+});
+
+describe("published article series", () => {
+  it("returns only the published public sequence and locates the current article", async () => {
+    const rows = ["first", "current", "next"].map((slug, index) => ({
+      frontmatter_json: JSON.stringify({
+        ...validFrontmatter,
+        slug,
+        title: `${index + 1}番目の記事`,
+      }),
+      published_at: `2026-07-${18 + index}T01:02:03.000Z`,
+      published_slug: slug,
+      published_visibility: "public",
+      revision_created_at: `2026-07-${17 + index}T05:06:07.000Z`,
+      revision_number: index + 1,
+    }));
+    const db = {
+      prepare(query: string) {
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() {
+            const value = query.includes("current_article")
+              ? { description: "順番に学ぶシリーズです。", id: "series-id", slug: "learning-path", title: "学習シリーズ" }
+              : null;
+            return value as T | null;
+          },
+          async all<T>() { return { results: rows as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    const result = await getCmsPublishedSeriesByArticleSlug(db, "current");
+
+    expect(result).toMatchObject({
+      currentIndex: 1,
+      description: "順番に学ぶシリーズです。",
+      slug: "learning-path",
+      title: "学習シリーズ",
+    });
+    expect(result?.items.map((item) => [item.slug, item.href])).toEqual([
+      ["first", "/articles/first"],
+      ["current", "/articles/current"],
+      ["next", "/articles/next"],
+    ]);
+  });
+
+  it("does not expose series data for an invalid or non-member article", async () => {
+    let prepared = false;
+    const db = {
+      prepare() {
+        prepared = true;
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return null as T | null; },
+          async all<T>() { return { results: [] as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+    expect(await getCmsPublishedSeriesByArticleSlug(db, "../private")).toBeNull();
+    expect(prepared).toBe(false);
+    expect(await getCmsPublishedSeriesByArticleSlug(db, "not-a-member")).toBeNull();
   });
 });

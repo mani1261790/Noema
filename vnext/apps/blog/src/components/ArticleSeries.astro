@@ -1,0 +1,58 @@
+---
+import type { ArticleSummary } from "@noema/content";
+
+interface Props {
+  currentIndex: number;
+  description: string;
+  items: ArticleSummary[];
+  mode?: "intro" | "end";
+  title: string;
+}
+
+const { currentIndex, description, items, mode = "intro", title } = Astro.props;
+const current = items[currentIndex];
+const first = items[0];
+const previous = items[currentIndex - 1];
+const next = items[currentIndex + 1];
+---
+
+{mode === "intro" ? (
+  <nav class="article-series" aria-labelledby="article-series-heading">
+    <div class="article-series__heading">
+      <div>
+        <p>このシリーズ</p>
+        <h2 id="article-series-heading">{title}</h2>
+        <span>第{currentIndex + 1}回 / 全{items.length}回</span>
+      </div>
+      <p>{description}</p>
+    </div>
+    {currentIndex > 0 && (
+      <div class="article-series__quick-links">
+        {currentIndex > 1 && first && <a href={first.href}><small>シリーズの入口</small><strong>最初から読む</strong><span>{first.title}</span></a>}
+        {previous && <a href={previous.href}><small>ひとつ前</small><strong>前の記事へ</strong><span>{previous.title}</span></a>}
+      </div>
+    )}
+    <details class="article-series__contents">
+      <summary>シリーズ全体を見る</summary>
+      <ol>
+        {items.map((item, index) => (
+          <li class:list={{ "is-current": index === currentIndex }}>
+            {index === currentIndex ? (
+              <span aria-current="page"><small>第{index + 1}回・現在の記事</small><strong>{item.title}</strong></span>
+            ) : (
+              <a href={item.href}><small>第{index + 1}回</small><strong>{item.title}</strong></a>
+            )}
+          </li>
+        ))}
+      </ol>
+    </details>
+  </nav>
+) : (
+  <nav class="article-series-end" aria-label={`${title}の前後の記事`}>
+    <p><span>{title}</span><strong>{current?.title}</strong></p>
+    <div>
+      {previous ? <a href={previous.href}><small>前の記事</small><strong>{previous.title}</strong></a> : <span></span>}
+      {next ? <a class="is-next" href={next.href}><small>次の記事</small><strong>{next.title}</strong></a> : <a class="is-next" href="/articles"><small>シリーズを読み終えました</small><strong>ほかの記事を見る</strong></a>}
+    </div>
+  </nav>
+)}
