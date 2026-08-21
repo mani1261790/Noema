@@ -121,6 +121,18 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain(">編集する</button>");
   });
 
+  it("labels approved published articles as publication management", () => {
+    const approvedArticle = {
+      ...article,
+      reviewStatus: "approved" as const
+    };
+    const html = renderLibrary({ articles: [approvedArticle] });
+
+    expect(html).toContain('aria-label="「Workers AI ガイド」の公開を管理"');
+    expect(html).toContain(">公開を管理</button>");
+    expect(html).not.toContain(">編集する</button>");
+  });
+
   it("shows review progress instead of an edit action to editors", () => {
     const reviewArticle = {
       ...article,

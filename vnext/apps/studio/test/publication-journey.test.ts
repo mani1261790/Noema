@@ -20,6 +20,14 @@ describe("getCmsJourneyStatus", () => {
     });
   });
 
+  it("distinguishes the live revision from a newer approved revision", () => {
+    expect(getCmsJourneyStatus("approved", "published", false)).toEqual({
+      detail: "現在の公開版はそのまま",
+      label: "公開中・新しい版は承認済み",
+      step: 2
+    });
+  });
+
   it("shows an archived article as completed without marking publish as current", () => {
     const html = renderToStaticMarkup(createElement(CmsPublicationJourney, {
       publicationStatus: "archived",

@@ -102,7 +102,7 @@ a {
 .studio-editor-toolbar {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: .75rem;
   min-height: 64px;
@@ -112,16 +112,47 @@ a {
 }
 
 .studio-editor-toolbar__status {
-  min-width: 0;
+  display: inline-flex;
+  min-width: max-content;
+  align-items: center;
+  gap: .4rem;
   margin: 0;
-  overflow: hidden;
+  padding: .3rem .55rem;
   color: #333;
-  font-size: calc(14 / 16 * 1rem);
+  background: #f2f2f2;
+  border-radius: 999px;
+  font-size: calc(13 / 16 * 1rem);
   font-weight: 700;
   line-height: 1.5;
-  text-align: center;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.studio-editor-toolbar__status::before {
+  width: .5rem;
+  height: .5rem;
+  flex: 0 0 auto;
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+}
+
+.studio-editor-toolbar__secondary-actions {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+  gap: .5rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.studio-editor-toolbar__secondary-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.studio-editor-toolbar__secondary-actions .dads-button,
+.studio-save-shortcut {
+  flex: 0 0 auto;
 }
 
 .studio-editor-toolbar__status.is-saved {
@@ -1604,15 +1635,15 @@ a {
 }
 
 .studio-settings.is-metadata > .studio-cms-workflow,
-.studio-settings.is-workflow > :not(.studio-surface-header):not(.studio-cms-workflow) {
+.studio-settings:is(.is-review, .is-publish) > :not(.studio-surface-header):not(.studio-cms-workflow) {
   display: none;
 }
 
-.studio-settings.is-workflow .studio-cms-workflow {
+.studio-settings:is(.is-review, .is-publish) .studio-cms-workflow {
   border: 0;
 }
 
-.studio-settings.is-workflow .studio-cms-workflow > summary {
+.studio-settings:is(.is-review, .is-publish) .studio-cms-workflow > summary {
   display: none;
 }
 
@@ -2031,6 +2062,68 @@ a {
 .studio-cms__actions {
   display: grid;
   gap: .5rem;
+}
+
+.studio-workflow-stage {
+  display: grid;
+  gap: 1rem;
+}
+
+.studio-workflow-stage__heading {
+  display: grid;
+  gap: .25rem;
+  padding: 1rem;
+  background: #f5f8fa;
+  border-left: 5px solid #006a64;
+}
+
+.studio-workflow-stage__heading > span {
+  color: #006a64;
+  font-size: calc(13 / 16 * 1rem);
+  font-weight: 700;
+}
+
+.studio-workflow-stage__heading h3,
+.studio-workflow-stage__heading p,
+.studio-publish-readiness p {
+  margin: 0;
+}
+
+.studio-workflow-stage__heading h3 {
+  font-size: calc(18 / 16 * 1rem);
+}
+
+.studio-workflow-stage__heading p,
+.studio-publish-readiness {
+  color: #444;
+  line-height: 1.6;
+}
+
+.studio-publish-readiness {
+  display: grid;
+  gap: .75rem;
+  padding: 1rem;
+  background: #fff7d6;
+  border: 1px solid #b78b00;
+}
+
+.studio-publish-readiness.is-ready {
+  color: #174b2b;
+  background: #edf7ef;
+  border-color: #5b8b69;
+}
+
+.studio-publish-readiness .dads-button {
+  justify-self: start;
+}
+
+.studio-publish-stage__back {
+  justify-self: start;
+}
+
+.studio-cms__revoke-approval {
+  color: #8b0000;
+  border-color: #b40000;
 }
 
 .studio-cms__pending-message {
@@ -3828,19 +3921,42 @@ textarea.studio-control {
   }
 
   .studio-editor-toolbar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: .5rem;
     padding: .5rem .75rem;
   }
 
   .studio-editor-toolbar__status {
-    grid-column: 1 / -1;
+    grid-column: 2;
     grid-row: 1;
-    text-align: left;
+    min-width: 0;
+    justify-self: start;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .studio-editor-toolbar .dads-button {
-    width: 100%;
+  .studio-editor-toolbar__secondary-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    margin-inline: -.75rem;
+    padding-inline: .75rem;
+  }
+
+  .studio-save-shortcut {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .studio-library-shortcut {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .studio-editor-toolbar__secondary-actions .dads-button,
+  .studio-save-shortcut,
+  .studio-library-shortcut {
+    width: auto;
   }
 
   .studio-primary-nav {

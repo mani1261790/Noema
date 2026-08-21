@@ -135,7 +135,7 @@ import {
   ensureActiveCmsEditSession
 } from "./cms-versioning";
 
-type StudioSettingsMode = "metadata" | "workflow";
+type StudioSettingsMode = "metadata" | "publish" | "review";
 type CmsSessionState =
   | { kind: "checking" }
   | { kind: "ready"; session: CmsSession }
@@ -686,6 +686,7 @@ export function App() {
   const [cmsVisibility, setCmsVisibility] = useState<CmsVisibility>(
     initialState.cmsReference?.visibility ?? "public"
   );
+  const [cmsPublishVisibility, setCmsPublishVisibility] = useState<CmsVisibility>("public");
   const [cmsSaveState, setCmsSaveState] = useState<CmsSaveState>(
     initialCmsRecoverySaveState(initialState.cmsReference)
   );
@@ -1218,6 +1219,7 @@ export function App() {
     );
     const manualSaveRequired = Boolean(options.pauseAutosave && preservedInputHasChanges);
     setCmsArticle(article);
+    setCmsPublishVisibility(article.publishedVisibility ?? article.visibility);
     setLastCmsFingerprint(serverFingerprint);
     setCmsSaveState(preservedInputHasChanges ? "dirty" : "saved");
     setCmsAutosavePaused(manualSaveRequired);
@@ -1269,7 +1271,11 @@ export function App() {
     if (articleId === cmsArticle?.id) {
       showEditor();
       if (editorLocked) {
-        setSettingsMode("workflow");
+        setSettingsMode(
+          cmsSession?.capabilities.canPublish && cmsArticle.reviewStatus === "approved"
+            ? "publish"
+            : "review"
+        );
         setSettingsOpen(true);
         setPreviewFullscreen(true);
       }
@@ -1314,7 +1320,13 @@ export function App() {
         !cmsSessionState.session.capabilities.canEdit ||
         ["in_review", "approved"].includes(result.value.reviewStatus);
       if (targetLocked) {
-        setSettingsMode("workflow");
+        setSettingsMode(
+          cmsSessionState.kind === "ready" &&
+          cmsSessionState.session.capabilities.canPublish &&
+          result.value.reviewStatus === "approved"
+            ? "publish"
+            : "review"
+        );
         setSettingsOpen(true);
         setPreviewFullscreen(true);
       }
@@ -1785,7 +1797,7 @@ export function App() {
   const runCmsAction = async (action: CmsArticleAction) => {
     if (cmsAutosavePaused) {
       showNotification({
-        text: "復旧内容を確認し、先に「保存」でCMSへ反映してください。保存後にレビュー・公開操作を続けられます。",
+        text: "復旧内容を確認し、先に「保存」でCMSへ反映してください。保存後にレビューまたは公開の操作を続けられます。",
         title: "先に保存してください",
         tone: "info"
       });
@@ -1848,6 +1860,15 @@ export function App() {
       }
     }
 
+    if (action === "revoke_approval" && !window.confirm(
+      cmsArticle?.publicationStatus === "published"
+        ? "承認を取り消してレビュー中へ戻しますか？ 現在公開中の内容はそのまま維持されます。"
+        : "承認を取り消してレビュー中へ戻しますか？"
+    )) return;
+    if (action === "publish" && !window.confirm(
+      `「${target.title || "無題の記事"}」のrevision ${target.revisionNumber}を${cmsVisibilityLabels[cmsPublishVisibility]}で公開しますか？`
+    )) return;
+
     const actionStartFingerprint = latestFingerprint;
     setCmsOperationBusy(true);
     const result = await runCmsArticleAction(
@@ -1856,7 +1877,7 @@ export function App() {
       action,
       {
         ...(note ? { note } : {}),
-        ...(action === "publish" ? { visibility: cmsVisibility } : {})
+        ...(action === "publish" ? { visibility: cmsPublishVisibility } : {})
       }
     );
     if (result.ok) {
@@ -1874,11 +1895,16 @@ export function App() {
         approve: "記事を承認しました。",
         archive: "公開記事を保管しました。",
         publish: "承認済みrevisionを公開しました。",
+        revoke_approval: "承認を取り消し、レビュー中へ戻しました。",
         request_changes: "修正を依頼しました。",
         request_review: "レビューを依頼しました。",
         restore: "記事を未公開へ戻しました。",
         withdraw_review: "レビューを取り下げ、編集できる状態へ戻しました。"
       };
+      if (action === "approve" && cmsSessionState.session.capabilities.canPublish) {
+        setSettingsMode("publish");
+      }
+      if (action === "revoke_approval") setSettingsMode("review");
       if (action === "request_changes") setCmsReviewCommentBody("");
       if (localChangedDuringAction) {
         showNotification({
@@ -2385,6 +2411,14 @@ export function App() {
     saved: cmsArticle ? `CMS revision ${cmsArticle.revisionNumber} 保存済み` : "CMS保存済み",
     saving: "CMSへ保存中…"
   };
+  const cmsCompactSaveLabel: Record<CmsSaveState, string> = {
+    conflict: "要確認",
+    dirty: "未保存",
+    error: "保存失敗",
+    local: "未登録",
+    saved: cmsArticle ? `保存済み · r${cmsArticle.revisionNumber}` : "保存済み",
+    saving: "保存中…"
+  };
   const effectiveCmsSaveState: CmsSaveState = cmsDirty && cmsSaveState === "saved"
     ? "dirty"
     : cmsSaveState;
@@ -2439,6 +2473,11 @@ export function App() {
     ["in_review", "approved"].includes(cmsArticle.reviewStatus) &&
     !cmsDirty
   );
+  const cmsCanRevokeApproval = Boolean(
+    cmsSession?.capabilities.canApprove &&
+    cmsArticle?.reviewStatus === "approved" &&
+    !cmsDirty
+  );
   const cmsCanPublish = Boolean(
     cmsSession?.capabilities.canPublish &&
     cmsArticle?.reviewStatus === "approved" &&
@@ -2447,7 +2486,7 @@ export function App() {
       cmsArticle.publicationStatus === "published" &&
       cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber
     ) &&
-    ["public", "unlisted"].includes(cmsVisibility) &&
+    ["public", "unlisted"].includes(cmsPublishVisibility) &&
     !cmsDirty
   );
   const cmsLibraryConnection: CmsLibraryConnection = cmsSessionState.kind === "checking"
@@ -2462,13 +2501,20 @@ export function App() {
   const cmsAssetConnection: CmsLibraryConnection = cmsAssetsError
     ? { kind: "unavailable", message: cmsAssetsError.message }
     : cmsLibraryConnection;
-  const cmsEditorStatus = cmsSessionState.kind === "checking"
+  const cmsEditorStatusDetails = cmsSessionState.kind === "checking"
     ? "CMSを確認中…"
     : cmsSessionState.kind === "unavailable"
       ? "CMSに接続できません"
       : cmsAssociationRequired
         ? "保存先を選択してください"
         : cmsSaveLabel[effectiveCmsSaveState];
+  const cmsEditorStatus = cmsSessionState.kind === "checking"
+    ? "確認中…"
+    : cmsSessionState.kind === "unavailable"
+      ? "接続エラー"
+      : cmsAssociationRequired
+        ? "保存先未選択"
+        : cmsCompactSaveLabel[effectiveCmsSaveState];
   const cmsEditorVisualState: CmsSaveState = cmsSessionState.kind === "checking"
     ? "saving"
     : cmsSessionState.kind === "unavailable"
@@ -2515,72 +2561,92 @@ export function App() {
             記事一覧
           </a>
           <p
+            aria-label={cmsEditorStatusDetails}
             aria-live="polite"
             className={`studio-editor-toolbar__status is-${cmsEditorVisualState}`}
+            title={cmsEditorStatusDetails}
           >
             {cmsEditorStatus}
           </p>
-          {!editorLocked ? <button
-            aria-controls="studio-asset-tray"
-            aria-expanded={assetTrayOpen}
-            className="dads-button studio-assets-shortcut"
-            data-size="md"
-            data-type="outline"
-            onClick={() => {
-              setSettingsOpen(false);
-              setPreviewFullscreen(false);
-              setAssetTrayOpen((current) => !current);
-            }}
-            ref={assetTrigger}
-            type="button"
-          >
-            Assets
-          </button> : null}
-          {!editorLocked ? <button
-            aria-controls="studio-article-settings"
-            aria-expanded={settingsOpen && settingsMode === "metadata"}
-            className="dads-button studio-settings-shortcut"
-            data-size="md"
-            data-type="outline"
-            onClick={() => {
-              setPreviewFullscreen(false);
-              setAssetTrayOpen(false);
-              setSettingsMode("metadata");
-              setSettingsOpen((current) => settingsMode === "metadata" ? !current : true);
-            }}
-            type="button"
-          >
-            記事情報
-            {validationVisible && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
-          </button> : null}
-          {!editorLocked && cmsArticle ? <button
-            aria-controls="cms-version-history"
-            aria-expanded={versionHistoryOpen}
-            className="dads-button studio-history-shortcut"
-            data-size="md"
-            data-type="outline"
-            onClick={() => void openVersionHistory()}
-            ref={versionHistoryTrigger}
-            type="button"
-          >
-            履歴
-          </button> : null}
-          {!editorLocked ? <button
-            aria-controls="studio-article-settings"
-            aria-expanded={settingsOpen && settingsMode === "workflow"}
-            className="dads-button studio-workflow-shortcut"
-            data-size="md"
-            data-type="outline"
-            onClick={() => {
-              setPreviewFullscreen(false);
-              setAssetTrayOpen(false);
-              setSettingsMode("workflow");
-              setSettingsOpen((current) => settingsMode === "workflow" ? !current : true);
-            }}
-            type="button"
-          >
-            レビュー・公開
-          </button> : null}
+          {!editorLocked ? <div className="studio-editor-toolbar__secondary-actions">
+            <button
+              aria-controls="studio-asset-tray"
+              aria-expanded={assetTrayOpen}
+              className="dads-button studio-assets-shortcut"
+              data-size="md"
+              data-type="outline"
+              onClick={() => {
+                setSettingsOpen(false);
+                setPreviewFullscreen(false);
+                setAssetTrayOpen((current) => !current);
+              }}
+              ref={assetTrigger}
+              type="button"
+            >
+              Assets
+            </button>
+            <button
+              aria-controls="studio-article-settings"
+              aria-expanded={settingsOpen && settingsMode === "metadata"}
+              className="dads-button studio-settings-shortcut"
+              data-size="md"
+              data-type="outline"
+              onClick={() => {
+                setPreviewFullscreen(false);
+                setAssetTrayOpen(false);
+                setSettingsMode("metadata");
+                setSettingsOpen((current) => settingsMode === "metadata" ? !current : true);
+              }}
+              type="button"
+            >
+              記事情報
+              {validationVisible && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
+            </button>
+            {cmsArticle ? <button
+              aria-controls="cms-version-history"
+              aria-expanded={versionHistoryOpen}
+              className="dads-button studio-history-shortcut"
+              data-size="md"
+              data-type="outline"
+              onClick={() => void openVersionHistory()}
+              ref={versionHistoryTrigger}
+              type="button"
+            >
+              履歴
+            </button> : null}
+            <button
+              aria-controls="studio-article-settings"
+              aria-expanded={settingsOpen && settingsMode === "review"}
+              className="dads-button studio-review-shortcut"
+              data-size="md"
+              data-type="outline"
+              onClick={() => {
+                setPreviewFullscreen(false);
+                setAssetTrayOpen(false);
+                setSettingsMode("review");
+                setSettingsOpen((current) => settingsMode === "review" ? !current : true);
+              }}
+              type="button"
+            >
+              レビュー
+            </button>
+            {cmsSession?.capabilities.canPublish && cmsArticle ? <button
+              aria-controls="studio-article-settings"
+              aria-expanded={settingsOpen && settingsMode === "publish"}
+              className="dads-button studio-publish-shortcut"
+              data-size="md"
+              data-type={cmsArticle.reviewStatus === "approved" ? "solid-fill" : "outline"}
+              onClick={() => {
+                setPreviewFullscreen(false);
+                setAssetTrayOpen(false);
+                setSettingsMode("publish");
+                setSettingsOpen((current) => settingsMode === "publish" ? !current : true);
+              }}
+              type="button"
+            >
+              公開
+            </button> : null}
+          </div> : null}
           {!editorLocked ? <button
             className="dads-button studio-save-shortcut"
             data-size="md"
@@ -2771,9 +2837,13 @@ export function App() {
           id="studio-article-settings"
         >
           <StudioSurfaceHeader
-            description={settingsMode === "workflow" ? "記事の状態を確認し、次の工程へ進めます。" : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
+            description={settingsMode === "review"
+              ? "送信内容を確認し、コメント・承認・差し戻しを行います。"
+              : settingsMode === "publish"
+                ? "承認済みの内容と公開範囲を確認して公開します。"
+                : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
             onClose={editorLocked ? undefined : () => setSettingsOpen(false)}
-            title={settingsMode === "workflow" ? editorLocked ? "レビュー" : "レビュー・公開" : "記事情報"}
+            title={settingsMode === "review" ? "レビュー" : settingsMode === "publish" ? "公開" : "記事情報"}
             titleId="studio-settings-heading"
           />
 
@@ -2797,9 +2867,9 @@ export function App() {
             </button>
           </section>
 
-          <details className="studio-cms studio-cms-workflow" id="cms-workflow" open={settingsMode === "workflow"}>
+          <details className="studio-cms studio-cms-workflow" id="cms-workflow" open={settingsMode !== "metadata"}>
             <summary className="studio-cms-workflow__summary">
-              <span>保存・レビュー・公開</span>
+              <span>記事の進行状況</span>
               <small>{cmsArticle ? `${cmsReviewStatusLabels[cmsArticle.reviewStatus]}・${cmsPublicationStatusLabels[cmsArticle.publicationStatus]}` : "未登録・未公開"}</small>
             </summary>
 
@@ -2821,6 +2891,10 @@ export function App() {
               <small>{cmsArticle ? `revision ${cmsArticle.revisionNumber}` : "最初の保存でCMSに登録されます"}</small>
             </div>
             <CmsPublicationJourney
+              currentRevisionPublished={Boolean(
+                cmsArticle?.publicationStatus === "published" &&
+                cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber
+              )}
               publicationStatus={cmsArticle?.publicationStatus ?? "unpublished"}
               reviewStatus={cmsArticle?.reviewStatus ?? null}
             />
@@ -2841,156 +2915,101 @@ export function App() {
                 公開中の記事を見る <Icon name="external" />
               </a>
             ) : null}
-            {cmsArticle?.reviewNote ? (
-              <p className="studio-cms__review-note"><strong>レビューコメント:</strong> {cmsArticle.reviewNote}</p>
-            ) : null}
-
-            {cmsArticle && ["in_review", "changes_requested", "approved"].includes(cmsArticle.reviewStatus) ? (
-              <section aria-labelledby="cms-review-comments-heading" className="studio-review-comments">
-                <div className="studio-review-comments__heading">
-                  <h3 id="cms-review-comments-heading">レビューコメント</h3>
-                  <span>{cmsReviewComments.length}件</span>
-                </div>
-                {cmsReviewCommentsBusy ? <p role="status">コメントを読み込んでいます…</p> : null}
-                {!cmsReviewCommentsBusy && cmsReviewComments.length === 0 ? (
-                  <p className="studio-review-comments__empty">コメントはまだありません。</p>
-                ) : null}
-                {cmsReviewComments.length > 0 ? (
-                  <ol className="studio-review-comments__list">
-                    {cmsReviewComments.map((comment) => (
-                      <li key={comment.id}>
-                        <p>{comment.body}</p>
-                        <small>
-                          {comment.target === "body" ? "本文" : comment.target === "metadata" ? "記事情報" : "記事全体"}
-                          {` · revision ${comment.revisionNumber} · ${comment.authorEmail} · `}
-                          <time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString("ja-JP")}</time>
-                        </small>
-                      </li>
-                    ))}
-                  </ol>
-                ) : null}
-                {cmsSession?.capabilities.canComment ? (
-                  <form
-                    className="studio-review-comments__form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void addCmsReviewComment();
-                    }}
-                  >
-                    <label htmlFor="cms-review-comment-target">コメント対象</label>
-                    <select
-                      id="cms-review-comment-target"
-                      onChange={(event) => setCmsReviewCommentTarget(event.target.value as CmsReviewCommentTarget)}
-                      value={cmsReviewCommentTarget}
-                    >
-                      <option value="article">記事全体</option>
-                      <option value="body">本文</option>
-                      <option value="metadata">記事情報</option>
-                    </select>
-                    <label htmlFor="cms-review-comment">コメント</label>
-                    <textarea
-                      id="cms-review-comment"
-                      maxLength={1_000}
-                      onChange={(event) => setCmsReviewCommentBody(event.target.value)}
-                      placeholder="確認した点や、修正してほしい内容を具体的に書きます。"
-                      ref={reviewCommentInput}
-                      rows={4}
-                      value={cmsReviewCommentBody}
-                    />
-                    <div className="studio-review-comments__form-actions">
-                      <button
-                        className="dads-button"
-                        data-size="md"
-                        data-type="outline"
-                        disabled={cmsOperationBusy || !cmsReviewCommentBody.trim()}
-                        type="submit"
-                      >
-                        コメントを追加
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
-              </section>
-            ) : null}
-
-            <details className="studio-disclosure studio-visibility-disclosure">
-              <summary>公開範囲: {cmsVisibilityLabels[cmsVisibility]}</summary>
-              <div className="studio-disclosure__content">
-                <fieldset className="studio-cms__visibility" disabled={!cmsSession?.capabilities.canEdit || editorLocked}>
-                  <legend className="sr-only">公開範囲</legend>
-                  {(Object.keys(cmsVisibilityLabels) as CmsVisibility[]).map((visibility) => (
-                    <label key={visibility} className={visibility === "restricted" ? "is-pending" : ""}>
-                      <input
-                        checked={cmsVisibility === visibility}
-                        name="cms-visibility"
-                        onChange={() => setCmsVisibility(visibility)}
-                        type="radio"
-                        value={visibility}
-                      />
-                      <span><strong>{cmsVisibilityLabels[visibility]}</strong><small>{cmsVisibilityDescriptions[visibility]}</small></span>
-                    </label>
-                  ))}
-                </fieldset>
+            {settingsMode === "review" ? <section className="studio-workflow-stage" aria-labelledby="cms-review-stage-heading">
+              <div className="studio-workflow-stage__heading">
+                <span>レビュー工程</span>
+                <h3 id="cms-review-stage-heading">内容を確認して判断する</h3>
+                <p>ここでは記事本体を変更せず、コメント・承認・差し戻しだけを行います。</p>
               </div>
-            </details>
+              {cmsArticle?.reviewNote ? (
+                <p className="studio-cms__review-note"><strong>直近の判断:</strong> {cmsArticle.reviewNote}</p>
+              ) : null}
+              {cmsArticle && ["in_review", "changes_requested", "approved"].includes(cmsArticle.reviewStatus) ? (
+                <section aria-labelledby="cms-review-comments-heading" className="studio-review-comments">
+                  <div className="studio-review-comments__heading">
+                    <h3 id="cms-review-comments-heading">レビューコメント</h3>
+                    <span>{cmsReviewComments.length}件</span>
+                  </div>
+                  {cmsReviewCommentsBusy ? <p role="status">コメントを読み込んでいます…</p> : null}
+                  {!cmsReviewCommentsBusy && cmsReviewComments.length === 0 ? <p className="studio-review-comments__empty">コメントはまだありません。</p> : null}
+                  {cmsReviewComments.length > 0 ? (
+                    <ol className="studio-review-comments__list">
+                      {cmsReviewComments.map((comment) => (
+                        <li key={comment.id}>
+                          <p>{comment.body}</p>
+                          <small>
+                            {comment.target === "body" ? "本文" : comment.target === "metadata" ? "記事情報" : "記事全体"}
+                            {` · revision ${comment.revisionNumber} · ${comment.authorEmail} · `}
+                            <time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString("ja-JP")}</time>
+                          </small>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {cmsSession?.capabilities.canComment ? (
+                    <form className="studio-review-comments__form" onSubmit={(event) => { event.preventDefault(); void addCmsReviewComment(); }}>
+                      <label htmlFor="cms-review-comment-target">コメント対象</label>
+                      <select id="cms-review-comment-target" onChange={(event) => setCmsReviewCommentTarget(event.target.value as CmsReviewCommentTarget)} value={cmsReviewCommentTarget}>
+                        <option value="article">記事全体</option>
+                        <option value="body">本文</option>
+                        <option value="metadata">記事情報</option>
+                      </select>
+                      <label htmlFor="cms-review-comment">コメント</label>
+                      <textarea id="cms-review-comment" maxLength={1_000} onChange={(event) => setCmsReviewCommentBody(event.target.value)} placeholder="確認した点や、修正してほしい内容を具体的に書きます。" ref={reviewCommentInput} rows={4} value={cmsReviewCommentBody} />
+                      <div className="studio-review-comments__form-actions">
+                        <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || !cmsReviewCommentBody.trim()} type="submit">コメントを追加</button>
+                      </div>
+                    </form>
+                  ) : null}
+                </section>
+              ) : null}
+              <h3 className="studio-cms__next-action">レビューの操作</h3>
+              <div className="studio-cms__actions">
+                {cmsCanRequestReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("request_review")} type="button">レビューを依頼</button> : null}
+                {cmsCanReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">承認する</button> : null}
+                {cmsCanRequestChanges ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || !cmsReviewCommentBody.trim()} onClick={() => void runCmsAction("request_changes")} type="button">コメントして修正を依頼</button> : null}
+                {cmsCanWithdrawReview ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("withdraw_review")} type="button">レビューを取り下げて編集へ戻す</button> : null}
+                {cmsCanRevokeApproval ? <button className="dads-button studio-cms__revoke-approval" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("revoke_approval")} type="button">承認を取り消す</button> : null}
+                {cmsSession?.capabilities.canPublish && cmsArticle?.reviewStatus === "approved" ? <button className="dads-button" data-size="md" data-type="solid-fill" onClick={() => setSettingsMode("publish")} type="button">公開設定へ進む</button> : null}
+              </div>
+              {cmsAutosavePaused ? <p className="studio-cms__pending-message">復旧内容はまだCMSへ反映していません。内容を確認して「保存」を押すと、レビューを依頼できます。</p> : null}
+              {cmsArticle?.reviewStatus === "in_review" && cmsSelfApprovalBlocked ? <p className="studio-cms__pending-message">自分が保存した最新版は承認できません。別のレビュー担当者または管理者に承認を依頼してください。</p> : null}
+            </section> : null}
 
-            <h3 className="studio-cms__next-action">次の操作</h3>
-            <div className="studio-cms__actions">
-              {cmsCanRequestReview ? (
-                <button
-                  className="dads-button"
-                  data-size="md"
-                  data-type="outline"
-                  disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict}
-                  onClick={() => void runCmsAction("request_review")}
-                  type="button"
-                >
-                  レビューを依頼
-                </button>
-              ) : null}
-              {cmsCanReview ? (
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">
-                  承認する
-                </button>
-              ) : null}
-              {cmsCanRequestChanges ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || !cmsReviewCommentBody.trim()} onClick={() => void runCmsAction("request_changes")} type="button">
-                  修正を依頼
-                </button>
-              ) : null}
-              {cmsCanWithdrawReview ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("withdraw_review")} type="button">
-                  レビューを取り下げて編集へ戻す
-                </button>
-              ) : null}
-              {cmsCanPublish ? (
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("publish")} type="button">
-                  承認済みrevisionを公開
-                </button>
-              ) : null}
-              {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "published" ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">
-                  公開を終了して保管
-                </button>
-              ) : null}
-              {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "archived" ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">
-                  未公開へ戻す
-                </button>
-              ) : null}
-            </div>
-            {cmsAutosavePaused ? (
-              <p className="studio-cms__pending-message">復旧内容はまだCMSへ反映していません。内容を確認して「保存」を押すと、レビュー・公開操作を続けられます。</p>
-            ) : null}
-            {cmsVisibility === "restricted" ? (
-              <p className="studio-cms__pending-message">指定メンバー公開は読者認証の接続後に公開できます。原稿の保存とレビューは先に進められます。</p>
-            ) : null}
-            {cmsVisibility === "internal" ? (
-              <p className="studio-cms__pending-message">運営メンバーのみの記事はStudio内に保持し、読者向けサイトへは公開しません。原稿の保存とレビューは進められます。</p>
-            ) : null}
-            {cmsArticle?.reviewStatus === "in_review" && cmsSelfApprovalBlocked ? (
-              <p className="studio-cms__pending-message">自分が保存した最新版は承認できません。別のレビュー担当者または管理者に承認を依頼してください。</p>
-            ) : null}
+            {settingsMode === "publish" ? <section className="studio-workflow-stage studio-publish-stage" aria-labelledby="cms-publish-stage-heading">
+              <div className="studio-workflow-stage__heading">
+                <span>公開工程</span>
+                <h3 id="cms-publish-stage-heading">公開内容と範囲を最終確認する</h3>
+                <p>公開範囲は下書きの編集項目ではなく、この画面で公開する時にだけ設定します。</p>
+              </div>
+              <button className="dads-button studio-publish-stage__back" data-size="sm" data-type="outline" onClick={() => setSettingsMode("review")} type="button">レビューへ戻る</button>
+              {cmsArticle?.reviewStatus !== "approved" ? (
+                <div className="studio-publish-readiness" role="status">
+                  <strong>公開前にレビュー承認が必要です</strong>
+                  <p>レビューで内容を承認すると、このrevisionを公開できるようになります。</p>
+                  <button className="dads-button" data-size="md" data-type="outline" onClick={() => setSettingsMode("review")} type="button">レビューを開く</button>
+                </div>
+              ) : (
+                <p className="studio-publish-readiness is-ready"><strong>revision {cmsArticle.revisionNumber} は承認済みです。</strong> 公開範囲を選び、公開内容を確定してください。</p>
+              )}
+              <fieldset className="studio-cms__visibility" disabled={!cmsSession?.capabilities.canPublish || cmsOperationBusy}>
+                <legend>公開範囲</legend>
+                {(Object.keys(cmsVisibilityLabels) as CmsVisibility[]).map((visibility) => {
+                  const unavailable = visibility === "restricted" || visibility === "internal";
+                  return <label key={visibility} className={unavailable ? "is-pending" : ""}>
+                    <input checked={cmsPublishVisibility === visibility} disabled={unavailable} name="cms-publish-visibility" onChange={() => setCmsPublishVisibility(visibility)} type="radio" value={visibility} />
+                    <span><strong>{cmsVisibilityLabels[visibility]}</strong><small>{cmsVisibilityDescriptions[visibility]}{unavailable ? "（現在は選択できません）" : ""}</small></span>
+                  </label>;
+                })}
+              </fieldset>
+              <h3 className="studio-cms__next-action">公開の操作</h3>
+              <div className="studio-cms__actions">
+                {cmsCanPublish ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("publish")} type="button">revision {cmsArticle?.revisionNumber}を公開する</button> : null}
+                {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "published" ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">公開を終了する</button> : null}
+                {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "archived" ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">未公開状態へ戻す</button> : null}
+              </div>
+              {cmsArticle?.reviewStatus === "approved" && !cmsCanPublish && cmsArticle.publicationStatus === "published" && cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber ? <p className="studio-cms__published-note">このrevisionはすでに公開中です。内容を変える場合は、承認を取り消してレビューからやり直してください。</p> : null}
+            </section> : null}
             <p className="sr-only" aria-live="polite">{saveStatus}</p>
           </details>
 

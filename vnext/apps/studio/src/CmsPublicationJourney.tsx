@@ -7,10 +7,15 @@ const stages = ["下書き", "レビュー中", "承認済み", "公開"] as con
 
 function currentStage(
   reviewStatus: CmsReviewStatus | null,
-  publicationStatus: CmsPublicationStatus
+  publicationStatus: CmsPublicationStatus,
+  currentRevisionPublished: boolean
 ): number {
   if (publicationStatus === "archived") return 3;
-  if (publicationStatus === "published" && reviewStatus === "approved") return 3;
+  if (
+    publicationStatus === "published" &&
+    reviewStatus === "approved" &&
+    currentRevisionPublished
+  ) return 3;
   if (reviewStatus === "in_review") return 1;
   if (reviewStatus === "approved") return 2;
   return 0;
@@ -18,17 +23,20 @@ function currentStage(
 
 export function getCmsJourneyStatus(
   reviewStatus: CmsReviewStatus | null,
-  publicationStatus: CmsPublicationStatus
+  publicationStatus: CmsPublicationStatus,
+  currentRevisionPublished = publicationStatus === "published" && reviewStatus === "approved"
 ): { detail: string | null; label: string; step: number } {
-  const step = currentStage(reviewStatus, publicationStatus);
+  const step = currentStage(reviewStatus, publicationStatus, currentRevisionPublished);
   if (!reviewStatus) return { detail: "最初の保存でCMSに登録", label: "新しい下書き", step };
   if (publicationStatus === "archived") return { detail: "読者向け公開は終了", label: "公開終了", step };
-  if (publicationStatus === "published" && reviewStatus !== "approved") {
+  if (publicationStatus === "published" && !currentRevisionPublished) {
     const label = reviewStatus === "in_review"
       ? "新しい版をレビュー中"
-      : reviewStatus === "changes_requested"
-        ? "公開中・新しい版は要修正"
-        : "公開中・新しい版は下書き";
+      : reviewStatus === "approved"
+        ? "公開中・新しい版は承認済み"
+        : reviewStatus === "changes_requested"
+          ? "公開中・新しい版は要修正"
+          : "公開中・新しい版は下書き";
     return { detail: "現在の公開版はそのまま", label, step };
   }
   if (publicationStatus === "published") return { detail: null, label: "公開中", step };
@@ -38,14 +46,16 @@ export function getCmsJourneyStatus(
 
 export function CmsPublicationJourney({
   compact = false,
+  currentRevisionPublished,
   publicationStatus,
   reviewStatus
 }: {
   compact?: boolean;
+  currentRevisionPublished?: boolean;
   publicationStatus: CmsPublicationStatus;
   reviewStatus: CmsReviewStatus | null;
 }) {
-  const status = getCmsJourneyStatus(reviewStatus, publicationStatus);
+  const status = getCmsJourneyStatus(reviewStatus, publicationStatus, currentRevisionPublished);
   const archived = publicationStatus === "archived";
   return (
     <div className={`studio-journey ${compact ? "is-compact" : ""}`}>
