@@ -120,6 +120,7 @@ export const cmsUpdateArticleRequestSchema = cmsArticleContentSchema.extend({
 export const cmsArticleActionSchema = z.object({
   action: z.enum([
     "request_review",
+    "withdraw_review",
     "approve",
     "request_changes",
     "publish",
@@ -129,9 +130,36 @@ export const cmsArticleActionSchema = z.object({
   expectedVersion: z.number().int().nonnegative(),
   note: boundedString(500).optional(),
   visibility: cmsVisibilitySchema.optional()
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (value.action === "request_changes" && !value.note?.trim()) {
+    context.addIssue({
+      code: "custom",
+      message: "修正を依頼する理由を入力してください。",
+      path: ["note"]
+    });
+  }
+});
 
 export type CmsArticleAction = z.infer<typeof cmsArticleActionSchema>["action"];
+
+export const cmsReviewCommentTargetSchema = z.enum(["article", "body", "metadata"]);
+export const cmsReviewCommentRequestSchema = z.object({
+  body: z.string().trim().min(1).max(1_000),
+  target: cmsReviewCommentTargetSchema.default("article")
+}).strict();
+
+export type CmsReviewCommentTarget = z.infer<typeof cmsReviewCommentTargetSchema>;
+
+export interface CmsReviewComment {
+  articleId: string;
+  authorEmail: string;
+  body: string;
+  createdAt: string;
+  id: string;
+  revisionId: string;
+  revisionNumber: number;
+  target: CmsReviewCommentTarget;
+}
 
 export const cmsMemberMutationSchema = z.object({
   active: z.boolean().default(true),
@@ -172,6 +200,7 @@ export interface CmsIdentity {
 
 export interface CmsCapabilities {
   canApprove: boolean;
+  canComment: boolean;
   canEdit: boolean;
   canManageMembers: boolean;
   canPublish: boolean;
@@ -320,20 +349,25 @@ export interface CmsAsset {
 
 export type CmsPermission =
   | "approve"
+  | "comment"
   | "edit"
   | "manage_members"
-  | "publish";
+  | "publish"
+  | "view";
 
 export function canCms(role: CmsRole, permission: CmsPermission): boolean {
   if (role === "admin") return true;
-  if (permission === "edit") return role === "editor" || role === "reviewer";
+  if (permission === "view") return true;
+  if (permission === "edit") return role === "editor";
   if (permission === "approve") return role === "reviewer";
+  if (permission === "comment") return role === "editor" || role === "reviewer";
   return false;
 }
 
 export function cmsCapabilitiesFor(role: CmsRole): CmsCapabilities {
   return {
     canApprove: canCms(role, "approve"),
+    canComment: canCms(role, "comment"),
     canEdit: canCms(role, "edit"),
     canManageMembers: canCms(role, "manage_members"),
     canPublish: canCms(role, "publish")

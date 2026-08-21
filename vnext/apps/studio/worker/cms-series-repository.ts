@@ -77,7 +77,7 @@ export async function listCmsSeries(
   db: D1Database,
   identity: CmsIdentity
 ): Promise<CmsSeries[]> {
-  requireEdit(identity);
+  requireView(identity);
   const result = await db.prepare(`${seriesSelect} ORDER BY s.updated_at DESC, s.id, map.position`).all<SeriesRow>();
   return groupSeriesRows(result.results);
 }
@@ -173,7 +173,7 @@ export async function listCmsSeriesVersions(
   identity: CmsIdentity,
   seriesId: string
 ): Promise<CmsSeriesVersion[]> {
-  requireEdit(identity);
+  requireView(identity);
   const result = await db.prepare(`SELECT
     sr.id,
     sr.revision_number,
@@ -296,6 +296,12 @@ async function validateSeriesArticles(db: D1Database, articleIds: string[], seri
 function requireEdit(identity: CmsIdentity): void {
   if (!canCms(identity.role, "edit")) {
     throw new CmsRepositoryError("forbidden", "シリーズを編集する権限がありません。");
+  }
+}
+
+function requireView(identity: CmsIdentity): void {
+  if (!canCms(identity.role, "view")) {
+    throw new CmsRepositoryError("forbidden", "シリーズを表示する権限がありません。");
   }
 }
 

@@ -35,7 +35,21 @@ describe("CMS contracts", () => {
     expect(canCms("editor", "edit")).toBe(true);
     expect(canCms("editor", "approve")).toBe(false);
     expect(canCms("reviewer", "approve")).toBe(true);
+    expect(canCms("reviewer", "edit")).toBe(false);
+    expect(canCms("reviewer", "comment")).toBe(true);
     expect(canCms("admin", "manage_members")).toBe(true);
+  });
+
+  it("requires an actionable reason when changes are requested", () => {
+    expect(cmsArticleActionSchema.safeParse({
+      action: "request_changes",
+      expectedVersion: 3,
+      note: "見出しの根拠を追記してください。"
+    }).success).toBe(true);
+    expect(cmsArticleActionSchema.safeParse({
+      action: "request_changes",
+      expectedVersion: 3
+    }).success).toBe(false);
   });
 
   it("requires optimistic concurrency for workflow actions", () => {

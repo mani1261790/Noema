@@ -22,6 +22,7 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(objects.objects.map((object) => object.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_series"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revisions"),
@@ -116,6 +117,7 @@ describe("CMS HTTP API", () => {
     expect(session.identity).toEqual({ ...ADMIN, role: "admin" });
     expect(session.capabilities).toEqual({
       canApprove: true,
+      canComment: true,
       canEdit: true,
       canManageMembers: true,
       canPublish: true

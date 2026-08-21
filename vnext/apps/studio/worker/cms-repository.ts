@@ -6,6 +6,7 @@ import {
   cmsDraftFrontmatterSchema,
   cmsPublicationStatusSchema,
   cmsRevisionSaveReasonSchema,
+  cmsReviewCommentTargetSchema,
   cmsReviewStatusSchema,
   cmsRoleSchema,
   cmsVisibilitySchema,
@@ -23,6 +24,8 @@ import {
   type CmsPublicationStatus,
   type CmsReviewStatus,
   type CmsRevisionSaveReason,
+  type CmsReviewComment,
+  type CmsReviewCommentTarget,
   type CmsRole,
   type CmsSession,
   type CmsVisibility
@@ -136,6 +139,17 @@ interface ArticleVersionCheckpointRow {
   revision_number: number;
 }
 
+interface ReviewCommentRow {
+  article_id: string;
+  author_email: string;
+  body: string;
+  created_at: string;
+  id: string;
+  revision_id: string;
+  revision_number: number;
+  target: string;
+}
+
 interface MemberListRow {
   active: number;
   email: string;
@@ -163,6 +177,7 @@ interface AssetRow {
 }
 
 export type CmsRepositoryErrorCode =
+  | "article_locked"
   | "article_not_found"
   | "asset_conflict"
   | "asset_delete_failed"
@@ -328,7 +343,7 @@ export async function listCmsArticles(
   db: D1Database,
   identity: CmsIdentity
 ): Promise<CmsArticleSummary[]> {
-  requirePermission(identity.role, "edit");
+  requirePermission(identity.role, "view");
   const result = await db.prepare(
     `${articleListSelect()}
      ORDER BY a.updated_at DESC, a.id ASC
@@ -341,7 +356,7 @@ export async function listCmsAssets(
   db: D1Database,
   identity: CmsIdentity
 ): Promise<CmsAsset[]> {
-  requirePermission(identity.role, "edit");
+  requirePermission(identity.role, "view");
   const result = await db.prepare(
     `${assetSelect()}
      ORDER BY a.updated_at DESC, a.id ASC
@@ -963,7 +978,7 @@ export async function getCmsArticle(
   identity: CmsIdentity,
   articleId: string
 ): Promise<CmsArticleDetail> {
-  requirePermission(identity.role, "edit");
+  requirePermission(identity.role, "view");
   const row = await db.prepare(
     `${articleDetailSelect()}
      WHERE a.id = ?1`
@@ -972,12 +987,89 @@ export async function getCmsArticle(
   return parseArticleDetail(row);
 }
 
+export async function listCmsReviewComments(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string
+): Promise<CmsReviewComment[]> {
+  requirePermission(identity.role, "view");
+  await getCurrentArticleRow(db, articleId);
+  const result = await db.prepare(
+    `SELECT
+       c.id,
+       c.article_id,
+       c.revision_id,
+       r.revision_number,
+       COALESCE(m.email, 'unknown') AS author_email,
+       c.target,
+       c.body,
+       c.created_at
+     FROM cms_review_comments c
+     JOIN cms_article_revisions r ON r.id = c.revision_id
+     LEFT JOIN cms_members m ON m.subject = c.author_subject
+     WHERE c.article_id = ?1
+     ORDER BY c.created_at ASC, c.id ASC`
+  ).bind(articleId).all<ReviewCommentRow>();
+  return result.results.map(parseReviewComment);
+}
+
+export async function createCmsReviewComment(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string,
+  input: { body: string; target: CmsReviewCommentTarget },
+  now = new Date()
+): Promise<CmsReviewComment> {
+  requirePermission(identity.role, "comment");
+  const current = await getCurrentArticleRow(db, articleId);
+  const target = cmsReviewCommentTargetSchema.safeParse(input.target);
+  const body = input.body.trim();
+  if (!target.success || body.length === 0 || body.length > 1_000) {
+    throw new CmsRepositoryError("invalid_article", "コメント内容を確認してください。");
+  }
+  if (!new Set<CmsReviewStatus>(["in_review", "changes_requested", "approved"]).has(parseReviewStatus(current.review_status))) {
+    throw new CmsRepositoryError("invalid_transition", "レビュー中の記事にコメントしてください。");
+  }
+  const id = crypto.randomUUID();
+  const timestamp = now.toISOString();
+  await db.prepare(
+    `INSERT INTO cms_review_comments
+      (id, article_id, revision_id, author_subject, target, body, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+  ).bind(
+    id,
+    articleId,
+    current.current_revision_id,
+    identity.subject,
+    target.data,
+    body,
+    timestamp
+  ).run();
+  const row = await db.prepare(
+    `SELECT
+       c.id,
+       c.article_id,
+       c.revision_id,
+       r.revision_number,
+       COALESCE(m.email, 'unknown') AS author_email,
+       c.target,
+       c.body,
+       c.created_at
+     FROM cms_review_comments c
+     JOIN cms_article_revisions r ON r.id = c.revision_id
+     LEFT JOIN cms_members m ON m.subject = c.author_subject
+     WHERE c.id = ?1`
+  ).bind(id).first<ReviewCommentRow>();
+  if (!row) throw new Error("CMS review comment was not persisted.");
+  return parseReviewComment(row);
+}
+
 export async function listCmsArticleVersions(
   db: D1Database,
   identity: CmsIdentity,
   articleId: string
 ): Promise<CmsArticleVersionSummary[]> {
-  requirePermission(identity.role, "edit");
+  requirePermission(identity.role, "view");
   await getCurrentArticleRow(db, articleId);
   const result = await db.prepare(
     `WITH version_groups AS (
@@ -1027,7 +1119,7 @@ export async function getCmsArticleVersion(
   articleId: string,
   revisionId: string
 ): Promise<CmsArticleVersionDetail> {
-  requirePermission(identity.role, "edit");
+  requirePermission(identity.role, "view");
   const row = await db.prepare(
     `SELECT
        r.id,
@@ -1058,7 +1150,7 @@ export async function listCmsArticleVersionCheckpoints(
   versionId: string,
   beforeRevisionNumber?: number
 ): Promise<CmsArticleVersionCheckpointPage> {
-  requirePermission(identity.role, "edit");
+  requirePermission(identity.role, "view");
   await getCurrentArticleRow(db, articleId);
   const result = await db.prepare(
     `SELECT
@@ -1225,6 +1317,12 @@ export async function updateCmsArticle(
   if (replayArticleId) return getCmsArticle(db, identity, replayArticleId);
   const current = await getCurrentArticleRow(db, articleId);
   if (current.lock_version !== expectedVersion) throw revisionConflict();
+  if (new Set<CmsReviewStatus>(["in_review", "approved"]).has(parseReviewStatus(current.review_status))) {
+    throw new CmsRepositoryError(
+      "article_locked",
+      "レビュー中または承認済みの記事は編集できません。レビューを取り下げるか、修正を依頼してください。"
+    );
+  }
 
   const revisionId = crypto.randomUUID();
   const auditId = crypto.randomUUID();
@@ -1466,6 +1564,20 @@ export async function transitionCmsArticle(
         articleId,
         expectedVersion
       ),
+      ...(action === "request_changes" && options.note?.trim()
+        ? [db.prepare(
+            `INSERT INTO cms_review_comments
+              (id, article_id, revision_id, author_subject, target, body, created_at)
+             VALUES (?1, ?2, ?3, ?4, 'article', ?5, ?6)`
+          ).bind(
+            crypto.randomUUID(),
+            articleId,
+            current.current_revision_id,
+            identity.subject,
+            options.note.trim(),
+            timestamp
+          )]
+        : []),
       ...idempotencyStatementForAudit(
         db,
         identity,
@@ -1949,6 +2061,18 @@ function buildTransition(
         reviewStatus: "in_review"
       };
     }
+    case "withdraw_review": {
+      requirePermission(identity.role, "edit");
+      if (reviewStatus !== "in_review") throw invalidTransition();
+      return {
+        ...base,
+        approvedRevisionId: null,
+        reviewNote: null,
+        reviewedAt: null,
+        reviewedBySubject: null,
+        reviewStatus: "draft"
+      };
+    }
     case "approve": {
       requirePermission(identity.role, "approve");
       if (reviewStatus !== "in_review") throw invalidTransition();
@@ -1974,6 +2098,9 @@ function buildTransition(
       requirePermission(identity.role, "approve");
       if (!new Set<CmsReviewStatus>(["in_review", "approved"]).has(reviewStatus)) {
         throw invalidTransition();
+      }
+      if (!options.note?.trim()) {
+        throw new CmsRepositoryError("invalid_transition", "修正を依頼する理由を入力してください。");
       }
       return {
         ...base,
@@ -2041,6 +2168,21 @@ function buildTransition(
   }
 
   throw invalidTransition();
+}
+
+function parseReviewComment(row: ReviewCommentRow): CmsReviewComment {
+  const target = cmsReviewCommentTargetSchema.safeParse(row.target);
+  if (!target.success) throw new Error("CMS review comment target is invalid.");
+  return {
+    articleId: row.article_id,
+    authorEmail: row.author_email,
+    body: row.body,
+    createdAt: row.created_at,
+    id: row.id,
+    revisionId: row.revision_id,
+    revisionNumber: row.revision_number,
+    target: target.data
+  };
 }
 
 function requirePermission(role: CmsRole, permission: Parameters<typeof canCms>[1]): void {
