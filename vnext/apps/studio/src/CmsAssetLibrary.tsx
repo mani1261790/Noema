@@ -14,6 +14,7 @@ interface CmsAssetLibraryProps {
   canEdit: boolean;
   connection: CmsLibraryConnection;
   onRetry: () => void;
+  onDelete: (asset: CmsAsset) => Promise<void>;
   onUpdate: (asset: CmsAsset, input: { alt: string; status: CmsAssetStatus; tags: string[] }) => Promise<void>;
   onUpload: (files: File[]) => Promise<void>;
 }
@@ -24,6 +25,7 @@ export function CmsAssetLibrary({
   canEdit,
   connection,
   onRetry,
+  onDelete,
   onUpdate,
   onUpload
 }: CmsAssetLibraryProps) {
@@ -162,7 +164,7 @@ export function CmsAssetLibrary({
                 )}
               </section>
               {selected ? (
-                <AssetDetails asset={selected} busy={busy} canEdit={canEdit} onUpdate={onUpdate} />
+                <AssetDetails asset={selected} busy={busy} canEdit={canEdit} onDelete={onDelete} onUpdate={onUpdate} />
               ) : null}
             </div>
           </>
@@ -172,15 +174,17 @@ export function CmsAssetLibrary({
   );
 }
 
-function AssetDetails({
+export function AssetDetails({
   asset,
   busy,
   canEdit,
+  onDelete,
   onUpdate
 }: {
   asset: CmsAsset;
   busy: boolean;
   canEdit: boolean;
+  onDelete: CmsAssetLibraryProps["onDelete"];
   onUpdate: CmsAssetLibraryProps["onUpdate"];
 }) {
   const [alt, setAlt] = useState(asset.alt);
@@ -199,7 +203,7 @@ function AssetDetails({
       <img alt={asset.alt || "選択中の画像プレビュー"} src={asset.previewUrl} />
       <div className="studio-asset-details__heading">
         <h2 id="asset-details-heading">{asset.originalName}</h2>
-        <span className={`is-${asset.status}`}>{asset.status === "active" ? "利用可能" : "アーカイブ"}</span>
+        <span className={`is-${asset.status}`}>{asset.status === "active" ? "利用可能" : "削除待ち"}</span>
       </div>
       <dl>
         <div><dt>形式</dt><dd>{asset.contentType.replace("image/", "").toUpperCase()}</dd></div>
@@ -232,21 +236,20 @@ function AssetDetails({
           画像情報を保存
         </button>
         <button
-          className="dads-button"
+          className="dads-button studio-asset-delete"
           data-size="md"
-          data-type="outline"
+          data-type="solid-fill"
           disabled={!canEdit || busy || asset.referenceCount > 0}
-          onClick={() => void onUpdate(asset, {
-            alt: asset.alt,
-            status: asset.status === "active" ? "archived" : "active",
-            tags: asset.tags
-          })}
+          onClick={() => {
+            if (!window.confirm(`「${asset.originalName}」を完全に削除しますか？ この操作は取り消せず、R2上の画像も削除されます。`)) return;
+            void onDelete(asset);
+          }}
           type="button"
         >
-          {asset.status === "active" ? "アーカイブ" : "復元"}
+          完全に削除
         </button>
       </div>
-      {asset.referenceCount > 0 ? <p className="studio-asset-details__support">使用中の画像はアーカイブできません。</p> : null}
+      {asset.referenceCount > 0 ? <p className="studio-asset-details__support">使用中の画像は削除できません。記事から画像を外して保存してください。</p> : <p className="studio-asset-details__support">削除すると画像情報とR2上のファイルが消え、元に戻せません。</p>}
     </aside>
   );
 }

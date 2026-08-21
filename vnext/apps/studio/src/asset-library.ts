@@ -7,7 +7,7 @@ export const cmsAssetFilterOptions: Array<{ label: string; value: CmsAssetFilter
   { label: "使用中", value: "used" },
   { label: "未使用", value: "unused" },
   { label: "alt未設定", value: "missing-alt" },
-  { label: "アーカイブ", value: "archived" }
+  { label: "削除待ち", value: "archived" }
 ];
 
 export function filterCmsAssets(

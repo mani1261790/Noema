@@ -29,6 +29,7 @@ beforeEach(async () => {
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_assets"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_asset_deletions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_imports"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_auth_identities"),
     testEnv.CMS_DB.prepare("DELETE FROM studio_auth_session"),
@@ -454,6 +455,76 @@ describe("CMS HTTP API", () => {
       status: "active",
       tags: ["Studio", "UI"]
     });
+  });
+
+  it("deletes an unused image from D1 and R2", async () => {
+    await bootstrapAdmin();
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "obsolete.png", {
+      type: "image/png"
+    }));
+    const upload = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
+      cmsEnv(),
+      ADMIN
+    );
+    const uploaded = (await upload.json()) as { asset: { id: string; previewUrl: string } };
+    const key = uploaded.asset.previewUrl.replace("/api/cms/assets/", "");
+
+    const response = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/assets/${uploaded.asset.id}`, { method: "DELETE" }),
+      cmsEnv(),
+      ADMIN
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ deleted: true });
+    expect(await testEnv.ARTICLE_ASSETS.get(key)).toBeNull();
+    expect(await testEnv.CMS_DB.prepare("SELECT 1 FROM cms_assets WHERE id = ?1")
+      .bind(uploaded.asset.id).first()).toBeNull();
+    expect(await testEnv.CMS_DB.prepare("SELECT 1 FROM cms_asset_deletions WHERE asset_id = ?1")
+      .bind(uploaded.asset.id).first()).toBeNull();
+  });
+
+  it("refuses to delete an image that is still used by an article", async () => {
+    await bootstrapAdmin();
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "in-use.png", {
+      type: "image/png"
+    }));
+    const upload = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
+      cmsEnv(),
+      ADMIN
+    );
+    const uploaded = (await upload.json()) as {
+      asset: { id: string; markdownUrl: string; previewUrl: string };
+    };
+    const key = uploaded.asset.previewUrl.replace("/api/cms/assets/", "");
+    const input = validArticle("asset-delete-guard");
+    input.markdown = `## 使用中\n\n![使用中の画像](${uploaded.asset.markdownUrl})`;
+    const articleResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/articles", {
+        body: JSON.stringify(input),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(articleResponse.status).toBe(201);
+
+    const response = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/assets/${uploaded.asset.id}`, { method: "DELETE" }),
+      cmsEnv(),
+      ADMIN
+    );
+
+    expect(response.status).toBe(409);
+    await expectErrorCode(response, "asset_in_use");
+    expect(await testEnv.ARTICLE_ASSETS.get(key)).not.toBeNull();
+    expect(await testEnv.CMS_DB.prepare("SELECT 1 FROM cms_assets WHERE id = ?1")
+      .bind(uploaded.asset.id).first()).not.toBeNull();
   });
 
   it("rejects SVG uploads", async () => {
