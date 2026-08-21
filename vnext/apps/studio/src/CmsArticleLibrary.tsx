@@ -221,26 +221,11 @@ export function CmsArticleLibrary({
       className="studio-library"
     >
       <div className="studio-library__inner">
-        <header className="studio-library__heading">
-          <div>
-            <p className="studio-library__eyebrow">Noema Studio</p>
-            <h1 id="studio-article-library-heading" tabIndex={-1}>記事を管理</h1>
-            <p>記事を検索して編集するか、新しい記事を書き始めます。</p>
-          </div>
-          <button
-            className="dads-button studio-library__create"
-            data-size="lg"
-            data-type="solid-fill"
-            disabled={!canCreate || busy}
-            onClick={onCreate}
-            type="button"
-          >
-            新しい記事を書く
-          </button>
-        </header>
-
         {workingArticleStatus ? (
-          <div className={`studio-library-working-state is-${workingArticleStatus.tone}`}>
+          <section
+            aria-label="編集中の記事の状態"
+            className={`studio-library-working-state is-${workingArticleStatus.tone}`}
+          >
             <p
               className="studio-library-save-state"
               role={workingArticleStatus.tone === "error" ? "alert" : "status"}
@@ -258,8 +243,26 @@ export function CmsArticleLibrary({
                 {workingArticleActionLabel}
               </button>
             ) : null}
-          </div>
+          </section>
         ) : null}
+
+        <header className="studio-library__heading">
+          <div>
+            <p className="studio-library__eyebrow">Noema Studio</p>
+            <h1 id="studio-article-library-heading" tabIndex={-1}>記事を管理</h1>
+            <p>記事を検索して編集するか、新しい記事を書き始めます。</p>
+          </div>
+          <button
+            className="dads-button studio-library__create"
+            data-size="lg"
+            data-type="solid-fill"
+            disabled={!canCreate || busy}
+            onClick={onCreate}
+            type="button"
+          >
+            新しい記事を書く
+          </button>
+        </header>
 
         {hasRecoveryDraft ? (
           <RecoveryDraftCard
