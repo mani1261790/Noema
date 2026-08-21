@@ -165,6 +165,7 @@ interface AssetRow {
 export type CmsRepositoryErrorCode =
   | "article_not_found"
   | "asset_conflict"
+  | "asset_delete_failed"
   | "asset_in_use"
   | "asset_not_found"
   | "cms_not_configured"
@@ -787,6 +788,111 @@ export async function updateCmsAsset(
     );
   }
   return getCmsAsset(db, assetId);
+}
+
+export interface CmsAssetDeletion {
+  assetId: string;
+  r2Key: string;
+}
+
+export async function queueCmsAssetDeletion(
+  db: D1Database,
+  identity: CmsIdentity,
+  assetId: string,
+  now = new Date()
+): Promise<CmsAssetDeletion> {
+  requirePermission(identity.role, "edit");
+  const timestamp = now.toISOString();
+  const auditId = crypto.randomUUID();
+  const results = await db.batch([
+    db.prepare(
+      `INSERT INTO cms_asset_deletions
+        (asset_id, r2_key, requested_by_subject, requested_at)
+       SELECT id, r2_key, ?1, ?2 FROM cms_assets
+       WHERE id = ?3 AND NOT EXISTS (
+         SELECT 1 FROM cms_asset_references WHERE asset_id = ?3
+       )
+       ON CONFLICT(asset_id) DO NOTHING`
+    ).bind(identity.subject, timestamp, assetId),
+    db.prepare(
+      `INSERT INTO cms_audit_events
+        (id, article_id, actor_subject, action, metadata_json, created_at)
+       SELECT ?1, NULL, ?2, 'asset.deleted', ?3, ?4 FROM cms_assets
+       WHERE id = ?5 AND NOT EXISTS (
+         SELECT 1 FROM cms_asset_references WHERE asset_id = ?5
+       )`
+    ).bind(auditId, identity.subject, JSON.stringify({ assetId }), timestamp, assetId),
+    db.prepare(
+      `DELETE FROM cms_assets
+       WHERE id = ?1 AND NOT EXISTS (
+         SELECT 1 FROM cms_asset_references WHERE asset_id = ?1
+       )`
+    ).bind(assetId)
+  ]);
+
+  if (results[0]?.meta.changes === 1 && results[1]?.meta.changes === 1 && results[2]?.meta.changes === 1) {
+    return getPendingCmsAssetDeletion(db, assetId);
+  }
+
+  const exists = await db.prepare("SELECT 1 AS present FROM cms_assets WHERE id = ?1")
+    .bind(assetId)
+    .first<number>("present");
+  if (exists) {
+    await db.batch([
+      db.prepare("DELETE FROM cms_asset_deletions WHERE asset_id = ?1").bind(assetId),
+      db.prepare("DELETE FROM cms_audit_events WHERE id = ?1").bind(auditId)
+    ]);
+    throw new CmsRepositoryError(
+      "asset_in_use",
+      "記事で使用中の画像は削除できません。記事から画像を外して保存してから削除してください。"
+    );
+  }
+  const pending = await findPendingCmsAssetDeletion(db, assetId);
+  if (pending) return pending;
+  throw assetNotFound();
+}
+
+export async function listPendingCmsAssetDeletions(
+  db: D1Database,
+  limit = 100
+): Promise<CmsAssetDeletion[]> {
+  const result = await db.prepare(
+    `SELECT asset_id, r2_key FROM cms_asset_deletions
+     ORDER BY requested_at ASC LIMIT ?1`
+  ).bind(limit).all<{ asset_id: string; r2_key: string }>();
+  return result.results.map((row) => ({ assetId: row.asset_id, r2Key: row.r2_key }));
+}
+
+export async function completeCmsAssetDeletions(
+  db: D1Database,
+  deletions: readonly CmsAssetDeletion[]
+): Promise<void> {
+  if (deletions.length === 0) return;
+  await db.batch(deletions.map((deletion) => db.prepare(
+    "DELETE FROM cms_asset_deletions WHERE asset_id = ?1 AND r2_key = ?2"
+  ).bind(deletion.assetId, deletion.r2Key)));
+}
+
+async function findPendingCmsAssetDeletion(
+  db: D1Database,
+  assetId: string
+): Promise<CmsAssetDeletion | null> {
+  const row = await db.prepare(
+    "SELECT asset_id, r2_key FROM cms_asset_deletions WHERE asset_id = ?1"
+  ).bind(assetId).first<{ asset_id: string; r2_key: string }>();
+  return row ? { assetId: row.asset_id, r2Key: row.r2_key } : null;
+}
+
+async function getPendingCmsAssetDeletion(
+  db: D1Database,
+  assetId: string
+): Promise<CmsAssetDeletion> {
+  const pending = await findPendingCmsAssetDeletion(db, assetId);
+  if (!pending) throw new CmsRepositoryError(
+    "asset_delete_failed",
+    "画像の削除を完了できませんでした。もう一度お試しください。"
+  );
+  return pending;
 }
 
 function parseAssetMetadata(alt: string, tags: string[]): { alt: string; tags: string[] } {

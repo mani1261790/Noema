@@ -8,16 +8,19 @@ import {
 } from "@noema/cms";
 import {
   CmsRepositoryError,
+  completeCmsAssetDeletions,
   createCmsArticle,
   getCmsArticleVersion,
   getCmsArticle,
   listCmsAssets,
+  listPendingCmsAssetDeletions,
   listCmsArticles,
   listCmsArticleVersions,
   listCmsArticleVersionCheckpoints,
   listCmsMembers,
   resolveCmsSession,
   registerCmsAsset,
+  queueCmsAssetDeletion,
   transitionCmsArticle,
   updateCmsArticle,
   updateCmsAsset,
@@ -66,6 +69,7 @@ export async function handleCmsApiRequest(
         return cmsError(503, "asset_storage_unavailable", "画像保存は現在利用できません。", true);
       }
       if (request.method === "GET") {
+        await flushPendingCmsAssetDeletions(env.CMS_DB, env.ARTICLE_ASSETS);
         await registerLegacyAssets(env.CMS_DB, env.ARTICLE_ASSETS, session.identity);
         return cmsJson({ assets: await listCmsAssets(env.CMS_DB, session.identity) });
       }
@@ -80,7 +84,31 @@ export async function handleCmsApiRequest(
 
     const assetId = parseAssetMetadataRoute(pathname);
     if (assetId) {
-      if (request.method !== "PATCH") return methodNotAllowed("PATCH");
+      if (request.method === "DELETE") {
+        if (!session.capabilities.canEdit) {
+          return cmsError(403, "forbidden", "画像を削除する権限がありません。");
+        }
+        if (!env.ARTICLE_ASSETS) {
+          return cmsError(503, "asset_storage_unavailable", "画像保存は現在利用できません。", true);
+        }
+        const deletion = await queueCmsAssetDeletion(env.CMS_DB, session.identity, assetId);
+        try {
+          await env.ARTICLE_ASSETS.delete(deletion.r2Key);
+        } catch (error) {
+          console.error(JSON.stringify({
+            assetId,
+            event: "studio.cms.asset_delete_failed",
+            message: error instanceof Error ? error.message : String(error)
+          }));
+          throw new CmsRepositoryError(
+            "asset_delete_failed",
+            "R2から画像を削除できませんでした。削除処理は保持しているため、もう一度お試しください。"
+          );
+        }
+        await completeCmsAssetDeletions(env.CMS_DB, [deletion]);
+        return cmsJson({ deleted: true });
+      }
+      if (request.method !== "PATCH") return methodNotAllowed("PATCH, DELETE");
       const body = await readCmsJson(request);
       if (!body.ok) return body.response;
       const parsed = cmsAssetMutationSchema.safeParse(body.value);
@@ -329,6 +357,16 @@ async function registerLegacyAssets(
   ).bind(new Date().toISOString()).run();
 }
 
+async function flushPendingCmsAssetDeletions(
+  db: D1Database,
+  bucket: R2Bucket
+): Promise<void> {
+  const pending = await listPendingCmsAssetDeletions(db);
+  if (pending.length === 0) return;
+  await bucket.delete(pending.map((deletion) => deletion.r2Key));
+  await completeCmsAssetDeletions(db, pending);
+}
+
 async function readCmsAsset(key: string, bucket: R2Bucket): Promise<Response> {
   if (!isCmsAssetKey(key)) return cmsError(404, "asset_not_found", "画像が見つかりません。");
   const object = await bucket.get(key);
@@ -493,6 +531,7 @@ function cmsRepositoryError(error: unknown): Response {
   const status = {
     article_not_found: 404,
     asset_conflict: 409,
+    asset_delete_failed: 503,
     asset_in_use: 409,
     asset_not_found: 404,
     cms_not_configured: 503,
@@ -507,7 +546,13 @@ function cmsRepositoryError(error: unknown): Response {
     self_approval_forbidden: 409,
     slug_conflict: 409
   }[error.code];
-  return cmsError(status, error.code, error.message, false, error.issues);
+  return cmsError(
+    status,
+    error.code,
+    error.message,
+    error.code === "asset_delete_failed",
+    error.issues
+  );
 }
 
 function invalidRequest(issues: readonly { message: string; path: PropertyKey[] }[]): Response {

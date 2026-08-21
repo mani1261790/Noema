@@ -51,6 +51,7 @@ import {
   runCmsArticleAction,
   updateCmsArticle as updateCmsArticleRecord,
   updateCmsAsset as updateCmsAssetRecord,
+  deleteCmsAsset as deleteCmsAssetRecord,
   uploadCmsAsset,
   upsertCmsMember,
   type CmsClientError
@@ -1799,6 +1800,18 @@ export function App() {
     setCmsAssets((current) => current.map((item) => item.id === result.value.id ? result.value : item));
   };
 
+  const deleteAsset = async (asset: CmsAsset) => {
+    setAssetOperationBusy(true);
+    const result = await deleteCmsAssetRecord(asset.id);
+    setAssetOperationBusy(false);
+    if (!result.ok) {
+      showNotification({ text: result.error.message, title: "画像を削除できませんでした", tone: "error" });
+      return;
+    }
+    setCmsAssets((current) => current.filter((item) => item.id !== asset.id));
+    showNotification({ text: `${asset.originalName}をR2から削除しました。`, title: "画像を完全に削除しました", tone: "info" });
+  };
+
   const closeAssetPicker = () => {
     const target = assetPickerTarget;
     setAssetPickerTarget(null);
@@ -2170,6 +2183,7 @@ export function App() {
           busy={assetOperationBusy}
           canEdit={Boolean(cmsSession?.capabilities.canEdit)}
           connection={cmsAssetConnection}
+          onDelete={deleteAsset}
           onRetry={() => setCmsRefresh((current) => current + 1)}
           onUpdate={saveAsset}
           onUpload={uploadAssets}

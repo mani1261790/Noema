@@ -3301,6 +3301,17 @@ textarea.studio-control {
   gap: .5rem;
 }
 
+.studio-asset-details__actions .studio-asset-delete:not(:disabled) {
+  color: #fff;
+  background: #b40000;
+  border-color: #b40000;
+}
+
+.studio-asset-details__actions .studio-asset-delete:not(:disabled):hover {
+  background: #8f0000;
+  border-color: #8f0000;
+}
+
 .studio-assets__empty,
 .studio-asset-picker__empty {
   padding: clamp(2rem, 6vw, 5rem) 1rem;
