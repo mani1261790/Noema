@@ -1653,6 +1653,7 @@ export function App() {
       !cmsDirty ||
       cmsConflict ||
       cmsAutosavePaused ||
+      versionHistoryOpen ||
       editorLocked ||
       cmsSaveState === "saving" ||
       cmsSaveState === "error" ||
@@ -1672,7 +1673,8 @@ export function App() {
     cmsSaveState,
     cmsSessionState,
     editorLocked,
-    saveCmsDraft
+    saveCmsDraft,
+    versionHistoryOpen
   ]);
 
   const closeVersionHistory = () => {
@@ -2304,6 +2306,7 @@ export function App() {
             {cmsArticle ? (
               <button
                 aria-controls="cms-version-history"
+                aria-expanded={versionHistoryOpen}
                 className="dads-button studio-cms__history-button"
                 data-size="md"
                 data-type="outline"

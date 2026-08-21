@@ -1,3 +1,5 @@
+import type { CmsRevisionSaveReason } from "@noema/cms";
+
 export const CMS_EDIT_SESSION_IDLE_MS = 30 * 60 * 1_000;
 
 export interface CmsEditSession {
@@ -5,11 +7,10 @@ export interface CmsEditSession {
   lastSavedAt: number;
 }
 
-export type CmsBrowserSaveReason =
-  | "autosave"
-  | "manual"
-  | "conflict_resolution"
-  | "restored";
+export type CmsBrowserSaveReason = Extract<
+  CmsRevisionSaveReason,
+  "autosave" | "manual" | "conflict_resolution" | "restored"
+>;
 
 export function createCmsEditSession(
   now = Date.now(),

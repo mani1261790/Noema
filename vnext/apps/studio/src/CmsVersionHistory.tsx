@@ -90,7 +90,11 @@ export function CmsVersionHistory({
       if (event.key !== "Tab") return;
       const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
         "button:not([disabled]), [href], input:not([disabled]), summary, [tabindex]:not([tabindex='-1'])"
-      ) ?? []).filter((element) => !element.hidden);
+      ) ?? []).filter((element) => (
+        !element.closest("[hidden]") &&
+        !element.closest("details:not([open]) > :not(summary)") &&
+        element.offsetParent !== null
+      ));
       const first = focusable[0];
       const last = focusable.at(-1);
       if (!first || !last) return;

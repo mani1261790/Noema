@@ -964,7 +964,7 @@ export async function listCmsArticleVersionCheckpoints(
      JOIN cms_articles a ON a.id = r.article_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
      WHERE r.article_id = ?1
-       AND (r.edit_session_id = ?2 OR (r.edit_session_id IS NULL AND r.id = ?2))
+       AND COALESCE(r.edit_session_id, r.id) = ?2
        AND (?3 IS NULL OR r.revision_number < ?3)
      ORDER BY r.revision_number DESC
      LIMIT 101`
@@ -1134,7 +1134,9 @@ export async function updateCmsArticle(
     const sourceExists = await db.prepare(
       "SELECT 1 AS present FROM cms_article_revisions WHERE article_id = ?1 AND id = ?2"
     ).bind(articleId, revisionContext.sourceRevisionId).first<number>("present");
-    if (!sourceExists) throw articleNotFound();
+    if (!sourceExists) {
+      throw new CmsRepositoryError("invalid_article", "復元元の版が見つかりません。");
+    }
   }
 
   try {

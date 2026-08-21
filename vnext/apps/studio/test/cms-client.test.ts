@@ -114,13 +114,17 @@ describe("CMS version history client", () => {
       }] });
       if (path.includes("/checkpoints")) return jsonResponse({
         checkpoints: [{
-          createdAt: "2026-07-18T00:02:00.000Z",
+          createdAt: path.includes("?before=3")
+            ? "2026-07-18T00:01:00.000Z"
+            : "2026-07-18T00:02:00.000Z",
           createdByEmail: "editor@example.com",
-          id: "22222222-2222-4222-8222-222222222222",
+          id: path.includes("?before=3")
+            ? "44444444-4444-4444-8444-444444444444"
+            : "22222222-2222-4222-8222-222222222222",
           isApproved: false,
-          isCurrent: true,
+          isCurrent: !path.includes("?before=3"),
           isPublished: false,
-          number: 3,
+          number: path.includes("?before=3") ? 2 : 3,
           reason: "manual"
         }],
         nextBeforeRevisionNumber: null
@@ -151,6 +155,12 @@ describe("CMS version history client", () => {
       undefined,
       { fetchFn }
     );
+    const olderCheckpoints = await fetchCmsArticleVersionCheckpoints(
+      "11111111-1111-4111-8111-111111111111",
+      "33333333-3333-4333-8333-333333333333",
+      3,
+      { fetchFn }
+    );
 
     expect(versions.ok && versions.value[0]).toMatchObject({
       checkpointCount: 3,
@@ -164,6 +174,13 @@ describe("CMS version history client", () => {
       number: 3,
       reason: "manual"
     });
+    expect(olderCheckpoints.ok && olderCheckpoints.value.checkpoints[0]).toMatchObject({
+      number: 2,
+      reason: "manual"
+    });
+    expect(fetchFn.mock.calls.map(([input]) => String(input))).toContain(
+      "/api/cms/articles/11111111-1111-4111-8111-111111111111/versions/33333333-3333-4333-8333-333333333333/checkpoints?before=3"
+    );
   });
 });
 

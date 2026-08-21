@@ -215,6 +215,9 @@ export async function handleCmsApiRequest(
       ));
     }
 
+    if (route.kind !== "actions") {
+      return cmsError(404, "api_not_found", "APIが見つかりません。");
+    }
     if (request.method !== "POST") return methodNotAllowed("POST");
     const body = await readCmsJson(request);
     if (!body.ok) return body.response;

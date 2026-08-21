@@ -1210,7 +1210,7 @@ a {
 
 .studio-version-history__layout {
   display: grid;
-  grid-template-columns: minmax(17rem, .8fr) minmax(22rem, 1.2fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   gap: 1.25rem;
   width: min(100%, 78rem);
   margin-inline: auto;

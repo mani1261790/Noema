@@ -588,6 +588,20 @@ describe("CMS repository", () => {
       {},
       { editSessionId: firstSession, saveReason: "manual" }
     );
+    await expect(updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("version-history"),
+      new Date("2026-07-18T00:02:30.000Z"),
+      {},
+      {
+        editSessionId: restoreSession,
+        saveReason: "restored",
+        sourceRevisionId: "33333333-3333-4333-8333-333333333333"
+      }
+    )).rejects.toMatchObject({ code: "invalid_article" });
     article = await updateCmsArticle(
       testEnv.CMS_DB,
       admin.identity,
@@ -642,6 +656,57 @@ describe("CMS repository", () => {
       sourceRevisionId: originalRevisionId,
       visibility: "internal"
     });
+  });
+
+  it("paginates every checkpoint in a long editing session without gaps", async () => {
+    const admin = await bootstrapAdmin();
+    const editSessionId = "44444444-4444-4444-8444-444444444444";
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("long-version-history"),
+      NOW,
+      {},
+      { editSessionId }
+    );
+    for (let index = 2; index <= 102; index += 1) {
+      article = await updateCmsArticle(
+        testEnv.CMS_DB,
+        admin.identity,
+        article.id,
+        article.lockVersion,
+        {
+          ...validArticle("long-version-history"),
+          markdown: `## 保存時点 ${index}\n\n長い編集セッションの内容です。`
+        },
+        new Date(NOW.getTime() + index * 1_000),
+        {},
+        { editSessionId, saveReason: "autosave" }
+      );
+    }
+
+    const firstPage = await listCmsArticleVersionCheckpoints(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      editSessionId
+    );
+    expect(firstPage.checkpoints).toHaveLength(100);
+    expect(firstPage.checkpoints[0]?.number).toBe(102);
+    expect(firstPage.checkpoints.at(-1)?.number).toBe(3);
+    expect(firstPage.nextBeforeRevisionNumber).toBe(3);
+
+    const secondPage = await listCmsArticleVersionCheckpoints(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      editSessionId,
+      firstPage.nextBeforeRevisionNumber ?? undefined
+    );
+    expect(secondPage.nextBeforeRevisionNumber).toBeNull();
+    expect(secondPage.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([2, 1]);
+    expect([...firstPage.checkpoints, ...secondPage.checkpoints].map((checkpoint) => checkpoint.number))
+      .toEqual(Array.from({ length: 102 }, (_, index) => 102 - index));
   });
 });
 

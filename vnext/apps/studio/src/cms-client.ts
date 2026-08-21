@@ -18,6 +18,7 @@ import {
   type CmsEditorialIssue,
   type CmsMember,
   type CmsRole,
+  type CmsRevisionSaveReason,
   type CmsSession,
   type CmsVisibility
 } from "@noema/cms";
@@ -55,7 +56,10 @@ interface CmsArticleContent {
 
 export interface CmsRevisionWriteContext {
   editSessionId: string;
-  saveReason?: "autosave" | "manual" | "conflict_resolution" | "restored";
+  saveReason?: Extract<
+    CmsRevisionSaveReason,
+    "autosave" | "manual" | "conflict_resolution" | "restored"
+  >;
   sourceRevisionId?: string;
 }
 

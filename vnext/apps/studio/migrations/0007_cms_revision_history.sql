@@ -23,4 +23,8 @@ WHERE id IN (SELECT published_revision_id FROM cms_articles)
   AND draft_visibility IS NULL;
 
 CREATE INDEX cms_article_revisions_session_idx
-  ON cms_article_revisions (article_id, edit_session_id, revision_number DESC);
+  ON cms_article_revisions (
+    article_id,
+    COALESCE(edit_session_id, id),
+    revision_number DESC
+  );

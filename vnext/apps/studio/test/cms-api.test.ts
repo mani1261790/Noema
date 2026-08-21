@@ -189,6 +189,17 @@ describe("CMS HTTP API", () => {
     expect(checkpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([2, 1]);
     expect(checkpoints.nextBeforeRevisionNumber).toBeNull();
 
+    const olderCheckpointsResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints?before=2`),
+      cmsEnv(),
+      ADMIN
+    );
+    const olderCheckpoints = (await olderCheckpointsResponse.json()) as {
+      checkpoints: Array<{ number: number }>;
+    };
+    expect(olderCheckpointsResponse.status).toBe(200);
+    expect(olderCheckpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([1]);
+
     const invalidCursorResponse = await handleCmsApiRequest(
       cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints?before=99999999999999999999`),
       cmsEnv(),
