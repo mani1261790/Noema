@@ -55,9 +55,9 @@ describe("CmsArticleLibrary", () => {
 
     expect(html).toContain('role="search"');
     expect(html).toContain('id="studio-article-search"');
-    expect(html).toContain('aria-describedby="studio-article-search-description"');
-    expect(html.match(/aria-pressed=/g)).toHaveLength(5);
-    expect(html).toContain("公開中");
+    expect(html).toContain('id="studio-article-filter"');
+    expect(html.match(/<option/g)).toHaveLength(5);
+    expect(html).toContain("公開中（0）");
     expect(html).toContain("0件");
     expect(html).toContain("CMSの記事はまだありません");
     expect(html).not.toContain("studio-public-link");
@@ -81,15 +81,13 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain('id="studio-article-search"');
   });
 
-  it("shows an admin queue and changes the article action for a selected task", () => {
+  it("integrates review counts into the status filter without a separate queue", () => {
     const reviewArticle = { ...article, publicationStatus: "unpublished" as const, reviewStatus: "in_review" as const };
-    const html = renderLibrary({ articles: [reviewArticle], filter: "in_review" });
+    const html = renderLibrary({ articles: [reviewArticle], filter: "review" });
 
-    expect(html).toContain('id="studio-editorial-queue-heading"');
-    expect(html).toContain("レビューする記事");
-    expect(html).not.toContain("公開する記事");
+    expect(html).not.toContain("対応待ち");
+    expect(html).toContain("レビュー・承認（1）");
     expect(html).toContain("レビューする");
-    expect(html).toContain("だけを表示しています");
   });
 
   it("keeps review and edit actions distinct even in the unfiltered article list", () => {
@@ -124,7 +122,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain(">編集する</button>");
   });
 
-  it("shows only the correction queue to editors", () => {
+  it("groups corrections into the editor draft filter", () => {
     const correctionArticle = {
       ...article,
       publicationStatus: "unpublished" as const,
@@ -132,22 +130,23 @@ describe("CmsArticleLibrary", () => {
     };
     const html = renderLibrary({
       articles: [correctionArticle],
-      connection: { email: "editor@example.com", kind: "ready", role: "editor" }
+      connection: { email: "editor@example.com", kind: "ready", role: "editor" },
+      filter: "draft"
     });
 
-    expect(html).toContain("修正する記事");
-    expect(html).not.toContain("公開する記事");
-    expect(html).not.toContain("レビューする記事");
+    expect(html).toContain("下書き・要修正（1）");
+    expect(html).toContain("修正する");
+    expect(html).not.toContain("対応待ち");
   });
 
-  it("keeps each article row to one status, title, date, slug, and action", () => {
+  it("keeps each article row to one status, title, date, and action", () => {
     const html = renderLibrary({ articles: [article] });
 
     expect(html).toContain("公開中・新しい版は下書き");
     expect(html).toContain("現在の公開版はそのまま");
     expect(html).toContain("studio-library-item__status");
     expect(html).toMatch(/更新 2026\/07\/18 \d{1,2}:00/);
-    expect(html).toContain("/workers-ai-guide");
+    expect(html).not.toContain("/workers-ai-guide");
     expect(html).not.toContain("revision 3");
     expect(html).not.toContain("editor@example.com");
     expect(html).not.toContain("1 / 4");
@@ -167,8 +166,22 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain("競合を確認・解消");
     expect(html).toContain("競合を確認し、必要な内容を選んで解消してください。");
     expect(html).toContain('aria-label="編集中の記事の状態"');
-    expect(html.indexOf("競合を確認・解消")).toBeLessThan(html.indexOf("記事を管理"));
+    expect(html.indexOf("競合を確認・解消")).toBeLessThan(html.indexOf('<h1 id="studio-article-library-heading"'));
     expect(html).toContain(">編集する</button>");
     expect(html).not.toMatch(/studio-library-item__edit[^>]*disabled/);
+  });
+
+  it("hides creation and login details from the reviewer home", () => {
+    const html = renderLibrary({
+      articles: [article],
+      canCreate: false,
+      connection: { email: "reviewer@example.com", kind: "ready", role: "reviewer" }
+    });
+
+    expect(html).not.toContain("新しい記事");
+    expect(html).not.toContain("reviewer@example.com");
+    expect(html).not.toContain("ログイン中");
+    expect(html).toContain("内容を確認");
+    expect(html).not.toContain(">編集する</button>");
   });
 });

@@ -303,13 +303,13 @@ a {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 5vw, 3rem) 5rem;
+  padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 5vw, 3rem) 4rem;
   overflow: auto;
   background: var(--noema-background);
 }
 
 .studio-library__inner {
-  width: min(100%, 64rem);
+  width: min(100%, 58rem);
   margin: 0 auto;
 }
 
@@ -381,18 +381,12 @@ a {
 
 .studio-library__heading {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 2rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid #949494;
+  gap: 1rem;
+  padding-bottom: .75rem;
 }
 
-.studio-library__heading > div {
-  min-width: 0;
-}
-
-.studio-library__eyebrow,
 .studio-library-recovery__eyebrow {
   margin: 0 0 .25rem;
   color: var(--color-key-900);
@@ -404,32 +398,13 @@ a {
 
 .studio-library__heading h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
   line-height: 1.35;
   letter-spacing: .02em;
 }
 
-.studio-library__heading > div > p:last-child,
-.studio-library__saved-heading p {
-  margin: .5rem 0 0;
-  color: #555;
-  line-height: 1.7;
-}
-
 .studio-library__create {
   flex: 0 0 auto;
-}
-
-.studio-library__identity {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .25rem .75rem;
-  margin: 2rem 0 0;
-  padding-top: 1rem;
-  color: #555;
-  border-top: 1px solid #949494;
-  font-size: calc(14 / 16 * 1rem);
-  line-height: 1.5;
 }
 
 .studio-library-working-state {
@@ -459,67 +434,6 @@ a {
   flex: 0 0 auto;
 }
 
-.studio-editorial-queue {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  margin-top: 1.5rem;
-  padding: .75rem 0;
-  color: #1a1a1a;
-  border-bottom: 1px solid #949494;
-}
-
-.studio-editorial-queue h2 {
-  flex: 0 0 auto;
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-.studio-editorial-queue > p {
-  margin: 0;
-  color: #555;
-  font-size: calc(14 / 16 * 1rem);
-}
-
-.studio-editorial-queue__items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-}
-
-.studio-editorial-queue__item {
-  display: inline-flex;
-  align-items: center;
-  gap: .6rem;
-  min-height: 40px;
-  padding: .4rem .65rem;
-  border: 1px solid #767676;
-  color: #1a1a1a;
-  background: #fff;
-  font-size: calc(14 / 16 * 1rem);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.studio-editorial-queue__item:hover {
-  background: #f5fbfa;
-}
-
-.studio-editorial-queue__item[aria-pressed="true"] {
-  color: #fff;
-  background: var(--color-key-900);
-  border-color: var(--color-key-900);
-}
-
-.studio-editorial-queue__item > strong {
-  min-width: 1.5rem;
-  padding: .1rem .35rem;
-  border-radius: 999px;
-  color: #fff;
-  background: #333;
-  text-align: center;
-}
 
 .studio-library-recovery {
   display: grid;
@@ -864,20 +778,7 @@ a {
 }
 
 .studio-library__saved {
-  margin-top: 2rem;
-}
-
-.studio-library__saved-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.studio-library__saved-heading h2 {
-  margin: 0;
-  font-size: calc(24 / 16 * 1rem);
-  line-height: 1.5;
+  margin-top: .75rem;
 }
 
 .studio-library__count {
@@ -892,13 +793,7 @@ a {
   align-items: center;
   flex-wrap: wrap;
   gap: .75rem;
-  margin-top: 1rem;
-}
-
-.studio-library-controls > label,
-.studio-library-controls legend {
-  font-weight: 700;
-  line-height: 1.5;
+  margin-bottom: 1rem;
 }
 
 .studio-library-controls > input {
@@ -913,48 +808,23 @@ a {
   font-size: 1rem;
 }
 
-.studio-library-controls fieldset {
-  flex: 0 1 auto;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.studio-library-controls legend {
-  margin: 0;
-}
-
-.studio-library-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-}
-
-.studio-library-filters button {
-  min-height: 40px;
-  padding: .4rem .7rem;
+.studio-library-controls > select {
+  flex: 0 1 12rem;
+  min-width: 10rem;
+  min-height: 44px;
+  padding: .6rem 2rem .6rem .75rem;
   border: 1px solid #767676;
   color: #1a1a1a;
   background: #fff;
-  font-weight: 700;
-}
-
-.studio-library-filters button[aria-pressed="true"] {
-  color: #fff;
-  background: var(--color-key-900);
-  border-color: var(--color-key-900);
-}
-
-.studio-library-filters button:not([aria-pressed="true"]):hover {
-  background: #f2f2f2;
+  font: inherit;
 }
 
 .studio-library-list {
   display: grid;
-  gap: .75rem;
-  margin: 1rem 0 0;
+  gap: 0;
+  margin: 0;
   padding: 0;
+  border-top: 1px solid #aaa;
   list-style: none;
 }
 
@@ -963,9 +833,9 @@ a {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 1rem;
-  padding: .9rem 1rem;
-  background: #fff;
-  border: 1px solid #949494;
+  padding: 1rem 0;
+  border-bottom: 1px solid #aaa;
+  background: transparent;
 }
 
 .studio-library-item__main {
@@ -1136,14 +1006,6 @@ a {
   text-underline-offset: .2em;
 }
 
-.studio-library-controls__queue-filter {
-  flex-basis: 100%;
-  margin: .75rem 0 0;
-  color: #003c39;
-  font-weight: 700;
-  line-height: 1.6;
-}
-
 .studio-workspace {
   position: relative;
   display: block;
@@ -1236,7 +1098,7 @@ a {
   line-height: 1.5;
 }
 
-.studio-surface-header > div > p:last-child:not(.studio-library__eyebrow) {
+.studio-surface-header > div > p:last-child {
   margin-top: .35rem;
   color: #444;
   font-size: calc(14 / 16 * 1rem);
@@ -3948,23 +3810,11 @@ textarea.studio-control {
     padding: 1.5rem 1rem 3rem;
   }
 
-  .studio-library__heading,
-  .studio-library__saved-heading,
-  .studio-editorial-queue__heading,
-  .studio-library-recovery,
-  .studio-library-item {
+  .studio-library-recovery {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
 
-  .studio-library__heading,
-  .studio-library__saved-heading,
-  .studio-editorial-queue__heading {
-    display: grid;
-  }
-
-  .studio-library__create,
-  .studio-library-item__edit,
   .studio-library-recovery__actions .dads-button,
   .studio-library-state .dads-button,
   .studio-library-empty .dads-button {
@@ -3980,8 +3830,12 @@ textarea.studio-control {
     justify-self: start;
   }
 
-  .studio-library-filters button {
-    flex: 1 1 9rem;
+  .studio-library-controls > input {
+    flex-basis: 100%;
+  }
+
+  .studio-library-controls > select {
+    flex: 1 1 12rem;
   }
 
   .studio-notification {
