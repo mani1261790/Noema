@@ -134,6 +134,8 @@ describe("CmsArticleLibrary", () => {
 
     expect(html).toContain("競合を確認・解消");
     expect(html).toContain("競合を確認し、必要な内容を選んで解消してください。");
+    expect(html).toContain('aria-label="編集中の記事の状態"');
+    expect(html.indexOf("競合を確認・解消")).toBeLessThan(html.indexOf("記事を管理"));
     expect(html).toContain(">編集する</button>");
     expect(html).not.toMatch(/studio-library-item__edit[^>]*disabled/);
   });
