@@ -59,6 +59,7 @@ describe("CmsConflictResolver", () => {
 
     expect(html).toContain("重なった変更を確認してください");
     expect(html).toContain("重ならない変更はすでに取り込んでいます");
+    expect(html).toContain("新しいrevisionとしてCMSへ保存します");
     expect(html).toContain("ブラウザの原稿を採用");
     expect(html).toContain("CMS最新版を採用");
     expect(html).toContain("ブラウザの原稿を書き出す");
@@ -81,7 +82,7 @@ describe("CmsConflictResolver", () => {
     expect(html).toContain("aria-label=\"タイトル ブラウザ側の内容\"");
     expect(html).toContain("ブラウザ側を使う");
     expect(html).toContain("CMS側を使う");
-    expect(html).toContain("選んだ内容を編集画面へ戻す");
+    expect(html).toContain("選んだ内容で解消して保存");
   });
 
   it("keeps recovery actions available when the latest revision cannot load", () => {

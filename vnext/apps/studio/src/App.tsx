@@ -774,13 +774,18 @@ export function App() {
   }, [cmsArticle, cmsAutosavePaused, cmsRecoveryReference, cmsVisibility]);
 
   const saveBrowserDraft = useCallback((draftFrontmatter: ArticleFrontmatter, draftBody: string) => (
-    saveDraft(storage, {
-      frontmatter: draftFrontmatter,
-      body: draftBody,
-      ...(cmsDraftReference ? { cmsArticle: cmsDraftReference } : {}),
-      ...(cmsAssociationRequired && !cmsDraftReference ? { cmsAssociation: "unknown" as const } : {})
-    })
-  ), [cmsAssociationRequired, cmsDraftReference, storage]);
+    cmsArticle &&
+    !cmsAutosavePaused &&
+    !cmsConflict &&
+    lastCmsFingerprint === cmsContentFingerprint(draftFrontmatter, draftBody, cmsVisibility)
+      ? clearDraft(storage)
+      : saveDraft(storage, {
+          frontmatter: draftFrontmatter,
+          body: draftBody,
+          ...(cmsDraftReference ? { cmsArticle: cmsDraftReference } : {}),
+          ...(cmsAssociationRequired && !cmsDraftReference ? { cmsAssociation: "unknown" as const } : {})
+        })
+  ), [cmsArticle, cmsAssociationRequired, cmsAutosavePaused, cmsConflict, cmsDraftReference, cmsVisibility, lastCmsFingerprint, storage]);
 
   const previewHtml = useMemo(
     () => DOMPurify.sanitize(renderArticleMarkdownWith(markdown, deferredBody), {
@@ -1485,16 +1490,18 @@ export function App() {
       : { kind: "idle" });
     updateCmsArticleList(result.value);
     setLastCmsFingerprint(savedFingerprint);
-    saveDraft(storage, {
-      frontmatter: visibleDraft.frontmatter,
-      body: visibleDraft.body,
-      cmsArticle: {
-        ...(needsFollowupReview ? { autosavePaused: true as const } : {}),
-        id: result.value.id,
-        lockVersion: result.value.lockVersion,
-        visibility: visibleDraft.visibility
-      }
-    });
+    if (needsFollowupReview || hasNewerLocalChanges) {
+      saveDraft(storage, {
+        frontmatter: visibleDraft.frontmatter,
+        body: visibleDraft.body,
+        cmsArticle: {
+          ...(needsFollowupReview ? { autosavePaused: true as const } : {}),
+          id: result.value.id,
+          lockVersion: result.value.lockVersion,
+          visibility: visibleDraft.visibility
+        }
+      });
+    } else clearDraft(storage);
     setCmsSaveState(needsFollowupReview ? "conflict" : hasNewerLocalChanges ? "dirty" : "saved");
     editSession.current = completeCmsEditSessionSave(
       editSession.current,
@@ -1558,7 +1565,7 @@ export function App() {
     showEditor();
   };
 
-  const applyConflictResolution = (draft: ResolvedCmsConflictDraft) => {
+  const applyConflictResolution = async (draft: ResolvedCmsConflictDraft) => {
     if (cmsConflictLatestState.kind !== "ready") return;
     const article = cmsConflictLatestState.article;
     const latestFrontmatter: ArticleFrontmatter = {
@@ -1584,26 +1591,81 @@ export function App() {
       return;
     }
 
+    setCmsOperationBusy(true);
+    const resolutionSession = createCmsEditSession();
+    const result = await updateCmsArticleRecord(
+      article.id,
+      article.lockVersion,
+      {
+        frontmatter: nextFrontmatter,
+        markdown: draft.body,
+        visibility: draft.visibility
+      },
+      {},
+      { editSessionId: resolutionSession.id, saveReason: "conflict_resolution" }
+    );
+    setCmsOperationBusy(false);
+
+    if (result.ok) {
+      const savedFingerprint = cmsContentFingerprint(
+        { ...result.value.currentRevision.frontmatter, status: "draft" },
+        result.value.currentRevision.markdown,
+        result.value.visibility
+      );
+      setCmsArticle(result.value);
+      setFrontmatter({ ...result.value.currentRevision.frontmatter, status: "draft" });
+      setBody(result.value.currentRevision.markdown);
+      setCmsVisibility(result.value.visibility);
+      setLastCmsFingerprint(savedFingerprint);
+      setCmsSaveState("saved");
+      setCmsAutosavePaused(false);
+      editSession.current = completeCmsEditSessionSave(resolutionSession, "conflict_resolution");
+      pendingRevisionReason.current = null;
+      setCmsConflict(false);
+      setCmsConflictResolverOpen(false);
+      setCmsConflictLatestState({ kind: "idle" });
+      setCmsRecoveryReference(null);
+      setCmsAssociationRequired(false);
+      setHasRecoveryDraft(false);
+      setPublicationIssues([]);
+      setValidationRequested(false);
+      manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
+      updateCmsArticleList(result.value);
+      clearDraft(storage);
+      setSaveStatus("CMSに保存済み");
+      showNotification({
+        text: `CMS revision ${result.value.revisionNumber}として保存しました。必要なら履歴から元の版へ戻せます。`,
+        title: "競合を解消して保存しました",
+        tone: "info"
+      });
+      return;
+    }
+
     setCmsArticle(article);
     setFrontmatter(nextFrontmatter);
     setBody(draft.body);
     setCmsVisibility(draft.visibility);
     setLastCmsFingerprint(serverFingerprint);
-    setCmsSaveState("dirty");
+    setCmsSaveState(result.error.code === "revision_conflict" ? "conflict" : "error");
     setCmsAutosavePaused(true);
-    editSession.current = createCmsEditSession();
+    editSession.current = resolutionSession;
     pendingRevisionReason.current = { reason: "conflict_resolution" };
-    setCmsConflict(false);
+    setCmsConflict(true);
     setCmsConflictResolverOpen(false);
     setCmsConflictLatestState({ kind: "idle" });
-    setCmsRecoveryReference(null);
+    setCmsRecoveryReference({
+      autosavePaused: true,
+      id: article.id,
+      lockVersion: article.lockVersion,
+      visibility: draft.visibility
+    });
     setCmsAssociationRequired(false);
     setHasRecoveryDraft(false);
     setPublicationIssues([]);
     setValidationRequested(false);
     manuallyEditedMetadata.current = new Set(autoManagedMetadataFields);
     updateCmsArticleList(article);
-    setSaveStatus("統合結果はまだCMSへ保存していません");
+    setSaveStatus("統合結果をブラウザに保持中");
     saveDraft(storage, {
       frontmatter: nextFrontmatter,
       body: draft.body,
@@ -1615,9 +1677,9 @@ export function App() {
       }
     });
     showNotification({
-      text: "選んだ内容を編集画面へ戻しました。内容を確認し、「保存」で新しいrevisionとしてCMSへ反映してください。",
-      title: "統合結果はまだ保存されていません",
-      tone: "info"
+      text: `${result.error.message} 選んだ内容はブラウザに保持しています。もう一度、変更の確認から保存できます。`,
+      title: "統合結果をCMSへ保存できませんでした",
+      tone: "error"
     });
   };
 

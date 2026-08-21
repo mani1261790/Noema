@@ -170,7 +170,7 @@ function CmsConflictComparison({
       <div className="studio-conflict-resolver__intro">
         <p className="studio-conflict-resolver__eyebrow">保存を止めています</p>
         <h2 id="cms-conflict-heading" ref={headingRef} tabIndex={-1}>重なった変更を確認してください</h2>
-        <p>重ならない変更はすでに取り込んでいます。残す内容を変更箇所ごとに選べます。選択結果はすぐには保存せず、編集画面へ戻します。</p>
+        <p>重ならない変更はすでに取り込んでいます。残す内容を変更箇所ごとに選び、確定すると新しいrevisionとしてCMSへ保存します。</p>
       </div>
 
       <div className="studio-conflict-resolver__versions">
@@ -241,7 +241,7 @@ function CmsConflictComparison({
           </div>
 
           <div className="studio-conflict-resolver__actions">
-            <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy} onClick={() => resolveSelection()} type="button">選んだ内容を編集画面へ戻す</button>
+            <button className="dads-button" data-size="md" data-type="solid-fill" disabled={busy} onClick={() => resolveSelection()} type="button">選んだ内容で解消して保存</button>
             <button className="dads-button" data-size="md" data-type="outline" onClick={onDownload} type="button">先にMarkdownを書き出す</button>
           </div>
         </div>
