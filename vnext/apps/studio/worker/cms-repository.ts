@@ -1201,6 +1201,7 @@ export async function createCmsArticle(
   const slug = canonicalDraftSlug(content.frontmatter.slug, articleId);
   const frontmatterJson = JSON.stringify(content.frontmatter);
   const checksum = await contentChecksum(requestedContent);
+  const contentSha256 = await contentChecksum(content);
   const replayArticleId = await findIdempotentArticle(
     db,
     identity,
@@ -1247,7 +1248,7 @@ export async function createCmsArticle(
         articleId,
         frontmatterJson,
         content.markdown,
-        checksum,
+        contentSha256,
         identity.subject,
         timestamp,
         revisionContext.editSessionId ?? null,
