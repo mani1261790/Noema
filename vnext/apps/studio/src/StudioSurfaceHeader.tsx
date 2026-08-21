@@ -11,7 +11,7 @@ export function StudioSurfaceHeader({
   description?: ReactNode;
   eyebrow?: ReactNode;
   headingRef?: RefObject<HTMLHeadingElement | null>;
-  onClose: () => void;
+  onClose?: () => void;
   title: ReactNode;
   titleId: string;
 }) {
@@ -22,7 +22,7 @@ export function StudioSurfaceHeader({
         <h2 id={titleId} ref={headingRef} tabIndex={headingRef ? -1 : undefined}>{title}</h2>
         {description ? <p>{description}</p> : null}
       </div>
-      <button
+      {onClose ? <button
         aria-label={`${typeof title === "string" ? title : "パネル"}を閉じる`}
         className="dads-button studio-surface-header__close"
         data-size="sm"
@@ -31,7 +31,7 @@ export function StudioSurfaceHeader({
         type="button"
       >
         閉じる
-      </button>
+      </button> : null}
     </header>
   );
 }

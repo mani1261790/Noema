@@ -1,7 +1,7 @@
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { CmsArticleSummary } from "@noema/cms";
+import type { CmsArticleSummary, CmsSeries } from "@noema/cms";
 import { CmsArticleLibrary } from "../src/CmsArticleLibrary";
 
 const article: CmsArticleSummary = {
@@ -15,6 +15,20 @@ const article: CmsArticleSummary = {
   updatedAt: "2026-07-18T08:00:00.000Z",
   updatedByEmail: "editor@example.com",
   visibility: "public"
+};
+
+const series: CmsSeries = {
+  articleIds: ["article-intro", article.id],
+  articles: [],
+  createdAt: "2026-07-17T08:00:00.000Z",
+  description: "順番に学ぶシリーズです。",
+  id: "series-1",
+  lockVersion: 2,
+  revisionNumber: 2,
+  slug: "cloudflare-guide",
+  title: "Cloudflare入門",
+  updatedAt: "2026-07-18T08:00:00.000Z",
+  updatedByEmail: "editor@example.com"
 };
 
 const baseProps: ComponentProps<typeof CmsArticleLibrary> = {
@@ -41,6 +55,7 @@ const baseProps: ComponentProps<typeof CmsArticleLibrary> = {
   recoveryNeedsArticleAssociation: false,
   recoverySaveStatus: "ブラウザに保存済み",
   recoveryTitle: "",
+  series: [],
   workingArticleActionLabel: "編集画面に戻る",
   workingArticleStatus: null
 };
@@ -71,7 +86,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain("0件（全1件）");
     expect(html).toContain("条件に一致する記事はありません");
-    expect(html.match(/検索条件をクリア/g)).toHaveLength(1);
+    expect(html.match(/条件をリセット/g)).toHaveLength(1);
   });
 
   it("hides article search until the CMS connection is ready", () => {
@@ -150,6 +165,21 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain("revision 3");
     expect(html).not.toContain("editor@example.com");
     expect(html).not.toContain("1 / 4");
+  });
+
+  it("shows series membership and position in the article list", () => {
+    const html = renderLibrary({ articles: [article], series: [series] });
+
+    expect(html).toContain("Cloudflare入門");
+    expect(html).toContain("第2回／全2記事");
+    expect(html).toContain("studio-library-item__series");
+  });
+
+  it("finds an article by its series title", () => {
+    const html = renderLibrary({ articles: [article], query: "Cloudflare入門", series: [series] });
+
+    expect(html).toContain("Workers AI ガイド");
+    expect(html).not.toContain("条件に一致する記事はありません");
   });
 
   it("keeps article editing and an explicit recovery action available for a held recovery copy", () => {
