@@ -218,7 +218,10 @@ a {
   animation: studio-notification-enter 180ms ease-out;
 }
 
-.studio-notification button {
+.studio-notification button,
+.studio-notification p,
+.studio-notification strong,
+.studio-notification a {
   pointer-events: auto;
 }
 

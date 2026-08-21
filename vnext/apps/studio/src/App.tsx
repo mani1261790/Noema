@@ -1365,15 +1365,35 @@ export function App() {
             { ...revisionContext, saveReason: "conflict_resolution" }
           );
         } else {
+          const inFlight = cmsContentRef.current;
+          const inFlightFingerprint = cmsContentFingerprint(
+            { ...inFlight.frontmatter, status: "draft" },
+            inFlight.body,
+            inFlight.visibility
+          );
+          const visibleDraft = inFlightFingerprint === snapshotFingerprint
+            ? merge.draft
+            : mergeCmsDraftOntoLatest({
+                base: {
+                  body: snapshot.body,
+                  frontmatter: draftFrontmatter,
+                  visibility: snapshot.visibility
+                },
+                latest: merge.draft,
+                local: {
+                  ...inFlight,
+                  frontmatter: { ...inFlight.frontmatter, status: "draft" }
+                }
+              }).draft;
           const latestFingerprint = cmsContentFingerprint(
             { ...latestArticle.currentRevision.frontmatter, status: "draft" },
             latestArticle.currentRevision.markdown,
             latestArticle.visibility
           );
           setCmsArticle(latestArticle);
-          setFrontmatter({ ...merge.draft.frontmatter, status: "draft" });
-          setBody(merge.draft.body);
-          setCmsVisibility(merge.draft.visibility);
+          setFrontmatter({ ...visibleDraft.frontmatter, status: "draft" });
+          setBody(visibleDraft.body);
+          setCmsVisibility(visibleDraft.visibility);
           setLastCmsFingerprint(latestFingerprint);
           setCmsConflict(true);
           setCmsConflictResolverOpen(false);
@@ -1384,17 +1404,17 @@ export function App() {
             autosavePaused: true,
             id: latestArticle.id,
             lockVersion: baseArticle.lockVersion,
-            visibility: merge.draft.visibility
+            visibility: visibleDraft.visibility
           });
           updateCmsArticleList(latestArticle);
           saveDraft(storage, {
-            frontmatter: merge.draft.frontmatter,
-            body: merge.draft.body,
+            frontmatter: visibleDraft.frontmatter,
+            body: visibleDraft.body,
             cmsArticle: {
               autosavePaused: true,
               id: latestArticle.id,
               lockVersion: baseArticle.lockVersion,
-              visibility: merge.draft.visibility
+              visibility: visibleDraft.visibility
             }
           });
           cmsSaveInFlight.current = false;
