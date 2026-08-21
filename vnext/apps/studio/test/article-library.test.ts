@@ -70,6 +70,13 @@ describe("filterCmsArticles", () => {
     expect(filterCmsArticles(articles, "reviewer", "published")).toEqual([]);
   });
 
+  it("includes optional series names in search", () => {
+    const aliases = new Map([["article-newest", "Cloudflare入門"]]);
+
+    expect(filterCmsArticles(articles, "cloudflare入門", "all", aliases)
+      .map((article) => article.id)).toEqual(["article-newest"]);
+  });
+
   it("builds a role-specific queue without mixing review and publication work", () => {
     const readyToPublish: CmsArticleSummary = {
       ...articles[1],

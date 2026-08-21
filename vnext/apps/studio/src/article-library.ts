@@ -96,7 +96,8 @@ export function getCmsEditorialQueue(
 export function filterCmsArticles(
   articles: readonly CmsArticleSummary[],
   query: string,
-  filter: CmsArticleFilter
+  filter: CmsArticleFilter,
+  searchAliases: ReadonlyMap<string, string> = new Map()
 ): CmsArticleSummary[] {
   const normalizedQuery = normalizeArticleSearchValue(query);
   return articles.filter((article) => {
@@ -108,7 +109,8 @@ export function filterCmsArticles(
       article.updatedByEmail,
       cmsReviewStatusLabels[article.reviewStatus],
       cmsPublicationStatusLabels[article.publicationStatus],
-      cmsVisibilityLabels[article.visibility]
+      cmsVisibilityLabels[article.visibility],
+      searchAliases.get(article.id) ?? ""
     ].join(" "));
     return searchableText.includes(normalizedQuery);
   });

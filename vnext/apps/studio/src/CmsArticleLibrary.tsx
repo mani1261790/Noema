@@ -2,7 +2,8 @@ import { useDeferredValue, useMemo, useRef } from "react";
 import {
   cmsVisibilityLabels,
   type CmsArticleSummary,
-  type CmsRole
+  type CmsRole,
+  type CmsSeries
 } from "@noema/cms";
 import {
   cmsArticleFilterOptions,
@@ -42,6 +43,7 @@ interface CmsArticleLibraryProps {
   onReturnToEditor: () => void;
   onRetry: () => void;
   query: string;
+  series: CmsSeries[];
 }
 
 const articleDateFormatter = new Intl.DateTimeFormat("ja-JP", {
@@ -78,7 +80,8 @@ function CmsArticleListItem({
   opening,
   recoveryNeedsArticleAssociation,
   actionLabel,
-  onEdit
+  onEdit,
+  seriesMembership
 }: {
   actionLabel: string;
   article: CmsArticleSummary;
@@ -87,6 +90,7 @@ function CmsArticleListItem({
   opening: boolean;
   recoveryNeedsArticleAssociation: boolean;
   onEdit: (articleId: string) => void;
+  seriesMembership: { position: number; title: string; total: number } | null;
 }) {
   const title = article.title.trim() || "無題の記事";
   const actionAriaLabel = actionLabel.includes("確認")
@@ -109,6 +113,12 @@ function CmsArticleListItem({
           <time dateTime={article.updatedAt}>更新 {formatArticleDate(article.updatedAt)}</time>
           {article.visibility !== "public" ? <span>{cmsVisibilityLabels[article.visibility]}</span> : null}
         </p>
+        {seriesMembership ? (
+          <p className="studio-library-item__series">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 5h12M6 12h12M6 19h12" /></svg>
+            <span><strong>{seriesMembership.title}</strong><small>第{seriesMembership.position}回／全{seriesMembership.total}記事</small></span>
+          </p>
+        ) : null}
       </div>
       <button
         aria-label={opening
@@ -200,13 +210,29 @@ export function CmsArticleLibrary({
   onQueryChange,
   onReturnToEditor,
   onRetry,
-  query
+  query,
+  series
 }: CmsArticleLibraryProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
+  const seriesByArticle = useMemo(() => {
+    const memberships = new Map<string, { position: number; title: string; total: number }>();
+    for (const item of series) {
+      item.articleIds.forEach((articleId, index) => memberships.set(articleId, {
+        position: index + 1,
+        title: item.title,
+        total: item.articleIds.length
+      }));
+    }
+    return memberships;
+  }, [series]);
+  const seriesSearchAliases = useMemo(
+    () => new Map(Array.from(seriesByArticle, ([articleId, membership]) => [articleId, membership.title])),
+    [seriesByArticle]
+  );
   const visibleArticles = useMemo(
-    () => filterCmsArticles(articles, deferredQuery, filter),
-    [articles, deferredQuery, filter]
+    () => filterCmsArticles(articles, deferredQuery, filter, seriesSearchAliases),
+    [articles, deferredQuery, filter, seriesSearchAliases]
   );
   const filterOptions = useMemo(
     () => cmsArticleFilterOptions.map((option) => ({
@@ -312,35 +338,45 @@ export function CmsArticleLibrary({
         {connection.kind === "ready" ? (
           <section aria-label="記事一覧" className="studio-library__saved">
             <div aria-label="CMSの記事を検索・絞り込み" className="studio-library-controls" role="search">
-              <label className="sr-only" htmlFor="studio-article-search">記事を検索</label>
-              <input
-                aria-label="記事を検索"
-                id="studio-article-search"
-                onChange={(event) => onQueryChange(event.target.value)}
-                placeholder="タイトル、URL、更新者で検索"
-                ref={searchInputRef}
-                type="search"
-                value={query}
-              />
-              <label className="sr-only" htmlFor="studio-article-filter">状態で絞り込む</label>
-              <select
-                aria-label="状態で絞り込む"
-                id="studio-article-filter"
-                onChange={(event) => onFilterChange(event.target.value as CmsArticleFilter)}
-                value={filter}
-              >
-                {filterOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}（{option.count}）</option>
-                ))}
-              </select>
-              <p aria-atomic="true" aria-live="polite" className="studio-library__count">
-                {hasConditions ? `${visibleArticles.length}件（全${articles.length}件）` : `${articles.length}件`}
-              </p>
-              {hasConditions ? (
-                <button className="studio-library__clear" onClick={clearConditions} type="button">
-                  検索条件をクリア
-                </button>
-              ) : null}
+              <div className="studio-library-search-field">
+                <label htmlFor="studio-article-search">記事を検索</label>
+                <div className="studio-library-search-field__control">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m16 16 5 5" /></svg>
+                  <input
+                    id="studio-article-search"
+                    onChange={(event) => onQueryChange(event.target.value)}
+                    placeholder="タイトル・シリーズ・URLで検索"
+                    ref={searchInputRef}
+                    type="search"
+                    value={query}
+                  />
+                </div>
+              </div>
+              <div className="studio-library-filter-field">
+                <label htmlFor="studio-article-filter">表示する記事</label>
+                <div className="studio-library-filter-field__control">
+                  <select
+                    id="studio-article-filter"
+                    onChange={(event) => onFilterChange(event.target.value as CmsArticleFilter)}
+                    value={filter}
+                  >
+                    {filterOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}（{option.count}）</option>
+                    ))}
+                  </select>
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+                </div>
+              </div>
+              <div className="studio-library-controls__summary">
+                <p aria-atomic="true" aria-live="polite" className="studio-library__count">
+                  {hasConditions ? `${visibleArticles.length}件（全${articles.length}件）` : `${articles.length}件`}
+                </p>
+                {hasConditions ? (
+                  <button className="studio-library__clear" onClick={clearConditions} type="button">
+                    条件をリセット
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             {articles.length === 0 ? (
@@ -370,6 +406,7 @@ export function CmsArticleLibrary({
                     onEdit={onEdit}
                     opening={openingArticleId === article.id}
                     recoveryNeedsArticleAssociation={recoveryNeedsArticleAssociation}
+                    seriesMembership={seriesByArticle.get(article.id) ?? null}
                   />
                 ))}
               </ul>

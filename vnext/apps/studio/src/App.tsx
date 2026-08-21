@@ -2553,7 +2553,19 @@ export function App() {
             記事情報
             {validationVisible && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
           </button> : null}
-          <button
+          {!editorLocked && cmsArticle ? <button
+            aria-controls="cms-version-history"
+            aria-expanded={versionHistoryOpen}
+            className="dads-button studio-history-shortcut"
+            data-size="md"
+            data-type="outline"
+            onClick={() => void openVersionHistory()}
+            ref={versionHistoryTrigger}
+            type="button"
+          >
+            履歴
+          </button> : null}
+          {!editorLocked ? <button
             aria-controls="studio-article-settings"
             aria-expanded={settingsOpen && settingsMode === "workflow"}
             className="dads-button studio-workflow-shortcut"
@@ -2567,8 +2579,8 @@ export function App() {
             }}
             type="button"
           >
-            {editorLocked ? "レビュー" : "レビュー・公開"}
-          </button>
+            レビュー・公開
+          </button> : null}
           {!editorLocked ? <button
             className="dads-button studio-save-shortcut"
             data-size="md"
@@ -2659,6 +2671,7 @@ export function App() {
           recoveryNeedsArticleAssociation={cmsAssociationRequired}
           recoverySaveStatus={saveStatus}
           recoveryTitle={frontmatter.title}
+          series={cmsSeries}
           workingArticleActionLabel={cmsRecoveryReference
             ? recoveryNeedsConflictCheck
               ? "最新版への反映を続ける"
@@ -2740,12 +2753,12 @@ export function App() {
         />
       ) : null}
       <main
-        className="studio-workspace"
+        className={`studio-workspace ${editorLocked ? "is-review-workspace" : ""}`}
         hidden={cmsConflictResolverOpen || versionHistoryOpen}
         style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
       >
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
-        {settingsOpen || assetTrayOpen ? (
+        {(settingsOpen || assetTrayOpen) && !editorLocked ? (
           <StudioPanelResizeHandle
             onResize={(width) => setSidePanelWidth(clampStudioPanelWidth(width, window.innerWidth))}
             width={sidePanelWidth}
@@ -2759,8 +2772,8 @@ export function App() {
         >
           <StudioSurfaceHeader
             description={settingsMode === "workflow" ? "記事の状態を確認し、次の工程へ進めます。" : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
-            onClose={() => setSettingsOpen(false)}
-            title={settingsMode === "workflow" ? "レビュー・公開" : "記事情報"}
+            onClose={editorLocked ? undefined : () => setSettingsOpen(false)}
+            title={settingsMode === "workflow" ? editorLocked ? "レビュー" : "レビュー・公開" : "記事情報"}
             titleId="studio-settings-heading"
           />
 
@@ -2807,21 +2820,6 @@ export function App() {
               <strong>{frontmatter.title || "新しい記事"}</strong>
               <small>{cmsArticle ? `revision ${cmsArticle.revisionNumber}` : "最初の保存でCMSに登録されます"}</small>
             </div>
-            {cmsArticle ? (
-              <button
-                aria-controls="cms-version-history"
-                aria-expanded={versionHistoryOpen}
-                className="dads-button studio-cms__history-button"
-                data-size="md"
-                data-type="outline"
-                onClick={() => void openVersionHistory()}
-                ref={versionHistoryTrigger}
-                type="button"
-              >
-                履歴と復元を見る
-              </button>
-            ) : null}
-
             <CmsPublicationJourney
               publicationStatus={cmsArticle?.publicationStatus ?? "unpublished"}
               reviewStatus={cmsArticle?.reviewStatus ?? null}
