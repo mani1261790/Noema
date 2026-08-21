@@ -36,6 +36,8 @@ import {
   type CmsEditorialIssue,
   type CmsMember,
   type CmsRole,
+  type CmsReviewComment,
+  type CmsReviewCommentTarget,
   type CmsSession,
   type CmsSeries,
   type CmsSeriesVersion,
@@ -44,11 +46,13 @@ import {
 import {
   createCmsSeriesRecord,
   createCmsArticle as createCmsArticleRecord,
+  createCmsReviewCommentRecord,
   configureStudioPassword,
   fetchCmsArticle,
   fetchCmsArticles,
   fetchCmsAssets,
   fetchCmsMembers,
+  fetchCmsReviewComments,
   fetchCmsSession,
   fetchCmsSeries,
   fetchCmsSeriesVersions,
@@ -663,6 +667,10 @@ export function App() {
   const [cmsArticleQuery, setCmsArticleQuery] = useState("");
   const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>("all");
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
+  const [cmsReviewComments, setCmsReviewComments] = useState<CmsReviewComment[]>([]);
+  const [cmsReviewCommentsBusy, setCmsReviewCommentsBusy] = useState(false);
+  const [cmsReviewCommentBody, setCmsReviewCommentBody] = useState("");
+  const [cmsReviewCommentTarget, setCmsReviewCommentTarget] = useState<CmsReviewCommentTarget>("article");
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [cmsRecoveryReference, setCmsRecoveryReference] = useState<StudioDraftCmsArticle | null>(
     initialState.cmsReference
@@ -713,6 +721,7 @@ export function App() {
   const bodyInput = useRef<HTMLTextAreaElement>(null);
   const assetTrigger = useRef<HTMLButtonElement>(null);
   const versionHistoryTrigger = useRef<HTMLButtonElement>(null);
+  const reviewCommentInput = useRef<HTMLTextAreaElement>(null);
   const validationSection = useRef<HTMLElement>(null);
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
@@ -825,7 +834,13 @@ export function App() {
   const editorialWarnings = [
     ...(frontmatter.sources.length === 0 ? ["出典がまだ登録されていません。"] : [])
   ];
-  const editorLocked = false;
+  const contentReviewLocked = Boolean(
+    cmsArticle && ["in_review", "approved"].includes(cmsArticle.reviewStatus)
+  );
+  const editorLocked =
+    cmsSessionState.kind !== "ready" ||
+    !cmsSessionState.session.capabilities.canEdit ||
+    contentReviewLocked;
   const cmsFingerprint = useMemo(
     () => cmsContentFingerprint(frontmatter, body, cmsVisibility),
     [body, cmsVisibility, frontmatter]
@@ -866,6 +881,27 @@ export function App() {
       controller.abort();
     };
   }, [cmsRefresh]);
+
+  useEffect(() => {
+    if (!cmsArticle) {
+      setCmsReviewComments([]);
+      setCmsReviewCommentsBusy(false);
+      return;
+    }
+    const controller = new AbortController();
+    setCmsReviewCommentsBusy(true);
+    void fetchCmsReviewComments(cmsArticle.id, { signal: controller.signal }).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.ok) setCmsReviewComments(result.value);
+      else showNotification({
+        text: result.error.message,
+        title: "レビューコメントを読み込めません",
+        tone: "error"
+      });
+      setCmsReviewCommentsBusy(false);
+    });
+    return () => controller.abort();
+  }, [cmsArticle?.id, cmsArticle?.lockVersion, showNotification]);
 
   useEffect(() => {
     if (!operationMessage || operationMessage.tone === "error") return;
@@ -1237,13 +1273,18 @@ export function App() {
   };
 
   const loadCmsArticle = async (articleId: string): Promise<boolean> => {
-    if (editorLocked || cmsOperationBusy || cmsSaveInFlight.current) return false;
+    if (cmsOperationBusy || cmsSaveInFlight.current) return false;
     if (articleId === cmsRecoveryReference?.id) {
       showEditor();
       return true;
     }
     if (articleId === cmsArticle?.id) {
       showEditor();
+      if (editorLocked) {
+        setSettingsMode("workflow");
+        setSettingsOpen(true);
+        setPreviewFullscreen(true);
+      }
       return true;
     }
     const hasLocalInput = hasMeaningfulArticleInput(frontmatter, body);
@@ -1280,6 +1321,15 @@ export function App() {
         preserveLocalInput: associatingRecovery
       });
       showEditor();
+      const targetLocked =
+        cmsSessionState.kind !== "ready" ||
+        !cmsSessionState.session.capabilities.canEdit ||
+        ["in_review", "approved"].includes(result.value.reviewStatus);
+      if (targetLocked) {
+        setSettingsMode("workflow");
+        setSettingsOpen(true);
+        setPreviewFullscreen(true);
+      }
       if (associatingRecovery && application.manualSaveRequired) {
         showNotification({
           text: `復旧原稿を「${result.value.title || "無題の記事"}」に引き継ぎました。内容を確認し、「保存」でCMSへ反映してください。`,
@@ -1757,10 +1807,10 @@ export function App() {
       cmsSessionState.kind !== "ready" ||
       cmsOperationBusy ||
       cmsSaveInFlight.current ||
-      editorLocked
+      (action === "request_review" && editorLocked)
     ) return;
     let target = cmsArticle;
-    if (!target || cmsDirty) target = await saveCmsDraft();
+    if (!target || (action === "request_review" && cmsDirty)) target = await saveCmsDraft();
     if (!target) return;
     const latest = cmsContentRef.current;
     const latestFingerprint = cmsContentFingerprint(
@@ -1773,7 +1823,7 @@ export function App() {
       target.currentRevision.markdown,
       target.visibility
     );
-    if (latestFingerprint !== savedFingerprint) {
+    if (action === "request_review" && latestFingerprint !== savedFingerprint) {
       setCmsSaveState("dirty");
       showNotification({
         text: "保存中に新しい変更がありました。自動保存の完了後、もう一度ワークフロー操作を選んでください。",
@@ -1798,9 +1848,16 @@ export function App() {
 
     let note: string | undefined;
     if (action === "request_changes") {
-      const response = window.prompt("修正してほしい内容を入力してください（任意・500文字まで）", target.reviewNote ?? "");
-      if (response === null) return;
-      note = response.trim().slice(0, 500) || undefined;
+      note = cmsReviewCommentBody.trim().slice(0, 500) || undefined;
+      if (!note) {
+        showNotification({
+          text: "修正してほしい内容をコメント欄へ入力してください。",
+          title: "修正理由が必要です",
+          tone: "info"
+        });
+        reviewCommentInput.current?.focus();
+        return;
+      }
     }
 
     const actionStartFingerprint = latestFingerprint;
@@ -1831,8 +1888,10 @@ export function App() {
         publish: "承認済みrevisionを公開しました。",
         request_changes: "修正を依頼しました。",
         request_review: "レビューを依頼しました。",
-        restore: "記事を未公開へ戻しました。"
+        restore: "記事を未公開へ戻しました。",
+        withdraw_review: "レビューを取り下げ、編集できる状態へ戻しました。"
       };
+      if (action === "request_changes") setCmsReviewCommentBody("");
       if (localChangedDuringAction) {
         showNotification({
           text: `${labels[action]} 操作中に入力した変更は未保存のまま保持しています。`,
@@ -1919,6 +1978,36 @@ export function App() {
       }
       if (result.error.issues) focusValidation();
       else showNotification({ text: result.error.message, tone: "error" });
+    }
+    setCmsOperationBusy(false);
+  };
+
+  const addCmsReviewComment = async () => {
+    if (!cmsArticle || !cmsSession?.capabilities.canComment || cmsOperationBusy) return;
+    const commentBody = cmsReviewCommentBody.trim();
+    if (!commentBody) {
+      reviewCommentInput.current?.focus();
+      return;
+    }
+    setCmsOperationBusy(true);
+    const result = await createCmsReviewCommentRecord(cmsArticle.id, {
+      body: commentBody,
+      target: cmsReviewCommentTarget
+    });
+    if (result.ok) {
+      setCmsReviewComments((current) => [...current, result.value]);
+      setCmsReviewCommentBody("");
+      showNotification({
+        text: `revision ${result.value.revisionNumber}へコメントを追加しました。`,
+        title: "コメントを追加しました",
+        tone: "info"
+      });
+    } else {
+      showNotification({
+        text: result.error.message,
+        title: "コメントを追加できません",
+        tone: "error"
+      });
     }
     setCmsOperationBusy(false);
   };
@@ -2340,7 +2429,11 @@ export function App() {
         }
       : null;
   const cmsCanRequestReview = Boolean(
+    cmsSession?.capabilities.canEdit &&
     cmsArticle && ["draft", "changes_requested"].includes(cmsArticle.reviewStatus)
+  );
+  const cmsCanWithdrawReview = Boolean(
+    cmsSession?.capabilities.canEdit && cmsArticle?.reviewStatus === "in_review"
   );
   const cmsSelfApprovalBlocked = Boolean(
     cmsSession?.identity.role === "reviewer" &&
@@ -2439,7 +2532,7 @@ export function App() {
           >
             {cmsEditorStatus}
           </p>
-          <button
+          {!editorLocked ? <button
             aria-controls="studio-asset-tray"
             aria-expanded={assetTrayOpen}
             className="dads-button studio-assets-shortcut"
@@ -2454,8 +2547,8 @@ export function App() {
             type="button"
           >
             Assets
-          </button>
-          <button
+          </button> : null}
+          {!editorLocked ? <button
             aria-controls="studio-article-settings"
             aria-expanded={settingsOpen && settingsMode === "metadata"}
             className="dads-button studio-settings-shortcut"
@@ -2471,7 +2564,7 @@ export function App() {
           >
             記事情報
             {validationVisible && settingsErrorCount > 0 ? ` (${settingsErrorCount})` : ""}
-          </button>
+          </button> : null}
           <button
             aria-controls="studio-article-settings"
             aria-expanded={settingsOpen && settingsMode === "workflow"}
@@ -2486,9 +2579,9 @@ export function App() {
             }}
             type="button"
           >
-            レビュー・公開
+            {editorLocked ? "レビュー" : "レビュー・公開"}
           </button>
-          <button
+          {!editorLocked ? <button
             className="dads-button studio-save-shortcut"
             data-size="md"
             data-type="solid-fill"
@@ -2497,7 +2590,7 @@ export function App() {
             type="button"
           >
             {cmsSaveButtonLabel}
-          </button>
+          </button> : null}
         </div>
       ) : null}
 
@@ -2557,7 +2650,9 @@ export function App() {
           articles={cmsArticles}
           busy={cmsOperationBusy || cmsSaveState === "saving"}
           canCreate={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
-          canOpenArticles={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
+          canOpenArticles={Boolean(
+            cmsSession?.capabilities.canEdit || cmsSession?.capabilities.canApprove
+          )}
           connection={cmsLibraryConnection}
           filter={cmsArticleFilter}
           hasRecoveryDraft={hasRecoveryDraft && !cmsArticle}
@@ -2777,6 +2872,74 @@ export function App() {
               <p className="studio-cms__review-note"><strong>レビューコメント:</strong> {cmsArticle.reviewNote}</p>
             ) : null}
 
+            {cmsArticle && ["in_review", "changes_requested", "approved"].includes(cmsArticle.reviewStatus) ? (
+              <section aria-labelledby="cms-review-comments-heading" className="studio-review-comments">
+                <div className="studio-review-comments__heading">
+                  <h3 id="cms-review-comments-heading">レビューコメント</h3>
+                  <span>{cmsReviewComments.length}件</span>
+                </div>
+                {cmsReviewCommentsBusy ? <p role="status">コメントを読み込んでいます…</p> : null}
+                {!cmsReviewCommentsBusy && cmsReviewComments.length === 0 ? (
+                  <p className="studio-review-comments__empty">コメントはまだありません。</p>
+                ) : null}
+                {cmsReviewComments.length > 0 ? (
+                  <ol className="studio-review-comments__list">
+                    {cmsReviewComments.map((comment) => (
+                      <li key={comment.id}>
+                        <p>{comment.body}</p>
+                        <small>
+                          {comment.target === "body" ? "本文" : comment.target === "metadata" ? "記事情報" : "記事全体"}
+                          {` · revision ${comment.revisionNumber} · ${comment.authorEmail} · `}
+                          <time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString("ja-JP")}</time>
+                        </small>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+                {cmsSession?.capabilities.canComment ? (
+                  <form
+                    className="studio-review-comments__form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void addCmsReviewComment();
+                    }}
+                  >
+                    <label htmlFor="cms-review-comment-target">コメント対象</label>
+                    <select
+                      id="cms-review-comment-target"
+                      onChange={(event) => setCmsReviewCommentTarget(event.target.value as CmsReviewCommentTarget)}
+                      value={cmsReviewCommentTarget}
+                    >
+                      <option value="article">記事全体</option>
+                      <option value="body">本文</option>
+                      <option value="metadata">記事情報</option>
+                    </select>
+                    <label htmlFor="cms-review-comment">コメント</label>
+                    <textarea
+                      id="cms-review-comment"
+                      maxLength={1_000}
+                      onChange={(event) => setCmsReviewCommentBody(event.target.value)}
+                      placeholder="確認した点や、修正してほしい内容を具体的に書きます。"
+                      ref={reviewCommentInput}
+                      rows={4}
+                      value={cmsReviewCommentBody}
+                    />
+                    <div className="studio-review-comments__form-actions">
+                      <button
+                        className="dads-button"
+                        data-size="md"
+                        data-type="outline"
+                        disabled={cmsOperationBusy || !cmsReviewCommentBody.trim()}
+                        type="submit"
+                      >
+                        コメントを追加
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+              </section>
+            ) : null}
+
             <details className="studio-disclosure studio-visibility-disclosure">
               <summary>公開範囲: {cmsVisibilityLabels[cmsVisibility]}</summary>
               <div className="studio-disclosure__content">
@@ -2813,27 +2976,32 @@ export function App() {
                 </button>
               ) : null}
               {cmsCanReview ? (
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">
+                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">
                   承認する
                 </button>
               ) : null}
               {cmsCanRequestChanges ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("request_changes")} type="button">
+                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || !cmsReviewCommentBody.trim()} onClick={() => void runCmsAction("request_changes")} type="button">
                   修正を依頼
                 </button>
               ) : null}
+              {cmsCanWithdrawReview ? (
+                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("withdraw_review")} type="button">
+                  レビューを取り下げて編集へ戻す
+                </button>
+              ) : null}
               {cmsCanPublish ? (
-                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("publish")} type="button">
+                <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("publish")} type="button">
                   承認済みrevisionを公開
                 </button>
               ) : null}
               {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "published" ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">
+                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">
                   公開を終了して保管
                 </button>
               ) : null}
               {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "archived" ? (
-                <button className="dads-button" data-size="md" data-type="outline" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">
+                <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">
                   未公開へ戻す
                 </button>
               ) : null}
@@ -3134,11 +3302,17 @@ export function App() {
           id="studio-editor"
         >
           <h2 className="sr-only" id="editor-heading">{previewFullscreen ? "記事プレビュー" : "Markdown本文"}</h2>
-          {editorLocked ? <p className="studio-editor__lock" role="status">送信内容を固定しています。本文は選択してコピーできます。</p> : null}
-          <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
+          {editorLocked ? (
+            <p className="studio-editor__lock" role="status">
+              {contentReviewLocked
+                ? "レビュー対象の本文を固定しています。内容を確認し、必要な点はレビューコメントへ残してください。"
+                : "この役割では記事本体を編集できません。レビューコメントとワークフロー操作を利用できます。"}
+            </p>
+          ) : null}
+          <div className={`studio-writing-layout has-preview ${previewFullscreen || editorLocked ? "is-preview-only" : ""}`}>
             <div className="studio-writing-controls">
               {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー {blockingErrorCount}</button> : null}
-              <button
+              {!editorLocked ? <button
                 aria-pressed={previewFullscreen}
                 className="studio-preview-toggle"
                 onClick={() => {
@@ -3149,9 +3323,9 @@ export function App() {
                 type="button"
               >
                 {previewFullscreen ? "編集に戻る" : "プレビューのみ"}
-              </button>
+              </button> : null}
             </div>
-            <div className={`studio-writing-canvas ${assetDropActive ? "is-asset-drop" : ""}`} hidden={previewFullscreen}>
+            <div className={`studio-writing-canvas ${assetDropActive ? "is-asset-drop" : ""}`} hidden={previewFullscreen || editorLocked}>
               <label className="sr-only" htmlFor="article-body">Markdown本文</label>
               <textarea
                 aria-describedby="article-body-help"

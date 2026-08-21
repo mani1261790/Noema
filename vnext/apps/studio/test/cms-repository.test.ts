@@ -6,11 +6,13 @@ import {
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createCmsArticle,
+  createCmsReviewComment,
   getCmsArticleVersion,
   listCmsAssets,
   listCmsArticles,
   listCmsArticleVersions,
   listCmsArticleVersionCheckpoints,
+  listCmsReviewComments,
   registerCmsAsset,
   resolveCmsSession,
   transitionCmsArticle,
@@ -28,6 +30,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_idempotency"),
@@ -320,6 +323,16 @@ describe("CMS repository", () => {
     );
     expect(article.publishedRevisionNumber).toBe(1);
 
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_changes",
+      article.lockVersion,
+      { note: "公開内容を更新します。" },
+      new Date("2026-07-18T00:03:30.000Z")
+    );
+
     const edited = await updateCmsArticle(
       testEnv.CMS_DB,
       admin.identity,
@@ -422,6 +435,15 @@ describe("CMS repository", () => {
       { visibility: "public" },
       NOW
     );
+    first = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      first.id,
+      "request_changes",
+      first.lockVersion,
+      { note: "次の改訂を開始します。" },
+      NOW
+    );
     await updateCmsArticle(
       testEnv.CMS_DB,
       admin.identity,
@@ -494,13 +516,16 @@ describe("CMS repository", () => {
     );
     let article = await createCmsArticle(
       testEnv.CMS_DB,
-      reviewer.identity,
+      admin.identity,
       validArticle("self-approval"),
       NOW
     );
+    await testEnv.CMS_DB.prepare(
+      "UPDATE cms_article_revisions SET created_by_subject = ?1 WHERE id = ?2"
+    ).bind(reviewer.identity.subject, article.currentRevision.id).run();
     article = await transitionCmsArticle(
       testEnv.CMS_DB,
-      reviewer.identity,
+      admin.identity,
       article.id,
       "request_review",
       article.lockVersion,
@@ -517,6 +542,81 @@ describe("CMS repository", () => {
       {},
       NOW
     )).rejects.toMatchObject({ code: "self_approval_forbidden" });
+  });
+
+  it("keeps review content immutable and stores revision-linked comments", async () => {
+    const admin = await bootstrapAdmin();
+    await upsertCmsMemberInvitation(
+      testEnv.CMS_DB,
+      admin.identity,
+      { active: true, email: "reviewer@example.com", role: "reviewer" },
+      NOW
+    );
+    const reviewer = await resolveCmsSession(
+      testEnv.CMS_DB,
+      { email: "reviewer@example.com", subject: "reviewer-subject" },
+      "owner@example.com",
+      NOW
+    );
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("review-boundary"),
+      NOW
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_review",
+      article.lockVersion,
+      {},
+      NOW
+    );
+
+    await expect(updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("should-not-save"),
+      NOW
+    )).rejects.toMatchObject({ code: "article_locked" });
+    await expect(updateCmsArticle(
+      testEnv.CMS_DB,
+      reviewer.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("reviewer-cannot-edit"),
+      NOW
+    )).rejects.toMatchObject({ code: "forbidden" });
+
+    const comment = await createCmsReviewComment(
+      testEnv.CMS_DB,
+      reviewer.identity,
+      article.id,
+      { body: "導入部の根拠を確認してください。", target: "body" },
+      NOW
+    );
+    expect(comment).toMatchObject({
+      authorEmail: "reviewer@example.com",
+      revisionId: article.currentRevision.id,
+      revisionNumber: article.revisionNumber,
+      target: "body"
+    });
+    expect(await listCmsReviewComments(testEnv.CMS_DB, admin.identity, article.id))
+      .toEqual([comment]);
+
+    const withdrawn = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "withdraw_review",
+      article.lockVersion,
+      {},
+      NOW
+    );
+    expect(withdrawn.reviewStatus).toBe("draft");
   });
 
   it("keeps at least one active administrator", async () => {

@@ -5,6 +5,7 @@ import {
   cmsReviewStatusSchema,
   cmsRoleSchema,
   cmsRevisionSaveReasonSchema,
+  cmsReviewCommentTargetSchema,
   cmsVisibilitySchema,
   type CmsArticleAction,
   type CmsArticleDetail,
@@ -19,6 +20,8 @@ import {
   type CmsMember,
   type CmsRole,
   type CmsRevisionSaveReason,
+  type CmsReviewComment,
+  type CmsReviewCommentTarget,
   type CmsSession,
   type CmsSeries,
   type CmsSeriesArticle,
@@ -404,6 +407,45 @@ export async function runCmsArticleAction(
   return articleResult(result);
 }
 
+export async function fetchCmsReviewComments(
+  articleId: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsReviewComment[]>> {
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/comments`,
+    { method: "GET" },
+    options
+  );
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !Array.isArray(result.value.comments)) {
+    return invalidResponse(result.status);
+  }
+  const comments = result.value.comments.map(parseCmsReviewComment);
+  return comments.every((comment): comment is CmsReviewComment => comment !== null)
+    ? { ok: true, value: comments }
+    : invalidResponse(result.status);
+}
+
+export async function createCmsReviewCommentRecord(
+  articleId: string,
+  input: { body: string; target: CmsReviewCommentTarget },
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsReviewComment>> {
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/comments`,
+    {
+      body: JSON.stringify(input),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    },
+    options
+  );
+  if (!result.ok) return result;
+  if (!isRecord(result.value)) return invalidResponse(result.status);
+  const comment = parseCmsReviewComment(result.value.comment);
+  return comment ? { ok: true, value: comment } : invalidResponse(result.status);
+}
+
 type RawCmsResult =
   | { ok: true; status: number; value: unknown }
   | { error: CmsClientError; ok: false };
@@ -567,6 +609,7 @@ function parseCmsSession(value: unknown): CmsSession | null {
     !isString(value.identity.subject) ||
     !(value.passwordLoginReadyAt === null || isString(value.passwordLoginReadyAt)) ||
     !isBoolean(capabilities.canApprove) ||
+    !isBoolean(capabilities.canComment) ||
     !isBoolean(capabilities.canEdit) ||
     !isBoolean(capabilities.canManageMembers) ||
     !isBoolean(capabilities.canPublish)
@@ -574,6 +617,7 @@ function parseCmsSession(value: unknown): CmsSession | null {
   return {
     capabilities: {
       canApprove: capabilities.canApprove,
+      canComment: capabilities.canComment,
       canEdit: capabilities.canEdit,
       canManageMembers: capabilities.canManageMembers,
       canPublish: capabilities.canPublish
@@ -584,6 +628,31 @@ function parseCmsSession(value: unknown): CmsSession | null {
       subject: value.identity.subject
     },
     passwordLoginReadyAt: value.passwordLoginReadyAt
+  };
+}
+
+function parseCmsReviewComment(value: unknown): CmsReviewComment | null {
+  if (!isRecord(value)) return null;
+  const target = cmsReviewCommentTargetSchema.safeParse(value.target);
+  if (
+    !target.success ||
+    !isString(value.articleId) ||
+    !isString(value.authorEmail) ||
+    !isString(value.body) ||
+    !isString(value.createdAt) ||
+    !isString(value.id) ||
+    !isString(value.revisionId) ||
+    !isNonnegativeInteger(value.revisionNumber)
+  ) return null;
+  return {
+    articleId: value.articleId,
+    authorEmail: value.authorEmail,
+    body: value.body,
+    createdAt: value.createdAt,
+    id: value.id,
+    revisionId: value.revisionId,
+    revisionNumber: value.revisionNumber,
+    target: target.data
   };
 }
 

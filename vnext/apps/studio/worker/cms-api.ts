@@ -3,6 +3,7 @@ import {
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsMemberMutationSchema,
+  cmsReviewCommentRequestSchema,
   cmsCreateSeriesRequestSchema,
   cmsUpdateSeriesRequestSchema,
   cmsUpdateArticleRequestSchema,
@@ -12,6 +13,7 @@ import {
   CmsRepositoryError,
   completeCmsAssetDeletions,
   createCmsArticle,
+  createCmsReviewComment,
   getCmsArticleVersion,
   getCmsArticle,
   listCmsAssets,
@@ -19,6 +21,7 @@ import {
   listCmsArticles,
   listCmsArticleVersions,
   listCmsArticleVersionCheckpoints,
+  listCmsReviewComments,
   listCmsMembers,
   resolveCmsSession,
   registerCmsAsset,
@@ -293,6 +296,28 @@ export async function handleCmsApiRequest(
       ));
     }
 
+    if (route.kind === "comments") {
+      if (request.method === "GET") {
+        return cmsJson({
+          comments: await listCmsReviewComments(env.CMS_DB, session.identity, route.id)
+        });
+      }
+      if (request.method === "POST") {
+        const body = await readCmsJson(request);
+        if (!body.ok) return body.response;
+        const parsed = cmsReviewCommentRequestSchema.safeParse(body.value);
+        if (!parsed.success) return invalidRequest(parsed.error.issues);
+        const comment = await createCmsReviewComment(
+          env.CMS_DB,
+          session.identity,
+          route.id,
+          parsed.data
+        );
+        return cmsJson({ comment }, 201);
+      }
+      return methodNotAllowed("GET, POST");
+    }
+
     if (route.kind !== "actions") {
       return cmsError(404, "api_not_found", "APIが見つかりません。");
     }
@@ -448,6 +473,7 @@ function contentTypeFromKey(key: string): string {
 type ArticleRoute =
   | { id: string; kind: "article" }
   | { id: string; kind: "actions" }
+  | { id: string; kind: "comments" }
   | { id: string; kind: "versions" }
   | { id: string; kind: "version"; revisionId: string }
   | { id: string; kind: "checkpoints"; versionId: string };
@@ -482,6 +508,9 @@ function parseArticleRoute(pathname: string): ArticleRoute | null {
   if (segments.length === 4) return { id, kind: "article" };
   if (segments.length === 5 && segments[4] === "actions") {
     return { id, kind: "actions" };
+  }
+  if (segments.length === 5 && segments[4] === "comments") {
+    return { id, kind: "comments" };
   }
   if (segments.length === 5 && segments[4] === "versions") {
     return { id, kind: "versions" };
@@ -599,6 +628,7 @@ function cmsRepositoryError(error: unknown): Response {
   }
 
   const status = {
+    article_locked: 409,
     article_not_found: 404,
     asset_conflict: 409,
     asset_delete_failed: 503,

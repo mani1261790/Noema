@@ -23,6 +23,7 @@ const ONE_PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42
 const SESSION: CmsSession = {
   capabilities: {
     canApprove: false,
+    canComment: true,
     canEdit: true,
     canManageMembers: false,
     canPublish: false
@@ -37,7 +38,8 @@ const SESSION: CmsSession = {
 const REVIEWER_SESSION: CmsSession = {
   capabilities: {
     canApprove: true,
-    canEdit: true,
+    canComment: true,
+    canEdit: false,
     canManageMembers: false,
     canPublish: false
   },
@@ -58,6 +60,7 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(storedAssets.objects.map((asset) => asset.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_asset_idempotency"),
@@ -679,8 +682,8 @@ describe("Studio MCP tools", () => {
   });
 
   it("rejects reviewer self-approval and an empty approval reason", async () => {
-    const reviewer = await connectClient(REVIEWER_SESSION);
-    const createdResult = await reviewer.client.callTool({
+    const editor = await connectClient();
+    const createdResult = await editor.client.callTool({
       name: "studio_create_draft",
       arguments: {
         ...validArticle("mcp-self-approval"),
@@ -688,7 +691,12 @@ describe("Studio MCP tools", () => {
       }
     });
     const created = articleFrom(createdResult.structuredContent);
-    const requested = await reviewer.client.callTool({
+    await testEnv.CMS_DB.prepare(
+      `UPDATE cms_article_revisions
+       SET created_by_subject = ?1
+       WHERE article_id = ?2 AND revision_number = 1`
+    ).bind(REVIEWER_SESSION.identity.subject, created.id).run();
+    const requested = await editor.client.callTool({
       name: "studio_request_review",
       arguments: {
         articleId: created.id,
@@ -697,6 +705,17 @@ describe("Studio MCP tools", () => {
       }
     });
     const inReview = articleFrom(requested.structuredContent);
+    await editor.close();
+
+    const reviewer = await connectClient(REVIEWER_SESSION);
+    const forbiddenEdit = await reviewer.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("reviewer-edit-forbidden"),
+        requestId: "00000000-0000-4000-8000-000000000059"
+      }
+    });
+    expect(toolErrorCode(forbiddenEdit)).toBe("forbidden");
     const emptyReason = await reviewer.client.callTool({
       name: "studio_approve_article",
       arguments: {

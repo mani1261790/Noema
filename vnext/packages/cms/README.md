@@ -45,20 +45,21 @@ Publication状態:
 
 Reviewとpublicationは別の状態です。公開中の記事に新しいrevisionを保存しても、published revisionは変更しません。Current revisionをレビュー、承認し、管理者が公開したときだけpublished revision pointerを更新します。
 
-承認後に新しいrevisionを保存した場合、そのrevisionは再レビューが必要です。管理者はcurrent revisionとapproved revisionが一致するときだけ公開できます。
+レビュー中と承認済みのrevisionは本文・設定とも固定し、`PUT`でも更新を拒否します。編集者または管理者がレビューを取り下げるか、レビュー担当が修正を依頼してから次のrevisionを保存します。管理者はcurrent revisionとapproved revisionが一致するときだけ公開できます。
 
 ## 状態遷移
 
 | action | 実行できるrole | 前提 | 結果 |
 | --- | --- | --- | --- |
-| `request_review` | `admin`、`editor`、`reviewer` | reviewが`draft`または`changes_requested`で、記事検証に成功 | reviewを`in_review`へ変更し、以前の承認pointerを外す |
+| `request_review` | `admin`、`editor` | reviewが`draft`または`changes_requested`で、記事検証に成功 | reviewを`in_review`へ変更し、以前の承認pointerを外す |
+| `withdraw_review` | `admin`、`editor` | reviewが`in_review` | reviewを`draft`へ戻し、編集を再開する |
 | `approve` | `admin`、`reviewer` | reviewが`in_review` | reviewを`approved`へ変更し、current revisionをapproved revisionへ固定 |
-| `request_changes` | `admin`、`reviewer` | reviewが`in_review`または`approved` | reviewを`changes_requested`へ変更し、承認pointerを外す |
+| `request_changes` | `admin`、`reviewer` | reviewが`in_review`または`approved`で、修正理由が入力済み | reviewを`changes_requested`へ変更し、理由をrevisionに紐づくコメントとして残して承認pointerを外す |
 | `publish` | `admin` | reviewが`approved`で、current revisionとapproved revisionが一致 | current revision、slug、公開範囲をpublished pointerへ固定 |
 | `archive` | `admin` | publicationが`published` | publicationを`archived`へ変更し、公開面から外す |
 | `restore` | `admin` | publicationが`archived` | publicationを`unpublished`へ戻す。自動では再公開しない |
 
-`reviewer`は自分が保存したcurrent revisionを自己承認できません。`admin`は初期運用と障害対応のためこの制限をoverrideできます。`restricted`と`internal`は原稿の保存・レビューまでは可能ですが、現状の`publish`は拒否します。
+`reviewer`は記事本文・記事設定を編集できず、レビュー対象の閲覧、コメント、承認、修正依頼だけを行えます。コメントは対象revision、投稿者、日時、対象箇所とともに追記保存します。`admin`は初期運用と障害対応のため自己承認制限をoverrideできます。`restricted`と`internal`は原稿の保存・レビューまでは可能ですが、現状の`publish`は拒否します。
 
 ## 公開範囲
 
@@ -103,6 +104,8 @@ Studio Workerは次のCMS endpointを提供します。
 - `GET /api/cms/articles/{id}`
 - `PUT /api/cms/articles/{id}`
 - `POST /api/cms/articles/{id}/actions`
+- `GET /api/cms/articles/{id}/comments`
+- `POST /api/cms/articles/{id}/comments`
 - `GET /api/cms/members`
 - `PUT /api/cms/members`
 - `POST /api/studio-auth/password`（既存メンバーの初回設定）
