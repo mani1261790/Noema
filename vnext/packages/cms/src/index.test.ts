@@ -3,6 +3,7 @@ import {
   canCms,
   cmsArticleActionSchema,
   cmsDraftFrontmatterSchema,
+  cmsSeriesContentSchema,
   validateCmsArticleForReview
 } from "./index";
 
@@ -44,6 +45,26 @@ describe("CMS contracts", () => {
       visibility: "public"
     }).success).toBe(true);
     expect(cmsArticleActionSchema.safeParse({ action: "publish" }).success)
+      .toBe(false);
+  });
+
+  it("requires a valid, uniquely ordered article list for a series", () => {
+    const series = {
+      articleIds: [
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222"
+      ],
+      description: "基礎から順に学ぶシリーズです。",
+      slug: "getting-started",
+      title: "はじめてのNoema"
+    };
+
+    expect(cmsSeriesContentSchema.safeParse(series).success).toBe(true);
+    expect(cmsSeriesContentSchema.safeParse({
+      ...series,
+      articleIds: [series.articleIds[0], series.articleIds[0]]
+    }).success).toBe(false);
+    expect(cmsSeriesContentSchema.safeParse({ ...series, slug: "Getting Started" }).success)
       .toBe(false);
   });
 });
