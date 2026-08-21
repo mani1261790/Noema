@@ -302,6 +302,16 @@ export async function updateCmsAsset(
   return asset ? { ok: true, value: asset } : invalidResponse(result.status);
 }
 
+export async function deleteCmsAsset(
+  assetId: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<null>> {
+  const result = await cmsRequest(`${CMS_ASSETS_PATH}/${encodeURIComponent(assetId)}`, {
+    method: "DELETE"
+  }, options);
+  return result.ok ? { ok: true, value: null } : result;
+}
+
 export async function runCmsArticleAction(
   articleId: string,
   expectedVersion: number,

@@ -56,6 +56,20 @@ function formatArticleDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : articleDateFormatter.format(date);
 }
 
+export function getCmsArticleActionLabel(
+  article: CmsArticleSummary,
+  role: CmsRole
+): string {
+  if (article.reviewStatus === "changes_requested") return "修正する";
+  if (article.reviewStatus === "in_review") {
+    return role === "editor" ? "レビュー状況を確認" : "レビューする";
+  }
+  if (article.reviewStatus === "approved" && article.publicationStatus === "unpublished") {
+    return role === "admin" ? "公開を確認" : "承認内容を確認";
+  }
+  return "編集する";
+}
+
 function CmsArticleListItem({
   article,
   busy,
@@ -201,13 +215,6 @@ export function CmsArticleLibrary({
   const queueCount = editorialQueue.reduce((total, item) => total + item.count, 0);
   const queueFilters = new Set(editorialQueue.map((item) => item.filter));
   const hasConditions = query.trim().length > 0 || filter !== "all";
-  const articleActionLabel = filter === "changes_requested"
-    ? "修正する"
-    : filter === "in_review"
-      ? "レビューする"
-      : filter === "ready_to_publish"
-        ? "公開を確認"
-        : "編集する";
   const clearConditions = () => {
     onQueryChange("");
     onFilterChange("all");
@@ -404,7 +411,7 @@ export function CmsArticleLibrary({
               <ul className="studio-library-list">
                 {visibleArticles.map((article) => (
                   <CmsArticleListItem
-                    actionLabel={articleActionLabel}
+                    actionLabel={getCmsArticleActionLabel(article, connection.role)}
                     article={article}
                     busy={busy}
                     canOpen={canOpenArticles}
