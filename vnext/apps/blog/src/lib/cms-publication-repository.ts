@@ -30,6 +30,15 @@ export interface CmsPublishedArticle extends CmsPublishedArticleSummary {
   markdown: string;
 }
 
+export interface CmsPublishedSeriesContext {
+  currentIndex: number;
+  description: string;
+  id: string;
+  items: ArticleSummary[];
+  slug: string;
+  title: string;
+}
+
 interface CmsPublishedArticleRow {
   frontmatter_json: string;
   markdown?: string;
@@ -135,6 +144,44 @@ export async function getCmsPublishedArticleBySlug(
     throw new Error("CMS published revision is missing its Markdown body.");
   }
   return article;
+}
+
+export async function getCmsPublishedSeriesByArticleSlug(
+  db: CmsPublicationDatabase,
+  articleSlug: string,
+): Promise<CmsPublishedSeriesContext | null> {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(articleSlug)) return null;
+  const series = await db.prepare(
+    `SELECT s.id, sr.slug, sr.title, sr.description
+     FROM cms_articles current_article
+     JOIN cms_article_series map ON map.article_id = current_article.id
+     JOIN cms_series s ON s.id = map.series_id
+     JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
+     WHERE current_article.publication_status = 'published'
+       AND current_article.published_visibility = 'public'
+       AND current_article.published_slug = ?1
+       AND map.revision_id = s.published_revision_id
+     LIMIT 1`,
+  ).bind(articleSlug).first<{ description: string; id: string; slug: string; title: string }>();
+  if (!series) return null;
+
+  const result = await db.prepare(
+    `SELECT ${publishedSummaryColumns}
+     FROM cms_series s
+     JOIN cms_series_revision_items item ON item.revision_id = s.published_revision_id
+     JOIN cms_articles a ON a.id = item.article_id
+     JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     WHERE s.id = ?1
+       AND a.publication_status = 'published'
+       AND a.published_visibility = 'public'
+     ORDER BY item.position`,
+  ).bind(series.id).all<CmsPublishedArticleRow>();
+  const items = result.results.map((row) =>
+    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data),
+  );
+  const currentIndex = items.findIndex((item) => item.slug === articleSlug);
+  if (currentIndex < 0) return null;
+  return { ...series, currentIndex, items };
 }
 
 function isoDate(value: string, field: string): string {

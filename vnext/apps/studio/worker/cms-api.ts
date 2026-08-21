@@ -3,6 +3,8 @@ import {
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsMemberMutationSchema,
+  cmsCreateSeriesRequestSchema,
+  cmsUpdateSeriesRequestSchema,
   cmsUpdateArticleRequestSchema,
   type CmsIdentity
 } from "@noema/cms";
@@ -26,6 +28,12 @@ import {
   updateCmsAsset,
   upsertCmsMemberInvitation
 } from "./cms-repository";
+import {
+  createCmsSeries,
+  listCmsSeries,
+  listCmsSeriesVersions,
+  updateCmsSeries
+} from "./cms-series-repository";
 import type { AccessIdentity } from "./access";
 
 const CMS_API_PREFIX = "/api/cms";
@@ -147,6 +155,48 @@ export async function handleCmsApiRequest(
         return cmsJson({ article }, 201, article.lockVersion);
       }
       return methodNotAllowed("GET, POST");
+    }
+
+    if (pathname === `${CMS_API_PREFIX}/series`) {
+      if (request.method === "GET") {
+        return cmsJson({ series: await listCmsSeries(env.CMS_DB, session.identity) });
+      }
+      if (request.method === "POST") {
+        const body = await readCmsJson(request);
+        if (!body.ok) return body.response;
+        const parsed = cmsCreateSeriesRequestSchema.safeParse(body.value);
+        if (!parsed.success) return invalidRequest(parsed.error.issues);
+        const series = await createCmsSeries(env.CMS_DB, session.identity, parsed.data);
+        return cmsJson({ series }, 201, series.lockVersion);
+      }
+      return methodNotAllowed("GET, POST");
+    }
+
+    const seriesRoute = parseSeriesRoute(pathname);
+    if (seriesRoute) {
+      if (seriesRoute.kind === "versions") {
+        if (request.method !== "GET") return methodNotAllowed("GET");
+        return cmsJson({
+          versions: await listCmsSeriesVersions(env.CMS_DB, session.identity, seriesRoute.id)
+        });
+      }
+      if (request.method !== "PUT") return methodNotAllowed("PUT");
+      const body = await readCmsJson(request);
+      if (!body.ok) return body.response;
+      const parsed = cmsUpdateSeriesRequestSchema.safeParse(body.value);
+      if (!parsed.success) return invalidRequest(parsed.error.issues);
+      const precondition = requireIfMatch(request, parsed.data.expectedVersion);
+      if (precondition) return precondition;
+      const { expectedVersion, restoredFromRevisionId, ...content } = parsed.data;
+      const series = await updateCmsSeries(
+        env.CMS_DB,
+        session.identity,
+        seriesRoute.id,
+        expectedVersion,
+        content,
+        restoredFromRevisionId
+      );
+      return cmsJson({ series }, 200, series.lockVersion);
     }
 
     if (pathname === `${CMS_API_PREFIX}/members`) {
@@ -402,6 +452,26 @@ type ArticleRoute =
   | { id: string; kind: "version"; revisionId: string }
   | { id: string; kind: "checkpoints"; versionId: string };
 
+type SeriesRoute =
+  | { id: string; kind: "series" }
+  | { id: string; kind: "versions" };
+
+function parseSeriesRoute(pathname: string): SeriesRoute | null {
+  const segments = pathname.split("/").filter(Boolean);
+  if (
+    segments.length < 4 ||
+    segments[0] !== "api" ||
+    segments[1] !== "cms" ||
+    segments[2] !== "series" ||
+    !/^[0-9a-f-]{36}$/i.test(segments[3] ?? "")
+  ) return null;
+  if (segments.length === 4) return { id: segments[3] ?? "", kind: "series" };
+  if (segments.length === 5 && segments[4] === "versions") {
+    return { id: segments[3] ?? "", kind: "versions" };
+  }
+  return null;
+}
+
 function parseArticleRoute(pathname: string): ArticleRoute | null {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length < 4 || segments[0] !== "api" || segments[1] !== "cms" || segments[2] !== "articles") {
@@ -506,14 +576,14 @@ function requireIfMatch(request: Request, expectedVersion: number): Response | n
     return cmsError(
       428,
       "precondition_required",
-      "更新前の記事versionをIf-Matchで指定してください。"
+      "更新前のversionをIf-Matchで指定してください。"
     );
   }
   if (value !== cmsEtag(expectedVersion)) {
     return cmsError(
       412,
       "revision_conflict",
-      "別の編集者が記事を更新しました。最新版を読み込んでください。"
+      "別の編集者が更新しました。最新版を読み込んでください。"
     );
   }
   return null;
@@ -544,6 +614,10 @@ function cmsRepositoryError(error: unknown): Response {
     member_not_registered: 403,
     revision_conflict: 412,
     self_approval_forbidden: 409,
+    series_article_conflict: 409,
+    series_conflict: 412,
+    series_not_found: 404,
+    series_slug_conflict: 409,
     slug_conflict: 409
   }[error.code];
   return cmsError(

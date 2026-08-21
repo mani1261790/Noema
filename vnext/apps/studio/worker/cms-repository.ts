@@ -178,6 +178,10 @@ export type CmsRepositoryErrorCode =
   | "member_not_registered"
   | "revision_conflict"
   | "self_approval_forbidden"
+  | "series_article_conflict"
+  | "series_conflict"
+  | "series_not_found"
+  | "series_slug_conflict"
   | "slug_conflict";
 
 export class CmsRepositoryError extends Error {

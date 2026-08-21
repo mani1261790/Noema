@@ -4,7 +4,7 @@ import {
   type D1Migration
 } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CmsArticleDetail, CmsMember, CmsSession } from "@noema/cms";
+import type { CmsArticleDetail, CmsMember, CmsSeries, CmsSession } from "@noema/cms";
 import { handleCmsApiRequest } from "../worker/cms-api";
 import { handleStudioApiRequest } from "../worker/app";
 
@@ -22,6 +22,10 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(objects.objects.map((object) => object.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_article_series"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_series_revisions"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_series"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_idempotency"),
@@ -43,6 +47,61 @@ beforeEach(async () => {
 });
 
 describe("CMS HTTP API", () => {
+  it("creates, reorders, and exposes restorable series revisions", async () => {
+    await bootstrapAdmin();
+    const first = await createArticle("series-first");
+    const second = await createArticle("series-second");
+    const createdResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/series", {
+        body: JSON.stringify({
+          articleIds: [first.article.id, second.article.id],
+          description: "APIで管理するシリーズです。",
+          slug: "api-series",
+          title: "APIシリーズ"
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const created = (await createdResponse.json()) as { series: CmsSeries };
+    expect(createdResponse.status).toBe(201);
+    expect(createdResponse.headers.get("etag")).toBe('"cms-v1"');
+
+    const updatedResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/series/${created.series.id}`, {
+        body: JSON.stringify({
+          articleIds: [second.article.id, first.article.id],
+          description: created.series.description,
+          expectedVersion: created.series.lockVersion,
+          slug: created.series.slug,
+          title: created.series.title
+        }),
+        headers: { "content-type": "application/json", "if-match": '"cms-v1"' },
+        method: "PUT"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const updated = (await updatedResponse.json()) as { series: CmsSeries };
+    expect(updatedResponse.status).toBe(200);
+    expect(updated.series.articleIds).toEqual([second.article.id, first.article.id]);
+    expect(updated.series.revisionNumber).toBe(2);
+
+    const versionsResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/series/${created.series.id}/versions`),
+      cmsEnv(),
+      ADMIN
+    );
+    const versions = (await versionsResponse.json()) as { versions: Array<{ articleIds: string[] }> };
+    expect(versionsResponse.status).toBe(200);
+    expect(versions.versions.map((version) => version.articleIds)).toEqual([
+      [second.article.id, first.article.id],
+      [first.article.id, second.article.id]
+    ]);
+  });
+
   it("bootstraps the configured administrator without exposing cacheable identity data", async () => {
     const response = await handleCmsApiRequest(
       cmsRequest("/api/cms/session"),
@@ -551,13 +610,13 @@ async function bootstrapAdmin(): Promise<void> {
   expect(response.status).toBe(200);
 }
 
-async function createArticle(): Promise<{
+async function createArticle(slug = "safe-concurrency"): Promise<{
   article: CmsArticleDetail;
   response: Response;
 }> {
   const response = await handleCmsApiRequest(
     cmsRequest("/api/cms/articles", {
-      body: JSON.stringify(validArticle("safe-concurrency")),
+      body: JSON.stringify(validArticle(slug)),
       headers: { "content-type": "application/json" },
       method: "POST"
     }),

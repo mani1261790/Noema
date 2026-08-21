@@ -37,9 +37,12 @@ import {
   type CmsMember,
   type CmsRole,
   type CmsSession,
+  type CmsSeries,
+  type CmsSeriesVersion,
   type CmsVisibility
 } from "@noema/cms";
 import {
+  createCmsSeriesRecord,
   createCmsArticle as createCmsArticleRecord,
   configureStudioPassword,
   fetchCmsArticle,
@@ -47,14 +50,18 @@ import {
   fetchCmsAssets,
   fetchCmsMembers,
   fetchCmsSession,
+  fetchCmsSeries,
+  fetchCmsSeriesVersions,
   signInStudio,
   runCmsArticleAction,
   updateCmsArticle as updateCmsArticleRecord,
+  updateCmsSeriesRecord,
   updateCmsAsset as updateCmsAssetRecord,
   deleteCmsAsset as deleteCmsAssetRecord,
   uploadCmsAsset,
   upsertCmsMember,
-  type CmsClientError
+  type CmsClientError,
+  type CmsSeriesContent
 } from "./cms-client";
 import {
   clearDraft,
@@ -94,6 +101,7 @@ import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsVersionHistory } from "./CmsVersionHistory";
 import { CmsTeamSettings } from "./CmsTeamSettings";
+import { CmsSeriesManager } from "./CmsSeriesManager";
 import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
 import { CmsLogin } from "./CmsLogin";
 import {
@@ -649,6 +657,9 @@ export function App() {
   const [cmsArticles, setCmsArticles] = useState<CmsArticleSummary[]>([]);
   const [cmsAssets, setCmsAssets] = useState<CmsAsset[]>([]);
   const [cmsAssetsError, setCmsAssetsError] = useState<CmsClientError | null>(null);
+  const [cmsSeries, setCmsSeries] = useState<CmsSeries[]>([]);
+  const [cmsSeriesBusy, setCmsSeriesBusy] = useState(false);
+  const [cmsSeriesError, setCmsSeriesError] = useState<string | null>(null);
   const [cmsArticleQuery, setCmsArticleQuery] = useState("");
   const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>("all");
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
@@ -827,11 +838,13 @@ export function App() {
     let current = true;
     setCmsSessionState({ kind: "checking" });
     setCmsAssetsError(null);
+    setCmsSeriesError(null);
     void Promise.all([
       fetchCmsSession({ signal: controller.signal }),
       fetchCmsArticles({ signal: controller.signal }),
-      fetchCmsAssets({ signal: controller.signal })
-    ]).then(([sessionResult, articlesResult, assetsResult]) => {
+      fetchCmsAssets({ signal: controller.signal }),
+      fetchCmsSeries({ signal: controller.signal })
+    ]).then(([sessionResult, articlesResult, assetsResult, seriesResult]) => {
       if (!current || controller.signal.aborted) return;
       if (!sessionResult.ok) {
         setCmsSessionState({ error: sessionResult.error, kind: "unavailable" });
@@ -845,6 +858,8 @@ export function App() {
       setCmsArticles(articlesResult.value);
       if (assetsResult.ok) setCmsAssets(assetsResult.value);
       else setCmsAssetsError(assetsResult.error);
+      if (seriesResult.ok) setCmsSeries(seriesResult.value);
+      else setCmsSeriesError(seriesResult.error.message);
     });
     return () => {
       current = false;
@@ -1092,6 +1107,16 @@ export function App() {
     setAssetTrayOpen(false);
   };
 
+  const showSeriesLibrary = () => {
+    setOperationMessage(null);
+    if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
+    pendingViewFocus.current = "studio-series-heading";
+    changeStudioView("series");
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
+    setAssetTrayOpen(false);
+  };
+
   const showTeamSettings = () => {
     setOperationMessage(null);
     if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
@@ -1129,6 +1154,8 @@ export function App() {
       setAssetTrayOpen(false);
       pendingViewFocus.current = nextView === "articles"
         ? "studio-article-library-heading"
+        : nextView === "series"
+          ? "studio-series-heading"
         : nextView === "assets"
           ? "studio-asset-library-heading"
           : nextView === "team"
@@ -1926,6 +1953,48 @@ export function App() {
     setCmsMembersBusy(false);
   };
 
+  const saveCmsSeries = async (
+    current: CmsSeries | null,
+    content: CmsSeriesContent,
+    restoredFromRevisionId?: string
+  ): Promise<CmsSeries | null> => {
+    if (cmsSessionState.kind !== "ready" || !cmsSessionState.session.capabilities.canEdit) return null;
+    setCmsSeriesBusy(true);
+    setCmsSeriesError(null);
+    const result = current
+      ? await updateCmsSeriesRecord(
+          current.id,
+          current.lockVersion,
+          content,
+          restoredFromRevisionId
+        )
+      : await createCmsSeriesRecord(content);
+    setCmsSeriesBusy(false);
+    if (!result.ok) {
+      setCmsSeriesError(result.error.message);
+      showNotification({ text: result.error.message, title: "シリーズを保存できませんでした", tone: "error" });
+      return null;
+    }
+    setCmsSeries((items) => [result.value, ...items.filter((item) => item.id !== result.value.id)]
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+    showNotification({
+      text: restoredFromRevisionId
+        ? `revision ${result.value.revisionNumber}として復元し、公開ナビゲーションへ反映しました。`
+        : `revision ${result.value.revisionNumber}として公開ナビゲーションへ反映しました。`,
+      title: restoredFromRevisionId ? "シリーズを復元しました" : "シリーズを保存しました",
+      tone: "info"
+    });
+    return result.value;
+  };
+
+  const loadCmsSeriesHistory = async (seriesId: string): Promise<CmsSeriesVersion[]> => {
+    const result = await fetchCmsSeriesVersions(seriesId);
+    if (result.ok) return result.value;
+    setCmsSeriesError(result.error.message);
+    showNotification({ text: result.error.message, title: "シリーズ履歴を読み込めませんでした", tone: "error" });
+    return [];
+  };
+
   const configurePasswordLogin = async (password: string) => {
     if (cmsSessionState.kind !== "ready" || cmsSessionState.session.passwordLoginReadyAt) return;
     setPasswordMigrationBusy(true);
@@ -2461,6 +2530,7 @@ export function App() {
           <strong>Noema Studio</strong>
           <div>
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
+            <a aria-current={studioView === "series" ? "page" : undefined} href={studioViewHref("series")} onClick={(event) => { event.preventDefault(); showSeriesLibrary(); }}>シリーズ</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
             {cmsSession?.capabilities.canManageMembers ? (
               <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>チーム</a>
@@ -2513,6 +2583,18 @@ export function App() {
               : "編集を再開"
             : "編集画面に戻る"}
           workingArticleStatus={cmsLibraryWorkingStatus}
+        />
+      ) : studioView === "series" ? (
+        <CmsSeriesManager
+          articles={cmsArticles}
+          busy={cmsSeriesBusy}
+          canEdit={Boolean(cmsSession?.capabilities.canEdit)}
+          connection={cmsLibraryConnection}
+          error={cmsSeriesError}
+          onLoadVersions={loadCmsSeriesHistory}
+          onRetry={() => setCmsRefresh((current) => current + 1)}
+          onSave={saveCmsSeries}
+          series={cmsSeries}
         />
       ) : studioView === "assets" ? (
         <CmsAssetLibrary

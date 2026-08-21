@@ -2,6 +2,7 @@
 import { topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleSources from "../../components/ArticleSources.astro";
+import ArticleSeries from "../../components/ArticleSeries.astro";
 import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
@@ -9,7 +10,7 @@ import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, formatJapaneseDate, toArticleSummary } from "../../lib/articles";
 import { extractArticleHeadings } from "../../lib/article-assistant";
-import { getPublishedArticleBySlug, listPublicArticleSummaries } from "../../lib/cms-publications";
+import { getPublishedArticleBySlug, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
 import { renderArticleMarkdown } from "../../lib/runtime-markdown";
 
 const slug = Astro.params.slug ?? "";
@@ -17,9 +18,16 @@ const article = await getPublishedArticleBySlug(slug);
 if (!article) return new Response("Not found", { status: 404 });
 const renderedHtml = renderArticleMarkdown(article.markdown);
 const headings = extractArticleHeadings(article.markdown);
-const summaries = await listPublicArticleSummaries();
+const [summaries, series] = await Promise.all([
+  listPublicArticleSummaries(),
+  getPublishedSeriesByArticleSlug(slug)
+]);
 const currentSummary = toArticleSummary(article.data);
-const relatedArticles = findRelatedArticles(currentSummary, summaries);
+const seriesSlugs = new Set(series?.items.map((item) => item.slug) ?? []);
+const relatedArticles = findRelatedArticles(
+  currentSummary,
+  summaries.filter((item) => !seriesSlugs.has(item.slug)),
+);
 const canonicalUrl = new URL(`/articles/${article.data.slug}/`, Astro.site ?? "https://noema-learn.uk");
 const ogImagePath = "/og/default.png";
 const ogImageUrl = new URL(ogImagePath, Astro.site ?? "https://noema-learn.uk");
@@ -76,6 +84,7 @@ const tocItems = headings
           <img src={article.data.heroImage.src} alt={article.data.heroImage.alt} />
         </figure>
       )}
+      {series && <ArticleSeries {...series} />}
       <section class="article-outcome">
         <h2>この記事でできるようになること</h2>
         <p>{article.data.outcome}</p>
@@ -84,6 +93,7 @@ const tocItems = headings
       <article class="article-body" set:html={renderedHtml}></article>
       <ArticleSources sources={article.data.sources} />
       <ShareArticle />
+      {series && <ArticleSeries {...series} mode="end" />}
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>

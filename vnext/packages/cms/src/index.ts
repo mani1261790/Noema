@@ -145,6 +145,25 @@ export const cmsAssetMutationSchema = z.object({
   tags: z.array(boundedString(80)).max(30)
 }).strict();
 
+export const cmsSeriesContentSchema = z.object({
+  description: z.string().trim().min(1).max(500),
+  articleIds: z.array(z.uuid()).min(1).max(100).refine(
+    (ids) => new Set(ids).size === ids.length,
+    "同じ記事をシリーズへ重複して追加できません"
+  ),
+  slug: z.string().trim().min(1).max(100).regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "slugは半角英数字とハイフンで入力してください"
+  ),
+  title: z.string().trim().min(1).max(100)
+}).strict();
+
+export const cmsCreateSeriesRequestSchema = cmsSeriesContentSchema;
+export const cmsUpdateSeriesRequestSchema = cmsSeriesContentSchema.extend({
+  expectedVersion: z.number().int().positive(),
+  restoredFromRevisionId: z.uuid().optional()
+}).strict();
+
 export interface CmsIdentity {
   email: string;
   role: CmsRole;
@@ -234,6 +253,42 @@ export interface CmsArticleDetail extends CmsArticleSummary {
   publishedSlug: string | null;
   publishedVisibility: CmsVisibility | null;
   reviewNote: string | null;
+}
+
+export interface CmsSeriesArticle {
+  id: string;
+  publicationStatus: CmsPublicationStatus;
+  reviewStatus: CmsReviewStatus;
+  slug: string;
+  title: string;
+  visibility: CmsVisibility;
+}
+
+export interface CmsSeries {
+  articleIds: string[];
+  articles: CmsSeriesArticle[];
+  createdAt: string;
+  description: string;
+  id: string;
+  lockVersion: number;
+  revisionNumber: number;
+  slug: string;
+  title: string;
+  updatedAt: string;
+  updatedByEmail: string;
+}
+
+export interface CmsSeriesVersion {
+  articleIds: string[];
+  createdAt: string;
+  createdByEmail: string;
+  description: string;
+  id: string;
+  isCurrent: boolean;
+  number: number;
+  restoredFromRevisionId: string | null;
+  slug: string;
+  title: string;
 }
 
 export interface CmsMember {

@@ -20,11 +20,15 @@ import {
   type CmsRole,
   type CmsRevisionSaveReason,
   type CmsSession,
+  type CmsSeries,
+  type CmsSeriesArticle,
+  type CmsSeriesVersion,
   type CmsVisibility
 } from "@noema/cms";
 import type { ArticleFrontmatter } from "@noema/content";
 
 const CMS_ARTICLES_PATH = "/api/cms/articles";
+const CMS_SERIES_PATH = "/api/cms/series";
 const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
 const CMS_ASSETS_PATH = "/api/cms/assets";
@@ -61,6 +65,72 @@ export interface CmsRevisionWriteContext {
     "autosave" | "manual" | "conflict_resolution" | "restored"
   >;
   sourceRevisionId?: string;
+}
+
+export interface CmsSeriesContent {
+  articleIds: string[];
+  description: string;
+  slug: string;
+  title: string;
+}
+
+export async function fetchCmsSeries(
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsSeries[]>> {
+  const result = await cmsRequest(CMS_SERIES_PATH, { method: "GET" }, options);
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !Array.isArray(result.value.series)) return invalidResponse(result.status);
+  const series = result.value.series.map(parseCmsSeries);
+  return series.every((item): item is CmsSeries => item !== null)
+    ? { ok: true, value: series }
+    : invalidResponse(result.status);
+}
+
+export async function createCmsSeriesRecord(
+  content: CmsSeriesContent,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsSeries>> {
+  const result = await cmsRequest(CMS_SERIES_PATH, {
+    body: JSON.stringify(content),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  }, options);
+  return seriesResult(result);
+}
+
+export async function updateCmsSeriesRecord(
+  seriesId: string,
+  expectedVersion: number,
+  content: CmsSeriesContent,
+  restoredFromRevisionId?: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsSeries>> {
+  const result = await cmsRequest(`${CMS_SERIES_PATH}/${encodeURIComponent(seriesId)}`, {
+    body: JSON.stringify({ ...content, expectedVersion, restoredFromRevisionId }),
+    headers: {
+      "content-type": "application/json",
+      "if-match": cmsEtag(expectedVersion)
+    },
+    method: "PUT"
+  }, options);
+  return seriesResult(result);
+}
+
+export async function fetchCmsSeriesVersions(
+  seriesId: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsSeriesVersion[]>> {
+  const result = await cmsRequest(
+    `${CMS_SERIES_PATH}/${encodeURIComponent(seriesId)}/versions`,
+    { method: "GET" },
+    options
+  );
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !Array.isArray(result.value.versions)) return invalidResponse(result.status);
+  const versions = result.value.versions.map(parseCmsSeriesVersion);
+  return versions.every((item): item is CmsSeriesVersion => item !== null)
+    ? { ok: true, value: versions }
+    : invalidResponse(result.status);
 }
 
 export async function fetchCmsSession(
@@ -393,6 +463,98 @@ function articleResult(result: RawCmsResult): CmsClientResult<CmsArticleDetail> 
   return article
     ? { ok: true, value: article }
     : invalidResponse(result.status);
+}
+
+function seriesResult(result: RawCmsResult): CmsClientResult<CmsSeries> {
+  if (!result.ok) return result;
+  if (!isRecord(result.value)) return invalidResponse(result.status);
+  const series = parseCmsSeries(result.value.series);
+  return series ? { ok: true, value: series } : invalidResponse(result.status);
+}
+
+function parseCmsSeries(value: unknown): CmsSeries | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.articleIds) ||
+    !value.articleIds.every(isString) ||
+    !Array.isArray(value.articles) ||
+    !isString(value.createdAt) ||
+    !isString(value.description) ||
+    !isString(value.id) ||
+    !isNonnegativeInteger(value.lockVersion) ||
+    !isNonnegativeInteger(value.revisionNumber) ||
+    !isString(value.slug) ||
+    !isString(value.title) ||
+    !isString(value.updatedAt) ||
+    !isString(value.updatedByEmail)
+  ) return null;
+  const articles = value.articles.map(parseCmsSeriesArticle);
+  if (!articles.every((item): item is CmsSeriesArticle => item !== null)) return null;
+  return {
+    articleIds: value.articleIds,
+    articles,
+    createdAt: value.createdAt,
+    description: value.description,
+    id: value.id,
+    lockVersion: value.lockVersion,
+    revisionNumber: value.revisionNumber,
+    slug: value.slug,
+    title: value.title,
+    updatedAt: value.updatedAt,
+    updatedByEmail: value.updatedByEmail
+  };
+}
+
+function parseCmsSeriesArticle(value: unknown): CmsSeriesArticle | null {
+  if (!isRecord(value)) return null;
+  const publicationStatus = cmsPublicationStatusSchema.safeParse(value.publicationStatus);
+  const reviewStatus = cmsReviewStatusSchema.safeParse(value.reviewStatus);
+  const visibility = cmsVisibilitySchema.safeParse(value.visibility);
+  if (
+    !publicationStatus.success ||
+    !reviewStatus.success ||
+    !visibility.success ||
+    !isString(value.id) ||
+    !isString(value.slug) ||
+    !isString(value.title)
+  ) return null;
+  return {
+    id: value.id,
+    publicationStatus: publicationStatus.data,
+    reviewStatus: reviewStatus.data,
+    slug: value.slug,
+    title: value.title,
+    visibility: visibility.data
+  };
+}
+
+function parseCmsSeriesVersion(value: unknown): CmsSeriesVersion | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.articleIds) ||
+    !value.articleIds.every(isString) ||
+    !isString(value.createdAt) ||
+    !isString(value.createdByEmail) ||
+    !isString(value.description) ||
+    !isString(value.id) ||
+    !isBoolean(value.isCurrent) ||
+    !isNonnegativeInteger(value.number) ||
+    !(value.restoredFromRevisionId === null || isString(value.restoredFromRevisionId)) ||
+    !isString(value.slug) ||
+    !isString(value.title)
+  ) return null;
+  return {
+    articleIds: value.articleIds,
+    createdAt: value.createdAt,
+    createdByEmail: value.createdByEmail,
+    description: value.description,
+    id: value.id,
+    isCurrent: value.isCurrent,
+    number: value.number,
+    restoredFromRevisionId: value.restoredFromRevisionId,
+    slug: value.slug,
+    title: value.title
+  };
 }
 
 function parseCmsSession(value: unknown): CmsSession | null {
