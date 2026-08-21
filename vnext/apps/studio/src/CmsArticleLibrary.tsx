@@ -66,8 +66,9 @@ export function getCmsArticleActionLabel(
   if (article.reviewStatus === "in_review") {
     return role === "editor" ? "レビュー状況を確認" : "レビューする";
   }
-  if (article.reviewStatus === "approved" && article.publicationStatus === "unpublished") {
-    return role === "admin" ? "公開を確認" : "承認内容を確認";
+  if (article.reviewStatus === "approved") {
+    if (role !== "admin") return "承認内容を確認";
+    return article.publicationStatus === "unpublished" ? "公開を確認" : "公開を管理";
   }
   if (role === "reviewer") return "内容を確認";
   return "編集する";
@@ -93,7 +94,7 @@ function CmsArticleListItem({
   seriesMembership: { position: number; title: string; total: number } | null;
 }) {
   const title = article.title.trim() || "無題の記事";
-  const actionAriaLabel = actionLabel.includes("確認")
+  const actionAriaLabel = actionLabel.includes("確認") || actionLabel.includes("管理")
     ? `「${title}」の${actionLabel}`
     : `「${title}」を${actionLabel}`;
   const status = getCmsJourneyStatus(article.reviewStatus, article.publicationStatus);

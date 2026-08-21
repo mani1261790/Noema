@@ -60,6 +60,10 @@ describe("CMS contracts", () => {
     }).success).toBe(true);
     expect(cmsArticleActionSchema.safeParse({ action: "publish" }).success)
       .toBe(false);
+    expect(cmsArticleActionSchema.safeParse({
+      action: "revoke_approval",
+      expectedVersion: 4
+    }).success).toBe(true);
   });
 
   it("requires a valid, uniquely ordered article list for a series", () => {

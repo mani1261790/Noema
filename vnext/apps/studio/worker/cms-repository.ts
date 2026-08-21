@@ -2119,6 +2119,18 @@ function buildTransition(
         reviewStatus: "approved"
       };
     }
+    case "revoke_approval": {
+      requirePermission(identity.role, "approve");
+      if (reviewStatus !== "approved") throw invalidTransition();
+      return {
+        ...base,
+        approvedRevisionId: null,
+        reviewNote: null,
+        reviewedAt: null,
+        reviewedBySubject: null,
+        reviewStatus: "in_review"
+      };
+    }
     case "request_changes": {
       requirePermission(identity.role, "approve");
       if (!new Set<CmsReviewStatus>(["in_review", "approved"]).has(reviewStatus)) {
