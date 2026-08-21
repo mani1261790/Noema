@@ -486,7 +486,8 @@ export function createStudioMcpServer(
           channel: "mcp",
           client,
           idempotency: { requestId, toolName: "studio_update_draft" }
-        }
+        },
+        { saveReason: "manual" }
       )
     }))
   );

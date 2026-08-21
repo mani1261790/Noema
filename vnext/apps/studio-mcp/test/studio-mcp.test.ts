@@ -852,6 +852,7 @@ describe("Studio MCP tools", () => {
       channel: "mcp",
       client: "Noema MCP test",
       requestId: updateArguments.requestId,
+      saveReason: "manual",
       tool: "studio_update_draft"
     });
 

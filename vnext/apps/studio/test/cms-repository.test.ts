@@ -6,8 +6,11 @@ import {
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createCmsArticle,
+  getCmsArticleVersion,
   listCmsAssets,
   listCmsArticles,
+  listCmsArticleVersions,
+  listCmsArticleVersionCheckpoints,
   registerCmsAsset,
   resolveCmsSession,
   transitionCmsArticle,
@@ -550,6 +553,160 @@ describe("CMS repository", () => {
       email: "owner@example.com",
       role: "admin"
     }));
+  });
+
+  it("groups autosave checkpoints into editing sessions and preserves restore provenance", async () => {
+    const admin = await bootstrapAdmin();
+    const firstSession = "11111111-1111-4111-8111-111111111111";
+    const restoreSession = "22222222-2222-4222-8222-222222222222";
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("version-history"),
+      NOW,
+      {},
+      { editSessionId: firstSession }
+    );
+    const originalRevisionId = article.currentRevision.id;
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      { ...validArticle("version-history"), markdown: "## 自動保存\n\n入力途中です。" },
+      new Date("2026-07-18T00:01:00.000Z"),
+      {},
+      { editSessionId: firstSession, saveReason: "autosave" }
+    );
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      { ...validArticle("version-history"), markdown: "## 手動記録\n\n版として残します。" },
+      new Date("2026-07-18T00:02:00.000Z"),
+      {},
+      { editSessionId: firstSession, saveReason: "manual" }
+    );
+    await expect(updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("version-history"),
+      new Date("2026-07-18T00:02:30.000Z"),
+      {},
+      {
+        editSessionId: restoreSession,
+        saveReason: "restored",
+        sourceRevisionId: "33333333-3333-4333-8333-333333333333"
+      }
+    )).rejects.toMatchObject({ code: "invalid_article" });
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("version-history"),
+      new Date("2026-07-18T00:03:00.000Z"),
+      {},
+      {
+        editSessionId: restoreSession,
+        saveReason: "restored",
+        sourceRevisionId: originalRevisionId
+      }
+    );
+
+    const versions = await listCmsArticleVersions(testEnv.CMS_DB, admin.identity, article.id);
+    expect(versions).toHaveLength(2);
+    expect(versions[0]).toMatchObject({
+      checkpointCount: 1,
+      id: restoreSession,
+      isCurrent: true,
+      latestRevisionNumber: 4,
+      reason: "restored",
+      sourceRevisionId: originalRevisionId
+    });
+    expect(versions[1]).toMatchObject({
+      checkpointCount: 3,
+      firstRevisionNumber: 1,
+      id: firstSession,
+      latestRevisionNumber: 3,
+      reason: "manual"
+    });
+    const checkpoints = await listCmsArticleVersionCheckpoints(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      firstSession
+    );
+    expect(checkpoints.nextBeforeRevisionNumber).toBeNull();
+    expect(checkpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([3, 2, 1]);
+    expect(checkpoints.checkpoints[0]).toMatchObject({ reason: "manual" });
+
+    const restored = await getCmsArticleVersion(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.currentRevision.id
+    );
+    expect(restored).toMatchObject({
+      isCurrent: true,
+      reason: "restored",
+      sourceRevisionId: originalRevisionId,
+      visibility: "internal"
+    });
+  });
+
+  it("paginates every checkpoint in a long editing session without gaps", async () => {
+    const admin = await bootstrapAdmin();
+    const editSessionId = "44444444-4444-4444-8444-444444444444";
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("long-version-history"),
+      NOW,
+      {},
+      { editSessionId }
+    );
+    for (let index = 2; index <= 102; index += 1) {
+      article = await updateCmsArticle(
+        testEnv.CMS_DB,
+        admin.identity,
+        article.id,
+        article.lockVersion,
+        {
+          ...validArticle("long-version-history"),
+          markdown: `## 保存時点 ${index}\n\n長い編集セッションの内容です。`
+        },
+        new Date(NOW.getTime() + index * 1_000),
+        {},
+        { editSessionId, saveReason: "autosave" }
+      );
+    }
+
+    const firstPage = await listCmsArticleVersionCheckpoints(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      editSessionId
+    );
+    expect(firstPage.checkpoints).toHaveLength(100);
+    expect(firstPage.checkpoints[0]?.number).toBe(102);
+    expect(firstPage.checkpoints.at(-1)?.number).toBe(3);
+    expect(firstPage.nextBeforeRevisionNumber).toBe(3);
+
+    const secondPage = await listCmsArticleVersionCheckpoints(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      editSessionId,
+      firstPage.nextBeforeRevisionNumber ?? undefined
+    );
+    expect(secondPage.nextBeforeRevisionNumber).toBeNull();
+    expect(secondPage.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([2, 1]);
+    expect([...firstPage.checkpoints, ...secondPage.checkpoints].map((checkpoint) => checkpoint.number))
+      .toEqual(Array.from({ length: 102 }, (_, index) => 102 - index));
   });
 });
 

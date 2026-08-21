@@ -4,15 +4,21 @@ import {
   cmsPublicationStatusSchema,
   cmsReviewStatusSchema,
   cmsRoleSchema,
+  cmsRevisionSaveReasonSchema,
   cmsVisibilitySchema,
   type CmsArticleAction,
   type CmsArticleDetail,
   type CmsArticleSummary,
+  type CmsArticleVersionDetail,
+  type CmsArticleVersionCheckpoint,
+  type CmsArticleVersionCheckpointPage,
+  type CmsArticleVersionSummary,
   type CmsAsset,
   type CmsAssetStatus,
   type CmsEditorialIssue,
   type CmsMember,
   type CmsRole,
+  type CmsRevisionSaveReason,
   type CmsSession,
   type CmsVisibility
 } from "@noema/cms";
@@ -46,6 +52,15 @@ interface CmsArticleContent {
   frontmatter: ArticleFrontmatter;
   markdown: string;
   visibility: CmsVisibility;
+}
+
+export interface CmsRevisionWriteContext {
+  editSessionId: string;
+  saveReason?: Extract<
+    CmsRevisionSaveReason,
+    "autosave" | "manual" | "conflict_resolution" | "restored"
+  >;
+  sourceRevisionId?: string;
 }
 
 export async function fetchCmsSession(
@@ -108,6 +123,71 @@ export async function fetchCmsArticle(
   return articleResult(result);
 }
 
+export async function fetchCmsArticleVersions(
+  articleId: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsArticleVersionSummary[]>> {
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/versions`,
+    { method: "GET" },
+    options
+  );
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !Array.isArray(result.value.versions)) {
+    return invalidResponse(result.status);
+  }
+  const versions = result.value.versions.map(parseCmsArticleVersionSummary);
+  return versions.every((version): version is CmsArticleVersionSummary => version !== null)
+    ? { ok: true, value: versions }
+    : invalidResponse(result.status);
+}
+
+export async function fetchCmsArticleVersion(
+  articleId: string,
+  revisionId: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsArticleVersionDetail>> {
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/versions/${encodeURIComponent(revisionId)}`,
+    { method: "GET" },
+    options
+  );
+  if (!result.ok) return result;
+  if (!isRecord(result.value)) return invalidResponse(result.status);
+  const version = parseCmsArticleVersionDetail(result.value.version);
+  return version ? { ok: true, value: version } : invalidResponse(result.status);
+}
+
+export async function fetchCmsArticleVersionCheckpoints(
+  articleId: string,
+  versionId: string,
+  beforeRevisionNumber?: number,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsArticleVersionCheckpointPage>> {
+  const query = beforeRevisionNumber === undefined ? "" : `?before=${beforeRevisionNumber}`;
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/versions/${encodeURIComponent(versionId)}/checkpoints${query}`,
+    { method: "GET" },
+    options
+  );
+  if (!result.ok) return result;
+  if (
+    !isRecord(result.value) ||
+    !Array.isArray(result.value.checkpoints) ||
+    !(result.value.nextBeforeRevisionNumber === null || isNonnegativeInteger(result.value.nextBeforeRevisionNumber))
+  ) return invalidResponse(result.status);
+  const checkpoints = result.value.checkpoints.map(parseCmsArticleVersionCheckpoint);
+  return checkpoints.every((checkpoint): checkpoint is CmsArticleVersionCheckpoint => checkpoint !== null)
+    ? {
+        ok: true,
+        value: {
+          checkpoints,
+          nextBeforeRevisionNumber: result.value.nextBeforeRevisionNumber
+        }
+      }
+    : invalidResponse(result.status);
+}
+
 export async function fetchCmsMembers(
   options: CmsRequestOptions = {}
 ): Promise<CmsClientResult<CmsMember[]>> {
@@ -143,10 +223,11 @@ export async function upsertCmsMember(
 
 export async function createCmsArticle(
   content: CmsArticleContent,
-  options: CmsRequestOptions = {}
+  options: CmsRequestOptions = {},
+  revisionContext?: Pick<CmsRevisionWriteContext, "editSessionId">
 ): Promise<CmsClientResult<CmsArticleDetail>> {
   const result = await cmsRequest(CMS_ARTICLES_PATH, {
-    body: JSON.stringify(content),
+    body: JSON.stringify({ ...content, ...revisionContext }),
     headers: { "content-type": "application/json" },
     method: "POST"
   }, options);
@@ -157,10 +238,11 @@ export async function updateCmsArticle(
   articleId: string,
   expectedVersion: number,
   content: CmsArticleContent,
-  options: CmsRequestOptions = {}
+  options: CmsRequestOptions = {},
+  revisionContext?: CmsRevisionWriteContext
 ): Promise<CmsClientResult<CmsArticleDetail>> {
   const result = await cmsRequest(`${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}`, {
-    body: JSON.stringify({ ...content, expectedVersion }),
+    body: JSON.stringify({ ...content, ...revisionContext, expectedVersion }),
     headers: {
       "content-type": "application/json",
       "if-match": cmsEtag(expectedVersion)
@@ -398,6 +480,105 @@ function parseCmsArticleDetail(value: unknown): CmsArticleDetail | null {
     publishedSlug: value.publishedSlug,
     publishedVisibility: publishedVisibility.data,
     reviewNote: value.reviewNote
+  };
+}
+
+function parseCmsArticleVersionSummary(value: unknown): CmsArticleVersionSummary | null {
+  if (!isRecord(value)) return null;
+  const reason = cmsRevisionSaveReasonSchema.safeParse(value.reason);
+  if (
+    !reason.success ||
+    !isNonnegativeInteger(value.checkpointCount) ||
+    !isString(value.createdAt) ||
+    !isString(value.createdByEmail) ||
+    !isNonnegativeInteger(value.firstRevisionNumber) ||
+    !isString(value.id) ||
+    !isBoolean(value.isApproved) ||
+    !isBoolean(value.isCurrent) ||
+    !isBoolean(value.isPublished) ||
+    !isString(value.latestRevisionId) ||
+    !isNonnegativeInteger(value.latestRevisionNumber) ||
+    !(value.sourceRevisionId === null || isString(value.sourceRevisionId)) ||
+    !isString(value.updatedAt)
+  ) return null;
+  return {
+    checkpointCount: value.checkpointCount,
+    createdAt: value.createdAt,
+    createdByEmail: value.createdByEmail,
+    firstRevisionNumber: value.firstRevisionNumber,
+    id: value.id,
+    isApproved: value.isApproved,
+    isCurrent: value.isCurrent,
+    isPublished: value.isPublished,
+    latestRevisionId: value.latestRevisionId,
+    latestRevisionNumber: value.latestRevisionNumber,
+    reason: reason.data,
+    sourceRevisionId: value.sourceRevisionId,
+    updatedAt: value.updatedAt
+  };
+}
+
+function parseCmsArticleVersionDetail(value: unknown): CmsArticleVersionDetail | null {
+  if (!isRecord(value) || !isRecord(value.revision)) return null;
+  const reason = cmsRevisionSaveReasonSchema.safeParse(value.reason);
+  const frontmatter = cmsDraftFrontmatterSchema.safeParse(value.revision.frontmatter);
+  const visibility = value.visibility === null
+    ? { data: null, success: true } as const
+    : cmsVisibilitySchema.safeParse(value.visibility);
+  if (
+    !reason.success ||
+    !frontmatter.success ||
+    !visibility.success ||
+    !isBoolean(value.isApproved) ||
+    !isBoolean(value.isCurrent) ||
+    !isBoolean(value.isPublished) ||
+    !(value.sourceRevisionId === null || isString(value.sourceRevisionId)) ||
+    !isString(value.revision.createdAt) ||
+    !isString(value.revision.createdByEmail) ||
+    !isString(value.revision.id) ||
+    !isString(value.revision.markdown) ||
+    !isNonnegativeInteger(value.revision.number)
+  ) return null;
+  return {
+    isApproved: value.isApproved,
+    isCurrent: value.isCurrent,
+    isPublished: value.isPublished,
+    reason: reason.data,
+    revision: {
+      createdAt: value.revision.createdAt,
+      createdByEmail: value.revision.createdByEmail,
+      frontmatter: frontmatter.data,
+      id: value.revision.id,
+      markdown: value.revision.markdown,
+      number: value.revision.number
+    },
+    sourceRevisionId: value.sourceRevisionId,
+    visibility: visibility.data
+  };
+}
+
+function parseCmsArticleVersionCheckpoint(value: unknown): CmsArticleVersionCheckpoint | null {
+  if (!isRecord(value)) return null;
+  const reason = cmsRevisionSaveReasonSchema.safeParse(value.reason);
+  if (
+    !reason.success ||
+    !isString(value.createdAt) ||
+    !isString(value.createdByEmail) ||
+    !isString(value.id) ||
+    !isBoolean(value.isApproved) ||
+    !isBoolean(value.isCurrent) ||
+    !isBoolean(value.isPublished) ||
+    !isNonnegativeInteger(value.number)
+  ) return null;
+  return {
+    createdAt: value.createdAt,
+    createdByEmail: value.createdByEmail,
+    id: value.id,
+    isApproved: value.isApproved,
+    isCurrent: value.isCurrent,
+    isPublished: value.isPublished,
+    number: value.number,
+    reason: reason.data
   };
 }
 

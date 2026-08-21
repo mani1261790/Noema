@@ -131,6 +131,98 @@ describe("CMS HTTP API", () => {
     expect(revisionCount).toBe(2);
   });
 
+  it("returns grouped version history and immutable revision details", async () => {
+    await bootstrapAdmin();
+    const editSessionId = "33333333-3333-4333-8333-333333333333";
+    const createResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/articles", {
+        body: JSON.stringify({ ...validArticle("history-api"), editSessionId }),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const created = (await createResponse.json()) as { article: CmsArticleDetail };
+    const updateResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}`, {
+        body: JSON.stringify({
+          ...validArticle("history-api"),
+          editSessionId,
+          expectedVersion: created.article.lockVersion,
+          markdown: "## 履歴API\n\n自動保存した内容です。",
+          saveReason: "autosave"
+        }),
+        headers: {
+          "content-type": "application/json",
+          "if-match": `"cms-v${created.article.lockVersion}"`
+        },
+        method: "PUT"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(updateResponse.status).toBe(200);
+
+    const historyResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions`),
+      cmsEnv(),
+      ADMIN
+    );
+    const history = (await historyResponse.json()) as {
+      versions: Array<{ checkpointCount: number; latestRevisionId: string }>;
+    };
+    expect(historyResponse.status).toBe(200);
+    expect(history.versions).toHaveLength(1);
+    expect(history.versions[0]?.checkpointCount).toBe(2);
+
+    const checkpointsResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints`),
+      cmsEnv(),
+      ADMIN
+    );
+    const checkpoints = (await checkpointsResponse.json()) as {
+      checkpoints: Array<{ number: number }>;
+      nextBeforeRevisionNumber: number | null;
+    };
+    expect(checkpointsResponse.status).toBe(200);
+    expect(checkpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([2, 1]);
+    expect(checkpoints.nextBeforeRevisionNumber).toBeNull();
+
+    const olderCheckpointsResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints?before=2`),
+      cmsEnv(),
+      ADMIN
+    );
+    const olderCheckpoints = (await olderCheckpointsResponse.json()) as {
+      checkpoints: Array<{ number: number }>;
+    };
+    expect(olderCheckpointsResponse.status).toBe(200);
+    expect(olderCheckpoints.checkpoints.map((checkpoint) => checkpoint.number)).toEqual([1]);
+
+    const invalidCursorResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${editSessionId}/checkpoints?before=99999999999999999999`),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(invalidCursorResponse.status).toBe(400);
+
+    const detailResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/versions/${history.versions[0]?.latestRevisionId}`),
+      cmsEnv(),
+      ADMIN
+    );
+    const detail = (await detailResponse.json()) as {
+      version: { reason: string; revision: { markdown: string }; visibility: string };
+    };
+    expect(detailResponse.status).toBe(200);
+    expect(detail.version).toMatchObject({
+      reason: "autosave",
+      visibility: "internal"
+    });
+    expect(detail.version.revision.markdown).toContain("自動保存した内容");
+  });
+
   it("enforces role permissions at the API boundary", async () => {
     await bootstrapAdmin();
     const invitation = await handleCmsApiRequest(

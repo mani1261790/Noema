@@ -126,6 +126,8 @@ Blog WorkerはD1のpublished revisionをruntimeでMarkdownからHTMLへ変換し
 
 Studioは最初に記事ライブラリを表示し、タイトル・スラッグ・更新者の検索と状態フィルターから既存記事を開けます。記事行の「編集する」から再編集し、編集画面の「記事一覧へ」で戻ります。新規記事は最初の明示的なCMS保存で作成し、既存記事は編集後約1.2秒で自動保存します。ブラウザの`localStorage`にも復旧コピーを保存します。CMS未保存の新規原稿は記事一覧と分離し、既存記事の復旧コピーは記事IDとlock versionを保持して再読込後も同じCMS記事へ再接続します。記事IDを持たない旧形式の復旧原稿は、元記事への引き継ぎか新規記事かを明示的に選ぶまでCMSへ保存しません。共有・レビュー・公開の正本はD1です。
 
+記事revisionは保存ごとにD1へ不変のcheckpointとして残し、Studioの「版の履歴」では同じ編集セッションの自動保存を1版にまとめます。30分以上の中断、手動保存、競合解消、復元、workflow操作を版の境界にします。版内の自動保存も展開して任意の保存時点を選べます。過去版の復元は既存revisionやpublished revisionを動かさず、選択した内容を未保存の編集状態へ戻し、次の保存で復元元を記録した新しいrevisionを作ります。
+
 CMS内部では変更されないUUIDで記事を識別し、公開URLには人が読めるスラッグを使用します。旧GitHub記事とUI確認用fixtureは記事ライブラリへ自動移行されません。詳しい再編集手順と移行境界は[Studio・CMS・ブログ接続ガイド](../docs/studio-blog-connectivity.md#保存済みの記事を再編集する)を参照してください。
 
 画面幅にかかわらず、本文・プレビュー・設定をキーボード操作可能なタブで1ペインずつ表示します。本文を最初に置き、公開範囲、分類、画像、参考資料、管理操作は必要な時だけ開きます。保存、review状態、publication状態、公開中revision、公開範囲を色と文章で示します。入力と本文は16px以上、プレビュー本文は17pxとし、すべての主要タッチ対象を44px以上にします。
@@ -155,12 +157,17 @@ Studio Workerは`/api/*`を静的SPAより先に処理し、現行CMS APIを`/ap
 - `POST /api/cms/articles`: 新規記事とrevisionを作成
 - `GET /api/cms/articles/{id}`: current revisionを取得
 - `PUT /api/cms/articles/{id}`: `If-Match`付きで新revisionを保存
-- `POST /api/cms/articles/{id}/actions`: レビュー依頼、承認、修正依頼、公開、保管、復元
+- `GET /api/cms/articles/{id}/versions`: 編集セッション単位の版一覧を取得
+- `GET /api/cms/articles/{id}/versions/{revisionId}`: 保存したrevisionの内容を取得
+- `GET /api/cms/articles/{id}/versions/{versionId}/checkpoints`: 版内の保存時点を取得
+- `POST /api/cms/articles/{id}/actions`: レビュー依頼、承認、修正依頼、公開、保管、保管解除
 - `GET /api/cms/members`: 管理者向けメンバー一覧
 - `PUT /api/cms/members`: 管理者向け招待・role・有効状態の更新
 - その他の`/api/*`: JSONの404を返し、StudioのHTMLへフォールバックしない
 
 Mutationは固定Studio origin、検証済みAccess principal、CMS role、JSON media type、streaming byte上限、strict schemaをserver側で検証します。CMS responseは`private, no-store`です。
+
+過去revisionからの復元はaction endpointで直接状態を巻き戻しません。選択した内容を編集画面へ戻し、次の`PUT /api/cms/articles/{id}`で復元元revision ID付きの新revisionとして記録します。
 
 `wrangler.jsonc`の`ACCESS_TEAM_DOMAIN`、`ACCESS_POLICY_AUD`、`STUDIO_ALLOWED_ORIGIN`は、`studio.noema-learn.uk`を保護するCloudflare Access applicationと本人限定policyに対応するreview可能なproduction設定です。Studioはcustom domainだけで公開し、`workers.dev`とpreview URLを無効化します。
 
