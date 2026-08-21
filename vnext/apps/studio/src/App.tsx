@@ -99,6 +99,7 @@ import {
   CmsConflictResolver,
   type ResolvedCmsConflictDraft
 } from "./CmsConflictResolver";
+import { mergeCmsDraftOntoLatest, type CmsDraftContent } from "./cms-conflict";
 import {
   StudioNotification,
   type StudioNotificationMessage
@@ -669,6 +670,7 @@ export function App() {
     initialCmsRecoverySaveState(initialState.cmsReference)
   );
   const [cmsConflict, setCmsConflict] = useState(false);
+  const [cmsConflictResolverOpen, setCmsConflictResolverOpen] = useState(false);
   const [cmsConflictLatestState, setCmsConflictLatestState] = useState<CmsConflictLatestState>({ kind: "idle" });
   const [cmsConflictRefresh, setCmsConflictRefresh] = useState(0);
   const [cmsOperationBusy, setCmsOperationBusy] = useState(false);
@@ -739,6 +741,7 @@ export function App() {
       setCmsConflictLatestState({ kind: "idle" });
       return;
     }
+    if (!cmsConflictResolverOpen) return;
     const controller = new AbortController();
     setCmsConflictLatestState({ kind: "loading" });
     void fetchCmsArticle(cmsArticle.id, { signal: controller.signal }).then((result) => {
@@ -748,7 +751,7 @@ export function App() {
         : { error: result.error, kind: "error" });
     });
     return () => controller.abort();
-  }, [cmsArticle?.id, cmsConflict, cmsConflictRefresh]);
+  }, [cmsArticle?.id, cmsConflict, cmsConflictRefresh, cmsConflictResolverOpen]);
   const closeAssetTray = useCallback(() => {
     setAssetTrayOpen(false);
     window.requestAnimationFrame(() => assetTrigger.current?.focus());
@@ -1019,11 +1022,7 @@ export function App() {
             }
       });
       if (recovery.conflict) {
-        showNotification({
-          text: "元の記事は別の編集者によって更新されています。入力内容は保持しました。",
-          title: "同時編集を検出しました",
-          tone: "error"
-        });
+        setOperationMessage(null);
       } else if (keepAutosavePaused) {
         showNotification({
           text: `「${article.title || "無題の記事"}」へ再接続しました。内容を確認し、「保存」でCMSへ反映してください。`,
@@ -1166,6 +1165,7 @@ export function App() {
     setCmsSaveState(preservedInputHasChanges ? "dirty" : "saved");
     setCmsAutosavePaused(manualSaveRequired);
     setCmsConflict(false);
+    setCmsConflictResolverOpen(false);
     setCmsRecoveryReference(null);
     setCmsAssociationRequired(false);
     setHasRecoveryDraft(false);
@@ -1294,9 +1294,16 @@ export function App() {
       snapshot.body,
       snapshot.visibility
     );
+    let savedDraft: CmsDraftContent = {
+      body: snapshot.body,
+      frontmatter: draftFrontmatter,
+      visibility: snapshot.visibility
+    };
+    let savedReason = revisionContext.saveReason;
+    let automaticallyMerged = false;
     cmsSaveInFlight.current = true;
     setCmsSaveState("saving");
-    const result = cmsArticle
+    let result = cmsArticle
       ? await updateCmsArticleRecord(
           cmsArticle.id,
           cmsArticle.lockVersion,
@@ -1314,16 +1321,109 @@ export function App() {
           visibility: snapshot.visibility
         }, {}, { editSessionId: editSession.current.id });
 
+    if (!result.ok && result.error.code === "revision_conflict" && cmsArticle) {
+      const baseArticle = cmsArticle;
+      const latestResult = await fetchCmsArticle(baseArticle.id);
+      if (latestResult.ok) {
+        const latestArticle = latestResult.value;
+        const merge = mergeCmsDraftOntoLatest({
+          base: {
+            body: baseArticle.currentRevision.markdown,
+            frontmatter: { ...baseArticle.currentRevision.frontmatter, status: "draft" },
+            visibility: baseArticle.visibility
+          },
+          latest: {
+            body: latestArticle.currentRevision.markdown,
+            frontmatter: { ...latestArticle.currentRevision.frontmatter, status: "draft" },
+            visibility: latestArticle.visibility
+          },
+          local: savedDraft
+        });
+
+        if (merge.kind === "merged") {
+          savedDraft = {
+            ...merge.draft,
+            frontmatter: { ...merge.draft.frontmatter, status: "draft" }
+          };
+          savedReason = "conflict_resolution";
+          automaticallyMerged = true;
+          result = await updateCmsArticleRecord(
+            latestArticle.id,
+            latestArticle.lockVersion,
+            {
+              frontmatter: savedDraft.frontmatter,
+              markdown: savedDraft.body,
+              visibility: savedDraft.visibility
+            },
+            {},
+            { ...revisionContext, saveReason: "conflict_resolution" }
+          );
+        } else {
+          const latestFingerprint = cmsContentFingerprint(
+            { ...latestArticle.currentRevision.frontmatter, status: "draft" },
+            latestArticle.currentRevision.markdown,
+            latestArticle.visibility
+          );
+          setCmsArticle(latestArticle);
+          setFrontmatter({ ...merge.draft.frontmatter, status: "draft" });
+          setBody(merge.draft.body);
+          setCmsVisibility(merge.draft.visibility);
+          setLastCmsFingerprint(latestFingerprint);
+          setCmsConflict(true);
+          setCmsConflictResolverOpen(false);
+          setCmsConflictLatestState({ article: latestArticle, kind: "ready" });
+          setCmsSaveState("conflict");
+          setCmsAutosavePaused(true);
+          setCmsRecoveryReference({
+            autosavePaused: true,
+            id: latestArticle.id,
+            lockVersion: baseArticle.lockVersion,
+            visibility: merge.draft.visibility
+          });
+          updateCmsArticleList(latestArticle);
+          saveDraft(storage, {
+            frontmatter: merge.draft.frontmatter,
+            body: merge.draft.body,
+            cmsArticle: {
+              autosavePaused: true,
+              id: latestArticle.id,
+              lockVersion: baseArticle.lockVersion,
+              visibility: merge.draft.visibility
+            }
+          });
+          cmsSaveInFlight.current = false;
+          setOperationMessage(null);
+          return null;
+        }
+      }
+    }
+
     cmsSaveInFlight.current = false;
     if (!result.ok) {
       if (result.error.code === "revision_conflict") {
         setCmsConflict(true);
+        setCmsConflictResolverOpen(false);
         setCmsSaveState("conflict");
-        showNotification({
-          text: "別の編集者がこの記事を更新しました。入力中の内容は保持しています。",
-          title: "同時編集を検出しました",
-          tone: "error"
-        });
+        setCmsAutosavePaused(true);
+        if (cmsArticle) {
+          setCmsRecoveryReference({
+            autosavePaused: true,
+            id: cmsArticle.id,
+            lockVersion: cmsArticle.lockVersion,
+            visibility: snapshot.visibility
+          });
+          saveDraft(storage, {
+            frontmatter: draftFrontmatter,
+            body: snapshot.body,
+            cmsArticle: {
+              autosavePaused: true,
+              id: cmsArticle.id,
+              lockVersion: cmsArticle.lockVersion,
+              visibility: snapshot.visibility
+            }
+          });
+        }
+        setOperationMessage(null);
       } else {
         setCmsSaveState("error");
         showNotification({ text: result.error.message, tone: "error" });
@@ -1331,34 +1431,86 @@ export function App() {
       return null;
     }
 
+    const savedFingerprint = cmsContentFingerprint(
+      savedDraft.frontmatter,
+      savedDraft.body,
+      savedDraft.visibility
+    );
+    const current = cmsContentRef.current;
+    const currentFingerprint = cmsContentFingerprint(
+      current.frontmatter,
+      current.body,
+      current.visibility
+    );
+    let visibleDraft = current;
+    let hasNewerLocalChanges = currentFingerprint !== snapshotFingerprint;
+    let needsFollowupReview = false;
+    if (automaticallyMerged) {
+      if (hasNewerLocalChanges) {
+        const followup = mergeCmsDraftOntoLatest({
+          base: {
+            body: snapshot.body,
+            frontmatter: draftFrontmatter,
+            visibility: snapshot.visibility
+          },
+          latest: savedDraft,
+          local: current
+        });
+        visibleDraft = followup.draft;
+        needsFollowupReview = followup.kind === "conflict";
+        hasNewerLocalChanges = true;
+      } else {
+        visibleDraft = savedDraft;
+      }
+      setFrontmatter({ ...visibleDraft.frontmatter, status: "draft" });
+      setBody(visibleDraft.body);
+      setCmsVisibility(visibleDraft.visibility);
+    }
+
     setCmsArticle(result.value);
-    setCmsRecoveryReference(null);
+    setCmsRecoveryReference(needsFollowupReview ? {
+      autosavePaused: true,
+      id: result.value.id,
+      lockVersion: result.value.lockVersion,
+      visibility: visibleDraft.visibility
+    } : null);
     setCmsAssociationRequired(false);
-    setCmsAutosavePaused(false);
+    setCmsAutosavePaused(needsFollowupReview);
     setHasRecoveryDraft(false);
+    setCmsConflict(needsFollowupReview);
+    setCmsConflictResolverOpen(false);
+    setCmsConflictLatestState(needsFollowupReview
+      ? { article: result.value, kind: "ready" }
+      : { kind: "idle" });
     updateCmsArticleList(result.value);
-    setLastCmsFingerprint(snapshotFingerprint);
-    const latest = cmsContentRef.current;
+    setLastCmsFingerprint(savedFingerprint);
     saveDraft(storage, {
-      frontmatter: latest.frontmatter,
-      body: latest.body,
+      frontmatter: visibleDraft.frontmatter,
+      body: visibleDraft.body,
       cmsArticle: {
+        ...(needsFollowupReview ? { autosavePaused: true as const } : {}),
         id: result.value.id,
         lockVersion: result.value.lockVersion,
-        visibility: latest.visibility
+        visibility: visibleDraft.visibility
       }
     });
-    const hasNewerLocalChanges = cmsContentFingerprint(
-      latest.frontmatter,
-      latest.body,
-      latest.visibility
-    ) !== snapshotFingerprint;
-    setCmsSaveState(hasNewerLocalChanges ? "dirty" : "saved");
+    setCmsSaveState(needsFollowupReview ? "conflict" : hasNewerLocalChanges ? "dirty" : "saved");
     editSession.current = completeCmsEditSessionSave(
       editSession.current,
-      revisionContext.saveReason
+      savedReason
     );
     pendingRevisionReason.current = null;
+    if (automaticallyMerged) {
+      if (needsFollowupReview) {
+        setOperationMessage(null);
+      } else showNotification({
+        text: hasNewerLocalChanges
+          ? "CMS最新版へ統合しました。保存中に続けた入力は次の自動保存で反映します。"
+          : `CMS revision ${result.value.revisionNumber}として自動統合しました。`,
+        title: "CMS最新版へ反映しました",
+        tone: "info"
+      });
+    }
     return result.value;
   }, [cmsArticle, cmsAssociationRequired, cmsConflict, cmsRecoveryReference, cmsSessionState, editorLocked, showNotification, storage, updateCmsArticleList]);
 
@@ -1396,6 +1548,7 @@ export function App() {
     setLastCmsFingerprint(null);
     setCmsSaveState("local");
     setCmsConflict(false);
+    setCmsConflictResolverOpen(false);
     editSession.current = createCmsEditSession();
     pendingRevisionReason.current = null;
     setPublicationIssues([]);
@@ -1440,6 +1593,7 @@ export function App() {
     editSession.current = createCmsEditSession();
     pendingRevisionReason.current = { reason: "conflict_resolution" };
     setCmsConflict(false);
+    setCmsConflictResolverOpen(false);
     setCmsConflictLatestState({ kind: "idle" });
     setCmsRecoveryReference(null);
     setCmsAssociationRequired(false);
@@ -1471,6 +1625,7 @@ export function App() {
       `ブラウザ側の入力を破棄してCMS revision ${article.revisionNumber}を開きますか？ 必要なら先にMarkdownを書き出してください。`
     )) return;
     applyCmsArticle(article);
+    setCmsConflictResolverOpen(false);
     setCmsConflictLatestState({ kind: "idle" });
     showNotification({
       text: `CMS revision ${article.revisionNumber}を開きました。`,
@@ -1576,9 +1731,77 @@ export function App() {
         });
       }
     } else if (result.error.code === "revision_conflict") {
-      setCmsConflict(true);
-      setCmsSaveState("conflict");
-      showNotification({ text: "別の編集者が記事を更新しました。入力中の内容は保持しています。", title: "同時編集を検出しました", tone: "error" });
+      const latestResult = await fetchCmsArticle(target.id);
+      if (latestResult.ok) {
+        const latestArticle = latestResult.value;
+        const current = cmsContentRef.current;
+        const merge = mergeCmsDraftOntoLatest({
+          base: {
+            body: target.currentRevision.markdown,
+            frontmatter: { ...target.currentRevision.frontmatter, status: "draft" },
+            visibility: target.visibility
+          },
+          latest: {
+            body: latestArticle.currentRevision.markdown,
+            frontmatter: { ...latestArticle.currentRevision.frontmatter, status: "draft" },
+            visibility: latestArticle.visibility
+          },
+          local: current
+        });
+        const latestFingerprint = cmsContentFingerprint(
+          { ...latestArticle.currentRevision.frontmatter, status: "draft" },
+          latestArticle.currentRevision.markdown,
+          latestArticle.visibility
+        );
+        const mergedFingerprint = cmsContentFingerprint(
+          merge.draft.frontmatter,
+          merge.draft.body,
+          merge.draft.visibility
+        );
+        setCmsArticle(latestArticle);
+        setFrontmatter({ ...merge.draft.frontmatter, status: "draft" });
+        setBody(merge.draft.body);
+        setCmsVisibility(merge.draft.visibility);
+        setLastCmsFingerprint(latestFingerprint);
+        updateCmsArticleList(latestArticle);
+        setCmsConflict(merge.kind === "conflict");
+        setCmsConflictResolverOpen(false);
+        setCmsConflictLatestState(merge.kind === "conflict"
+          ? { article: latestArticle, kind: "ready" }
+          : { kind: "idle" });
+        setCmsAutosavePaused(merge.kind === "conflict");
+        setCmsRecoveryReference(merge.kind === "conflict" ? {
+          autosavePaused: true,
+          id: latestArticle.id,
+          lockVersion: target.lockVersion,
+          visibility: merge.draft.visibility
+        } : null);
+        setCmsSaveState(merge.kind === "conflict"
+          ? "conflict"
+          : mergedFingerprint === latestFingerprint ? "saved" : "dirty");
+        saveDraft(storage, {
+          frontmatter: merge.draft.frontmatter,
+          body: merge.draft.body,
+          cmsArticle: {
+            ...(merge.kind === "conflict" ? { autosavePaused: true as const } : {}),
+            id: latestArticle.id,
+            lockVersion: merge.kind === "conflict" ? target.lockVersion : latestArticle.lockVersion,
+            visibility: merge.draft.visibility
+          }
+        });
+        if (merge.kind === "conflict") setOperationMessage(null);
+        else showNotification({
+          text: "CMS最新版へ更新しました。内容を確認してから、ワークフロー操作をもう一度選んでください。",
+          title: "最新版を反映しました",
+          tone: "info"
+        });
+      } else {
+        setCmsConflict(true);
+        setCmsConflictResolverOpen(false);
+        setCmsSaveState("conflict");
+        setCmsAutosavePaused(true);
+        setOperationMessage(null);
+      }
     } else {
       if (result.error.issues) {
         setPublicationIssues(normalizeReviewIssues(result.error.issues));
@@ -1680,6 +1903,14 @@ export function App() {
   const closeVersionHistory = () => {
     setVersionHistoryOpen(false);
     window.requestAnimationFrame(() => versionHistoryTrigger.current?.focus());
+  };
+
+  const openVersionHistory = async () => {
+    if (cmsDirty && !cmsAutosavePaused && !cmsConflict) {
+      const saved = await saveCmsDraft("manual");
+      if (!saved) return;
+    }
+    setVersionHistoryOpen(true);
   };
 
   const restoreCmsVersion = (version: CmsArticleVersionDetail) => {
@@ -1906,7 +2137,7 @@ export function App() {
     recoveryArticleSummary?.lockVersion ?? null
   );
   const cmsSaveLabel: Record<CmsSaveState, string> = {
-    conflict: "保存競合・入力内容を保持中",
+    conflict: "最新版と要確認・入力内容を保護中",
     dirty: "未保存の変更あり",
     error: "CMS保存に失敗",
     local: "新規原稿・未登録",
@@ -1921,10 +2152,10 @@ export function App() {
     ? {
         text: studioView !== "editor"
           ? recoveryNeedsConflictCheck
-            ? `「${cmsWorkingArticleTitle}」はCMS側でも更新されています。競合を確認し、必要な内容を選んで解消してください。`
+            ? `「${cmsWorkingArticleTitle}」にはCMS側の新しい変更があります。編集画面で最新版への反映を続けてください。`
             : `「${cmsWorkingArticleTitle}」の未反映内容があります。CMS最新版と比較して編集を再開できます。`
           : cmsConflict
-          ? `「${cmsWorkingArticleTitle}」は別の編集者による更新と競合しています。入力内容はブラウザに保持しています。`
+          ? `「${cmsWorkingArticleTitle}」には同じ箇所への変更があります。入力内容はブラウザに保持しています。`
           : cmsSaveState === "error"
             ? `「${cmsWorkingArticleTitle}」を元のCMS記事へ再接続できません。入力内容はブラウザに保持しています。`
             : `「${cmsWorkingArticleTitle}」を元のCMS記事へ再接続しています。`,
@@ -1939,7 +2170,7 @@ export function App() {
             : effectiveCmsSaveState === "saving"
               ? `「${cmsWorkingArticleTitle}」をCMSへ保存しています。`
               : effectiveCmsSaveState === "conflict"
-                ? `「${cmsWorkingArticleTitle}」は別の編集者による更新と競合しています。入力内容はブラウザに保持しています。`
+                ? `「${cmsWorkingArticleTitle}」には確認が必要な変更があります。入力内容はブラウザに保持しています。`
                 : `「${cmsWorkingArticleTitle}」をCMSへ保存できませんでした。入力内容はブラウザに保持しています。`,
           tone: ["error", "conflict"].includes(effectiveCmsSaveState) ? "error" : "info"
         }
@@ -2024,7 +2255,7 @@ export function App() {
 
   return (
     <div className="studio-shell">
-      {studioView === "editor" && !versionHistoryOpen ? (
+      {studioView === "editor" && !versionHistoryOpen && !cmsConflictResolverOpen ? (
         <div className="studio-editor-toolbar" aria-label="記事編集の操作" role="group">
           <a
             className="dads-button studio-library-shortcut"
@@ -2106,6 +2337,30 @@ export function App() {
         </div>
       ) : null}
 
+      {studioView === "editor" && cmsConflict && !cmsConflictResolverOpen && !versionHistoryOpen ? (
+        <section aria-labelledby="studio-conflict-notice-heading" className="studio-conflict-notice" role="alert">
+          <div>
+            <p className="studio-conflict-notice__eyebrow">入力内容は保護されています</p>
+            <h2 id="studio-conflict-notice-heading">CMSに新しい変更があります</h2>
+            <p>CMS最新版を確認し、自動で重ねられない箇所だけ保存を止めています。編集を続けることはできます。</p>
+          </div>
+          <div className="studio-conflict-notice__actions">
+            <button
+              className="dads-button"
+              data-size="md"
+              data-type="solid-fill"
+              onClick={() => setCmsConflictResolverOpen(true)}
+              type="button"
+            >
+              重なった変更を確認
+            </button>
+            <button className="dads-button" data-size="md" data-type="outline" onClick={downloadRecoveryCopy} type="button">
+              Markdownを書き出す <Icon name="download" />
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {studioView !== "editor" ? (
         <nav aria-label="Studioの主要機能" className="studio-primary-nav">
           <strong>Noema Studio</strong>
@@ -2159,8 +2414,8 @@ export function App() {
           recoveryTitle={frontmatter.title}
           workingArticleActionLabel={cmsRecoveryReference
             ? recoveryNeedsConflictCheck
-              ? "競合を確認・解消"
-              : "CMS最新版と比較"
+              ? "最新版への反映を続ける"
+              : "編集を再開"
             : "編集画面に戻る"}
           workingArticleStatus={cmsLibraryWorkingStatus}
         />
@@ -2210,7 +2465,7 @@ export function App() {
           </div>
         </section>
       ) : null}
-      {cmsConflict && cmsArticle ? (
+      {cmsConflict && cmsConflictResolverOpen && cmsArticle ? (
         <CmsConflictResolver
           busy={cmsOperationBusy}
           latestState={cmsConflictLatestState.kind === "ready"
@@ -2221,6 +2476,7 @@ export function App() {
           localBody={body}
           localFrontmatter={frontmatter}
           localVisibility={cmsVisibility}
+          onBack={() => setCmsConflictResolverOpen(false)}
           onDownload={downloadRecoveryCopy}
           onResolve={applyConflictResolution}
           onRetry={() => setCmsConflictRefresh((current) => current + 1)}
@@ -2237,7 +2493,7 @@ export function App() {
       ) : null}
       <main
         className="studio-workspace"
-        hidden={(cmsConflict && cmsArticle !== null) || versionHistoryOpen}
+        hidden={cmsConflictResolverOpen || versionHistoryOpen}
         style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
       >
         <h1 className="sr-only">Noema Studio 記事エディター</h1>
@@ -2310,11 +2566,11 @@ export function App() {
                 className="dads-button studio-cms__history-button"
                 data-size="md"
                 data-type="outline"
-                onClick={() => setVersionHistoryOpen(true)}
+                onClick={() => void openVersionHistory()}
                 ref={versionHistoryTrigger}
                 type="button"
               >
-                版の履歴を見る
+                履歴と復元を見る
               </button>
             ) : null}
 

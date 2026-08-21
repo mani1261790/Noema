@@ -140,6 +140,7 @@ a {
 }
 
 .studio-editor-toolbar .dads-button,
+.studio-conflict-notice .dads-button,
 .studio-library .dads-button,
 .studio-assets .dads-button,
 .studio-settings .dads-button,
@@ -155,6 +156,45 @@ a {
   justify-content: center;
   gap: .5rem;
   text-decoration: none;
+}
+
+.studio-conflict-notice {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem 1rem;
+  color: #3d2a00;
+  background: #fff7d6;
+  border-bottom: 2px solid #8a5b00;
+}
+
+.studio-conflict-notice h2,
+.studio-conflict-notice p {
+  margin: 0;
+}
+
+.studio-conflict-notice h2 {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.studio-conflict-notice p {
+  line-height: 1.6;
+}
+
+.studio-conflict-notice__eyebrow {
+  color: #6d4c00;
+  font-size: calc(13 / 16 * 1rem);
+  font-weight: 700;
+}
+
+.studio-conflict-notice__actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: .5rem;
 }
 
 .studio-notification {
@@ -174,7 +214,12 @@ a {
   box-shadow: 0 12px 32px rgb(0 0 0 / .18);
   font-size: calc(14 / 16 * 1rem);
   line-height: 1.5;
+  pointer-events: none;
   animation: studio-notification-enter 180ms ease-out;
+}
+
+.studio-notification button {
+  pointer-events: auto;
 }
 
 .studio-notification.is-info {
@@ -1214,6 +1259,33 @@ a {
   gap: 1.25rem;
   width: min(100%, 78rem);
   margin-inline: auto;
+}
+
+.studio-version-history__quick-restore {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(100%, 78rem);
+  margin: 0 auto 1rem;
+  padding: .85rem 1rem;
+  color: #1a1a1a;
+  background: #f1f6fb;
+  border: 1px solid #005ea8;
+}
+
+.studio-version-history__quick-restore h3,
+.studio-version-history__quick-restore p {
+  margin: 0;
+}
+
+.studio-version-history__quick-restore h3 {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.studio-version-history__quick-restore p {
+  line-height: 1.6;
 }
 
 .studio-version-history .dads-button {
@@ -3472,6 +3544,22 @@ textarea.studio-control {
 }
 
 @media (max-width: 640px) {
+  .studio-conflict-notice,
+  .studio-version-history__quick-restore {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-conflict-notice__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-conflict-notice .dads-button,
+  .studio-version-history__quick-restore .dads-button {
+    width: 100%;
+  }
+
   .studio-version-history {
     padding: 1rem;
   }
