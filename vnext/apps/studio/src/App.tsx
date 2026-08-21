@@ -105,7 +105,7 @@ import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney } from "./CmsPublicationJourney";
 import { CmsVersionHistory } from "./CmsVersionHistory";
 import { CmsTeamSettings } from "./CmsTeamSettings";
-import { CmsSeriesManager } from "./CmsSeriesManager";
+import { CmsArticleSeriesEditor } from "./CmsArticleSeriesEditor";
 import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
 import { CmsLogin } from "./CmsLogin";
 import {
@@ -650,7 +650,7 @@ export function App() {
   const [studioView, setStudioView] = useState<StudioView>(initialStudioView);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsMode, setSettingsMode] = useState<StudioSettingsMode>("metadata");
-  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(true);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [saveStatus, setSaveStatus] = useState(initialState.saveStatus);
   const [operationMessage, setOperationMessage] = useState<StudioNotificationMessage | null>(initialState.message);
@@ -1143,16 +1143,6 @@ export function App() {
     setAssetTrayOpen(false);
   };
 
-  const showSeriesLibrary = () => {
-    setOperationMessage(null);
-    if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
-    pendingViewFocus.current = "studio-series-heading";
-    changeStudioView("series");
-    setSettingsOpen(false);
-    setPreviewFullscreen(false);
-    setAssetTrayOpen(false);
-  };
-
   const showTeamSettings = () => {
     setOperationMessage(null);
     if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
@@ -1190,8 +1180,6 @@ export function App() {
       setAssetTrayOpen(false);
       pendingViewFocus.current = nextView === "articles"
         ? "studio-article-library-heading"
-        : nextView === "series"
-          ? "studio-series-heading"
         : nextView === "assets"
           ? "studio-asset-library-heading"
           : nextView === "team"
@@ -2623,7 +2611,6 @@ export function App() {
           <strong>Noema Studio</strong>
           <div>
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
-            <a aria-current={studioView === "series" ? "page" : undefined} href={studioViewHref("series")} onClick={(event) => { event.preventDefault(); showSeriesLibrary(); }}>シリーズ</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
             {cmsSession?.capabilities.canManageMembers ? (
               <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>チーム</a>
@@ -2678,18 +2665,6 @@ export function App() {
               : "編集を再開"
             : "編集画面に戻る"}
           workingArticleStatus={cmsLibraryWorkingStatus}
-        />
-      ) : studioView === "series" ? (
-        <CmsSeriesManager
-          articles={cmsArticles}
-          busy={cmsSeriesBusy}
-          canEdit={Boolean(cmsSession?.capabilities.canEdit)}
-          connection={cmsLibraryConnection}
-          error={cmsSeriesError}
-          onLoadVersions={loadCmsSeriesHistory}
-          onRetry={() => setCmsRefresh((current) => current + 1)}
-          onSave={saveCmsSeries}
-          series={cmsSeries}
         />
       ) : studioView === "assets" ? (
         <CmsAssetLibrary
@@ -3036,7 +3011,7 @@ export function App() {
             <section className="studio-locked-summary" aria-labelledby="locked-summary-heading">
               <h2 id="locked-summary-heading">固定した送信内容</h2>
               <p className="studio-edit-lock" role="status">
-                レビュー依頼の内容を安全に確認するため固定しています。本文は「本文」タブで選択・コピーできます。
+                レビュー依頼の内容を安全に確認するため固定しています。本文はプレビューで確認し、修正が必要な箇所はコメントしてください。
               </p>
               <dl>
                 <div><dt>タイトル</dt><dd>{frontmatter.title}</dd></div>
@@ -3045,13 +3020,9 @@ export function App() {
                 <div><dt>読後の到達点</dt><dd>{frontmatter.outcome}</dd></div>
                 <div><dt>執筆者</dt><dd>{frontmatter.authors.join("、")}</dd></div>
                 <div><dt>テーマ</dt><dd>{frontmatter.topics.map((topic) => topicLabels[topic]).join("、")}</dd></div>
-                <div><dt>公開状態</dt><dd>{frontmatter.status === "published" ? "公開予定" : frontmatter.status === "archived" ? "非公開・保管" : "下書き"}</dd></div>
-                <div><dt>公開日</dt><dd>{frontmatter.publishedAt ? formatArticleDate(frontmatter.publishedAt) : "なし"}</dd></div>
-                <div><dt>更新日</dt><dd>{formatArticleDate(frontmatter.updatedAt)}</dd></div>
                 <div><dt>記事タイプ</dt><dd>{approachLabels[frontmatter.approach]}</dd></div>
                 <div><dt>読了時間</dt><dd>{frontmatter.estimatedMinutes}分</dd></div>
                 <div><dt>タグ</dt><dd>{frontmatter.tags.length > 0 ? frontmatter.tags.join("、") : "なし"}</dd></div>
-                <div><dt>前提知識</dt><dd>{frontmatter.prerequisites.length > 0 ? frontmatter.prerequisites.join("、") : "なし"}</dd></div>
                 <div><dt>記事画像</dt><dd>{frontmatter.heroImage ? <><code>{frontmatter.heroImage.src}</code><br />{frontmatter.heroImage.alt}</> : "なし"}</dd></div>
                 <div><dt>参考資料</dt><dd>{frontmatter.sources.length > 0 ? (
                   <ul>{frontmatter.sources.map((source, index) => <li key={`${source.url}-${index}`}>{source.title} — {source.url}（{source.checkedAt}確認）</li>)}</ul>
@@ -3063,7 +3034,7 @@ export function App() {
           <fieldset className="studio-form-fieldset" hidden={editorLocked}>
             <legend className="sr-only">記事情報</legend>
             <details className="studio-disclosure" open={summaryOpen} onToggle={(event) => setSummaryOpen(event.currentTarget.open)}>
-              <summary>タイトルと概要 — {frontmatter.title || "自動整理待ち"}</summary>
+              <summary>基本情報 — {frontmatter.title || "自動整理待ち"}</summary>
               <div className="studio-disclosure__content">
             {(() => {
               const error = fieldError(visibleReviewIssues, "title", validationVisible);
@@ -3084,100 +3055,71 @@ export function App() {
               </Field>;
             })()}
             {(() => {
-              const error = fieldError(visibleReviewIssues, "slug", validationVisible);
-              return <Field id="article-slug" label="スラッグ" support="記事URLに使う半角英数字とハイフンです。" error={error}>
-                <input id="article-slug" className="dads-input-text__input" required {...inputA11y("article-slug", true, error)} value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} placeholder="getting-started-with-ai" />
-              </Field>;
+              const error = fieldError(visibleReviewIssues, "topics", validationVisible);
+              return (
+                <fieldset
+                  aria-describedby={`article-topic-support article-topic-count${error ? " article-topic-error" : ""}`}
+                  aria-errormessage={error ? "article-topic-error" : undefined}
+                  aria-invalid={error ? true : undefined}
+                  className={`studio-field studio-topic-field ${error ? "has-error" : ""}`}
+                  id="article-topic"
+                  tabIndex={-1}
+                >
+                  <legend className="dads-form-control-label studio-field__label">
+                    <span>テーマ</span>
+                    <span className="studio-field__requirement">※必須</span>
+                  </legend>
+                  <p className="studio-field__support" id="article-topic-support">1〜{MAX_ARTICLE_TOPICS}つ選びます。最初に選んだテーマが主テーマです。</p>
+                  <div className="studio-topic-options">
+                    {Object.entries(topicLabels).map(([value, label]) => {
+                      const topic = value as ArticleFrontmatter["topics"][number];
+                      const selected = frontmatter.topics.includes(topic);
+                      return (
+                        <label className="studio-topic-option" htmlFor={`article-topic-${value}`} key={value}>
+                          <input
+                            aria-describedby={`article-topic-support article-topic-count${error ? " article-topic-error" : ""}`}
+                            aria-invalid={error ? true : undefined}
+                            checked={selected}
+                            disabled={isArticleTopicChoiceDisabled(frontmatter.topics, topic)}
+                            id={`article-topic-${value}`}
+                            onChange={(event) => update("topics", toggleArticleTopic(frontmatter.topics, topic, event.target.checked))}
+                            type="checkbox"
+                          />
+                          <span>{label}{selected && frontmatter.topics[0] === topic ? "（主テーマ）" : ""}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p aria-live="polite" className="studio-field__counter" id="article-topic-count">選択中 {frontmatter.topics.length} / {MAX_ARTICLE_TOPICS}</p>
+                  {error ? <p className="studio-field__error" id="article-topic-error">エラー — {error}</p> : null}
+                </fieldset>
+              );
             })()}
               </div>
             </details>
 
             <details className="studio-disclosure" open={metadataOpen} onToggle={(event) => setMetadataOpen(event.currentTarget.open)}>
-              <summary>公開と分類 — {approachLabels[frontmatter.approach]} / {frontmatter.topics[0] ? topicLabels[frontmatter.topics[0]] : "テーマ未選択"}</summary>
+              <summary>詳細設定 — URL・執筆者・分類</summary>
               <div className="studio-disclosure__content">
+                {(() => {
+                  const error = fieldError(visibleReviewIssues, "slug", validationVisible);
+                  return <Field id="article-slug" label="URLスラッグ" support="公開URLに使う半角英数字とハイフンです。通常は変更不要です。" error={error}>
+                    <input id="article-slug" className="dads-input-text__input" required {...inputA11y("article-slug", false, error)} value={frontmatter.slug} onChange={(event) => update("slug", event.target.value)} />
+                  </Field>;
+                })()}
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "authors", validationVisible);
                   return <Field id="article-authors" label="執筆者" support="複数の場合はカンマで区切ります。" error={error}>
                     <input id="article-authors" className="dads-input-text__input" required {...inputA11y("article-authors", true, error)} value={frontmatter.authors.join(", ")} onChange={(event) => update("authors", event.target.value.split(",").map((author) => author.trim()))} onBlur={() => update("authors", frontmatter.authors.filter(Boolean))} />
                   </Field>;
                 })()}
-                <div className="studio-field-row">
-                  {(() => {
-                    const error = fieldError(visibleReviewIssues, "publishedAt", validationVisible);
-                    return <Field id="article-published-at" label="互換用の公開日" required={false} support="Markdown取込時の互換メタデータです。実際の公開日時はCMSで公開した時に自動記録されます。" error={error}>
-                      <input id="article-published-at" className="dads-input-text__input" type="date" {...inputA11y("article-published-at", true, error, false, false)} value={frontmatter.publishedAt ?? ""} onChange={(event) => update("publishedAt", event.target.value || undefined)} />
-                    </Field>;
-                  })()}
-                  {(() => {
-                    const error = fieldError(visibleReviewIssues, "updatedAt", validationVisible);
-                    return <Field id="article-updated-at" label="更新日" error={error}>
-                      <input id="article-updated-at" className="dads-input-text__input" type="date" required {...inputA11y("article-updated-at", false, error)} value={frontmatter.updatedAt} onChange={(event) => update("updatedAt", event.target.value)} />
-                    </Field>;
-                  })()}
-                </div>
-                <div className="studio-field-row">
-                  {(() => {
-                    const error = fieldError(visibleReviewIssues, "approach", validationVisible);
-                    return <Field id="article-approach" label="記事タイプ" error={error}>
-                      <select id="article-approach" required {...inputA11y("article-approach", false, error)} value={frontmatter.approach} onChange={(event) => update("approach", event.target.value as ArticleFrontmatter["approach"])}>
-                        {Object.entries(approachLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
-                    </Field>;
-                  })()}
-                  {(() => {
-                    const error = fieldError(visibleReviewIssues, "estimatedMinutes", validationVisible);
-                    return <Field id="article-minutes" label="読了時間（分）" error={error}>
-                      <input id="article-minutes" className="dads-input-text__input" type="number" min="1" max="180" required {...inputA11y("article-minutes", false, error)} value={frontmatter.estimatedMinutes || ""} onChange={(event) => update("estimatedMinutes", Number(event.target.value))} />
-                    </Field>;
-                  })()}
-                </div>
                 {(() => {
-                  const error = fieldError(visibleReviewIssues, "topics", validationVisible);
-                  return (
-                    <fieldset
-                      aria-describedby={`article-topic-support article-topic-count${error ? " article-topic-error" : ""}`}
-                      aria-errormessage={error ? "article-topic-error" : undefined}
-                      aria-invalid={error ? true : undefined}
-                      className={`studio-field studio-topic-field ${error ? "has-error" : ""}`}
-                      id="article-topic"
-                      tabIndex={-1}
-                    >
-                      <legend className="dads-form-control-label studio-field__label">
-                        <span>テーマ</span>
-                        <span className="studio-field__requirement">※必須</span>
-                      </legend>
-                      <p className="studio-field__support" id="article-topic-support">1〜{MAX_ARTICLE_TOPICS}つ選びます。最初に選んだテーマが公開画面の主テーマになり、選択内容はすべて記事に保存されます。</p>
-                      <div className="studio-topic-options">
-                        {Object.entries(topicLabels).map(([value, label]) => {
-                          const topic = value as ArticleFrontmatter["topics"][number];
-                          const selected = frontmatter.topics.includes(topic);
-                          return (
-                            <label className="studio-topic-option" htmlFor={`article-topic-${value}`} key={value}>
-                              <input
-                                aria-describedby={`article-topic-support article-topic-count${error ? " article-topic-error" : ""}`}
-                                aria-invalid={error ? true : undefined}
-                                checked={selected}
-                                disabled={isArticleTopicChoiceDisabled(frontmatter.topics, topic)}
-                                id={`article-topic-${value}`}
-                                onChange={(event) => update("topics", toggleArticleTopic(frontmatter.topics, topic, event.target.checked))}
-                                type="checkbox"
-                              />
-                              <span>{label}{selected && frontmatter.topics[0] === topic ? "（主テーマ）" : ""}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <p
-                        aria-live="polite"
-                        className={frontmatter.topics.length > MAX_ARTICLE_TOPICS ? "studio-field__error" : "studio-field__counter"}
-                        id="article-topic-count"
-                      >
-                        選択中 {frontmatter.topics.length} / {MAX_ARTICLE_TOPICS}
-                        {frontmatter.topics.length > MAX_ARTICLE_TOPICS ? ` — ${MAX_ARTICLE_TOPICS}つまでに減らしてください` : ""}
-                      </p>
-                      {error ? <p className="studio-field__error" id="article-topic-error">エラー — {error}</p> : null}
-                    </fieldset>
-                  );
+                  const error = fieldError(visibleReviewIssues, "approach", validationVisible);
+                  return <Field id="article-approach" label="記事タイプ" error={error}>
+                    <select id="article-approach" required {...inputA11y("article-approach", false, error)} value={frontmatter.approach} onChange={(event) => update("approach", event.target.value as ArticleFrontmatter["approach"])}>
+                      {Object.entries(approachLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </Field>;
                 })()}
                 {(() => {
                   const error = fieldError(visibleReviewIssues, "tags", validationVisible);
@@ -3190,12 +3132,28 @@ export function App() {
                     />
                   </Field>;
                 })()}
-                {(() => {
-                  const error = fieldError(visibleReviewIssues, "prerequisites", validationVisible);
-                  return <Field id="article-prerequisites" label="前提知識" required={false} support="不要な場合は空欄。複数の場合はカンマで区切ります。" error={error}>
-                    <input id="article-prerequisites" className="dads-input-text__input" {...inputA11y("article-prerequisites", true, error, false, false)} value={frontmatter.prerequisites.join(", ")} onChange={(event) => update("prerequisites", event.target.value.split(",").map((item) => item.trim()))} onBlur={() => update("prerequisites", frontmatter.prerequisites.filter(Boolean))} />
-                  </Field>;
-                })()}
+                <div className="studio-managed-metadata" role="note">
+                  <strong>CMSが自動で管理</strong>
+                  <span>公開日時は公開操作時、更新日は保存時に記録します。読了時間は本文から算出します（現在約{frontmatter.estimatedMinutes}分）。</span>
+                </div>
+              </div>
+            </details>
+
+            <details className="studio-disclosure">
+              <summary>シリーズ — {cmsArticle ? cmsSeries.find((item) => item.articleIds.includes(cmsArticle.id))?.title ?? "未設定" : "初回保存後に設定"}</summary>
+              <div className="studio-disclosure__content">
+                {cmsArticle ? (
+                  <CmsArticleSeriesEditor
+                    articleId={cmsArticle.id}
+                    articles={cmsArticles}
+                    busy={cmsSeriesBusy}
+                    canEdit={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
+                    error={cmsSeriesError}
+                    onLoadVersions={loadCmsSeriesHistory}
+                    onSave={saveCmsSeries}
+                    series={cmsSeries}
+                  />
+                ) : <p className="studio-field__support">最初にCMSへ保存すると、この記事をシリーズへ追加できます。</p>}
               </div>
             </details>
 
