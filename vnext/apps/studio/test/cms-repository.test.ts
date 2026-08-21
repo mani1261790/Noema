@@ -395,6 +395,61 @@ describe("CMS repository", () => {
     });
   });
 
+  it("reopens an approved revision without changing the live publication", async () => {
+    const admin = await bootstrapAdmin();
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("revoke-approval"),
+      NOW
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_review",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:01:00.000Z")
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "approve",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:02:00.000Z")
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "publish",
+      article.lockVersion,
+      { visibility: "public" },
+      new Date("2026-07-18T00:03:00.000Z")
+    );
+
+    const reopened = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "revoke_approval",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:04:00.000Z")
+    );
+
+    expect(reopened.reviewStatus).toBe("in_review");
+    expect(reopened.publicationStatus).toBe("published");
+    expect(reopened.publishedRevisionNumber).toBe(1);
+    const approvedRevisionId = await testEnv.CMS_DB.prepare(
+      "SELECT approved_revision_id FROM cms_articles WHERE id = ?1"
+    ).bind(article.id).first<string | null>("approved_revision_id");
+    expect(approvedRevisionId).toBeNull();
+  });
+
   it("validates the approved revision again immediately before publication", async () => {
     const admin = await bootstrapAdmin();
     let article = await createCmsArticle(

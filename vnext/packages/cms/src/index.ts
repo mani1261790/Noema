@@ -122,6 +122,7 @@ export const cmsArticleActionSchema = z.object({
     "request_review",
     "withdraw_review",
     "approve",
+    "revoke_approval",
     "request_changes",
     "publish",
     "archive",

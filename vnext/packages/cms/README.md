@@ -54,6 +54,7 @@ Reviewとpublicationは別の状態です。公開中の記事に新しいrevisi
 | `request_review` | `admin`、`editor` | reviewが`draft`または`changes_requested`で、記事検証に成功 | reviewを`in_review`へ変更し、以前の承認pointerを外す |
 | `withdraw_review` | `admin`、`editor` | reviewが`in_review` | reviewを`draft`へ戻し、編集を再開する |
 | `approve` | `admin`、`reviewer` | reviewが`in_review` | reviewを`approved`へ変更し、current revisionをapproved revisionへ固定 |
+| `revoke_approval` | `admin`、`reviewer` | reviewが`approved` | reviewを`in_review`へ戻し、承認pointerを外す。公開済みrevisionは変更しない |
 | `request_changes` | `admin`、`reviewer` | reviewが`in_review`または`approved`で、修正理由が入力済み | reviewを`changes_requested`へ変更し、理由をrevisionに紐づくコメントとして残して承認pointerを外す |
 | `publish` | `admin` | reviewが`approved`で、current revisionとapproved revisionが一致 | current revision、slug、公開範囲をpublished pointerへ固定 |
 | `archive` | `admin` | publicationが`published` | publicationを`archived`へ変更し、公開面から外す |
