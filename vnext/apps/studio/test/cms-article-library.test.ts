@@ -92,6 +92,38 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain("だけを表示しています");
   });
 
+  it("keeps review and edit actions distinct even in the unfiltered article list", () => {
+    const reviewArticle = {
+      ...article,
+      id: "article-review",
+      publicationStatus: "unpublished" as const,
+      reviewStatus: "in_review" as const,
+      title: "レビュー対象"
+    };
+    const html = renderLibrary({ articles: [article, reviewArticle] });
+
+    expect(html).toContain('aria-label="「レビュー対象」をレビューする"');
+    expect(html).toContain(">レビューする</button>");
+    expect(html).toContain('aria-label="「Workers AI ガイド」を編集する"');
+    expect(html).toContain(">編集する</button>");
+  });
+
+  it("shows review progress instead of an edit action to editors", () => {
+    const reviewArticle = {
+      ...article,
+      publicationStatus: "unpublished" as const,
+      reviewStatus: "in_review" as const,
+      title: "レビュー対象"
+    };
+    const html = renderLibrary({
+      articles: [reviewArticle],
+      connection: { email: "editor@example.com", kind: "ready", role: "editor" }
+    });
+
+    expect(html).toContain("レビュー状況を確認");
+    expect(html).not.toContain(">編集する</button>");
+  });
+
   it("shows only the correction queue to editors", () => {
     const correctionArticle = {
       ...article,

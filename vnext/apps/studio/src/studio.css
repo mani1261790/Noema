@@ -2552,6 +2552,10 @@ textarea.studio-control {
   cursor: pointer;
 }
 
+.studio-writing-controls .studio-preview-toggle {
+  background: rgb(255 255 255 / .76);
+}
+
 .studio-writing-layout.has-preview {
   grid-template-columns: minmax(24rem, 1fr) minmax(24rem, 1fr);
 }
@@ -3453,6 +3457,10 @@ textarea.studio-control {
 }
 
 @media (max-width: 1050px) {
+  .studio-writing-controls .studio-preview-toggle {
+    background: rgb(255 255 255 / .64);
+  }
+
   .studio-writing-layout.has-preview {
     grid-template-columns: 1fr;
   }
