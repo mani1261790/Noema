@@ -142,6 +142,35 @@ describe("CMS repository", () => {
     });
   });
 
+  it("replaces author-supplied operational metadata with CMS-managed values", async () => {
+    const admin = await bootstrapAdmin();
+    const input = validArticle("managed-metadata");
+    input.frontmatter.estimatedMinutes = 180;
+    (input.frontmatter.prerequisites as string[]).push("手入力した前提知識");
+    (input.frontmatter as typeof input.frontmatter & { publishedAt?: string }).publishedAt = "2020-01-01";
+    input.frontmatter.updatedAt = "2020-01-02";
+    input.markdown = "# 短い本文\n\nCMSが読了時間と日付を管理します。";
+
+    const created = await createCmsArticle(testEnv.CMS_DB, admin.identity, input, NOW);
+    expect(created.currentRevision.frontmatter).toMatchObject({
+      estimatedMinutes: 1,
+      prerequisites: [],
+      updatedAt: "2026-07-18"
+    });
+    expect(created.currentRevision.frontmatter.publishedAt).toBeUndefined();
+
+    const updated = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      created.id,
+      created.lockVersion,
+      input,
+      new Date("2026-07-19T09:00:00.000Z")
+    );
+    expect(updated.currentRevision.frontmatter.updatedAt).toBe("2026-07-19");
+    expect(updated.currentRevision.frontmatter.publishedAt).toBeUndefined();
+  });
+
   it("provisions the same first-login identity idempotently", async () => {
     const [first, second] = await Promise.all([
       resolveCmsSession(

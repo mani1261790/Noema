@@ -1192,14 +1192,15 @@ export async function createCmsArticle(
   revisionContext: Pick<CmsRevisionWriteContext, "editSessionId"> = {}
 ): Promise<CmsArticleDetail> {
   requirePermission(identity.role, "edit");
-  const content = parseDraftContent(input);
+  const requestedContent = parseDraftContent(input);
+  const content = withCmsManagedMetadata(requestedContent, now);
   const articleId = crypto.randomUUID();
   const revisionId = crypto.randomUUID();
   const auditId = crypto.randomUUID();
   const timestamp = now.toISOString();
   const slug = canonicalDraftSlug(content.frontmatter.slug, articleId);
   const frontmatterJson = JSON.stringify(content.frontmatter);
-  const checksum = await contentChecksum(content);
+  const checksum = await contentChecksum(requestedContent);
   const replayArticleId = await findIdempotentArticle(
     db,
     identity,
@@ -1302,10 +1303,11 @@ export async function updateCmsArticle(
   revisionContext: CmsRevisionWriteContext = {}
 ): Promise<CmsArticleDetail> {
   requirePermission(identity.role, "edit");
-  const content = parseDraftContent(input);
+  const requestedContent = parseDraftContent(input);
+  const content = withCmsManagedMetadata(requestedContent, now);
   const checksum = await operationChecksum({
     articleId,
-    content,
+    content: requestedContent,
     expectedVersion
   });
   const replayArticleId = await findIdempotentArticle(
@@ -1992,6 +1994,28 @@ function parseDraftContent(input: CmsArticleContentInput): CmsArticleContentInpu
     frontmatter: frontmatter.data,
     markdown: input.markdown,
     visibility: visibility.data
+  };
+}
+
+function withCmsManagedMetadata(
+  content: CmsArticleContentInput,
+  now: Date
+): CmsArticleContentInput {
+  const readableLength = content.markdown
+    .replace(/```[\s\S]*?```/gu, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/gu, " ")
+    .replace(/\[[^\]]+\]\([^)]*\)/gu, " ")
+    .replace(/[`*_~>#\s]/gu, "")
+    .length;
+  return {
+    ...content,
+    frontmatter: {
+      ...content.frontmatter,
+      estimatedMinutes: Math.min(180, Math.max(1, Math.ceil(readableLength / 500))),
+      prerequisites: [],
+      publishedAt: undefined,
+      updatedAt: now.toISOString().slice(0, 10)
+    }
   };
 }
 

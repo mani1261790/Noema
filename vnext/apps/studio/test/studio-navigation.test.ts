@@ -6,14 +6,13 @@ describe("Studio navigation", () => {
     expect(studioViewHref("articles")).toBe("/articles");
     expect(studioViewHref("editor")).toBe("/editor");
     expect(studioViewHref("assets")).toBe("/assets");
-    expect(studioViewHref("series")).toBe("/series");
     expect(studioViewHref("team")).toBe("/team");
   });
 
   it("restores a Studio page from browser history", () => {
     expect(readStudioView("/assets")).toBe("assets");
     expect(readStudioView("/editor/")).toBe("editor");
-    expect(readStudioView("/series")).toBe("series");
+    expect(readStudioView("/series")).toBe("articles");
   });
 
   it("uses the article library as the safe landing page", () => {
