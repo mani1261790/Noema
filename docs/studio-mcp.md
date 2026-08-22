@@ -86,7 +86,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_get_series` | なし | シリーズIDから現在の内容と`lockVersion`を取得する |
 | `studio_list_series_versions` | なし | シリーズのタイトル、説明、記事順の履歴を取得する |
 | `studio_list_assets` | なし | 画像を検索し、記事挿入用URLと利用状況を確認する |
-| `studio_list_review_comments` | なし | 記事のレビューコメントを取得する |
+| `studio_list_review_comments` | なし | 未対応優先でコメント、本文アンカー、対応revisionを取得する |
 | `studio_list_members` | なし | 管理者がCMSメンバーと招待状態を取得する |
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
 | `studio_preview_draft` | なし | 保存せず、公開サイト・Studioと同じレンダラーで記事HTMLと検証結果を返す |
@@ -103,10 +103,12 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_delete_asset` | 画像を完全削除 | 未使用画像をCMSとR2から削除する。取り消し不可 |
 | `studio_request_review` | レビュー状態を変更 | 原稿を検証してレビュー中へ進める |
 | `studio_withdraw_review` | レビュー状態を変更 | レビュー依頼を取り下げて下書きへ戻す |
-| `studio_request_changes` | レビュー状態を変更 | レビュー担当が具体的な指摘を記録して要修正へ戻す |
+| `studio_request_changes` | レビュー状態を変更 | 未対応の指摘をまとめて要修正へ戻す |
 | `studio_approve_article` | レビュー状態を変更 | レビュー担当が理由を記録して最新版を承認する。公開はしない |
 | `studio_revoke_approval` | レビュー状態を変更 | 承認を取り消してレビュー中へ戻す |
-| `studio_create_review_comment` | コメントを追加 | 現在のrevisionへレビューコメントを追加する |
+| `studio_create_review_comment` | コメントを追加 | 現在revisionの本文選択範囲、記事全体、記事情報へ指摘を追加する |
+| `studio_resolve_review_comment` | コメントを更新 | 修正・保存後、現在revisionで指摘を対応済みにする |
+| `studio_reopen_review_comment` | コメントを更新 | レビュー担当が対応済みの指摘を未対応へ戻す |
 | `studio_upsert_member` | メンバーを更新 | 管理者が招待、役割、有効状態を設定する |
 
 MCPでは、記事の公開、公開終了、再公開はできません。過去版の復元、シリーズ編集、レビュー操作は公開状態を変更しません。承認しても記事は公開されず、`publicationStatus`は変わりません。画像の完全削除とメンバー無効化は影響が大きいため、ツールの説明と確認画面で対象を必ず確認してください。
@@ -330,20 +332,39 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 
 ### 修正を依頼する
 
-レビュー担当者は`studio_request_changes`で、レビュー中または承認済みの記事を要修正へ戻せます。AIが原稿を確認した場合でも、抽象的な判定だけを保存せず、著者が対応できる具体的な`note`を必ず指定します。
+レビュー担当者は先に`studio_create_review_comment`で具体的な指摘を追加し、`studio_request_changes`でレビュー中または承認済みの記事を要修正へ戻します。本文の特定箇所には`target: "body"`と`anchor`を指定します。`startOffset`と`endOffset`はJavaScript文字列のオフセットで、`quote`はその範囲のMarkdownと完全一致させます。`prefix`と`suffix`には前後120文字以内を入れると、修正で位置がずれた後も該当箇所を再探索できます。
+
+```json
+{
+  "articleId": "11111111-1111-4111-8111-111111111111",
+  "body": "結論の根拠となる一次情報の出典を追記してください。",
+  "target": "body",
+  "anchor": {
+    "startOffset": 128,
+    "endOffset": 149,
+    "quote": "この方法なら必ず改善します。",
+    "prefix": "## 結論\n\n検証の結果、",
+    "suffix": "\n\n## 参考資料"
+  }
+}
+```
+
+コメントを追加した後、未対応件数を要約して差し戻します。
 
 ```json
 {
   "articleId": "11111111-1111-4111-8111-111111111111",
   "expectedVersion": 3,
   "requestId": "00000000-0000-4000-8000-000000000004",
-  "note": "結論の根拠となる一次情報の出典を追記してください。"
+  "note": "未対応のレビューコメントが1件あります。"
 }
 ```
 
-現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`と`reviewNote`で確認します。レビュー依頼、修正依頼、承認は、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。公開を実行するMCPツールはありません。
+編集者またはAIは`studio_list_review_comments`から`status: "open"`の指摘を取得し、`anchor.quote`と前後文脈を現在本文で確認します。`studio_update_draft`で修正revisionを保存した後、各`commentId`へ`studio_resolve_review_comment`を実行します。対応済みコメントには`resolvedRevisionId`と`resolvedRevisionNumber`が残ります。未対応が1件でもある間は`studio_request_review`と`studio_approve_article`を実行できません。レビュー担当者が修正不十分と判断した場合は`studio_reopen_review_comment`で未対応へ戻せます。
 
-記事単位のやり取りは`studio_create_review_comment`で追加し、`studio_list_review_comments`で確認します。コメント先は記事全体の`article`、本文の`body`、記事情報の`metadata`から選びます。編集者は`studio_withdraw_review`でレビュー依頼を取り下げられ、レビュー担当者または管理者は`studio_revoke_approval`で承認を取り消せます。いずれも公開状態は変更しません。
+現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`、`reviewNote`と`studio_list_review_comments`で確認します。レビュー依頼、修正依頼、承認は、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。公開を実行するMCPツールはありません。
+
+記事単位の指摘も`target: "article"`、記事情報への指摘は`target: "metadata"`で追加できます。この2種類は本文アンカーを持ちません。編集者は`studio_withdraw_review`でレビュー依頼を取り下げられ、レビュー担当者または管理者は`studio_revoke_approval`で承認を取り消せます。いずれも公開状態は変更しません。
 
 ### レビューを承認する
 

@@ -6,6 +6,7 @@ import {
   cmsRoleSchema,
   cmsRevisionSaveReasonSchema,
   cmsReviewCommentTargetSchema,
+  cmsReviewCommentStatusSchema,
   cmsVisibilitySchema,
   type CmsArticleAction,
   type CmsArticleDetail,
@@ -21,6 +22,8 @@ import {
   type CmsRole,
   type CmsRevisionSaveReason,
   type CmsReviewComment,
+  type CmsReviewCommentAction,
+  type CmsReviewCommentAnchor,
   type CmsReviewCommentTarget,
   type CmsSession,
   type CmsSeries,
@@ -428,7 +431,7 @@ export async function fetchCmsReviewComments(
 
 export async function createCmsReviewCommentRecord(
   articleId: string,
-  input: { body: string; target: CmsReviewCommentTarget },
+  input: { anchor?: CmsReviewCommentAnchor; body: string; target: CmsReviewCommentTarget },
   options: CmsRequestOptions = {}
 ): Promise<CmsClientResult<CmsReviewComment>> {
   const result = await cmsRequest(
@@ -437,6 +440,27 @@ export async function createCmsReviewCommentRecord(
       body: JSON.stringify(input),
       headers: { "content-type": "application/json" },
       method: "POST"
+    },
+    options
+  );
+  if (!result.ok) return result;
+  if (!isRecord(result.value)) return invalidResponse(result.status);
+  const comment = parseCmsReviewComment(result.value.comment);
+  return comment ? { ok: true, value: comment } : invalidResponse(result.status);
+}
+
+export async function updateCmsReviewCommentStatusRecord(
+  articleId: string,
+  commentId: string,
+  action: CmsReviewCommentAction,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsReviewComment>> {
+  const result = await cmsRequest(
+    `${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      body: JSON.stringify({ action }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH"
     },
     options
   );
@@ -634,24 +658,53 @@ function parseCmsSession(value: unknown): CmsSession | null {
 function parseCmsReviewComment(value: unknown): CmsReviewComment | null {
   if (!isRecord(value)) return null;
   const target = cmsReviewCommentTargetSchema.safeParse(value.target);
+  const status = cmsReviewCommentStatusSchema.safeParse(value.status);
+  const anchor = value.anchor === null
+    ? null
+    : isRecord(value.anchor) &&
+        isNonnegativeInteger(value.anchor.startOffset) &&
+        isNonnegativeInteger(value.anchor.endOffset) &&
+        isString(value.anchor.quote) &&
+        isString(value.anchor.prefix) &&
+        isString(value.anchor.suffix)
+      ? {
+          endOffset: value.anchor.endOffset,
+          prefix: value.anchor.prefix,
+          quote: value.anchor.quote,
+          startOffset: value.anchor.startOffset,
+          suffix: value.anchor.suffix
+        }
+      : undefined;
   if (
     !target.success ||
+    !status.success ||
+    anchor === undefined ||
     !isString(value.articleId) ||
     !isString(value.authorEmail) ||
     !isString(value.body) ||
     !isString(value.createdAt) ||
     !isString(value.id) ||
     !isString(value.revisionId) ||
-    !isNonnegativeInteger(value.revisionNumber)
+    !isNonnegativeInteger(value.revisionNumber) ||
+    !(value.resolvedAt === null || isString(value.resolvedAt)) ||
+    !(value.resolvedByEmail === null || isString(value.resolvedByEmail)) ||
+    !(value.resolvedRevisionId === null || isString(value.resolvedRevisionId)) ||
+    !(value.resolvedRevisionNumber === null || isNonnegativeInteger(value.resolvedRevisionNumber))
   ) return null;
   return {
+    anchor,
     articleId: value.articleId,
     authorEmail: value.authorEmail,
     body: value.body,
     createdAt: value.createdAt,
     id: value.id,
+    resolvedAt: value.resolvedAt,
+    resolvedByEmail: value.resolvedByEmail,
+    resolvedRevisionId: value.resolvedRevisionId,
+    resolvedRevisionNumber: value.resolvedRevisionNumber,
     revisionId: value.revisionId,
     revisionNumber: value.revisionNumber,
+    status: status.data,
     target: target.data
   };
 }

@@ -48,6 +48,75 @@ beforeEach(async () => {
 });
 
 describe("CMS HTTP API", () => {
+  it("stores anchored review comments and records the resolution revision", async () => {
+    await bootstrapAdmin();
+    const { article: created } = await createArticle("anchored-review-api");
+    const reviewResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/actions`, {
+        body: JSON.stringify({ action: "request_review", expectedVersion: created.lockVersion }),
+        headers: { "content-type": "application/json", "if-match": `"cms-v${created.lockVersion}"` },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const inReview = ((await reviewResponse.json()) as { article: CmsArticleDetail }).article;
+    const quote = "記事本文";
+    const startOffset = inReview.currentRevision.markdown.indexOf(quote);
+    const commentResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/comments`, {
+        body: JSON.stringify({
+          anchor: {
+            endOffset: startOffset + quote.length,
+            prefix: inReview.currentRevision.markdown.slice(0, startOffset),
+            quote,
+            startOffset,
+            suffix: inReview.currentRevision.markdown.slice(startOffset + quote.length)
+          },
+          body: "根拠を具体的にしてください。",
+          target: "body"
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const comment = (await commentResponse.json()) as { comment: { anchor: { quote: string }; id: string; status: string } };
+    expect(commentResponse.status).toBe(201);
+    expect(comment.comment).toMatchObject({ anchor: { quote }, status: "open" });
+
+    const changesResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/actions`, {
+        body: JSON.stringify({
+          action: "request_changes",
+          expectedVersion: inReview.lockVersion,
+          note: "未対応のレビューコメントが1件あります。"
+        }),
+        headers: { "content-type": "application/json", "if-match": `"cms-v${inReview.lockVersion}"` },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(changesResponse.status).toBe(200);
+    const resolvedResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/comments/${comment.comment.id}`, {
+        body: JSON.stringify({ action: "resolve" }),
+        headers: { "content-type": "application/json" },
+        method: "PATCH"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const resolved = (await resolvedResponse.json()) as { comment: { resolvedRevisionNumber: number; status: string } };
+    expect(resolvedResponse.status).toBe(200);
+    expect(resolved.comment).toMatchObject({
+      resolvedRevisionNumber: inReview.revisionNumber,
+      status: "resolved"
+    });
+  });
+
   it("creates, reorders, and exposes restorable series revisions", async () => {
     await bootstrapAdmin();
     const first = await createArticle("series-first");

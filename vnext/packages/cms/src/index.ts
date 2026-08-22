@@ -145,21 +145,66 @@ export const cmsArticleActionSchema = z.object({
 export type CmsArticleAction = z.infer<typeof cmsArticleActionSchema>["action"];
 
 export const cmsReviewCommentTargetSchema = z.enum(["article", "body", "metadata"]);
+export const cmsReviewCommentStatusSchema = z.enum(["open", "resolved"]);
+export const cmsReviewCommentAnchorSchema = z.object({
+  endOffset: z.number().int().positive(),
+  prefix: z.string().max(120).default(""),
+  quote: z.string().min(1).max(1_000),
+  startOffset: z.number().int().nonnegative(),
+  suffix: z.string().max(120).default("")
+}).strict().superRefine((value, context) => {
+  if (value.endOffset <= value.startOffset) {
+    context.addIssue({
+      code: "custom",
+      message: "本文の選択範囲を確認してください。",
+      path: ["endOffset"]
+    });
+  }
+  if (value.endOffset - value.startOffset !== value.quote.length) {
+    context.addIssue({
+      code: "custom",
+      message: "選択範囲と引用文が一致しません。",
+      path: ["quote"]
+    });
+  }
+});
 export const cmsReviewCommentRequestSchema = z.object({
+  anchor: cmsReviewCommentAnchorSchema.optional(),
   body: z.string().trim().min(1).max(1_000),
   target: cmsReviewCommentTargetSchema.default("article")
+}).strict().superRefine((value, context) => {
+  if (value.anchor && value.target !== "body") {
+    context.addIssue({
+      code: "custom",
+      message: "本文の選択範囲は本文コメントにだけ指定できます。",
+      path: ["anchor"]
+    });
+  }
+});
+
+export const cmsReviewCommentActionSchema = z.object({
+  action: z.enum(["resolve", "reopen"])
 }).strict();
 
 export type CmsReviewCommentTarget = z.infer<typeof cmsReviewCommentTargetSchema>;
+export type CmsReviewCommentStatus = z.infer<typeof cmsReviewCommentStatusSchema>;
+export type CmsReviewCommentAnchor = z.infer<typeof cmsReviewCommentAnchorSchema>;
+export type CmsReviewCommentAction = z.infer<typeof cmsReviewCommentActionSchema>["action"];
 
 export interface CmsReviewComment {
+  anchor: CmsReviewCommentAnchor | null;
   articleId: string;
   authorEmail: string;
   body: string;
   createdAt: string;
   id: string;
+  resolvedAt: string | null;
+  resolvedByEmail: string | null;
+  resolvedRevisionId: string | null;
+  resolvedRevisionNumber: number | null;
   revisionId: string;
   revisionNumber: number;
+  status: CmsReviewCommentStatus;
   target: CmsReviewCommentTarget;
 }
 

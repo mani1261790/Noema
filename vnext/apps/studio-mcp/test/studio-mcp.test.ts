@@ -146,8 +146,10 @@ describe("Studio MCP tools", () => {
       "studio_list_series",
       "studio_list_series_versions",
       "studio_preview_draft",
+      "studio_reopen_review_comment",
       "studio_request_changes",
       "studio_request_review",
+      "studio_resolve_review_comment",
       "studio_restore_article_version",
       "studio_restore_asset",
       "studio_restore_series_version",
@@ -681,7 +683,7 @@ describe("Studio MCP tools", () => {
     await connection.close();
   });
 
-  it("supports review comments, review withdrawal, and approval revocation", async () => {
+  it("supports anchored review comments through correction, resolution, and approval", async () => {
     const editor = await connectClient();
     const created = articleFrom((await editor.client.callTool({
       name: "studio_create_draft",
@@ -700,41 +702,80 @@ describe("Studio MCP tools", () => {
     })).structuredContent);
 
     const reviewer = await connectClient(REVIEWER_SESSION);
-    const comment = await reviewer.client.callTool({
+    const markdown = validArticle("mcp-review-parity").markdown;
+    const quote = "記事本文";
+    const startOffset = markdown.indexOf(quote);
+    const commentResult = await reviewer.client.callTool({
       name: "studio_create_review_comment",
       arguments: {
+        anchor: {
+          endOffset: startOffset + quote.length,
+          prefix: markdown.slice(0, startOffset),
+          quote,
+          startOffset,
+          suffix: markdown.slice(startOffset + quote.length)
+        },
         articleId: created.id,
-        body: "メタデータの説明をもう少し具体的にしてください。",
-        target: "metadata"
+        body: "本文の根拠をもう少し具体的にしてください。",
+        target: "body"
       }
     });
-    expect(comment.structuredContent).toMatchObject({
-      comment: { articleId: created.id, target: "metadata" }
+    expect(commentResult.structuredContent).toMatchObject({
+      comment: { anchor: { quote, startOffset }, articleId: created.id, status: "open", target: "body" }
     });
+    const commentId = (commentResult.structuredContent as { comment: { id: string } }).comment.id;
     const listedComments = await editor.client.callTool({
       name: "studio_list_review_comments",
       arguments: { articleId: created.id }
     });
     expect(listedComments.structuredContent).toMatchObject({ count: 1 });
 
-    const withdrawn = articleFrom((await editor.client.callTool({
-      name: "studio_withdraw_review",
+    const changesRequested = articleFrom((await reviewer.client.callTool({
+      name: "studio_request_changes",
       arguments: {
         articleId: created.id,
         expectedVersion: inReview.lockVersion,
+        note: "未対応のレビューコメントが1件あります。",
         requestId: "00000000-0000-4000-8000-000000000172"
       }
     })).structuredContent);
-    expect(withdrawn).toMatchObject({
+    expect(changesRequested).toMatchObject({
       publicationStatus: "unpublished",
-      reviewStatus: "draft"
+      reviewStatus: "changes_requested"
+    });
+    const correctedInput = validArticle("mcp-review-parity");
+    correctedInput.markdown = "## MCPで管理する\n\n記事本文へ根拠を追記し、D1のrevisionとして保存します。";
+    const corrected = articleFrom((await editor.client.callTool({
+      name: "studio_update_draft",
+      arguments: {
+        ...correctedInput,
+        articleId: created.id,
+        expectedVersion: changesRequested.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000173"
+      }
+    })).structuredContent);
+    const blockedReview = await editor.client.callTool({
+      name: "studio_request_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: corrected.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000174"
+      }
+    });
+    expect(toolErrorCode(blockedReview)).toBe("invalid_transition");
+    const resolved = await editor.client.callTool({
+      name: "studio_resolve_review_comment",
+      arguments: { articleId: created.id, commentId }
+    });
+    expect(resolved.structuredContent).toMatchObject({
+      comment: { resolvedRevisionNumber: corrected.revisionNumber, status: "resolved" }
     });
     const reviewedAgain = articleFrom((await editor.client.callTool({
       name: "studio_request_review",
       arguments: {
         articleId: created.id,
-        expectedVersion: withdrawn.lockVersion,
-        requestId: "00000000-0000-4000-8000-000000000173"
+        expectedVersion: corrected.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000175"
       }
     })).structuredContent);
     const approved = articleFrom((await reviewer.client.callTool({
@@ -743,7 +784,7 @@ describe("Studio MCP tools", () => {
         articleId: created.id,
         expectedVersion: reviewedAgain.lockVersion,
         note: "確認しました。",
-        requestId: "00000000-0000-4000-8000-000000000174"
+        requestId: "00000000-0000-4000-8000-000000000176"
       }
     })).structuredContent);
     const revoked = articleFrom((await reviewer.client.callTool({
@@ -751,12 +792,19 @@ describe("Studio MCP tools", () => {
       arguments: {
         articleId: created.id,
         expectedVersion: approved.lockVersion,
-        requestId: "00000000-0000-4000-8000-000000000175"
+        requestId: "00000000-0000-4000-8000-000000000177"
       }
     })).structuredContent);
     expect(revoked).toMatchObject({
       publicationStatus: "unpublished",
       reviewStatus: "in_review"
+    });
+    const reopened = await reviewer.client.callTool({
+      name: "studio_reopen_review_comment",
+      arguments: { articleId: created.id, commentId }
+    });
+    expect(reopened.structuredContent).toMatchObject({
+      comment: { resolvedAt: null, status: "open" }
     });
     const commentAudit = await testEnv.CMS_DB.prepare(
       "SELECT metadata_json FROM cms_audit_events WHERE action = 'article.comment'"
@@ -1493,7 +1541,7 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(32);
+    expect(tools.tools).toHaveLength(34);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_article_versions")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_get_article_version")).toBe(true);
@@ -1514,6 +1562,8 @@ describe("Studio MCP HTTP boundary", () => {
     expect(tools.tools.some((tool) => tool.name === "studio_list_review_comments")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_withdraw_review")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_revoke_approval")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_resolve_review_comment")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_reopen_review_comment")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_publish")).toBe(false);
     expect(tools.tools.some((tool) => tool.name === "studio_archive_article")).toBe(false);
     expect(tools.tools.some((tool) => tool.name === "studio_list_members")).toBe(true);

@@ -48,6 +48,7 @@ import {
   updateIdempotentCmsAssetMetadata,
   updateIdempotentCmsAssetStatus,
   updateCmsArticle,
+  updateCmsReviewCommentStatus,
   upsertCmsMemberInvitation
 } from "../../studio/worker/cms-repository";
 import {
@@ -114,6 +115,11 @@ const restoreSeriesVersionSchema = z.object({
 
 const createReviewCommentSchema = cmsReviewCommentRequestSchema.extend({
   articleId: z.string().uuid()
+}).strict();
+
+const reviewCommentStatusSchema = z.object({
+  articleId: z.string().uuid(),
+  commentId: z.string().uuid()
 }).strict();
 
 const upsertMemberSchema = cmsMemberMutationSchema;
@@ -306,7 +312,7 @@ export function createStudioMcpServer(
     name: "noema-studio",
     version: "0.1.0"
   }, {
-    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
+    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。レビュー修正ではstudio_list_review_commentsでstatus=openの指摘とanchorの引用・オフセット・前後文脈を確認し、studio_get_articleで現在本文を取得して該当箇所を修正します。本文更新後にstudio_resolve_review_commentで各指摘を対応済みにし、未対応が0件になってからレビューを再依頼してください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
   });
 
   server.registerTool(
@@ -528,7 +534,7 @@ export function createStudioMcpServer(
     "studio_list_review_comments",
     {
       title: "List Studio review comments",
-      description: "記事のレビューコメントを作成順に返します。",
+      description: "記事のレビューコメントを未対応優先で返します。本文コメントにはrevision固定の選択範囲、引用、前後文脈、対応状態が含まれます。",
       inputSchema: getArticleSchema,
       annotations: readOnlyAnnotations()
     },
@@ -542,7 +548,7 @@ export function createStudioMcpServer(
     "studio_create_review_comment",
     {
       title: "Create Studio review comment",
-      description: "レビュー中の記事の現在revisionへ、本文・メタデータ・記事全体のコメントを追加します。",
+      description: "レビュー中の記事へコメントを追加します。本文の特定箇所には、現在Markdownと一致するstartOffset、endOffset、quote、前後文脈をanchorに指定します。",
       inputSchema: createReviewCommentSchema,
       annotations: writeAnnotations(false)
     },
@@ -554,6 +560,48 @@ export function createStudioMcpServer(
         comment,
         new Date(),
         { channel: "mcp", client, tool: "studio_create_review_comment" }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_resolve_review_comment",
+    {
+      title: "Resolve Studio review comment",
+      description: "本文を修正・保存した後、レビューコメントを現在revisionで対応済みにします。未対応コメントが残っている間はレビューを再依頼できません。",
+      inputSchema: reviewCommentStatusSchema,
+      annotations: writeAnnotations(false)
+    },
+    async ({ articleId, commentId }) => executeTool(async () => ({
+      comment: await updateCmsReviewCommentStatus(
+        db,
+        session.identity,
+        articleId,
+        commentId,
+        "resolve",
+        new Date(),
+        { channel: "mcp", client, tool: "studio_resolve_review_comment" }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_reopen_review_comment",
+    {
+      title: "Reopen Studio review comment",
+      description: "対応済みの指摘をレビュー担当者が未対応へ戻し、再修正が必要なことを記録します。",
+      inputSchema: reviewCommentStatusSchema,
+      annotations: writeAnnotations(false)
+    },
+    async ({ articleId, commentId }) => executeTool(async () => ({
+      comment: await updateCmsReviewCommentStatus(
+        db,
+        session.identity,
+        articleId,
+        commentId,
+        "reopen",
+        new Date(),
+        { channel: "mcp", client, tool: "studio_reopen_review_comment" }
       )
     }))
   );

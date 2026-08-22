@@ -18,6 +18,7 @@ import {
   transitionCmsArticle,
   updateCmsArticle,
   updateCmsAsset,
+  updateCmsReviewCommentStatus,
   upsertCmsMemberInvitation
 } from "../worker/cms-repository";
 
@@ -683,32 +684,115 @@ describe("CMS repository", () => {
       NOW
     )).rejects.toMatchObject({ code: "forbidden" });
 
+    const quote = "記事本文";
+    const startOffset = article.currentRevision.markdown.indexOf(quote);
+    await expect(createCmsReviewComment(
+      testEnv.CMS_DB,
+      reviewer.identity,
+      article.id,
+      {
+        anchor: {
+          endOffset: startOffset + quote.length,
+          prefix: "",
+          quote: "別の記事",
+          startOffset,
+          suffix: ""
+        },
+        body: "一致しない選択です。",
+        target: "body"
+      },
+      NOW
+    )).rejects.toMatchObject({ code: "invalid_article" });
     const comment = await createCmsReviewComment(
       testEnv.CMS_DB,
       reviewer.identity,
       article.id,
-      { body: "導入部の根拠を確認してください。", target: "body" },
+      {
+        anchor: {
+          endOffset: startOffset + quote.length,
+          prefix: article.currentRevision.markdown.slice(0, startOffset),
+          quote,
+          startOffset,
+          suffix: article.currentRevision.markdown.slice(startOffset + quote.length)
+        },
+        body: "導入部の根拠を確認してください。",
+        target: "body"
+      },
       NOW
     );
     expect(comment).toMatchObject({
+      anchor: { quote, startOffset },
       authorEmail: "reviewer@example.com",
       revisionId: article.currentRevision.id,
       revisionNumber: article.revisionNumber,
+      status: "open",
       target: "body"
     });
     expect(await listCmsReviewComments(testEnv.CMS_DB, admin.identity, article.id))
       .toEqual([comment]);
 
-    const withdrawn = await transitionCmsArticle(
+    await expect(transitionCmsArticle(
       testEnv.CMS_DB,
       admin.identity,
       article.id,
-      "withdraw_review",
+      "approve",
       article.lockVersion,
       {},
       NOW
+    )).rejects.toMatchObject({ code: "invalid_transition" });
+
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      reviewer.identity,
+      article.id,
+      "request_changes",
+      article.lockVersion,
+      { note: "未対応のレビューコメントが1件あります。" },
+      NOW
     );
-    expect(withdrawn.reviewStatus).toBe("draft");
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      {
+        ...validArticle("review-boundary"),
+        markdown: "## CMSで管理する\n\n記事本文へ根拠を追記し、D1のrevisionとして保存します。"
+      },
+      new Date("2026-07-18T00:01:00.000Z")
+    );
+    const resolved = await updateCmsReviewCommentStatus(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      comment.id,
+      "resolve",
+      new Date("2026-07-18T00:02:00.000Z")
+    );
+    expect(resolved).toMatchObject({
+      resolvedByEmail: "owner@example.com",
+      resolvedRevisionId: article.currentRevision.id,
+      resolvedRevisionNumber: article.revisionNumber,
+      status: "resolved"
+    });
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_review",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:03:00.000Z")
+    );
+    const reopened = await updateCmsReviewCommentStatus(
+      testEnv.CMS_DB,
+      reviewer.identity,
+      article.id,
+      comment.id,
+      "reopen",
+      new Date("2026-07-18T00:04:00.000Z")
+    );
+    expect(reopened).toMatchObject({ resolvedAt: null, status: "open" });
   });
 
   it("keeps at least one active administrator", async () => {

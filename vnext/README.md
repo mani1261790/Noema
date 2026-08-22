@@ -161,8 +161,9 @@ Studio Workerは`/api/*`を静的SPAより先に処理し、現行CMS APIを`/ap
 - `GET /api/cms/articles/{id}/versions/{revisionId}`: 保存したrevisionの内容を取得
 - `GET /api/cms/articles/{id}/versions/{versionId}/checkpoints`: 版内の保存時点を取得
 - `POST /api/cms/articles/{id}/actions`: レビュー依頼、承認、修正依頼、公開、保管、保管解除
-- `GET /api/cms/articles/{id}/comments`: revisionに紐づくレビューコメントを取得
-- `POST /api/cms/articles/{id}/comments`: 記事全体、本文、記事情報へのレビューコメントを追加
+- `GET /api/cms/articles/{id}/comments`: 未対応優先でrevision・本文アンカー・対応状態に紐づくレビューコメントを取得
+- `POST /api/cms/articles/{id}/comments`: 記事全体、記事情報、または現在Markdownの選択範囲へのレビューコメントを追加
+- `PATCH /api/cms/articles/{id}/comments/{commentId}`: 修正revisionで対応済みにするか、レビュー担当が未対応へ戻す
 - `GET /api/cms/members`: 管理者向けメンバー一覧
 - `PUT /api/cms/members`: 管理者向け招待・role・有効状態の更新
 - その他の`/api/*`: JSONの404を返し、StudioのHTMLへフォールバックしない

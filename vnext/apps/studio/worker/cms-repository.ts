@@ -6,6 +6,8 @@ import {
   cmsDraftFrontmatterSchema,
   cmsPublicationStatusSchema,
   cmsRevisionSaveReasonSchema,
+  cmsReviewCommentAnchorSchema,
+  cmsReviewCommentStatusSchema,
   cmsReviewCommentTargetSchema,
   cmsReviewStatusSchema,
   cmsRoleSchema,
@@ -25,6 +27,8 @@ import {
   type CmsReviewStatus,
   type CmsRevisionSaveReason,
   type CmsReviewComment,
+  type CmsReviewCommentAction,
+  type CmsReviewCommentAnchor,
   type CmsReviewCommentTarget,
   type CmsRole,
   type CmsSession,
@@ -140,13 +144,23 @@ interface ArticleVersionCheckpointRow {
 }
 
 interface ReviewCommentRow {
+  anchor_end: number | null;
+  anchor_prefix: string | null;
+  anchor_quote: string | null;
+  anchor_start: number | null;
+  anchor_suffix: string | null;
   article_id: string;
   author_email: string;
   body: string;
   created_at: string;
   id: string;
+  resolved_at: string | null;
+  resolved_by_email: string | null;
+  resolved_revision_id: string | null;
+  resolved_revision_number: number | null;
   revision_id: string;
   revision_number: number;
+  status: string;
   target: string;
 }
 
@@ -1014,12 +1028,24 @@ export async function listCmsReviewComments(
        COALESCE(m.email, 'unknown') AS author_email,
        c.target,
        c.body,
-       c.created_at
+       c.created_at,
+       c.anchor_start,
+       c.anchor_end,
+       c.anchor_quote,
+       c.anchor_prefix,
+       c.anchor_suffix,
+       c.status,
+       c.resolved_at,
+       c.resolved_revision_id,
+       rr.revision_number AS resolved_revision_number,
+       rm.email AS resolved_by_email
      FROM cms_review_comments c
      JOIN cms_article_revisions r ON r.id = c.revision_id
      LEFT JOIN cms_members m ON m.subject = c.author_subject
+     LEFT JOIN cms_members rm ON rm.subject = c.resolved_by_subject
+     LEFT JOIN cms_article_revisions rr ON rr.id = c.resolved_revision_id
      WHERE c.article_id = ?1
-     ORDER BY c.created_at ASC, c.id ASC`
+     ORDER BY CASE c.status WHEN 'open' THEN 0 ELSE 1 END, c.created_at ASC, c.id ASC`
   ).bind(articleId).all<ReviewCommentRow>();
   return result.results.map(parseReviewComment);
 }
@@ -1028,16 +1054,36 @@ export async function createCmsReviewComment(
   db: D1Database,
   identity: CmsIdentity,
   articleId: string,
-  input: { body: string; target: CmsReviewCommentTarget },
+  input: { anchor?: CmsReviewCommentAnchor; body: string; target: CmsReviewCommentTarget },
   now = new Date(),
   context: CmsMutationContext = {}
 ): Promise<CmsReviewComment> {
   requirePermission(identity.role, "comment");
   const current = await getCurrentArticleRow(db, articleId);
   const target = cmsReviewCommentTargetSchema.safeParse(input.target);
+  const anchor = input.anchor === undefined
+    ? { data: undefined, success: true as const }
+    : cmsReviewCommentAnchorSchema.safeParse(input.anchor);
   const body = input.body.trim();
-  if (!target.success || body.length === 0 || body.length > 1_000) {
+  if (!target.success || !anchor.success || body.length === 0 || body.length > 1_000) {
     throw new CmsRepositoryError("invalid_article", "コメント内容を確認してください。");
+  }
+  if (anchor.data && target.data !== "body") {
+    throw new CmsRepositoryError("invalid_article", "本文の選択範囲は本文コメントにだけ指定できます。");
+  }
+  if (anchor.data) {
+    const revision = await db.prepare(
+      `SELECT markdown FROM cms_article_revisions WHERE id = ?1`
+    ).bind(current.current_revision_id).first<{ markdown: string }>();
+    if (
+      !revision ||
+      revision.markdown.slice(anchor.data.startOffset, anchor.data.endOffset) !== anchor.data.quote
+    ) {
+      throw new CmsRepositoryError(
+        "invalid_article",
+        "選択範囲が現在の本文と一致しません。本文を選び直してください。"
+      );
+    }
   }
   if (!new Set<CmsReviewStatus>(["in_review", "changes_requested", "approved"]).has(parseReviewStatus(current.review_status))) {
     throw new CmsRepositoryError("invalid_transition", "レビュー中の記事にコメントしてください。");
@@ -1047,8 +1093,9 @@ export async function createCmsReviewComment(
   await db.batch([
     db.prepare(
       `INSERT INTO cms_review_comments
-        (id, article_id, revision_id, author_subject, target, body, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+        (id, article_id, revision_id, author_subject, target, body, created_at,
+         anchor_start, anchor_end, anchor_quote, anchor_prefix, anchor_suffix)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`
     ).bind(
       id,
       articleId,
@@ -1056,7 +1103,12 @@ export async function createCmsReviewComment(
       identity.subject,
       target.data,
       body,
-      timestamp
+      timestamp,
+      anchor.data?.startOffset ?? null,
+      anchor.data?.endOffset ?? null,
+      anchor.data?.quote ?? null,
+      anchor.data?.prefix ?? null,
+      anchor.data?.suffix ?? null
     ),
     db.prepare(
       `INSERT INTO cms_audit_events
@@ -1069,7 +1121,8 @@ export async function createCmsReviewComment(
       JSON.stringify(auditMetadata({
         commentId: id,
         revisionId: current.current_revision_id,
-        target: target.data
+        target: target.data,
+        anchored: Boolean(anchor.data)
       }, context)),
       timestamp
     )
@@ -1083,14 +1136,95 @@ export async function createCmsReviewComment(
        COALESCE(m.email, 'unknown') AS author_email,
        c.target,
        c.body,
-       c.created_at
+       c.created_at,
+       c.anchor_start,
+       c.anchor_end,
+       c.anchor_quote,
+       c.anchor_prefix,
+       c.anchor_suffix,
+       c.status,
+       c.resolved_at,
+       c.resolved_revision_id,
+       rr.revision_number AS resolved_revision_number,
+       rm.email AS resolved_by_email
      FROM cms_review_comments c
      JOIN cms_article_revisions r ON r.id = c.revision_id
      LEFT JOIN cms_members m ON m.subject = c.author_subject
+     LEFT JOIN cms_members rm ON rm.subject = c.resolved_by_subject
+     LEFT JOIN cms_article_revisions rr ON rr.id = c.resolved_revision_id
      WHERE c.id = ?1`
   ).bind(id).first<ReviewCommentRow>();
   if (!row) throw new Error("CMS review comment was not persisted.");
   return parseReviewComment(row);
+}
+
+export async function updateCmsReviewCommentStatus(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string,
+  commentId: string,
+  action: CmsReviewCommentAction,
+  now = new Date(),
+  context: CmsMutationContext = {}
+): Promise<CmsReviewComment> {
+  if (action === "resolve") requirePermission(identity.role, "edit");
+  else requirePermission(identity.role, "approve");
+  const existing = await db.prepare(
+    `SELECT status FROM cms_review_comments WHERE id = ?1 AND article_id = ?2`
+  ).bind(commentId, articleId).first<{ status: string }>();
+  if (!existing) throw new CmsRepositoryError("article_not_found", "レビューコメントが見つかりません。");
+  const nextStatus = action === "resolve" ? "resolved" : "open";
+  if (existing.status === nextStatus) {
+    const comments = await listCmsReviewComments(db, identity, articleId);
+    const comment = comments.find((item) => item.id === commentId);
+    if (!comment) throw new Error("CMS review comment status was not persisted.");
+    return comment;
+  }
+  const current = await getCurrentArticleRow(db, articleId);
+  const reviewStatus = parseReviewStatus(current.review_status);
+  if (
+    (action === "resolve" && !new Set<CmsReviewStatus>(["draft", "changes_requested"]).has(reviewStatus)) ||
+    (action === "reopen" && !new Set<CmsReviewStatus>(["in_review", "changes_requested", "approved"]).has(reviewStatus))
+  ) {
+    throw invalidTransition();
+  }
+  const timestamp = now.toISOString();
+  await db.batch([
+      db.prepare(
+        `UPDATE cms_review_comments
+         SET status = ?1,
+             resolved_at = ?2,
+             resolved_by_subject = ?3,
+             resolved_revision_id = ?4
+         WHERE id = ?5 AND article_id = ?6`
+      ).bind(
+        nextStatus,
+        action === "resolve" ? timestamp : null,
+        action === "resolve" ? identity.subject : null,
+        action === "resolve" ? current.current_revision_id : null,
+        commentId,
+        articleId
+      ),
+      db.prepare(
+        `INSERT INTO cms_audit_events
+          (id, article_id, actor_subject, action, metadata_json, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
+      ).bind(
+        crypto.randomUUID(),
+        articleId,
+        identity.subject,
+        `article.comment_${action}`,
+        JSON.stringify(auditMetadata({
+          commentId,
+          revisionId: current.current_revision_id
+        }, context)),
+        timestamp
+      )
+  ]);
+  const comments = await listCmsReviewComments(db, identity, articleId);
+  const comment = comments.find((item) => item.id === commentId);
+  if (!comment) throw new Error("CMS review comment status was not persisted.");
+  return comment;
 }
 
 export async function listCmsArticleVersions(
@@ -1533,6 +1667,22 @@ export async function transitionCmsArticle(
   if (replayArticleId) return getCmsArticle(db, identity, replayArticleId);
   const current = await getCurrentArticleRow(db, articleId);
   if (current.lock_version !== expectedVersion) throw revisionConflict();
+  let openReviewCommentCount: number | null = null;
+  if (new Set<CmsArticleAction>(["request_review", "request_changes", "approve"]).has(action)) {
+    openReviewCommentCount = await countOpenReviewComments(db, articleId);
+    if (action === "request_changes" && openReviewCommentCount === 0 && !options.note?.trim()) {
+      throw new CmsRepositoryError(
+        "invalid_transition",
+        "修正箇所へレビューコメントを追加してから修正を依頼してください。"
+      );
+    }
+    if ((action === "request_review" || action === "approve") && openReviewCommentCount > 0) {
+      throw new CmsRepositoryError(
+        "invalid_transition",
+        `未対応のレビューコメントが${openReviewCommentCount}件あります。対応状況を確認してください。`
+      );
+    }
+  }
   const detail = await getCmsArticle(db, identity, articleId);
   const timestamp = now.toISOString();
   const nextVersion = expectedVersion + 1;
@@ -1599,7 +1749,7 @@ export async function transitionCmsArticle(
         articleId,
         expectedVersion
       ),
-      ...(action === "request_changes" && options.note?.trim()
+      ...(action === "request_changes" && openReviewCommentCount === 0 && options.note?.trim()
         ? [db.prepare(
             `INSERT INTO cms_review_comments
               (id, article_id, revision_id, author_subject, target, body, created_at)
@@ -1783,6 +1933,15 @@ async function getCurrentArticleRow(
   ).bind(articleId).first<CurrentArticleRow>();
   if (!row) throw articleNotFound();
   return row;
+}
+
+async function countOpenReviewComments(db: D1Database, articleId: string): Promise<number> {
+  const row = await db.prepare(
+    `SELECT COUNT(*) AS count
+     FROM cms_review_comments
+     WHERE article_id = ?1 AND status = 'open'`
+  ).bind(articleId).first<{ count: number }>();
+  return row?.count ?? 0;
 }
 
 function articleListSelect(): string {
@@ -2242,15 +2401,32 @@ function buildTransition(
 
 function parseReviewComment(row: ReviewCommentRow): CmsReviewComment {
   const target = cmsReviewCommentTargetSchema.safeParse(row.target);
+  const status = cmsReviewCommentStatusSchema.safeParse(row.status);
   if (!target.success) throw new Error("CMS review comment target is invalid.");
+  if (!status.success) throw new Error("CMS review comment status is invalid.");
+  const anchor = row.anchor_start === null || row.anchor_end === null || row.anchor_quote === null
+    ? null
+    : cmsReviewCommentAnchorSchema.parse({
+        endOffset: row.anchor_end,
+        prefix: row.anchor_prefix ?? "",
+        quote: row.anchor_quote,
+        startOffset: row.anchor_start,
+        suffix: row.anchor_suffix ?? ""
+      });
   return {
+    anchor,
     articleId: row.article_id,
     authorEmail: row.author_email,
     body: row.body,
     createdAt: row.created_at,
     id: row.id,
+    resolvedAt: row.resolved_at,
+    resolvedByEmail: row.resolved_by_email,
+    resolvedRevisionId: row.resolved_revision_id,
+    resolvedRevisionNumber: row.resolved_revision_number,
     revisionId: row.revision_id,
     revisionNumber: row.revision_number,
+    status: status.data,
     target: target.data
   };
 }

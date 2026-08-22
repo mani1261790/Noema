@@ -1850,16 +1850,30 @@ a {
 
 .studio-review-comments__heading {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
 
 .studio-review-comments__heading h3,
+.studio-review-comments__heading p,
 .studio-review-comments__list,
 .studio-review-comments__list p,
 .studio-review-comments__empty {
   margin: 0;
+}
+
+.studio-review-comments__heading p {
+  margin-bottom: .2rem;
+  color: var(--color-key-900);
+  font-size: calc(13 / 16 * 1rem);
+  font-weight: 700;
+}
+
+.studio-review-comments__guide {
+  margin: 0;
+  color: #444;
+  line-height: 1.65;
 }
 
 .studio-review-comments__list {
@@ -1878,6 +1892,94 @@ a {
   background: #fff;
 }
 
+.studio-review-comments__list li.is-open {
+  border-left: 4px solid #b85000;
+}
+
+.studio-review-comments__list li.is-resolved {
+  border-left: 4px solid #397a5f;
+  background: #f5faf7;
+}
+
+.studio-review-comment__status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .75rem;
+  color: #555;
+  font-size: calc(13 / 16 * 1rem);
+}
+
+.studio-review-comment__status strong {
+  color: #873800;
+}
+
+.is-resolved .studio-review-comment__status strong {
+  color: #205c46;
+}
+
+.studio-review-comment__quote {
+  display: grid;
+  gap: .35rem;
+  width: 100%;
+  padding: .7rem .8rem;
+  border: 1px solid #9bb9b6;
+  border-radius: .35rem;
+  color: #173f3c;
+  background: #eef7f6;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studio-review-comment__quote:hover {
+  border-color: #006b65;
+  background: #e3f2f0;
+}
+
+.studio-review-comment__quote:focus-visible {
+  outline: 3px solid var(--studio-focus, #005fcc);
+  outline-offset: 2px;
+}
+
+.studio-review-comment__quote span {
+  font-size: calc(13 / 16 * 1rem);
+  font-weight: 700;
+}
+
+.studio-review-comment__quote q {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #292929;
+  font-family: var(--font-family-mono);
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.studio-review-comment__action {
+  justify-self: start;
+}
+
+.studio-review-comments__complete,
+.studio-review-comments__selection-help {
+  margin: 0;
+  padding: .75rem;
+  color: #205c46;
+  background: #edf7f1;
+  border: 1px solid #8ab7a5;
+  line-height: 1.6;
+}
+
+.studio-review-comments__resolved summary {
+  padding-block: .35rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.studio-review-comments__resolved .studio-review-comments__list {
+  margin-top: .75rem;
+}
+
 .studio-review-comments__list small,
 .studio-review-comments__empty {
   color: var(--studio-text-muted, #4b5563);
@@ -1886,6 +1988,36 @@ a {
 .studio-review-comments__form {
   display: grid;
   gap: 0.5rem;
+}
+
+.studio-review-comments__selection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .75rem;
+  padding: .75rem;
+  background: #eef7f6;
+  border: 1px solid #6b918e;
+}
+
+.studio-review-comments__selection blockquote {
+  max-height: 7rem;
+  margin: .4rem 0 0;
+  overflow: auto;
+  color: #292929;
+  font-family: var(--font-family-mono);
+  white-space: pre-wrap;
+}
+
+.studio-review-comments__selection button {
+  align-self: start;
+  border: 0;
+  color: #005e58;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: .2em;
+  cursor: pointer;
 }
 
 .studio-review-comments__form select,
@@ -2848,6 +2980,14 @@ textarea.studio-control {
 
 .studio-writing-layout.has-preview {
   grid-template-columns: minmax(24rem, 1fr) minmax(24rem, 1fr);
+}
+
+.studio-workspace.is-review-workspace .studio-writing-layout.has-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.studio-workspace.is-review-workspace .studio-live-preview {
+  display: none;
 }
 
 .studio-writing-layout.is-preview-only {
@@ -4118,6 +4258,14 @@ textarea.studio-control {
     min-height: 0;
     overflow: visible;
     border-top: 1px solid #767676;
+  }
+
+  .studio-review-comments__selection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-review-comments__selection button {
+    justify-self: start;
   }
 
   .studio-asset-tray {
