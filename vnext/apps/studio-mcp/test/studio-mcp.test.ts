@@ -50,6 +50,21 @@ const REVIEWER_SESSION: CmsSession = {
   }
 };
 
+const ADMIN_SESSION: CmsSession = {
+  capabilities: {
+    canApprove: true,
+    canComment: true,
+    canEdit: true,
+    canManageMembers: true,
+    canPublish: true
+  },
+  identity: {
+    email: "admin@example.com",
+    role: "admin",
+    subject: "admin-subject"
+  }
+};
+
 beforeAll(async () => {
   await applyD1Migrations(testEnv.CMS_DB, testEnv.CMS_TEST_MIGRATIONS);
 });
@@ -63,12 +78,17 @@ beforeEach(async () => {
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_article_series"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_series_revisions"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_series"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_asset_idempotency"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_mcp_idempotency"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_audit_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_assets"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_asset_deletions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_imports"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_members"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_member_invitations")
@@ -91,10 +111,19 @@ beforeEach(async () => {
     REVIEWER_SESSION.identity.email,
     "2026-08-19T00:00:00.000Z"
   ).run();
+  await testEnv.CMS_DB.prepare(
+    `INSERT INTO cms_members
+      (subject, email, role, active, created_at, updated_at)
+     VALUES (?1, ?2, 'admin', 1, ?3, ?3)`
+  ).bind(
+    ADMIN_SESSION.identity.subject,
+    ADMIN_SESSION.identity.email,
+    "2026-08-19T00:00:00.000Z"
+  ).run();
 });
 
 describe("Studio MCP tools", () => {
-  it("exposes only draft-safe tools and returns the current CMS identity", async () => {
+  it("exposes CMS editing tools without publication actions and returns the current identity", async () => {
     const connection = await connectClient();
     const tools = await connection.client.listTools();
 
@@ -102,23 +131,38 @@ describe("Studio MCP tools", () => {
       "studio_approve_article",
       "studio_archive_asset",
       "studio_create_draft",
+      "studio_create_review_comment",
+      "studio_create_series",
+      "studio_delete_asset",
       "studio_get_article",
       "studio_get_article_version",
+      "studio_get_series",
       "studio_list_article_version_checkpoints",
       "studio_list_article_versions",
       "studio_list_articles",
       "studio_list_assets",
+      "studio_list_members",
+      "studio_list_review_comments",
+      "studio_list_series",
+      "studio_list_series_versions",
       "studio_preview_draft",
       "studio_request_changes",
       "studio_request_review",
       "studio_restore_article_version",
       "studio_restore_asset",
+      "studio_restore_series_version",
+      "studio_revoke_approval",
       "studio_update_asset",
       "studio_update_draft",
+      "studio_update_series",
       "studio_upload_asset",
+      "studio_upsert_member",
       "studio_validate_draft",
-      "studio_whoami"
+      "studio_whoami",
+      "studio_withdraw_review"
     ]);
+    expect(tools.tools.map((tool) => tool.name)).not.toContain("studio_publish_article");
+    expect(tools.tools.map((tool) => tool.name)).not.toContain("studio_archive_article");
 
     const updateDraft = tools.tools.find((tool) => tool.name === "studio_update_draft");
     const updateProperties = (updateDraft?.inputSchema as {
@@ -515,6 +559,289 @@ describe("Studio MCP tools", () => {
     expect(result.html).toContain('<details class="article-accordion">');
     expect(result.html).toContain("<summary>詳しい説明</summary>");
     expect(result.valid).toBe(true);
+    await connection.close();
+  });
+
+  it("creates, updates, lists, and restores a series without changing publication", async () => {
+    const connection = await connectClient();
+    const articles = await Promise.all(["series-first", "series-second", "series-third"].map(
+      async (slug, index) => articleFrom((await connection.client.callTool({
+        name: "studio_create_draft",
+        arguments: {
+          ...validArticle(slug),
+          requestId: `00000000-0000-4000-8000-0000000001${index + 60}`
+        }
+      })).structuredContent)
+    ));
+    const first = articles[0];
+    const second = articles[1];
+    const third = articles[2];
+    expect(first && second && third).toBeTruthy();
+
+    const createdResult = await connection.client.callTool({
+      name: "studio_create_series",
+      arguments: {
+        articleIds: [first!.id, second!.id],
+        description: "MCPから作成したシリーズです。",
+        slug: "mcp-series",
+        title: "MCPシリーズ"
+      }
+    });
+    const created = seriesFrom(createdResult.structuredContent);
+    expect(created).toMatchObject({
+      articleIds: [first!.id, second!.id],
+      lockVersion: 1,
+      revisionNumber: 1
+    });
+
+    const updatedResult = await connection.client.callTool({
+      name: "studio_update_series",
+      arguments: {
+        articleIds: [second!.id, first!.id, third!.id],
+        description: "記事を追加し、順番を変更しました。",
+        expectedVersion: created.lockVersion,
+        seriesId: created.id,
+        slug: "mcp-series",
+        title: "更新したMCPシリーズ"
+      }
+    });
+    const updated = seriesFrom(updatedResult.structuredContent);
+    expect(updated).toMatchObject({
+      articleIds: [second!.id, first!.id, third!.id],
+      lockVersion: 2,
+      revisionNumber: 2
+    });
+
+    const stale = await connection.client.callTool({
+      name: "studio_update_series",
+      arguments: {
+        articleIds: [first!.id],
+        description: "古い版からの更新です。",
+        expectedVersion: 1,
+        seriesId: created.id,
+        slug: "mcp-series",
+        title: "競合する更新"
+      }
+    });
+    expect(toolErrorCode(stale)).toBe("series_conflict");
+
+    const versionsResult = await connection.client.callTool({
+      name: "studio_list_series_versions",
+      arguments: { seriesId: created.id }
+    });
+    const versions = (versionsResult.structuredContent as { versions: Array<{
+      articleIds: string[];
+      id: string;
+      number: number;
+    }> }).versions;
+    expect(versions.map((version) => version.number)).toEqual([2, 1]);
+
+    const restoredResult = await connection.client.callTool({
+      name: "studio_restore_series_version",
+      arguments: {
+        expectedVersion: updated.lockVersion,
+        seriesId: created.id,
+        versionId: versions[1]!.id
+      }
+    });
+    const restored = seriesFrom(restoredResult.structuredContent);
+    expect(restored).toMatchObject({
+      articleIds: [first!.id, second!.id],
+      lockVersion: 3,
+      revisionNumber: 3
+    });
+    expect(restoredResult.structuredContent).toMatchObject({
+      restoredFromVersionId: versions[1]!.id
+    });
+
+    const listed = await connection.client.callTool({
+      name: "studio_list_series",
+      arguments: { query: "MCPシリーズ" }
+    });
+    expect(listed.structuredContent).toMatchObject({ count: 1 });
+    const fetched = await connection.client.callTool({
+      name: "studio_get_series",
+      arguments: { seriesId: created.id }
+    });
+    expect(seriesFrom(fetched.structuredContent)).toEqual(restored);
+    expect(articles.every((article) => article.publicationStatus === "unpublished")).toBe(true);
+    const seriesAudits = await testEnv.CMS_DB.prepare(
+      "SELECT action, metadata_json FROM cms_audit_events WHERE action LIKE 'series.%' ORDER BY created_at, action"
+    ).all<{ action: string; metadata_json: string }>();
+    expect(seriesAudits.results.map((row) => row.action).sort()).toEqual([
+      "series.created",
+      "series.restored",
+      "series.updated"
+    ]);
+    expect(seriesAudits.results.map((row) => JSON.parse(row.metadata_json).tool).sort()).toEqual([
+      "studio_create_series",
+      "studio_restore_series_version",
+      "studio_update_series"
+    ]);
+    await connection.close();
+  });
+
+  it("supports review comments, review withdrawal, and approval revocation", async () => {
+    const editor = await connectClient();
+    const created = articleFrom((await editor.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("mcp-review-parity"),
+        requestId: "00000000-0000-4000-8000-000000000170"
+      }
+    })).structuredContent);
+    const inReview = articleFrom((await editor.client.callTool({
+      name: "studio_request_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: created.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000171"
+      }
+    })).structuredContent);
+
+    const reviewer = await connectClient(REVIEWER_SESSION);
+    const comment = await reviewer.client.callTool({
+      name: "studio_create_review_comment",
+      arguments: {
+        articleId: created.id,
+        body: "メタデータの説明をもう少し具体的にしてください。",
+        target: "metadata"
+      }
+    });
+    expect(comment.structuredContent).toMatchObject({
+      comment: { articleId: created.id, target: "metadata" }
+    });
+    const listedComments = await editor.client.callTool({
+      name: "studio_list_review_comments",
+      arguments: { articleId: created.id }
+    });
+    expect(listedComments.structuredContent).toMatchObject({ count: 1 });
+
+    const withdrawn = articleFrom((await editor.client.callTool({
+      name: "studio_withdraw_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: inReview.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000172"
+      }
+    })).structuredContent);
+    expect(withdrawn).toMatchObject({
+      publicationStatus: "unpublished",
+      reviewStatus: "draft"
+    });
+    const reviewedAgain = articleFrom((await editor.client.callTool({
+      name: "studio_request_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: withdrawn.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000173"
+      }
+    })).structuredContent);
+    const approved = articleFrom((await reviewer.client.callTool({
+      name: "studio_approve_article",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: reviewedAgain.lockVersion,
+        note: "確認しました。",
+        requestId: "00000000-0000-4000-8000-000000000174"
+      }
+    })).structuredContent);
+    const revoked = articleFrom((await reviewer.client.callTool({
+      name: "studio_revoke_approval",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: approved.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000175"
+      }
+    })).structuredContent);
+    expect(revoked).toMatchObject({
+      publicationStatus: "unpublished",
+      reviewStatus: "in_review"
+    });
+    const commentAudit = await testEnv.CMS_DB.prepare(
+      "SELECT metadata_json FROM cms_audit_events WHERE action = 'article.comment'"
+    ).first<{ metadata_json: string }>();
+    expect(JSON.parse(commentAudit?.metadata_json ?? "{}")).toMatchObject({
+      channel: "mcp",
+      client: "Noema MCP test",
+      tool: "studio_create_review_comment"
+    });
+    await Promise.all([editor.close(), reviewer.close()]);
+  });
+
+  it("allows only administrators to list and update CMS members", async () => {
+    const editor = await connectClient();
+    const forbidden = await editor.client.callTool({
+      name: "studio_list_members",
+      arguments: {}
+    });
+    expect(toolErrorCode(forbidden)).toBe("forbidden");
+    await editor.close();
+
+    const admin = await connectClient(ADMIN_SESSION);
+    const updated = await admin.client.callTool({
+      name: "studio_upsert_member",
+      arguments: {
+        active: true,
+        email: "new-editor@example.com",
+        role: "editor"
+      }
+    });
+    expect(updated.structuredContent).toMatchObject({
+      members: [{ active: true, email: "new-editor@example.com", role: "editor" }]
+    });
+    const listed = await admin.client.callTool({
+      name: "studio_list_members",
+      arguments: {}
+    });
+    expect(listed.structuredContent).toMatchObject({ count: 1 });
+    const memberAudit = await testEnv.CMS_DB.prepare(
+      "SELECT metadata_json FROM cms_audit_events WHERE action = 'member.updated'"
+    ).first<{ metadata_json: string }>();
+    expect(JSON.parse(memberAudit?.metadata_json ?? "{}")).toMatchObject({
+      channel: "mcp",
+      tool: "studio_upsert_member"
+    });
+    await admin.close();
+  });
+
+  it("permanently deletes an unused asset and advertises the operation as destructive", async () => {
+    const connection = await connectClient();
+    const tools = await connection.client.listTools();
+    const deleteTool = tools.tools.find((tool) => tool.name === "studio_delete_asset");
+    expect(deleteTool?.annotations).toMatchObject({
+      destructiveHint: true,
+      readOnlyHint: false
+    });
+    const uploaded = await connection.client.callTool({
+      name: "studio_upload_asset",
+      arguments: {
+        alt: "削除する画像",
+        contentType: "image/png",
+        dataBase64: ONE_PIXEL_PNG,
+        fileName: "delete.png",
+        requestId: "00000000-0000-4000-8000-000000000180"
+      }
+    });
+    const asset = assetFrom(uploaded.structuredContent);
+    const deleted = await connection.client.callTool({
+      name: "studio_delete_asset",
+      arguments: { assetId: asset.id }
+    });
+    expect(deleted.structuredContent).toEqual({ assetId: asset.id, deleted: true });
+    expect(await testEnv.ARTICLE_ASSETS.get(asset.r2Key)).toBeNull();
+    const listed = await connection.client.callTool({
+      name: "studio_list_assets",
+      arguments: {}
+    });
+    expect(listed.structuredContent).toMatchObject({ count: 0 });
+    const deletionAudit = await testEnv.CMS_DB.prepare(
+      "SELECT metadata_json FROM cms_audit_events WHERE action = 'asset.deleted'"
+    ).first<{ metadata_json: string }>();
+    expect(JSON.parse(deletionAudit?.metadata_json ?? "{}")).toMatchObject({
+      channel: "mcp",
+      tool: "studio_delete_asset"
+    });
     await connection.close();
   });
 
@@ -1166,7 +1493,7 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(19);
+    expect(tools.tools).toHaveLength(32);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_article_versions")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_get_article_version")).toBe(true);
@@ -1181,10 +1508,15 @@ describe("Studio MCP HTTP boundary", () => {
     expect(tools.tools.some((tool) => tool.name === "studio_restore_asset")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_preview_draft")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_approve_article")).toBe(true);
-    expect(tools.tools.some((tool) => tool.name === "studio_delete_asset")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "studio_delete_asset")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_create_series")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_update_series")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_list_review_comments")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_withdraw_review")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_revoke_approval")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_publish")).toBe(false);
     expect(tools.tools.some((tool) => tool.name === "studio_archive_article")).toBe(false);
-    expect(tools.tools.some((tool) => tool.name === "studio_list_members")).toBe(false);
+    expect(tools.tools.some((tool) => tool.name === "studio_list_members")).toBe(true);
     await client.close();
   });
 });
@@ -1241,6 +1573,7 @@ function assetFrom(value: unknown): {
 function articleFrom(value: unknown): {
   id: string;
   lockVersion: number;
+  publicationStatus: string;
   revisionNumber: number;
   reviewNote: string | null;
   reviewStatus: string;
@@ -1251,10 +1584,31 @@ function articleFrom(value: unknown): {
   return article as {
     id: string;
     lockVersion: number;
+    publicationStatus: string;
     revisionNumber: number;
     reviewNote: string | null;
     reviewStatus: string;
     slug: string;
+  };
+}
+
+function seriesFrom(value: unknown): {
+  articleIds: string[];
+  id: string;
+  lockVersion: number;
+  revisionNumber: number;
+  slug: string;
+  title: string;
+} {
+  const series = (value as { series?: unknown } | undefined)?.series;
+  if (!series || typeof series !== "object") throw new Error("Missing series result.");
+  return series as {
+    articleIds: string[];
+    id: string;
+    lockVersion: number;
+    revisionNumber: number;
+    slug: string;
+    title: string;
   };
 }
 

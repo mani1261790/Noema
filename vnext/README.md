@@ -16,7 +16,7 @@ GitHub ActionsではNode.js 24とWrangler 4.110.0を使います。
 
 - `apps/blog`: AstroとCloudflare adapterで構築するCMSブログと記事アシスタントAPI
 - `apps/studio`: React/Viteで構築するCMS型Markdown StudioとWorker API
-- `apps/studio-mcp`: Access保護された下書き専用remote MCP Worker
+- `apps/studio-mcp`: Access保護されたCMS編集用remote MCP Worker（公開操作を除く）
 - `apps/public-gate`: `noema-learn.uk`を非公開に保つWorker
 - `packages/cms`: role、review・publication状態、公開範囲、CMS API contract
 - `packages/content`: 記事schema、Markdown validation、UI確認用fixture
@@ -100,7 +100,7 @@ Workerの既定URLは`http://localhost:8787`です。ローカルのmutation境�
 
 ### Studio MCP
 
-Studio MCPは`https://mcp.noema-learn.uk/mcp`でStreamable HTTPを提供します。Cloudflare Access Managed OAuthと既存CMS member roleの両方を通過したidentityだけが利用できます。公開するのはidentity確認、記事一覧・取得、下書き検証・作成・更新で、レビュー依頼、承認、公開、保管、メンバー管理はStudio画面に残します。
+Studio MCPは`https://mcp.noema-learn.uk/mcp`でStreamable HTTPを提供します。Cloudflare Access Managed OAuthと既存CMS member roleの両方を通過したidentityだけが利用できます。記事・シリーズ・画像・レビュー・メンバーを権限に応じて操作できますが、公開、公開終了、再公開はStudio画面に残します。
 
 ローカルではAccess edgeを迂回して実運用接続するのではなく、Worker testでprotocol、role、D1 mutation、再送のidempotencyを確認します。
 

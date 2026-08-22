@@ -226,6 +226,7 @@ export interface CmsRevisionWriteContext {
 export interface CmsMutationContext {
   channel?: "mcp" | "web";
   client?: string;
+  tool?: string;
   idempotency?: {
     requestId: string;
     toolName:
@@ -233,8 +234,10 @@ export interface CmsMutationContext {
       | "studio_create_draft"
       | "studio_request_changes"
       | "studio_request_review"
+      | "studio_revoke_approval"
       | "studio_restore_article_version"
-      | "studio_update_draft";
+      | "studio_update_draft"
+      | "studio_withdraw_review";
   };
 }
 
@@ -819,7 +822,8 @@ export async function queueCmsAssetDeletion(
   db: D1Database,
   identity: CmsIdentity,
   assetId: string,
-  now = new Date()
+  now = new Date(),
+  context: CmsMutationContext = {}
 ): Promise<CmsAssetDeletion> {
   requirePermission(identity.role, "edit");
   const timestamp = now.toISOString();
@@ -841,7 +845,13 @@ export async function queueCmsAssetDeletion(
        WHERE id = ?5 AND NOT EXISTS (
          SELECT 1 FROM cms_asset_references WHERE asset_id = ?5
        )`
-    ).bind(auditId, identity.subject, JSON.stringify({ assetId }), timestamp, assetId),
+    ).bind(
+      auditId,
+      identity.subject,
+      JSON.stringify(auditMetadata({ assetId }, context)),
+      timestamp,
+      assetId
+    ),
     db.prepare(
       `DELETE FROM cms_assets
        WHERE id = ?1 AND NOT EXISTS (
@@ -1019,7 +1029,8 @@ export async function createCmsReviewComment(
   identity: CmsIdentity,
   articleId: string,
   input: { body: string; target: CmsReviewCommentTarget },
-  now = new Date()
+  now = new Date(),
+  context: CmsMutationContext = {}
 ): Promise<CmsReviewComment> {
   requirePermission(identity.role, "comment");
   const current = await getCurrentArticleRow(db, articleId);
@@ -1033,19 +1044,36 @@ export async function createCmsReviewComment(
   }
   const id = crypto.randomUUID();
   const timestamp = now.toISOString();
-  await db.prepare(
-    `INSERT INTO cms_review_comments
-      (id, article_id, revision_id, author_subject, target, body, created_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
-  ).bind(
-    id,
-    articleId,
-    current.current_revision_id,
-    identity.subject,
-    target.data,
-    body,
-    timestamp
-  ).run();
+  await db.batch([
+    db.prepare(
+      `INSERT INTO cms_review_comments
+        (id, article_id, revision_id, author_subject, target, body, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+    ).bind(
+      id,
+      articleId,
+      current.current_revision_id,
+      identity.subject,
+      target.data,
+      body,
+      timestamp
+    ),
+    db.prepare(
+      `INSERT INTO cms_audit_events
+        (id, article_id, actor_subject, action, metadata_json, created_at)
+       VALUES (?1, ?2, ?3, 'article.comment', ?4, ?5)`
+    ).bind(
+      crypto.randomUUID(),
+      articleId,
+      identity.subject,
+      JSON.stringify(auditMetadata({
+        commentId: id,
+        revisionId: current.current_revision_id,
+        target: target.data
+      }, context)),
+      timestamp
+    )
+  ]);
   const row = await db.prepare(
     `SELECT
        c.id,
@@ -1659,7 +1687,8 @@ export async function upsertCmsMemberInvitation(
   db: D1Database,
   identity: CmsIdentity,
   input: { active: boolean; email: string; role: CmsRole },
-  now = new Date()
+  now = new Date(),
+  context: CmsMutationContext = {}
 ): Promise<CmsMember[]> {
   requirePermission(identity.role, "manage_members");
   const timestamp = now.toISOString();
@@ -1708,7 +1737,7 @@ export async function upsertCmsMemberInvitation(
       ).bind(
         crypto.randomUUID(),
         identity.subject,
-        JSON.stringify({ active: input.active, email, role: input.role }),
+        JSON.stringify(auditMetadata({ active: input.active, email, role: input.role }, context)),
         timestamp
       )
     ]);
@@ -2303,7 +2332,7 @@ async function sha256(value: string): Promise<string> {
     .join("");
 }
 
-function auditMetadata(
+export function auditMetadata(
   metadata: Record<string, unknown>,
   context: CmsMutationContext
 ): Record<string, unknown> {
@@ -2311,6 +2340,7 @@ function auditMetadata(
     ...metadata,
     ...(context.channel ? { channel: context.channel } : {}),
     ...(context.client ? { client: context.client.slice(0, 200) } : {}),
+    ...(context.tool ? { tool: context.tool } : {}),
     ...(context.idempotency ? {
       requestId: context.idempotency.requestId,
       tool: context.idempotency.toolName
