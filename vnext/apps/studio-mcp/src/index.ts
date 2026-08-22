@@ -195,9 +195,7 @@ const requestReviewSchema = z.object({
   requestId: REQUEST_ID_SCHEMA
 }).strict();
 
-const requestChangesSchema = requestReviewSchema.extend({
-  note: z.string().trim().min(1).max(500)
-}).strict();
+const requestChangesSchema = requestReviewSchema;
 
 const approveArticleSchema = requestReviewSchema.extend({
   note: z.string().trim().min(1).max(500)
@@ -570,7 +568,7 @@ export function createStudioMcpServer(
       title: "Resolve Studio review comment",
       description: "本文を修正・保存した後、レビューコメントを現在revisionで対応済みにします。未対応コメントが残っている間はレビューを再依頼できません。",
       inputSchema: reviewCommentStatusSchema,
-      annotations: writeAnnotations(false)
+      annotations: writeAnnotations(true)
     },
     async ({ articleId, commentId }) => executeTool(async () => ({
       comment: await updateCmsReviewCommentStatus(
@@ -591,7 +589,7 @@ export function createStudioMcpServer(
       title: "Reopen Studio review comment",
       description: "対応済みの指摘をレビュー担当者が未対応へ戻し、再修正が必要なことを記録します。",
       inputSchema: reviewCommentStatusSchema,
-      annotations: writeAnnotations(false)
+      annotations: writeAnnotations(true)
     },
     async ({ articleId, commentId }) => executeTool(async () => ({
       comment: await updateCmsReviewCommentStatus(

@@ -1683,11 +1683,17 @@ export async function transitionCmsArticle(
       );
     }
   }
+  const transitionOptions = action === "request_changes" && openReviewCommentCount !== null && openReviewCommentCount > 0
+    ? {
+        ...options,
+        note: options.note?.trim() || `未対応のレビューコメントが${openReviewCommentCount}件あります。`
+      }
+    : options;
   const detail = await getCmsArticle(db, identity, articleId);
   const timestamp = now.toISOString();
   const nextVersion = expectedVersion + 1;
   const auditId = crypto.randomUUID();
-  const transition = buildTransition(current, detail, identity, action, options, timestamp);
+  const transition = buildTransition(current, detail, identity, action, transitionOptions, timestamp);
 
   let result: D1Result[];
   try {

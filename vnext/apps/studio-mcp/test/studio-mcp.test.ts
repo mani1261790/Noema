@@ -735,12 +735,12 @@ describe("Studio MCP tools", () => {
       arguments: {
         articleId: created.id,
         expectedVersion: inReview.lockVersion,
-        note: "未対応のレビューコメントが1件あります。",
         requestId: "00000000-0000-4000-8000-000000000172"
       }
     })).structuredContent);
     expect(changesRequested).toMatchObject({
       publicationStatus: "unpublished",
+      reviewNote: "未対応のレビューコメントが1件あります。",
       reviewStatus: "changes_requested"
     });
     const correctedInput = validArticle("mcp-review-parity");

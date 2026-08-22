@@ -29,6 +29,17 @@ describe("review comment anchors", () => {
     });
   });
 
+  it("selects the duplicate quote whose surrounding context matches", () => {
+    const original = "## 前半\n\n前半で対象の文章です。\n\n## 後半\n\n後半で対象の文章です。";
+    const startOffset = original.lastIndexOf("対象の文章");
+    const anchor = createReviewCommentAnchor(original, startOffset, startOffset + "対象の文章".length);
+    const edited = "追記します。\n\n" + original;
+    expect(anchor && locateReviewCommentAnchor(edited, anchor)).toMatchObject({
+      exact: false,
+      startOffset: edited.lastIndexOf("対象の文章")
+    });
+  });
+
   it("reports a removed quote as unavailable", () => {
     const anchor = createReviewCommentAnchor("修正前の文章", 0, "修正前".length);
     expect(anchor && locateReviewCommentAnchor("修正後の文章", anchor)).toBeNull();

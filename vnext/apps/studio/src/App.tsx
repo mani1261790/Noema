@@ -2097,7 +2097,10 @@ export function App() {
     setCmsOperationBusy(false);
   };
 
-  const captureCmsReviewSelection = (element: HTMLTextAreaElement) => {
+  const captureCmsReviewSelection = (
+    element: HTMLTextAreaElement,
+    focusCommentInput = false
+  ) => {
     if (
       !settingsOpen ||
       settingsMode !== "review" ||
@@ -2109,7 +2112,9 @@ export function App() {
     if (!anchor) return;
     setCmsReviewCommentTarget("body");
     setCmsReviewCommentAnchor(anchor);
-    window.requestAnimationFrame(() => reviewCommentInput.current?.focus());
+    if (focusCommentInput) {
+      window.requestAnimationFrame(() => reviewCommentInput.current?.focus());
+    }
   };
 
   const focusCmsReviewComment = (comment: CmsReviewComment) => {
@@ -3539,7 +3544,7 @@ export function App() {
                 }}
                 onChange={(event) => { if (!editorLocked) { setBody(event.target.value); setPublicationIssues([]); } }}
                 onKeyUp={(event) => captureCmsReviewSelection(event.currentTarget)}
-                onMouseUp={(event) => captureCmsReviewSelection(event.currentTarget)}
+                onMouseUp={(event) => captureCmsReviewSelection(event.currentTarget, true)}
                 onSelect={(event) => captureCmsReviewSelection(event.currentTarget)}
                 placeholder="## はじめに\n\nここからMarkdownで本文を書きます。"
                 readOnly={editorLocked}

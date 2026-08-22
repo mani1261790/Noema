@@ -747,9 +747,10 @@ describe("CMS repository", () => {
       article.id,
       "request_changes",
       article.lockVersion,
-      { note: "未対応のレビューコメントが1件あります。" },
+      {},
       NOW
     );
+    expect(article.reviewNote).toBe("未対応のレビューコメントが1件あります。");
     article = await updateCmsArticle(
       testEnv.CMS_DB,
       admin.identity,

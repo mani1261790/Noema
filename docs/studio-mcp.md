@@ -341,7 +341,7 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
   "target": "body",
   "anchor": {
     "startOffset": 128,
-    "endOffset": 149,
+    "endOffset": 142,
     "quote": "この方法なら必ず改善します。",
     "prefix": "## 結論\n\n検証の結果、",
     "suffix": "\n\n## 参考資料"
