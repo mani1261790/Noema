@@ -103,11 +103,15 @@ describe("Studio MCP tools", () => {
       "studio_archive_asset",
       "studio_create_draft",
       "studio_get_article",
+      "studio_get_article_version",
+      "studio_list_article_version_checkpoints",
+      "studio_list_article_versions",
       "studio_list_articles",
       "studio_list_assets",
       "studio_preview_draft",
       "studio_request_changes",
       "studio_request_review",
+      "studio_restore_article_version",
       "studio_restore_asset",
       "studio_update_asset",
       "studio_update_draft",
@@ -115,6 +119,14 @@ describe("Studio MCP tools", () => {
       "studio_validate_draft",
       "studio_whoami"
     ]);
+
+    const updateDraft = tools.tools.find((tool) => tool.name === "studio_update_draft");
+    const updateProperties = (updateDraft?.inputSchema as {
+      properties?: Record<string, unknown>;
+    }).properties ?? {};
+    expect(updateProperties).not.toHaveProperty("editSessionId");
+    expect(updateProperties).not.toHaveProperty("saveReason");
+    expect(updateProperties).not.toHaveProperty("sourceRevisionId");
 
     const result = await connection.client.callTool({
       name: "studio_whoami",
@@ -900,6 +912,139 @@ describe("Studio MCP tools", () => {
     await connection.close();
   });
 
+  it("reads article history and restores an old revision as a new immutable revision", async () => {
+    const editor = await connectClient();
+    const createdResult = await editor.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("history-first"),
+        requestId: "00000000-0000-4000-8000-000000000060"
+      }
+    });
+    const created = articleDetailFrom(createdResult.structuredContent);
+    const updatedResult = await editor.client.callTool({
+      name: "studio_update_draft",
+      arguments: {
+        ...validArticle("history-second"),
+        articleId: created.id,
+        expectedVersion: created.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000061"
+      }
+    });
+    const updated = articleDetailFrom(updatedResult.structuredContent);
+
+    const historyResult = await editor.client.callTool({
+      name: "studio_list_article_versions",
+      arguments: { articleId: created.id }
+    });
+    const versions = articleVersionsFrom(historyResult.structuredContent);
+    expect(versions).toHaveLength(2);
+    expect(versions.map((version) => version.latestRevisionNumber)).toEqual([2, 1]);
+    const firstVersion = versions[1];
+    if (!firstVersion) throw new Error("Missing first version.");
+    expect(firstVersion.latestRevisionId).toBe(created.currentRevision.id);
+
+    const versionResult = await editor.client.callTool({
+      name: "studio_get_article_version",
+      arguments: {
+        articleId: created.id,
+        revisionId: firstVersion.latestRevisionId
+      }
+    });
+    const version = articleVersionFrom(versionResult.structuredContent);
+    expect(version.revision).toMatchObject({
+      id: created.currentRevision.id,
+      markdown: validArticle("history-first").markdown,
+      number: 1
+    });
+    expect(version.isCurrent).toBe(false);
+
+    const checkpointsResult = await editor.client.callTool({
+      name: "studio_list_article_version_checkpoints",
+      arguments: {
+        articleId: created.id,
+        versionId: firstVersion.id
+      }
+    });
+    expect(checkpointsResult.structuredContent).toMatchObject({
+      checkpoints: [{ id: created.currentRevision.id, number: 1 }],
+      nextBeforeRevisionNumber: null
+    });
+
+    const reviewer = await connectClient(REVIEWER_SESSION);
+    const forbiddenRestore = await reviewer.client.callTool({
+      name: "studio_restore_article_version",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: updated.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000062",
+        revisionId: created.currentRevision.id
+      }
+    });
+    expect(toolErrorCode(forbiddenRestore)).toBe("forbidden");
+    await reviewer.close();
+
+    const restoreArguments = {
+      articleId: created.id,
+      expectedVersion: updated.lockVersion,
+      requestId: "00000000-0000-4000-8000-000000000063",
+      revisionId: created.currentRevision.id
+    };
+    const restoredResult = await editor.client.callTool({
+      name: "studio_restore_article_version",
+      arguments: restoreArguments
+    });
+    const replayedRestore = await editor.client.callTool({
+      name: "studio_restore_article_version",
+      arguments: restoreArguments
+    });
+    const restored = articleDetailFrom(restoredResult.structuredContent);
+    expect(restored).toMatchObject({
+      id: created.id,
+      lockVersion: 3,
+      revisionNumber: 3,
+      slug: "history-first"
+    });
+    expect(restored.currentRevision.markdown).toBe(validArticle("history-first").markdown);
+    expect(articleDetailFrom(replayedRestore.structuredContent).revisionNumber).toBe(3);
+    expect(restoredResult.structuredContent).toMatchObject({
+      restoredFromRevisionId: created.currentRevision.id,
+      restoredFromRevisionNumber: 1
+    });
+
+    const staleRestore = await editor.client.callTool({
+      name: "studio_restore_article_version",
+      arguments: {
+        ...restoreArguments,
+        requestId: "00000000-0000-4000-8000-000000000064"
+      }
+    });
+    expect(toolErrorCode(staleRestore)).toBe("revision_conflict");
+
+    const counts = await testEnv.CMS_DB.prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM cms_article_revisions WHERE article_id = ?1) AS revisions,
+        (SELECT COUNT(*) FROM cms_mcp_idempotency
+          WHERE article_id = ?1 AND tool_name = 'studio_restore_article_version') AS restore_keys`
+    ).bind(created.id).first<{ restore_keys: number; revisions: number }>();
+    expect(counts).toEqual({ restore_keys: 1, revisions: 3 });
+
+    const audit = await testEnv.CMS_DB.prepare(
+      `SELECT metadata_json FROM cms_audit_events
+       WHERE article_id = ?1 AND action = 'article.revised'
+       ORDER BY created_at DESC LIMIT 1`
+    ).bind(created.id).first<{ metadata_json: string }>();
+    expect(JSON.parse(audit?.metadata_json ?? "{}")).toMatchObject({
+      channel: "mcp",
+      requestId: restoreArguments.requestId,
+      saveReason: "restored",
+      sourceRevisionId: created.currentRevision.id,
+      tool: "studio_restore_article_version"
+    });
+
+    await editor.close();
+  });
+
   it("rejects reuse of an idempotency key with different input", async () => {
     const connection = await connectClient();
     const requestId = "00000000-0000-4000-8000-000000000003";
@@ -1021,8 +1166,12 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(15);
+    expect(tools.tools).toHaveLength(19);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_list_article_versions")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_get_article_version")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_list_article_version_checkpoints")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_restore_article_version")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_assets")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_request_review")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_request_changes")).toBe(true);
@@ -1106,6 +1255,50 @@ function articleFrom(value: unknown): {
     reviewNote: string | null;
     reviewStatus: string;
     slug: string;
+  };
+}
+
+function articleDetailFrom(value: unknown): {
+  currentRevision: { id: string; markdown: string; number: number };
+  id: string;
+  lockVersion: number;
+  revisionNumber: number;
+  slug: string;
+} {
+  const article = (value as { article?: unknown } | undefined)?.article;
+  if (!article || typeof article !== "object") throw new Error("Missing article result.");
+  return article as {
+    currentRevision: { id: string; markdown: string; number: number };
+    id: string;
+    lockVersion: number;
+    revisionNumber: number;
+    slug: string;
+  };
+}
+
+function articleVersionsFrom(value: unknown): Array<{
+  id: string;
+  latestRevisionId: string;
+  latestRevisionNumber: number;
+}> {
+  const versions = (value as { versions?: unknown } | undefined)?.versions;
+  if (!Array.isArray(versions)) throw new Error("Missing article versions result.");
+  return versions as Array<{
+    id: string;
+    latestRevisionId: string;
+    latestRevisionNumber: number;
+  }>;
+}
+
+function articleVersionFrom(value: unknown): {
+  isCurrent: boolean;
+  revision: { id: string; markdown: string; number: number };
+} {
+  const version = (value as { version?: unknown } | undefined)?.version;
+  if (!version || typeof version !== "object") throw new Error("Missing article version result.");
+  return version as {
+    isCurrent: boolean;
+    revision: { id: string; markdown: string; number: number };
   };
 }
 
