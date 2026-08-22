@@ -71,8 +71,11 @@ import {
 import {
   clearDraft,
   createBlankArticle,
+  forgetLastOpenedCmsArticle,
   hasMeaningfulArticleInput,
+  loadLastOpenedCmsArticleId,
   loadDraft,
+  rememberLastOpenedCmsArticle,
   resolveBrowserStorage,
   saveDraft,
   type DraftStorage,
@@ -125,7 +128,9 @@ import {
 import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
 import { buildArticlePreviewSeries } from "./article-preview-series";
 import {
+  readStudioEditorArticleId,
   readStudioView,
+  resolveInitialStudioEditorArticleId,
   studioViewHref,
   writeStudioHistory,
   type StudioView
@@ -146,6 +151,9 @@ type CmsConflictLatestState =
   | { kind: "idle" | "loading" }
   | { error: CmsClientError; kind: "error" }
   | { article: CmsArticleDetail; kind: "ready" };
+type EditorArticleRestoreState =
+  | { kind: "idle" | "loading" }
+  | { error: CmsClientError; kind: "error" };
 
 const publicSiteUrl = import.meta.env.VITE_PUBLIC_SITE_URL || "http://localhost:4321";
 const markdown = createPreviewMarkdown(publicSiteUrl);
@@ -556,6 +564,15 @@ export function App() {
       ? "articles"
       : readStudioView(window.location.pathname);
   });
+  const [initialEditorArticleId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return resolveInitialStudioEditorArticleId({
+      pathname: window.location.pathname,
+      recoveryArticleId: initialState.cmsReference?.id ?? null,
+      rememberedArticleId: loadLastOpenedCmsArticleId(storage),
+      search: window.location.search
+    });
+  });
   const [frontmatter, setFrontmatter] = useState<ArticleFrontmatter>({
     ...initialState.frontmatter,
     status: "draft"
@@ -596,6 +613,16 @@ export function App() {
     Boolean(initialState.cmsReference?.autosavePaused)
   );
   const [openingArticleId, setOpeningArticleId] = useState<string | null>(null);
+  const [editorArticleId, setEditorArticleId] = useState(initialEditorArticleId);
+  const [editorArticleRestoreState, setEditorArticleRestoreState] = useState<EditorArticleRestoreState>({
+    kind: initialEditorArticleId &&
+      !initialState.cmsReference &&
+      !initialState.hasRecoveryDraft &&
+      !initialState.cmsAssociationRequired
+      ? "loading"
+      : "idle"
+  });
+  const [editorArticleRestoreRetry, setEditorArticleRestoreRetry] = useState(0);
   const [hasRecoveryDraft, setHasRecoveryDraft] = useState(initialState.hasRecoveryDraft);
   const [cmsVisibility, setCmsVisibility] = useState<CmsVisibility>(
     initialState.cmsReference?.visibility ?? "public"
@@ -639,6 +666,7 @@ export function App() {
   const reviewCommentInput = useRef<HTMLTextAreaElement>(null);
   const validationSection = useRef<HTMLElement>(null);
   const cmsRecoveryReconnectInFlight = useRef<string | null>(null);
+  const editorArticleRestoreInFlight = useRef<string | null>(null);
   const cmsSaveInFlight = useRef(false);
   const editSession = useRef(createCmsEditSession());
   const pendingRevisionReason = useRef<{
@@ -761,10 +789,13 @@ export function App() {
   const contentReviewLocked = Boolean(
     cmsArticle && ["in_review", "approved"].includes(cmsArticle.reviewStatus)
   );
+  const editorArticleRestoreActive =
+    !cmsArticle && editorArticleRestoreState.kind !== "idle";
   const editorLocked =
     cmsSessionState.kind !== "ready" ||
     !cmsSessionState.session.capabilities.canEdit ||
-    contentReviewLocked;
+    contentReviewLocked ||
+    editorArticleRestoreActive;
   const cmsFingerprint = useMemo(
     () => cmsContentFingerprint(frontmatter, body, cmsVisibility),
     [body, cmsVisibility, frontmatter]
@@ -978,6 +1009,9 @@ export function App() {
       });
 
       setCmsArticle(article);
+      setEditorArticleId(article.id);
+      rememberLastOpenedCmsArticle(storage, article.id);
+      setEditorArticleRestoreState({ kind: "idle" });
       setLastCmsFingerprint(recovery.serverFingerprint);
       setCmsConflict(recovery.conflict);
       setCmsSaveState(recovery.saveState);
@@ -1077,12 +1111,41 @@ export function App() {
   };
 
   useEffect(() => {
-    writeStudioHistory(initialStudioView, "replace");
-  }, [initialStudioView]);
+    writeStudioHistory(
+      initialStudioView,
+      "replace",
+      initialStudioView === "editor" ? initialEditorArticleId : null
+    );
+  }, [initialEditorArticleId, initialStudioView]);
+
+  useEffect(() => {
+    if (studioView !== "editor") return;
+    const currentArticleId = readStudioEditorArticleId(
+      window.location.pathname,
+      window.location.search
+    );
+    if (currentArticleId !== editorArticleId) {
+      writeStudioHistory("editor", "replace", editorArticleId);
+    }
+  }, [editorArticleId, studioView]);
 
   useEffect(() => {
     const restoreStudioView = () => {
       const nextView = readStudioView(window.location.pathname);
+      if (nextView === "editor") {
+        const routedArticleId = readStudioEditorArticleId(
+          window.location.pathname,
+          window.location.search
+        ) ?? loadLastOpenedCmsArticleId(storage);
+        setEditorArticleId(routedArticleId);
+        if (
+          routedArticleId &&
+          routedArticleId !== cmsArticle?.id &&
+          !hasMeaningfulArticleInput(cmsContentRef.current.frontmatter, cmsContentRef.current.body)
+        ) {
+          setEditorArticleRestoreState({ kind: "loading" });
+        }
+      }
       if (studioViewRef.current === "editor" && nextView !== "editor") {
         const current = cmsContentRef.current;
         if (hasMeaningfulArticleInput(current.frontmatter, current.body)) {
@@ -1114,9 +1177,9 @@ export function App() {
     };
     window.addEventListener("popstate", restoreStudioView);
     return () => window.removeEventListener("popstate", restoreStudioView);
-  }, [cmsArticle, cmsRecoveryReference, saveBrowserDraft, showNotification]);
+  }, [cmsArticle, cmsRecoveryReference, saveBrowserDraft, showNotification, storage]);
 
-  const applyCmsArticle = (
+  const applyCmsArticle = useCallback((
     article: CmsArticleDetail,
     options: {
       pauseAutosave?: boolean;
@@ -1142,6 +1205,9 @@ export function App() {
     );
     const manualSaveRequired = Boolean(options.pauseAutosave && preservedInputHasChanges);
     setCmsArticle(article);
+    setEditorArticleId(article.id);
+    rememberLastOpenedCmsArticle(storage, article.id);
+    setEditorArticleRestoreState({ kind: "idle" });
     setCmsPublishVisibility(article.publishedVisibility ?? article.visibility);
     setLastCmsFingerprint(serverFingerprint);
     setCmsSaveState(preservedInputHasChanges ? "dirty" : "saved");
@@ -1183,7 +1249,72 @@ export function App() {
       });
     }
     return { manualSaveRequired };
-  };
+  }, [storage, updateCmsArticleList]);
+
+  useEffect(() => {
+    if (
+      studioView !== "editor" ||
+      cmsSessionState.kind !== "ready" ||
+      !editorArticleId ||
+      cmsRecoveryReference ||
+      cmsAssociationRequired ||
+      cmsArticle?.id === editorArticleId ||
+      editorArticleRestoreInFlight.current === editorArticleId ||
+      (!cmsArticle && hasMeaningfulArticleInput(frontmatter, body))
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const articleId = editorArticleId;
+    editorArticleRestoreInFlight.current = articleId;
+    setEditorArticleRestoreState({ kind: "loading" });
+    setOpeningArticleId(articleId);
+    setCmsOperationBusy(true);
+    void fetchCmsArticle(articleId, { signal: controller.signal }).then((result) => {
+      if (controller.signal.aborted) return;
+      if (result.ok) {
+        applyCmsArticle(result.value);
+        const targetLocked =
+          !cmsSessionState.session.capabilities.canEdit ||
+          ["in_review", "approved"].includes(result.value.reviewStatus);
+        if (targetLocked) {
+          setSettingsMode(
+            cmsSessionState.session.capabilities.canPublish && result.value.reviewStatus === "approved"
+              ? "publish"
+              : "review"
+          );
+          setSettingsOpen(true);
+          setPreviewFullscreen(true);
+        }
+      } else {
+        setEditorArticleRestoreState({ error: result.error, kind: "error" });
+      }
+      editorArticleRestoreInFlight.current = null;
+      setOpeningArticleId(null);
+      setCmsOperationBusy(false);
+    });
+
+    return () => {
+      controller.abort();
+      if (editorArticleRestoreInFlight.current === articleId) {
+        editorArticleRestoreInFlight.current = null;
+        setOpeningArticleId(null);
+        setCmsOperationBusy(false);
+      }
+    };
+  }, [
+    applyCmsArticle,
+    body,
+    cmsArticle,
+    cmsAssociationRequired,
+    cmsRecoveryReference,
+    cmsSessionState,
+    editorArticleId,
+    editorArticleRestoreRetry,
+    frontmatter,
+    studioView
+  ]);
 
   const loadCmsArticle = async (articleId: string): Promise<boolean> => {
     if (cmsOperationBusy || cmsSaveInFlight.current) return false;
@@ -1494,6 +1625,9 @@ export function App() {
     }
 
     setCmsArticle(result.value);
+    setEditorArticleId(result.value.id);
+    rememberLastOpenedCmsArticle(storage, result.value.id);
+    setEditorArticleRestoreState({ kind: "idle" });
     setCmsRecoveryReference(needsFollowupReview ? {
       autosavePaused: true,
       id: result.value.id,
@@ -1543,6 +1677,9 @@ export function App() {
   }, [cmsArticle, cmsAssociationRequired, cmsConflict, cmsRecoveryReference, cmsSessionState, editorLocked, showNotification, storage, updateCmsArticleList]);
 
   const continueRecoveryAsNewArticle = () => {
+    setEditorArticleId(null);
+    forgetLastOpenedCmsArticle(storage);
+    setEditorArticleRestoreState({ kind: "idle" });
     setCmsAssociationRequired(false);
     setCmsAutosavePaused(false);
     const result = saveDraft(storage, { frontmatter, body });
@@ -1565,7 +1702,10 @@ export function App() {
     )) return;
     const blank = createBlankArticle();
     clearDraft(storage);
+    forgetLastOpenedCmsArticle(storage);
     setCmsArticle(null);
+    setEditorArticleId(null);
+    setEditorArticleRestoreState({ kind: "idle" });
     setCmsRecoveryReference(null);
     setCmsAssociationRequired(false);
     setCmsAutosavePaused(false);
@@ -2432,6 +2572,10 @@ export function App() {
     ? "CMSを確認中…"
     : cmsSessionState.kind === "unavailable"
       ? "CMSに接続できません"
+      : editorArticleRestoreState.kind === "loading"
+        ? "開いていた記事のCMS最新版を取得中…"
+        : editorArticleRestoreState.kind === "error"
+          ? "開いていた記事を取得できません"
       : cmsAssociationRequired
         ? "保存先を選択してください"
         : cmsSaveLabel[effectiveCmsSaveState];
@@ -2439,6 +2583,10 @@ export function App() {
     ? "確認中…"
     : cmsSessionState.kind === "unavailable"
       ? "接続エラー"
+      : editorArticleRestoreState.kind === "loading"
+        ? "読込中…"
+        : editorArticleRestoreState.kind === "error"
+          ? "読込エラー"
       : cmsAssociationRequired
         ? "保存先未選択"
         : cmsCompactSaveLabel[effectiveCmsSaveState];
@@ -2446,6 +2594,10 @@ export function App() {
     ? "saving"
     : cmsSessionState.kind === "unavailable"
       ? "error"
+      : editorArticleRestoreState.kind === "loading"
+        ? "saving"
+        : editorArticleRestoreState.kind === "error"
+          ? "error"
       : effectiveCmsSaveState;
   const cmsSaveDisabled = Boolean(
     !cmsSession?.capabilities.canEdit ||
@@ -3232,7 +3384,41 @@ export function App() {
           id="studio-editor"
         >
           <h2 className="sr-only" id="editor-heading">{previewFullscreen ? "記事プレビュー" : "Markdown本文"}</h2>
-          {editorLocked ? (
+          {editorArticleRestoreState.kind === "loading" ? (
+            <p className="studio-editor__lock" role="status">
+              開いていた記事のCMS最新版を取得しています。読み込みが終わるまでお待ちください。
+            </p>
+          ) : editorArticleRestoreState.kind === "error" ? (
+            <div className="studio-editor__restore-error" role="alert">
+              <div>
+                <strong>開いていた記事を取得できませんでした。</strong>
+                <p>{editorArticleRestoreState.error.message}</p>
+              </div>
+              <div className="studio-editor__restore-actions">
+                <button
+                  className="dads-button"
+                  data-size="sm"
+                  data-type="solid-fill"
+                  onClick={() => {
+                    setEditorArticleRestoreState({ kind: "loading" });
+                    setEditorArticleRestoreRetry((current) => current + 1);
+                  }}
+                  type="button"
+                >
+                  CMS最新版を再取得
+                </button>
+                <button
+                  className="dads-button"
+                  data-size="sm"
+                  data-type="outline"
+                  onClick={showArticleLibrary}
+                  type="button"
+                >
+                  記事一覧へ
+                </button>
+              </div>
+            </div>
+          ) : editorLocked ? (
             <p className="studio-editor__lock" role="status">
               {contentReviewLocked
                 ? "レビュー対象の本文を固定しています。内容を確認し、必要な点はレビューコメントへ残してください。"

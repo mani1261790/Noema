@@ -3,6 +3,7 @@ import type { CmsVisibility } from "@noema/cms";
 
 export const DRAFT_STORAGE_KEY = "noema-studio-draft-v1";
 export const DRAFT_STORAGE_VERSION = 3;
+export const LAST_OPENED_CMS_ARTICLE_KEY = "noema-studio-last-opened-article-v1";
 const PREVIOUS_DRAFT_STORAGE_VERSION = 2;
 
 const MAX_STORED_DRAFT_CHARACTERS = 1_500_000;
@@ -112,6 +113,44 @@ export type DraftSaveResult =
 export type DraftClearResult =
   | { ok: true }
   | { ok: false; reason: "storage_unavailable" };
+
+export type LastOpenedCmsArticleWriteResult =
+  | { ok: true }
+  | { ok: false; reason: "invalid_article_id" | "storage_unavailable" };
+
+export function loadLastOpenedCmsArticleId(storage: DraftStorage): string | null {
+  try {
+    const articleId = storage.getItem(LAST_OPENED_CMS_ARTICLE_KEY)?.trim() ?? "";
+    return articleId.length > 0 && articleId.length <= 128 ? articleId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberLastOpenedCmsArticle(
+  storage: DraftStorage,
+  articleId: string
+): LastOpenedCmsArticleWriteResult {
+  const normalizedArticleId = articleId.trim();
+  if (!normalizedArticleId || normalizedArticleId.length > 128) {
+    return { ok: false, reason: "invalid_article_id" };
+  }
+  try {
+    storage.setItem(LAST_OPENED_CMS_ARTICLE_KEY, normalizedArticleId);
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "storage_unavailable" };
+  }
+}
+
+export function forgetLastOpenedCmsArticle(storage: DraftStorage): DraftClearResult {
+  try {
+    storage.removeItem(LAST_OPENED_CMS_ARTICLE_KEY);
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "storage_unavailable" };
+  }
+}
 
 export function createBlankArticle(date: Date | string = new Date()): ArticleFrontmatter {
   return {
