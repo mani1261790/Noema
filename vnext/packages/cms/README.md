@@ -107,6 +107,7 @@ Studio Workerは次のCMS endpointを提供します。
 - `POST /api/cms/articles/{id}/actions`
 - `GET /api/cms/articles/{id}/comments`
 - `POST /api/cms/articles/{id}/comments`
+- `PATCH /api/cms/articles/{id}/comments/{commentId}`
 - `GET /api/cms/members`
 - `PUT /api/cms/members`
 - `POST /api/studio-auth/password`（既存メンバーの初回設定）

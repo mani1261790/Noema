@@ -3,6 +3,7 @@ import {
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsMemberMutationSchema,
+  cmsReviewCommentActionSchema,
   cmsReviewCommentRequestSchema,
   cmsCreateSeriesRequestSchema,
   cmsUpdateSeriesRequestSchema,
@@ -29,6 +30,7 @@ import {
   transitionCmsArticle,
   updateCmsArticle,
   updateCmsAsset,
+  updateCmsReviewCommentStatus,
   upsertCmsMemberInvitation
 } from "./cms-repository";
 import {
@@ -318,6 +320,23 @@ export async function handleCmsApiRequest(
       return methodNotAllowed("GET, POST");
     }
 
+    if (route.kind === "comment") {
+      if (request.method !== "PATCH") return methodNotAllowed("PATCH");
+      const body = await readCmsJson(request);
+      if (!body.ok) return body.response;
+      const parsed = cmsReviewCommentActionSchema.safeParse(body.value);
+      if (!parsed.success) return invalidRequest(parsed.error.issues);
+      return cmsJson({
+        comment: await updateCmsReviewCommentStatus(
+          env.CMS_DB,
+          session.identity,
+          route.id,
+          route.commentId,
+          parsed.data.action
+        )
+      });
+    }
+
     if (route.kind !== "actions") {
       return cmsError(404, "api_not_found", "APIが見つかりません。");
     }
@@ -474,6 +493,7 @@ type ArticleRoute =
   | { id: string; kind: "article" }
   | { id: string; kind: "actions" }
   | { id: string; kind: "comments" }
+  | { commentId: string; id: string; kind: "comment" }
   | { id: string; kind: "versions" }
   | { id: string; kind: "version"; revisionId: string }
   | { id: string; kind: "checkpoints"; versionId: string };
@@ -511,6 +531,13 @@ function parseArticleRoute(pathname: string): ArticleRoute | null {
   }
   if (segments.length === 5 && segments[4] === "comments") {
     return { id, kind: "comments" };
+  }
+  if (
+    segments.length === 6 &&
+    segments[4] === "comments" &&
+    /^[0-9a-f-]{36}$/i.test(segments[5] ?? "")
+  ) {
+    return { commentId: segments[5] ?? "", id, kind: "comment" };
   }
   if (segments.length === 5 && segments[4] === "versions") {
     return { id, kind: "versions" };
