@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   DRAFT_STORAGE_KEY,
   DRAFT_STORAGE_VERSION,
+  LAST_OPENED_CMS_ARTICLE_KEY,
   clearDraft,
   createBlankArticle,
+  forgetLastOpenedCmsArticle,
   hasMeaningfulArticleInput,
+  loadLastOpenedCmsArticleId,
   loadDraft,
+  rememberLastOpenedCmsArticle,
   resolveBrowserStorage,
   saveDraft,
   type DraftStorage,
@@ -79,6 +83,29 @@ describe("resolveBrowserStorage", () => {
       ok: false,
       reason: "storage_unavailable"
     });
+  });
+});
+
+describe("last opened CMS article", () => {
+  it("remembers the selected article separately from recovery content", () => {
+    const storage = new MemoryStorage();
+    expect(rememberLastOpenedCmsArticle(storage, "article-123")).toEqual({ ok: true });
+    expect(storage.values.get(LAST_OPENED_CMS_ARTICLE_KEY)).toBe("article-123");
+    expect(loadLastOpenedCmsArticleId(storage)).toBe("article-123");
+    expect(forgetLastOpenedCmsArticle(storage)).toEqual({ ok: true });
+    expect(loadLastOpenedCmsArticleId(storage)).toBeNull();
+  });
+
+  it("ignores invalid and unavailable remembered selections", () => {
+    const storage = new MemoryStorage();
+    expect(rememberLastOpenedCmsArticle(storage, " ")).toEqual({
+      ok: false,
+      reason: "invalid_article_id"
+    });
+    storage.values.set(LAST_OPENED_CMS_ARTICLE_KEY, "a".repeat(129));
+    expect(loadLastOpenedCmsArticleId(storage)).toBeNull();
+    storage.getError = new Error("unavailable");
+    expect(loadLastOpenedCmsArticleId(storage)).toBeNull();
   });
 });
 
