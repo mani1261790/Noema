@@ -22,6 +22,21 @@ const frontmatter: ArticleFrontmatter = {
 };
 
 describe("article Markdown extensions", () => {
+  it("renders parenthesized strong text before a Japanese suffix", () => {
+    const html = renderArticleMarkdown([
+      "**ブランチ（branch）**の役割を説明します。",
+      "",
+      "**エディター（editor）**を使います。",
+      "",
+      "**通常の太字**も表示します。",
+    ].join("\n"));
+
+    expect(html).toContain("<strong>ブランチ（branch）</strong>の役割");
+    expect(html).toContain("<strong>エディター（editor）</strong>を使います");
+    expect(html).toContain("<strong>通常の太字</strong>も表示します");
+    expect(renderArticleMarkdown("**branch）**suffix")).toContain("**branch）**suffix");
+  });
+
   it("renders accordion content with semantic details and summary elements", () => {
     const html = renderArticleMarkdown([
       "## 本文",
