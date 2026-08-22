@@ -36,10 +36,10 @@ astro-dev-toolbar {
 
 .site-header__brand:focus-visible,
 .site-header__search:focus-visible {
-  outline: 4px solid var(--color-neutral-black);
-  outline-offset: 2px;
-  background: var(--color-primitive-yellow-300);
-  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+  outline: 3px solid var(--color-key-700);
+  outline-offset: 3px;
+  background: var(--color-key-50);
+  box-shadow: none;
 }
 
 .site-header__search {
@@ -106,6 +106,7 @@ astro-dev-toolbar {
   grid-template-columns: 2.75rem minmax(0, 1fr);
   align-items: end;
   gap: 0.5rem;
+  margin-inline-start: auto;
   max-width: 36rem;
 }
 
@@ -167,16 +168,31 @@ astro-dev-toolbar {
 }
 
 .site-search-form__submit:focus-visible {
-  outline: 4px solid var(--color-neutral-black);
-  outline-offset: 2px;
-  background: var(--color-primitive-yellow-300);
-  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
+  outline: 3px solid var(--color-key-700);
+  outline-offset: 3px;
+  background: var(--color-key-50);
+  box-shadow: none;
 }
 
 .site-search-form__input input:focus-visible {
-  outline: 0;
-  border-bottom: 3px solid var(--color-neutral-black);
-  box-shadow: 0 3px 0 var(--color-primitive-yellow-300);
+  outline: 3px solid var(--color-key-700);
+  outline-offset: 3px;
+  border-bottom: 2px solid var(--color-key-700);
+  box-shadow: none;
+}
+
+/* Keep the public site focused without the shared Studio/DADS yellow-black treatment. */
+body.noema-public :focus-visible {
+  outline: 3px solid var(--color-key-700) !important;
+  outline-offset: 3px !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+body.noema-public .site-header__brand:focus-visible,
+body.noema-public .site-header__search:focus-visible,
+body.noema-public .site-search-form__submit:focus-visible {
+  background: var(--color-key-50) !important;
 }
 
 .site-search-form__input {
