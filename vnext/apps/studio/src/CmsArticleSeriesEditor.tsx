@@ -61,6 +61,10 @@ export function CmsArticleSeriesEditor({
     () => new Map(articles.map((article) => [article.id, article])),
     [articles]
   );
+  const publishedArticle = articlesById.get(articleId)?.publicationStatus === "published";
+  const addToExistingLabel = publishedArticle ? "追加して公開へ反映" : "このシリーズへ追加";
+  const createSeriesLabel = publishedArticle ? "シリーズを作成して公開へ反映" : "シリーズを作成して追加";
+  const saveSeriesLabel = publishedArticle ? "シリーズを保存して公開へ反映" : "シリーズを保存";
 
   useEffect(() => {
     setTitle(membership?.title ?? "");
@@ -163,7 +167,7 @@ export function CmsArticleSeriesEditor({
             <option value="">選択してください</option>
             {series.map((item) => <option key={item.id} value={item.id}>{item.title}（{item.articleIds.length}記事）</option>)}
           </select>
-          <button className="dads-button" data-size="md" data-type="outline" disabled={!canEdit || busy || !selectedSeriesId} onClick={() => void addToExisting()} type="button">このシリーズへ追加</button>
+          <button className="dads-button" data-size="md" data-type="outline" disabled={!canEdit || busy || !selectedSeriesId} onClick={() => void addToExisting()} type="button">{addToExistingLabel}</button>
         </div>
         <details className="studio-disclosure">
           <summary>新しいシリーズを作る</summary>
@@ -174,7 +178,7 @@ export function CmsArticleSeriesEditor({
               <summary>URLを確認</summary>
               <label>slug<input disabled={!canEdit || busy} maxLength={100} onChange={(event) => { setSlugEdited(true); setSlug(event.target.value); }} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required value={slug} /></label>
             </details>
-            <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy || !title.trim()} type="submit">シリーズを作成して追加</button>
+            <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy || !title.trim()} type="submit">{createSeriesLabel}</button>
           </form>
         </details>
       </section>
@@ -220,7 +224,7 @@ export function CmsArticleSeriesEditor({
           </ol>
         </details>
         <div className="studio-article-series__actions">
-          <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy || articleIds.length === 0} type="submit">シリーズを保存</button>
+          <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy || articleIds.length === 0} type="submit">{saveSeriesLabel}</button>
           <button className="dads-button" data-size="md" data-type="outline" disabled={!canEdit || busy || articleIds.length <= 1} onClick={() => void removeFromSeries()} type="button">この記事をシリーズから外す</button>
         </div>
         {articleIds.length <= 1 ? <p className="studio-field__support">最後の記事は外せません。シリーズを残すには、先に別の記事を追加してください。</p> : null}

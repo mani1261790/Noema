@@ -44,6 +44,13 @@ export function getCmsJourneyStatus(
   return { detail: null, label: stages[step], step };
 }
 
+export function getCmsWorkflowShortcut(
+  reviewStatus: CmsReviewStatus | null,
+  canPublish: boolean
+): "publish" | "review" {
+  return reviewStatus === "approved" && canPublish ? "publish" : "review";
+}
+
 export function CmsPublicationJourney({
   compact = false,
   currentRevisionPublished,

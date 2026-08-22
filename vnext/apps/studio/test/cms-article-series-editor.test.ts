@@ -47,9 +47,9 @@ describe("CmsArticleSeriesEditor", () => {
 
     expect(html).toContain("未設定です");
     expect(html).toContain("既存シリーズ");
-    expect(html).toContain("このシリーズへ追加");
+    expect(html).toContain("追加して公開へ反映");
     expect(html).toContain("新しいシリーズを作る");
-    expect(html).toContain("シリーズを作成して追加");
+    expect(html).toContain("シリーズを作成して公開へ反映");
   });
 
   it("shows position, ordering controls, and history for an existing membership", () => {
@@ -63,9 +63,20 @@ describe("CmsArticleSeriesEditor", () => {
     expect(html).toContain("第1回 / 全1回");
     expect(html).toContain("履歴と復元");
     expect(html).toContain("シリーズ情報を編集");
-    expect(html).toContain("シリーズを保存");
+    expect(html).toContain("シリーズを保存して公開へ反映");
     expect(html).toContain("この記事をシリーズから外す");
     expect(html).toContain("最後の記事は外せません");
+  });
+
+  it("keeps series controls enabled for an approved article that is already published", () => {
+    const approvedPublishedArticle = { ...article, reviewStatus: "approved" as const };
+    const html = renderToStaticMarkup(createElement(CmsArticleSeriesEditor, {
+      ...props,
+      articles: [approvedPublishedArticle]
+    }));
+
+    expect(html).toContain("追加して公開へ反映");
+    expect(html).not.toContain('id="article-series-existing" disabled=""');
   });
 
   it("generates stable URLs for both Latin and Japanese titles", () => {
