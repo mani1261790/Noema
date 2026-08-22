@@ -174,13 +174,6 @@ astro-dev-toolbar {
   box-shadow: none;
 }
 
-.site-search-form__input input:focus-visible {
-  outline: 3px solid var(--color-key-700);
-  outline-offset: 3px;
-  border-bottom: 2px solid var(--color-key-700);
-  box-shadow: none;
-}
-
 /* Keep the public site focused without the shared Studio/DADS yellow-black treatment. */
 body.noema-public :focus-visible {
   outline: 3px solid var(--color-key-700) !important;
@@ -193,6 +186,14 @@ body.noema-public .site-header__brand:focus-visible,
 body.noema-public .site-header__search:focus-visible,
 body.noema-public .site-search-form__submit:focus-visible {
   background: var(--color-key-50) !important;
+}
+
+body.noema-public .site-search-form__input input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  border-bottom: 1px solid var(--color-neutral-solid-gray-900);
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .site-search-form__input {

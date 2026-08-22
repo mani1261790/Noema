@@ -35,7 +35,6 @@
   const siteHeader = document.querySelector<HTMLElement>("[data-site-header]");
   const searchToggle = siteHeader?.querySelector<HTMLButtonElement>("[data-site-search-toggle]");
   const searchPanel = siteHeader?.querySelector<HTMLElement>("[data-site-search-panel]");
-  const searchInput = siteHeader?.querySelector<HTMLInputElement>("[data-site-search-input]");
   const searchLabel = siteHeader?.querySelector<HTMLElement>("[data-site-search-label]");
 
   const setSearchOpen = (open: boolean, returnFocus = false) => {
@@ -46,7 +45,6 @@
     if (searchLabel) searchLabel.textContent = open ? "閉じる" : "検索";
     if (open) {
       searchPanel.removeAttribute("inert");
-      requestAnimationFrame(() => searchInput?.focus());
     } else {
       searchPanel.setAttribute("inert", "");
       if (returnFocus) searchToggle.focus();
