@@ -5,7 +5,10 @@ import {
   cmsArticleContentSchema,
   cmsAssetStatusSchema,
   cmsCreateArticleRequestSchema,
+  cmsCreateSeriesRequestSchema,
+  cmsMemberMutationSchema,
   cmsPublicationStatusSchema,
+  cmsReviewCommentRequestSchema,
   cmsReviewStatusSchema,
   cmsVisibilitySchema,
   validateCmsArticleForReview,
@@ -27,6 +30,8 @@ import {
 import {
   CmsRepositoryError,
   createCmsArticle,
+  createCmsReviewComment,
+  completeCmsAssetDeletions,
   findIdempotentCmsAssetUpload,
   getCmsArticle,
   getCmsArticleVersion,
@@ -34,13 +39,24 @@ import {
   listCmsArticleVersionCheckpoints,
   listCmsArticleVersions,
   listCmsAssets,
+  listCmsMembers,
+  listCmsReviewComments,
+  queueCmsAssetDeletion,
   registerIdempotentCmsAssetUpload,
   resolveExistingCmsSession,
   transitionCmsArticle,
   updateIdempotentCmsAssetMetadata,
   updateIdempotentCmsAssetStatus,
-  updateCmsArticle
+  updateCmsArticle,
+  upsertCmsMemberInvitation
 } from "../../studio/worker/cms-repository";
+import {
+  createCmsSeries,
+  getCmsSeries,
+  listCmsSeries,
+  listCmsSeriesVersions,
+  updateCmsSeries
+} from "../../studio/worker/cms-series-repository";
 
 const MCP_PATH = "/mcp";
 const REQUEST_ID_SCHEMA = z.string().uuid();
@@ -72,6 +88,38 @@ const listArticlesSchema = z.object({
 
 const getArticleSchema = z.object({
   articleId: z.string().uuid()
+}).strict();
+
+const getSeriesSchema = z.object({
+  seriesId: z.string().uuid()
+}).strict();
+
+const listSeriesSchema = z.object({
+  limit: z.number().int().min(1).max(200).default(50),
+  query: z.string().trim().max(200).optional()
+}).strict();
+
+const createSeriesSchema = cmsCreateSeriesRequestSchema;
+
+const updateSeriesSchema = cmsCreateSeriesRequestSchema.extend({
+  expectedVersion: z.number().int().positive(),
+  seriesId: z.string().uuid()
+}).strict();
+
+const restoreSeriesVersionSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  seriesId: z.string().uuid(),
+  versionId: z.string().uuid()
+}).strict();
+
+const createReviewCommentSchema = cmsReviewCommentRequestSchema.extend({
+  articleId: z.string().uuid()
+}).strict();
+
+const upsertMemberSchema = cmsMemberMutationSchema;
+
+const deleteAssetSchema = z.object({
+  assetId: z.string().uuid()
 }).strict();
 
 const listArticleVersionsSchema = getArticleSchema;
@@ -147,6 +195,12 @@ const requestChangesSchema = requestReviewSchema.extend({
 
 const approveArticleSchema = requestReviewSchema.extend({
   note: z.string().trim().min(1).max(500)
+}).strict();
+
+const workflowActionSchema = z.object({
+  articleId: z.string().uuid(),
+  expectedVersion: z.number().int().nonnegative(),
+  requestId: REQUEST_ID_SCHEMA
 }).strict();
 
 const previewDraftSchema = cmsArticleContentSchema.extend({
@@ -252,7 +306,7 @@ export function createStudioMcpServer(
     name: "noema-studio",
     version: "0.1.0"
   }, {
-    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。${articleMarkdownGuidance}`
+    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
   });
 
   server.registerTool(
@@ -304,6 +358,123 @@ export function createStudioMcpServer(
   );
 
   server.registerTool(
+    "studio_list_series",
+    {
+      title: "List Studio series",
+      description: "記事シリーズを検索し、現在の並び順、記事状態、lockVersionを返します。",
+      inputSchema: listSeriesSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async (input) => executeTool(async () => {
+      const query = input.query?.toLocaleLowerCase("ja") ?? "";
+      const series = (await listCmsSeries(db, session.identity))
+        .filter((item) => !query || [item.title, item.slug, item.description]
+          .some((value) => value.toLocaleLowerCase("ja").includes(query)))
+        .slice(0, input.limit);
+      return { count: series.length, series };
+    })
+  );
+
+  server.registerTool(
+    "studio_get_series",
+    {
+      title: "Get Studio series",
+      description: "シリーズIDから現在の内容、記事順、lockVersionを取得します。",
+      inputSchema: getSeriesSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ seriesId }) => executeTool(async () => ({
+      series: await getCmsSeries(db, session.identity, seriesId)
+    }))
+  );
+
+  server.registerTool(
+    "studio_list_series_versions",
+    {
+      title: "List Studio series versions",
+      description: "シリーズのimmutableな変更履歴を新しい順に返します。過去のタイトル、説明、記事順を確認できます。",
+      inputSchema: getSeriesSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ seriesId }) => executeTool(async () => {
+      const versions = await listCmsSeriesVersions(db, session.identity, seriesId);
+      return { count: versions.length, versions };
+    })
+  );
+
+  server.registerTool(
+    "studio_create_series",
+    {
+      title: "Create Studio series",
+      description: "1件以上の記事を指定順でまとめたシリーズを作成します。公開状態は変更しません。",
+      inputSchema: createSeriesSchema,
+      annotations: writeAnnotations(false)
+    },
+    async (content) => executeTool(async () => ({
+      series: await createCmsSeries(db, session.identity, content, {
+        channel: "mcp",
+        client,
+        tool: "studio_create_series"
+      })
+    }))
+  );
+
+  server.registerTool(
+    "studio_update_series",
+    {
+      title: "Update Studio series",
+      description: "lockVersionで競合検知しながらシリーズ名、説明、slug、記事順を更新します。公開状態は変更しません。",
+      inputSchema: updateSeriesSchema,
+      annotations: writeAnnotations(false)
+    },
+    async ({ expectedVersion, seriesId, ...content }) => executeTool(async () => ({
+      series: await updateCmsSeries(
+        db,
+        session.identity,
+        seriesId,
+        expectedVersion,
+        content,
+        undefined,
+        { channel: "mcp", client, tool: "studio_update_series" }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_restore_series_version",
+    {
+      title: "Restore Studio series version",
+      description: "指定した過去版のシリーズ内容と記事順を、新しいimmutable revisionとして復元します。",
+      inputSchema: restoreSeriesVersionSchema,
+      annotations: writeAnnotations(false)
+    },
+    async ({ expectedVersion, seriesId, versionId }) => executeTool(async () => {
+      const versions = await listCmsSeriesVersions(db, session.identity, seriesId);
+      const version = versions.find((item) => item.id === versionId);
+      if (!version) {
+        throw new CmsRepositoryError("series_not_found", "復元するシリーズ履歴が見つかりません。");
+      }
+      return {
+        restoredFromVersionId: version.id,
+        series: await updateCmsSeries(
+          db,
+          session.identity,
+          seriesId,
+          expectedVersion,
+          {
+            articleIds: version.articleIds,
+            description: version.description,
+            slug: version.slug,
+            title: version.title
+          },
+          version.id,
+          { channel: "mcp", client, tool: "studio_restore_series_version" }
+        )
+      };
+    })
+  );
+
+  server.registerTool(
     "studio_list_article_versions",
     {
       title: "List Studio article versions",
@@ -351,6 +522,40 @@ export function createStudioMcpServer(
         nextBeforeRevisionNumber: page.nextBeforeRevisionNumber
       };
     })
+  );
+
+  server.registerTool(
+    "studio_list_review_comments",
+    {
+      title: "List Studio review comments",
+      description: "記事のレビューコメントを作成順に返します。",
+      inputSchema: getArticleSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ articleId }) => executeTool(async () => {
+      const comments = await listCmsReviewComments(db, session.identity, articleId);
+      return { comments, count: comments.length };
+    })
+  );
+
+  server.registerTool(
+    "studio_create_review_comment",
+    {
+      title: "Create Studio review comment",
+      description: "レビュー中の記事の現在revisionへ、本文・メタデータ・記事全体のコメントを追加します。",
+      inputSchema: createReviewCommentSchema,
+      annotations: writeAnnotations(false)
+    },
+    async ({ articleId, ...comment }) => executeTool(async () => ({
+      comment: await createCmsReviewComment(
+        db,
+        session.identity,
+        articleId,
+        comment,
+        new Date(),
+        { channel: "mcp", client, tool: "studio_create_review_comment" }
+      )
+    }))
   );
 
   server.registerTool(
@@ -474,6 +679,40 @@ export function createStudioMcpServer(
     targetStatus: "active",
     title: "Restore Studio asset"
   });
+
+  server.registerTool(
+    "studio_delete_asset",
+    {
+      title: "Delete Studio asset",
+      description: "記事から参照されていない画像をCMSとR2から完全に削除します。この操作は取り消せません。通常はstudio_archive_assetを優先してください。",
+      inputSchema: deleteAssetSchema,
+      annotations: destructiveWriteAnnotations()
+    },
+    async ({ assetId }) => executeTool(async () => {
+      const deletion = await queueCmsAssetDeletion(
+        db,
+        session.identity,
+        assetId,
+        new Date(),
+        { channel: "mcp", client, tool: "studio_delete_asset" }
+      );
+      try {
+        await bucket.delete(deletion.r2Key);
+      } catch (error) {
+        console.error({
+          assetId,
+          error: error instanceof Error ? error.message : String(error),
+          event: "studio_mcp_asset_delete_failed"
+        });
+        throw new CmsRepositoryError(
+          "asset_delete_failed",
+          "R2から画像を削除できませんでした。削除処理は保持しているため、もう一度お試しください。"
+        );
+      }
+      await completeCmsAssetDeletions(db, [deletion]);
+      return { assetId, deleted: true };
+    })
+  );
 
   server.registerTool(
     "studio_validate_draft",
@@ -630,6 +869,13 @@ export function createStudioMcpServer(
     }))
   );
 
+  registerArticleWorkflowTool(server, db, session, client, {
+    action: "withdraw_review",
+    description: "レビュー依頼を取り下げて下書きへ戻します。公開状態は変更しません。",
+    name: "studio_withdraw_review",
+    title: "Withdraw Studio review"
+  });
+
   server.registerTool(
     "studio_request_changes",
     {
@@ -682,7 +928,87 @@ export function createStudioMcpServer(
     }))
   );
 
+  registerArticleWorkflowTool(server, db, session, client, {
+    action: "revoke_approval",
+    description: "記事の承認を取り消してレビュー中へ戻します。公開状態は変更しません。",
+    name: "studio_revoke_approval",
+    title: "Revoke Studio approval"
+  });
+
+  server.registerTool(
+    "studio_list_members",
+    {
+      title: "List Studio members",
+      description: "管理権限がある場合に、CMSメンバーと招待状態を返します。",
+      inputSchema: z.object({}).strict(),
+      annotations: readOnlyAnnotations()
+    },
+    async () => executeTool(async () => {
+      const members = await listCmsMembers(db, session.identity);
+      return { count: members.length, members };
+    })
+  );
+
+  server.registerTool(
+    "studio_upsert_member",
+    {
+      title: "Create or update Studio member",
+      description: "管理権限がある場合に、メールアドレス単位でCMSメンバーの役割と有効状態を設定します。最後の管理者は無効化できません。",
+      inputSchema: upsertMemberSchema,
+      annotations: destructiveWriteAnnotations(true)
+    },
+    async (member) => executeTool(async () => {
+      const members = await upsertCmsMemberInvitation(
+        db,
+        session.identity,
+        member,
+        new Date(),
+        { channel: "mcp", client, tool: "studio_upsert_member" }
+      );
+      return { members };
+    })
+  );
+
   return server;
+}
+
+function registerArticleWorkflowTool(
+  server: McpServer,
+  db: D1Database,
+  session: CmsSession,
+  client: string | undefined,
+  config: {
+    action: "revoke_approval" | "withdraw_review";
+    description: string;
+    name: "studio_revoke_approval" | "studio_withdraw_review";
+    title: string;
+  }
+): void {
+  server.registerTool(
+    config.name,
+    {
+      title: config.title,
+      description: config.description,
+      inputSchema: workflowActionSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ articleId, expectedVersion, requestId }) => executeTool(async () => ({
+      article: await transitionCmsArticle(
+        db,
+        session.identity,
+        articleId,
+        config.action,
+        expectedVersion,
+        {},
+        new Date(),
+        {
+          channel: "mcp",
+          client,
+          idempotency: { requestId, toolName: config.name }
+        }
+      )
+    }))
+  );
 }
 
 function registerAssetStatusTool(
@@ -739,6 +1065,15 @@ function readOnlyAnnotations() {
 function writeAnnotations(idempotent: boolean) {
   return {
     destructiveHint: false,
+    idempotentHint: idempotent,
+    openWorldHint: false,
+    readOnlyHint: false
+  } as const;
+}
+
+function destructiveWriteAnnotations(idempotent = false) {
+  return {
+    destructiveHint: true,
     idempotentHint: idempotent,
     openWorldHint: false,
     readOnlyHint: false

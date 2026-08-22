@@ -1,6 +1,6 @@
 # Studio MCP接続・運用ガイド
 
-Noema Studio MCPを使うと、MCP対応クライアントからNoemaの記事を検索し、下書きの検証・プレビュー・保存、版履歴の確認・復元、レビュー承認まで行えます。公開、記事の公開終了・再公開、メンバー管理など、外部公開やアクセス権に影響する操作はStudio画面で行います。
+Noema Studio MCPを使うと、MCP対応クライアントから記事、シリーズ、画像、レビュー、メンバーをStudioと同じCMS権限で管理できます。公開、公開終了、再公開など、読者に見える公開状態を変える操作だけはStudio画面で行います。
 
 ## はじめに確認すること
 
@@ -9,7 +9,7 @@ Noema Studio MCPを使うと、MCP対応クライアントからNoemaの記事�
 1. **Cloudflare Accessの許可**: `mcp.noema-learn.uk`へ接続できる本人かを確認します。
 2. **Noema Studioのメンバー登録**: その本人がNoemaで何を操作できるかを確認します。
 
-Cloudflare Accessの認証に成功しただけでは、MCPは利用できません。招待を受けた人は、先にStudio画面で招待の受け入れと初回登録を完了してください。MCPから招待の受け入れやメンバー登録はできません。
+Cloudflare Accessの認証に成功しただけでは、MCPは利用できません。招待を受けた人は、先にStudio画面で招待の受け入れと初回登録を完了してください。MCPの管理者ツールはメンバーの招待・役割・有効状態を設定できますが、本人に代わってAccess認証や初回登録を完了することはできません。
 
 ## 5分で接続する
 
@@ -70,7 +70,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 - `editor`: 編集者
 - `reviewer`: レビュー担当
 
-`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。MCPでは権限に応じて下書き編集、版履歴の確認・復元、画像管理、レビュー依頼・修正依頼・承認まで行えます。公開、記事の公開終了・再公開、画像の完全削除、メンバー管理はStudio画面で行います。
+`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。MCPでは権限に応じて記事とシリーズの編集・履歴復元、画像管理、レビュー、メンバー管理を行えます。`canPublish`がtrueでも、公開状態を変更するMCPツールは提供しません。
 
 ## MCPでできること
 
@@ -82,21 +82,34 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_list_article_versions` | なし | 記事の保存履歴と各版の状態を新しい順に取得する |
 | `studio_get_article_version` | なし | 指定した過去版の本文、記事情報、公開範囲を取得する |
 | `studio_list_article_version_checkpoints` | なし | 同じ編集セッションにまとまった自動保存checkpointを取得する |
+| `studio_list_series` | なし | シリーズを検索し、現在の記事順と状態を取得する |
+| `studio_get_series` | なし | シリーズIDから現在の内容と`lockVersion`を取得する |
+| `studio_list_series_versions` | なし | シリーズのタイトル、説明、記事順の履歴を取得する |
 | `studio_list_assets` | なし | 画像を検索し、記事挿入用URLと利用状況を確認する |
+| `studio_list_review_comments` | なし | 記事のレビューコメントを取得する |
+| `studio_list_members` | なし | 管理者がCMSメンバーと招待状態を取得する |
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
 | `studio_preview_draft` | なし | 保存せず、公開サイト・Studioと同じレンダラーで記事HTMLと検証結果を返す |
 | `studio_create_draft` | 下書きを作成 | 記事と最初の版を作成する |
 | `studio_update_draft` | 下書きを更新 | 競合を確認して新しい版を追加する |
 | `studio_restore_article_version` | 下書きを更新 | 過去版を新しい版として競合検知・監査記録付きで復元する |
+| `studio_create_series` | シリーズを作成 | 記事を指定順でまとめたシリーズを作成する |
+| `studio_update_series` | シリーズを更新 | 競合検知付きでシリーズ情報と記事順を変更する |
+| `studio_restore_series_version` | シリーズを更新 | 過去のシリーズ内容と記事順を新しい版として復元する |
 | `studio_upload_asset` | 画像を追加 | R2へ画像を保存し、記事挿入用Markdownを返す |
 | `studio_update_asset` | 画像情報を更新 | 競合を確認してactiveな画像のaltと管理用タグを更新する |
 | `studio_archive_asset` | 画像をアーカイブ | 未使用のactive画像を競合検知付きで一覧から退避する |
 | `studio_restore_asset` | 画像を復元 | アーカイブ済み画像を競合検知付きでactiveへ戻す |
+| `studio_delete_asset` | 画像を完全削除 | 未使用画像をCMSとR2から削除する。取り消し不可 |
 | `studio_request_review` | レビュー状態を変更 | 原稿を検証してレビュー中へ進める |
+| `studio_withdraw_review` | レビュー状態を変更 | レビュー依頼を取り下げて下書きへ戻す |
 | `studio_request_changes` | レビュー状態を変更 | レビュー担当が具体的な指摘を記録して要修正へ戻す |
 | `studio_approve_article` | レビュー状態を変更 | レビュー担当が理由を記録して最新版を承認する。公開はしない |
+| `studio_revoke_approval` | レビュー状態を変更 | 承認を取り消してレビュー中へ戻す |
+| `studio_create_review_comment` | コメントを追加 | 現在のrevisionへレビューコメントを追加する |
+| `studio_upsert_member` | メンバーを更新 | 管理者が招待、役割、有効状態を設定する |
 
-MCPでは、公開、記事の公開終了・再公開・削除、画像の完全削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。過去版の復元は現在の下書きへ新しい版を追加する操作であり、公開状態は変更しません。承認しても記事は公開されず、`publicationStatus`は変わりません。
+MCPでは、記事の公開、公開終了、再公開はできません。過去版の復元、シリーズ編集、レビュー操作は公開状態を変更しません。承認しても記事は公開されず、`publicationStatus`は変わりません。画像の完全削除とメンバー無効化は影響が大きいため、ツールの説明と確認画面で対象を必ず確認してください。
 
 ## 下書きを作成・更新する
 
@@ -204,6 +217,26 @@ MCPでは、公開、記事の公開終了・再公開・削除、画像の完�
 
 別の編集が先に保存されて`lockVersion`が変わっていた場合は`revision_conflict`になります。現在の記事と復元候補をもう一度確認し、新しい`expectedVersion`と`requestId`で判断し直してください。通信途中で結果が分からない場合だけ、同じ入力と同じ`requestId`を再送できます。その再送では版を重複して追加しません。
 
+## シリーズを作成・編集する
+
+シリーズの`articleIds`は、そのまま読者へ示す記事順です。更新前に`studio_get_series`で現在の`lockVersion`を取得し、`studio_update_series`の`expectedVersion`へ指定します。同じ記事を複数シリーズへ入れたり、同一シリーズ内で重複させたりすることはできません。
+
+```json
+{
+  "seriesId": "11111111-1111-4111-8111-111111111111",
+  "expectedVersion": 2,
+  "slug": "local-llm-with-ollama",
+  "title": "Ollamaで始めるローカルLLM",
+  "description": "ローカルLLMの導入から活用までを順に学ぶシリーズです。",
+  "articleIds": [
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333"
+  ]
+}
+```
+
+過去の並びへ戻す場合は、`studio_list_series_versions`で対象の`versionId`を確認し、最新版の`lockVersion`とともに`studio_restore_series_version`へ渡します。復元は履歴を削除せず、新しいシリーズ版を追加します。シリーズ操作は記事の`publicationStatus`を変更しません。
+
 ## 画像をアップロードして本文へ挿入する
 
 ### 既存の画像を探す
@@ -267,6 +300,8 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 
 アーカイブ結果の新しい`updatedAt`を、復元時の`expectedUpdatedAt`へ指定します。通信結果が分からない再送だけ同じ入力と同じ`requestId`を使います。別の状態変更では新しい`requestId`が必要です。
 
+完全に不要な画像だけは`studio_delete_asset`でCMSとR2から削除できます。この操作は取り消せず、記事から参照されている画像は拒否されます。通常はアーカイブを使い、完全削除前に`studio_list_assets`でID、参照数、状態を再確認してください。
+
 ### 記事へ挿入する
 
 1. `studio_get_article`で対象記事の最新版を取得します。
@@ -308,6 +343,8 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 
 現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`と`reviewNote`で確認します。レビュー依頼、修正依頼、承認は、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。公開を実行するMCPツールはありません。
 
+記事単位のやり取りは`studio_create_review_comment`で追加し、`studio_list_review_comments`で確認します。コメント先は記事全体の`article`、本文の`body`、記事情報の`metadata`から選びます。編集者は`studio_withdraw_review`でレビュー依頼を取り下げられ、レビュー担当者または管理者は`studio_revoke_approval`で承認を取り消せます。いずれも公開状態は変更しません。
+
 ### レビューを承認する
 
 レビュー担当者または管理者は、`studio_approve_article`でレビュー中の最新版を承認できます。`note`には、確認した内容を500文字以内で必ず記録します。レビュー担当者は自分が保存した最新版を自己承認できません。管理者には既存の緊急運用ルールが適用されます。
@@ -323,6 +360,12 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 
 承認対象は`studio_get_article`で取得した`lockVersion`の最新版です。承認後も記事は未公開のままです。公開はStudio画面で、承認済みrevisionと公開範囲を人が確認して実行します。
 
+## メンバーを管理する
+
+`admin`だけが`studio_list_members`と`studio_upsert_member`を利用できます。`studio_upsert_member`はメールアドレス単位で招待、`admin`・`editor`・`reviewer`の役割、有効状態を設定します。最後の有効な管理者は無効化したり別の役割へ変更したりできません。
+
+このツールはCMS側の許可を設定するもので、Cloudflare Accessの本人確認や招待された本人の初回登録を代行しません。対象メールアドレスと役割を確認してから実行してください。
+
 ## 困ったとき
 
 | 表示 | 意味と対応 |
@@ -335,6 +378,9 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 | `invalid_asset` | 画像データとcontent typeが一致しない、altやタグが不正、または8MBを超えています。PNG、JPEG、WebP、GIFの元ファイルを確認します。 |
 | `asset_conflict` | 他の編集者が先に画像情報を更新しています。`studio_list_assets`を再実行し、新しい`updatedAt`と新しい`requestId`で変更をやり直します。 |
 | `asset_in_use` | 記事から参照されている画像です。本文とヒーロー画像の利用箇所を確認し、参照を外して保存してからアーカイブします。 |
+| `series_conflict` | 他の編集者が先にシリーズを更新しています。`studio_get_series`で最新版と記事順を確認します。 |
+| `series_article_conflict` | 記事が別のシリーズに含まれているか、同じシリーズ内で重複しています。シリーズ一覧を確認します。 |
+| `last_admin_required` | 最後の有効な管理者を無効化または降格しようとしています。別の管理者を先に追加します。 |
 | `invalid_transition` | 現在の記事または画像の状態では操作できません。`studio_get_article`または`studio_list_assets`で最新状態を確認します。 |
 | `self_approval_forbidden` | レビュー担当者が自分で保存した最新版を承認しようとしています。別のレビュー担当者または管理者に確認を依頼します。 |
 | `forbidden` | 現在のStudio役割に必要な権限がありません。修正依頼と承認にはレビュー担当または管理者の権限が必要です。 |
@@ -353,7 +399,7 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 - 記事データの正本: Studioと同じD1 `noema-cms`
 - 画像データの正本: Studioと同じR2 `noema-article-assets`
 
-MCP経由の記事作成・更新、画像アップロード・情報更新、レビュー依頼、修正依頼はD1監査イベントへ`channel: mcp`、ツール名、request ID、最大200文字のクライアント識別子を記録します。画像アップロード監査にはAsset ID、形式、容量、元ファイル名も記録します。Access token、記事本文、画像Base64は監査metadataへ保存しません。
+MCP経由の記事作成・更新、画像アップロード・情報更新、レビュー状態変更はD1監査イベントへ`channel: mcp`、ツール名、request ID、最大200文字のクライアント識別子を記録します。シリーズ・コメント・メンバー操作もCMSと同じD1履歴または監査イベントへ記録されます。画像アップロード監査にはAsset ID、形式、容量、元ファイル名も記録します。Access token、記事本文、画像Base64は監査metadataへ保存しません。
 
 ### Cloudflare初期設定
 
@@ -387,4 +433,4 @@ npm run check --workspace @noema/studio-mcp
 npm run deploy:dry-run --workspace @noema/studio-mcp
 ```
 
-`develop`へのmerge後は、ActionsでD1 migration `0004_cms_mcp_asset_idempotency.sql`が成功してからStudio MCP Workerがdeployされたことを確認します。その後、Access認証、`studio_whoami`、記事・Asset一覧、検証、テスト用下書きの作成、画像アップロード、同一request IDでの再送、本文への画像挿入、更新、レビュー依頼、修正依頼を順に確認します。画像の削除・アーカイブ、公開・承認ツールが一覧に存在しないことも受入条件です。
+`develop`へのmerge後は、ActionsのmigrationとStudio MCP Worker deployが成功したことを確認します。その後、Access認証、`studio_whoami`、記事・シリーズ・Asset一覧、検証、テスト用下書きとシリーズの作成・更新・履歴復元、レビューコメントと状態遷移を順に確認します。管理者ではメンバー一覧、未使用のテスト画像では削除も確認します。公開、公開終了、再公開のツールが一覧に存在しないことを受入条件にします。

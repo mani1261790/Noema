@@ -8,7 +8,11 @@ import {
   type CmsSeriesArticle,
   type CmsSeriesVersion
 } from "@noema/cms";
-import { CmsRepositoryError } from "./cms-repository";
+import {
+  CmsRepositoryError,
+  auditMetadata,
+  type CmsMutationContext
+} from "./cms-repository";
 
 export interface CmsSeriesContentInput {
   articleIds: string[];
@@ -85,7 +89,8 @@ export async function listCmsSeries(
 export async function createCmsSeries(
   db: D1Database,
   identity: CmsIdentity,
-  content: CmsSeriesContentInput
+  content: CmsSeriesContentInput,
+  context: CmsMutationContext = {}
 ): Promise<CmsSeries> {
   requireEdit(identity);
   await validateSeriesArticles(db, content.articleIds, null);
@@ -104,7 +109,16 @@ export async function createCmsSeries(
       restored_from_revision_id, created_by_subject, created_at
     ) VALUES (?1, ?2, 1, ?3, ?4, ?5, NULL, ?6, ?7)`)
       .bind(revisionId, id, content.slug, content.title, content.description, identity.subject, now),
-    ...seriesItemStatements(db, revisionId, id, content.articleIds)
+    ...seriesItemStatements(db, revisionId, id, content.articleIds),
+    db.prepare(`INSERT INTO cms_audit_events
+      (id, article_id, actor_subject, action, metadata_json, created_at)
+      VALUES (?1, NULL, ?2, 'series.created', ?3, ?4)`)
+      .bind(
+        crypto.randomUUID(),
+        identity.subject,
+        JSON.stringify(auditMetadata({ revisionId, seriesId: id }, context)),
+        now
+      )
   ];
   try {
     await db.batch(statements);
@@ -120,7 +134,8 @@ export async function updateCmsSeries(
   id: string,
   expectedVersion: number,
   content: CmsSeriesContentInput,
-  restoredFromRevisionId?: string
+  restoredFromRevisionId?: string,
+  context: CmsMutationContext = {}
 ): Promise<CmsSeries> {
   requireEdit(identity);
   const current = await db.prepare(
@@ -158,7 +173,21 @@ export async function updateCmsSeries(
           updated_by_subject = ?6,
           updated_at = ?7
       WHERE id = ?8 AND lock_version = ?9`)
-      .bind(content.slug, content.title, content.description, revisionId, nextRevision, identity.subject, now, id, expectedVersion)
+      .bind(content.slug, content.title, content.description, revisionId, nextRevision, identity.subject, now, id, expectedVersion),
+    db.prepare(`INSERT INTO cms_audit_events
+      (id, article_id, actor_subject, action, metadata_json, created_at)
+      VALUES (?1, NULL, ?2, ?3, ?4, ?5)`)
+      .bind(
+        crypto.randomUUID(),
+        identity.subject,
+        restoredFromRevisionId ? "series.restored" : "series.updated",
+        JSON.stringify(auditMetadata({
+          restoredFromRevisionId: restoredFromRevisionId ?? null,
+          revisionId,
+          seriesId: id
+        }, context)),
+        now
+      )
   ];
   try {
     await db.batch(statements);
@@ -217,7 +246,8 @@ export async function listCmsSeriesVersions(
   return [...versions.values()];
 }
 
-async function getCmsSeries(db: D1Database, identity: CmsIdentity, id: string): Promise<CmsSeries> {
+export async function getCmsSeries(db: D1Database, identity: CmsIdentity, id: string): Promise<CmsSeries> {
+  requireView(identity);
   const result = await db.prepare(`${seriesSelect} WHERE s.id = ?1 ORDER BY map.position`).bind(id).all<SeriesRow>();
   const series = groupSeriesRows(result.results)[0];
   if (!series) throw new CmsRepositoryError("series_not_found", "シリーズが見つかりません。");

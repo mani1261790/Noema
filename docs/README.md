@@ -13,7 +13,7 @@
 | 記事を書く、レビューする、公開する | [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md#記事が反映されるまで) |
 | 記事内でアコーディオンなどの独自Markdownを使う | [Noema記事Markdown拡張](./article-markdown.md) |
 | Studioへメンバーを追加する | [メンバーを招待する](./studio-blog-connectivity.md#メンバーを招待する) |
-| MCP clientからStudioの下書きを読み書きする | [Studio MCP接続・運用ガイド](./studio-mcp.md) |
+| MCP clientからStudio CMSを編集する | [Studio MCP接続・運用ガイド](./studio-mcp.md) |
 | 公開範囲や公開後の修正方法を確認する | [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md#公開範囲) |
 | codeやD1 schemaをCloudflareへ反映する | [開発環境デプロイ](./development-deployment.md#自動デプロイの流れ) |
 | CMSのrole、状態遷移、API境界を実装する | [CMS contract](../vnext/packages/cms/README.md) |
