@@ -1,23 +1,17 @@
 ---
 import { topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
-import ArticleSources from "../../components/ArticleSources.astro";
-import ArticleSeries from "../../components/ArticleSeries.astro";
-import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { findRelatedArticles, formatJapaneseDate, toArticleSummary } from "../../lib/articles";
-import { extractArticleHeadings } from "../../lib/article-assistant";
+import { findRelatedArticles, toArticleSummary } from "../../lib/articles";
 import { getPublishedArticleBySlug, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
-import { renderArticleMarkdown } from "../../lib/runtime-markdown";
+import { renderArticlePresentation } from "@noema/content/article-presentation";
 
 const slug = Astro.params.slug ?? "";
 const article = await getPublishedArticleBySlug(slug);
 if (!article) return new Response("Not found", { status: 404 });
-const renderedHtml = renderArticleMarkdown(article.markdown);
-const headings = extractArticleHeadings(article.markdown);
 const [summaries, series] = await Promise.all([
   listPublicArticleSummaries(),
   getPublishedSeriesByArticleSlug(slug)
@@ -28,6 +22,14 @@ const relatedArticles = findRelatedArticles(
   currentSummary,
   summaries.filter((item) => !seriesSlugs.has(item.slug)),
 );
+const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
+  series: series ? {
+    currentIndex: series.currentIndex,
+    description: series.description,
+    items: series.items,
+    title: series.title
+  } : null
+});
 const canonicalUrl = new URL(`/articles/${article.data.slug}/`, Astro.site ?? "https://noema-learn.uk");
 const ogImagePath = "/og/default.png";
 const ogImageUrl = new URL(ogImagePath, Astro.site ?? "https://noema-learn.uk");
@@ -46,8 +48,6 @@ const jsonLd = {
 };
 const topic = article.data.topics[0] ?? "technology";
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
-const tocItems = headings
-  .map((heading) => ({ href: `#${heading.id}`, label: heading.text }));
 ---
 
 <BaseLayout
@@ -62,38 +62,10 @@ const tocItems = headings
   jsonLd={jsonLd}
 >
   <div class="noema-container article-page">
-    <div class="article-page__main article-presentation">
+    <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.data.title }]} />
-      <header class="article-header">
-        <h1>{article.data.title}</h1>
-        <p>{article.data.description}</p>
-        <dl class="article-meta">
-          <div><dt>執筆</dt><dd>{article.data.authors.join("、")}</dd></div>
-          <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.data.estimatedMinutes}分</dd></div>
-          {article.data.publishedAt && <div><dt>公開</dt><dd><time datetime={article.data.publishedAt}>{formatJapaneseDate(article.data.publishedAt)}</time></dd></div>}
-          <div><dt>更新</dt><dd><time datetime={article.data.updatedAt}>{formatJapaneseDate(article.data.updatedAt)}</time></dd></div>
-        </dl>
-        {article.data.tags.length > 0 && (
-          <ul class="article-header__tags" aria-label="タグ">
-            {article.data.tags.map((tag: string) => <li><a href={`/articles?tag=${encodeURIComponent(tag)}#search`}>{tag}</a></li>)}
-          </ul>
-        )}
-      </header>
-      {article.data.heroImage && (
-        <figure class="article-hero-image">
-          <img src={article.data.heroImage.src} alt={article.data.heroImage.alt} />
-        </figure>
-      )}
-      {series && <ArticleSeries {...series} />}
-      <section class="article-outcome">
-        <h2>この記事でできるようになること</h2>
-        <p>{article.data.outcome}</p>
-      </section>
-      {tocItems.length > 0 && <ArticleToc items={tocItems} />}
-      <article class="article-body" set:html={renderedHtml}></article>
-      <ArticleSources sources={article.data.sources} />
+      <Fragment set:html={presentationHtml} />
       <ShareArticle />
-      {series && <ArticleSeries {...series} mode="end" />}
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>

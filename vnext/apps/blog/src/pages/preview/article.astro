@@ -1,28 +1,23 @@
 ---
 import { previewArticles, previewArticleMarkdown, topicLabels } from "@noema/content";
+import { renderArticlePresentation } from "@noema/content/article-presentation";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
-import ArticleSources from "../../components/ArticleSources.astro";
-import ArticleToc from "../../components/ArticleToc.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { findRelatedArticles, formatJapaneseDate } from "../../lib/articles";
-import { extractArticleHeadings } from "../../lib/article-assistant";
-import { renderArticleMarkdown } from "../../lib/runtime-markdown";
+import { findRelatedArticles } from "../../lib/articles";
 
 export const prerender = true;
 const article = previewArticles[0];
-const articleHeadings = extractArticleHeadings(previewArticleMarkdown);
-const sections = previewArticleMarkdown
-  .trim()
-  .split(/^## /m)
-  .filter(Boolean)
-  .map((section, index) => {
-    const [heading, ...body] = section.split("\n");
-    return { id: articleHeadings[index]?.id ?? `section-${index + 1}`, heading, html: renderArticleMarkdown(body.join("\n").trim()) };
-  });
-const tocItems = sections.map((section) => ({ href: `#${section.id}`, label: section.heading }));
+const presentationHtml = renderArticlePresentation(article, previewArticleMarkdown, {
+  series: {
+    currentIndex: 2,
+    description: "Noemaの記事表示と読書導線を確認するプレビューシリーズです。",
+    items: [previewArticles[1], previewArticles[2], previewArticles[0]],
+    title: "はじめてのAI活用"
+  }
+});
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 const relatedArticles = findRelatedArticles(article, previewArticles);
@@ -30,46 +25,9 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
 
 <BaseLayout title={`${article.title} | Noema`} description={article.description} image="/og/preview.png" pageType="article" noindex>
   <div class="noema-container article-page">
-    <div class="article-page__main article-presentation">
+    <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
-      <header class="article-header">
-        <h1>{article.title}</h1>
-        <p>{article.description}</p>
-        <dl class="article-meta">
-          <div><dt>執筆</dt><dd>{article.authors.join("、")}</dd></div>
-          <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.estimatedMinutes}分</dd></div>
-          {article.publishedAt && <div><dt>公開</dt><dd><time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time></dd></div>}
-          <div><dt>更新</dt><dd><time datetime={article.updatedAt}>{formatJapaneseDate(article.updatedAt)}</time></dd></div>
-        </dl>
-        {article.tags.length > 0 && (
-          <ul class="article-header__tags" aria-label="タグ">
-            {article.tags.map((tag) => <li><a href={`/articles?tag=${encodeURIComponent(tag)}#search`}>{tag}</a></li>)}
-          </ul>
-        )}
-      </header>
-
-      {article.heroImage && (
-        <figure class="article-hero-image">
-          <img src={article.heroImage.src} alt={article.heroImage.alt} />
-        </figure>
-      )}
-
-      <section class="article-outcome">
-        <h2>この記事でできるようになること</h2>
-        <p>{article.outcome}</p>
-      </section>
-
-      <ArticleToc items={tocItems} />
-
-      <article class="article-body">
-        {sections.map((section) => (
-          <section id={section.id}>
-            <h2>{section.heading}</h2>
-            <div set:html={section.html} />
-          </section>
-        ))}
-      </article>
-      <ArticleSources sources={article.sources} />
+      <Fragment set:html={presentationHtml} />
       <ShareArticle />
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">

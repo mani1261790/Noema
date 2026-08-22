@@ -9,6 +9,7 @@ import python from "highlight.js/lib/languages/python";
 import typescript from "highlight.js/lib/languages/typescript";
 import katex from "katex";
 import MarkdownIt from "markdown-it";
+import { installArticleMarkdownExtensions } from "@noema/content/article-extensions";
 
 function isSafeRendererUrl(value: string, kind: "image" | "link"): boolean {
   try {
@@ -149,6 +150,7 @@ export function createArticleMarkdownRenderer(
     typographer: false,
   });
   installKatexRenderer(markdown);
+  installArticleMarkdownExtensions(markdown);
   markdown.validateLink = (value) => isSafeRendererUrl(value, "link");
 
   const defaultImageRule = markdown.renderer.rules.image;

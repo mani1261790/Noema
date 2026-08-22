@@ -11,6 +11,7 @@
 | したいこと | 最初に読む文書 |
 | --- | --- |
 | 記事を書く、レビューする、公開する | [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md#記事が反映されるまで) |
+| 記事内でアコーディオンなどの独自Markdownを使う | [Noema記事Markdown拡張](./article-markdown.md) |
 | Studioへメンバーを追加する | [メンバーを招待する](./studio-blog-connectivity.md#メンバーを招待する) |
 | MCP clientからStudioの下書きを読み書きする | [Studio MCP接続・運用ガイド](./studio-mcp.md) |
 | 公開範囲や公開後の修正方法を確認する | [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md#公開範囲) |
@@ -21,6 +22,7 @@
 
 - [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md): D1への保存、role、review、公開範囲、ブログ反映、メンバー管理、トラブル対応の運用上の正
 - [Studio MCP接続・運用ガイド](./studio-mcp.md): remote MCPの認証、tool境界、再送安全性、導入・確認手順
+- [Noema記事Markdown拡張](./article-markdown.md): raw HTMLを使わない記事内UI記法とMCPでの利用方法
 - [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、記事タイプ、テーマ、公開範囲、OIF表記方針
 
 ## 開発・デプロイ

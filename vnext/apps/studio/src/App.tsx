@@ -13,8 +13,6 @@ import DOMPurify from "dompurify";
 import {
   articleFrontmatterSchema,
   approachLabels,
-  extractArticleHeadings,
-  isSafeHttpUrl,
   parseArticle,
   serializeArticle,
   topicLabels,
@@ -22,6 +20,9 @@ import {
   type ArticleFrontmatter,
   type ArticleMarkdownIssue
 } from "@noema/content";
+import {
+  renderArticlePresentation,
+} from "@noema/content/article-presentation";
 import {
   cmsPublicationStatusLabels,
   cmsReviewStatusLabels,
@@ -79,7 +80,6 @@ import {
 } from "./draft-storage";
 import {
   createPreviewMarkdown,
-  renderArticleMarkdownWith,
   resolvePreviewImageReference,
   resolvePublicSiteReference
 } from "./preview-markdown";
@@ -123,6 +123,7 @@ import {
   StudioPanelResizeHandle
 } from "./StudioPanelResizeHandle";
 import { StudioSurfaceHeader } from "./StudioSurfaceHeader";
+import { buildArticlePreviewSeries } from "./article-preview-series";
 import {
   readStudioView,
   studioViewHref,
@@ -463,12 +464,6 @@ function Icon({ name }: { name: "check" | "download" | "external" | "warning" })
   return <svg className="studio-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function formatArticleDate(value?: string): string | null {
-  if (!value) return null;
-  const [year, month, day] = value.split("-");
-  return year && month && day ? `${year}年${Number(month)}月${Number(day)}日` : value;
-}
-
 function PreviewHeroImage({ image }: { image: NonNullable<ArticleFrontmatter["heroImage"]> }) {
   const [failed, setFailed] = useState(false);
   const src = resolvePreviewImageReference(image.src, publicSiteUrl);
@@ -487,87 +482,6 @@ function PreviewHeroImage({ image }: { image: NonNullable<ArticleFrontmatter["he
   }
 
   return <img src={src} alt={image.alt} onError={() => setFailed(true)} />;
-}
-
-function ArticlePreviewContent({
-  frontmatter,
-  previewHtml,
-  source
-}: {
-  frontmatter: ArticleFrontmatter;
-  previewHtml: string;
-  source: string;
-}) {
-  const tocItems = extractArticleHeadings(source);
-  return (
-    <article className="article-presentation">
-      <header className="article-header">
-        <h1>{frontmatter.title || "タイトル未入力"}</h1>
-        <p>{frontmatter.description || "概要を入力すると、ここに表示されます。"}</p>
-        <dl className="article-meta">
-          <div><dt>執筆</dt><dd>{frontmatter.authors.filter(Boolean).join("、") || "執筆者未入力"}</dd></div>
-          <div><dt className="noema-visually-hidden">読了時間</dt><dd>読了 {frontmatter.estimatedMinutes || "—"}分</dd></div>
-          {formatArticleDate(frontmatter.publishedAt) ? <div><dt>公開</dt><dd><time dateTime={frontmatter.publishedAt}>{formatArticleDate(frontmatter.publishedAt)}</time></dd></div> : null}
-          <div><dt>更新</dt><dd><time dateTime={frontmatter.updatedAt}>{formatArticleDate(frontmatter.updatedAt)}</time></dd></div>
-        </dl>
-        {frontmatter.tags.filter(Boolean).length > 0 ? (
-          <ul className="article-header__tags" aria-label="タグ">
-            {frontmatter.tags.filter(Boolean).map((tag) => (
-              <li key={tag}><a href={resolvePublicSiteReference(`/articles?tag=${encodeURIComponent(tag)}#search`, publicSiteUrl)} target="_blank" rel="noreferrer">{tag}</a></li>
-            ))}
-          </ul>
-        ) : null}
-      </header>
-      {frontmatter.heroImage ? (
-        <figure className="article-hero-image"><PreviewHeroImage key={frontmatter.heroImage.src} image={frontmatter.heroImage} /></figure>
-      ) : null}
-      {frontmatter.outcome ? (
-        <section className="article-outcome">
-          <h2>この記事でできるようになること</h2>
-          <p>{frontmatter.outcome}</p>
-        </section>
-      ) : null}
-      {tocItems.length > 0 ? (
-        <>
-          <nav className="dads-toc article-toc article-toc--desktop" data-border="solid" aria-label="この記事の内容">
-            <h2 className="dads-toc__heading">この記事の内容</h2>
-            <ol className="dads-list article-toc__list">
-              {tocItems.map((item) => <li key={item.slug}><a className="dads-link" href={`#${item.slug}`}>{item.text}</a></li>)}
-            </ol>
-          </nav>
-          <details className="dads-disclosure article-toc article-toc--mobile">
-            <summary className="dads-disclosure__summary article-toc__summary">
-              <span>この記事の内容</span>
-              <svg className="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-                <circle className="dads-disclosure__icon-circle" cx="12" cy="12" r="10" fill="currentColor" />
-                <path className="dads-disclosure__icon-triangle" d="m8 10 4 5 4-5H8Z" fill="white" />
-              </svg>
-            </summary>
-            <nav className="dads-disclosure__content" aria-label="記事内目次">
-              <ol className="dads-list article-toc__list">
-                {tocItems.map((item) => <li key={item.slug}><a className="dads-link" href={`#${item.slug}`}>{item.text}</a></li>)}
-              </ol>
-            </nav>
-          </details>
-        </>
-      ) : null}
-      <div className="article-body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-      {frontmatter.sources.length > 0 ? (
-        <section className="article-sources" aria-labelledby="studio-article-sources-heading">
-          <h2 id="studio-article-sources-heading">参考資料</h2>
-          <ul className="dads-list">{frontmatter.sources.map((source, index) => {
-            const label = source.title || source.url || `資料 ${index + 1}`;
-            return (
-              <li key={`${source.url}-${index}`}>
-                {isSafeHttpUrl(source.url) ? <a className="dads-link" href={source.url} target="_blank" rel="noreferrer">{label}<span className="noema-visually-hidden">（新しいタブで開きます）</span></a> : <span>{label}</span>}
-                {source.checkedAt ? `（${formatArticleDate(source.checkedAt)}確認）` : ""}
-              </li>
-            );
-          })}</ul>
-        </section>
-      ) : null}
-    </article>
-  );
 }
 
 function TagEditor({
@@ -808,12 +722,21 @@ export function App() {
         })
   ), [cmsArticle, cmsAssociationRequired, cmsAutosavePaused, cmsConflict, cmsDraftReference, cmsVisibility, lastCmsFingerprint, storage]);
 
+  const previewSeries = useMemo(
+    () => buildArticlePreviewSeries(cmsArticle?.id ?? null, frontmatter.title, cmsSeries),
+    [cmsArticle?.id, cmsSeries, frontmatter.title]
+  );
   const previewHtml = useMemo(
-    () => DOMPurify.sanitize(renderArticleMarkdownWith(markdown, deferredBody), {
+    () => DOMPurify.sanitize(renderArticlePresentation(frontmatter, deferredBody, {
+      markdownRenderer: markdown,
+      resolveImageReference: (reference) => resolvePreviewImageReference(reference, publicSiteUrl),
+      resolveLinkReference: (reference) => resolvePublicSiteReference(reference, publicSiteUrl),
+      series: previewSeries
+    }), {
       ADD_ATTR: ["encoding", "target"],
       ADD_TAGS: ["annotation", "semantics"]
     }),
-    [deferredBody]
+    [deferredBody, frontmatter, previewSeries]
   );
   const bodyIssues = useMemo(() => validateArticleMarkdown(deferredBody), [deferredBody]);
   const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");
@@ -3368,7 +3291,7 @@ export function App() {
               />
             </div>
             <div className="studio-live-preview studio-preview" aria-label="ライブプレビュー">
-              <ArticlePreviewContent frontmatter={frontmatter} previewHtml={previewHtml} source={deferredBody} />
+              <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
             </div>
           </div>
           <p className="sr-only" id="article-body-help">Markdown形式で本文を入力します。H1見出しとraw HTMLは使用できません。</p>

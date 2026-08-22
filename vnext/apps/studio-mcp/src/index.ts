@@ -13,7 +13,8 @@ import {
   type CmsAsset,
   type CmsSession
 } from "@noema/cms";
-import { renderArticleMarkdown } from "@noema/content/article-renderer";
+import { renderArticlePresentation } from "@noema/content/article-presentation";
+import { articleMarkdownGuidance } from "@noema/content";
 import { z } from "zod";
 import {
   ACCESS_JWT_HEADER,
@@ -229,6 +230,8 @@ export function createStudioMcpServer(
   const server = new McpServer({
     name: "noema-studio",
     version: "0.1.0"
+  }, {
+    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。${articleMarkdownGuidance}`
   });
 
   server.registerTool(
@@ -405,7 +408,7 @@ export function createStudioMcpServer(
     "studio_validate_draft",
     {
       title: "Validate Studio draft",
-      description: "保存前の原稿を、Studioのレビュー依頼基準で検証します。D1は変更しません。",
+      description: `保存前の原稿を、Studioのレビュー依頼基準で検証します。D1は変更しません。${articleMarkdownGuidance}`,
       inputSchema: cmsArticleContentSchema,
       annotations: readOnlyAnnotations()
     },
@@ -419,12 +422,12 @@ export function createStudioMcpServer(
     "studio_preview_draft",
     {
       title: "Preview Studio draft",
-      description: "保存せずに公開サイトと同じMarkdownレンダラーで本文HTMLと検証結果を返します。",
+      description: `保存せずに公開サイトとStudioプレビューが共有する記事レンダラーで、記事HTMLと検証結果を返します。${articleMarkdownGuidance}`,
       inputSchema: previewDraftSchema,
       annotations: readOnlyAnnotations()
     },
     async ({ frontmatter, markdown, visibility }) => executeTool(async () => {
-      const html = renderArticleMarkdown(markdown);
+      const html = renderArticlePresentation(frontmatter, markdown);
       if (html.length > MAX_PREVIEW_HTML_CHARS) {
         throw new CmsRepositoryError(
           "invalid_article",
@@ -447,7 +450,7 @@ export function createStudioMcpServer(
     "studio_create_draft",
     {
       title: "Create Studio draft",
-      description: "Noema Studioに下書きを作成します。同じrequestIdの再送は重複作成しません。",
+      description: `Noema Studioに下書きを作成します。同じrequestIdの再送は重複作成しません。${articleMarkdownGuidance}`,
       inputSchema: createDraftSchema,
       annotations: writeAnnotations(true)
     },
@@ -470,7 +473,7 @@ export function createStudioMcpServer(
     "studio_update_draft",
     {
       title: "Update Studio draft",
-      description: "lockVersionを確認して既存記事へimmutable revisionを追加します。同じrequestIdの再送は重複更新しません。",
+      description: `lockVersionを確認して既存記事へimmutable revisionを追加します。同じrequestIdの再送は重複更新しません。${articleMarkdownGuidance}`,
       inputSchema: updateDraftSchema,
       annotations: writeAnnotations(true)
     },

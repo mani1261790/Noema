@@ -1,6 +1,10 @@
 import GithubSlugger from "github-slugger";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
+import {
+  installArticleMarkdownExtensions,
+  type ArticleAccordionMeta,
+} from "@noema/content/article-extensions";
 
 export type ArticleMarkdownIssueSeverity = "error" | "warning";
 
@@ -8,6 +12,9 @@ export type ArticleMarkdownIssueCode =
   | "empty-body"
   | "short-body"
   | "raw-html"
+  | "accordion-title"
+  | "accordion-unclosed"
+  | "accordion-nested"
   | "h1-heading"
   | "empty-heading"
   | "heading-start"
@@ -51,6 +58,7 @@ interface ArticleHref {
 }
 
 const parser = new MarkdownIt({ html: true, linkify: true });
+installArticleMarkdownExtensions(parser);
 const sourcePositionKey = "noemaSourcePosition";
 
 class PositionedInlineState extends parser.inline.State {
@@ -292,6 +300,34 @@ export function validateArticleMarkdown(
 
   for (const token of tokens) {
     const line = lineOf(token);
+
+    if (token.type === "article_accordion_open") {
+      const meta = token.meta as ArticleAccordionMeta;
+      if (!meta.title) {
+        pushUnique(issues, {
+          code: "accordion-title",
+          severity: "error",
+          message: "アコーディオンにはタイトルを指定してください。",
+          line,
+        });
+      }
+      if (!meta.closed) {
+        pushUnique(issues, {
+          code: "accordion-unclosed",
+          severity: "error",
+          message: "アコーディオンを ::: で閉じてください。",
+          line,
+        });
+      }
+      if (meta.nested) {
+        pushUnique(issues, {
+          code: "accordion-nested",
+          severity: "error",
+          message: "アコーディオンは入れ子にできません。",
+          line,
+        });
+      }
+    }
 
     if (token.type === "html_block") {
       pushUnique(issues, {
