@@ -7,7 +7,6 @@ import {
   cmsCreateArticleRequestSchema,
   cmsPublicationStatusSchema,
   cmsReviewStatusSchema,
-  cmsUpdateArticleRequestSchema,
   cmsVisibilitySchema,
   validateCmsArticleForReview,
   type CmsAsset,
@@ -30,7 +29,10 @@ import {
   createCmsArticle,
   findIdempotentCmsAssetUpload,
   getCmsArticle,
+  getCmsArticleVersion,
   listCmsArticles,
+  listCmsArticleVersionCheckpoints,
+  listCmsArticleVersions,
   listCmsAssets,
   registerIdempotentCmsAssetUpload,
   resolveExistingCmsSession,
@@ -72,6 +74,17 @@ const getArticleSchema = z.object({
   articleId: z.string().uuid()
 }).strict();
 
+const listArticleVersionsSchema = getArticleSchema;
+
+const getArticleVersionSchema = getArticleSchema.extend({
+  revisionId: z.string().uuid()
+}).strict();
+
+const listArticleVersionCheckpointsSchema = getArticleSchema.extend({
+  beforeRevisionNumber: z.number().int().positive().optional(),
+  versionId: z.string().uuid()
+}).strict();
+
 const listAssetsSchema = z.object({
   limit: z.number().int().min(1).max(500).default(100),
   query: z.string().trim().max(200).optional(),
@@ -108,9 +121,17 @@ const createDraftSchema = cmsCreateArticleRequestSchema.extend({
   requestId: REQUEST_ID_SCHEMA
 }).strict();
 
-const updateDraftSchema = cmsUpdateArticleRequestSchema.extend({
+const updateDraftSchema = cmsArticleContentSchema.extend({
   articleId: z.string().uuid(),
+  expectedVersion: z.number().int().nonnegative(),
   requestId: REQUEST_ID_SCHEMA
+}).strict();
+
+const restoreArticleVersionSchema = z.object({
+  articleId: z.string().uuid(),
+  expectedVersion: z.number().int().nonnegative(),
+  requestId: REQUEST_ID_SCHEMA,
+  revisionId: z.string().uuid()
 }).strict();
 
 const requestReviewSchema = z.object({
@@ -231,7 +252,7 @@ export function createStudioMcpServer(
     name: "noema-studio",
     version: "0.1.0"
   }, {
-    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。${articleMarkdownGuidance}`
+    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。${articleMarkdownGuidance}`
   });
 
   server.registerTool(
@@ -280,6 +301,56 @@ export function createStudioMcpServer(
     async ({ articleId }) => executeTool(async () => ({
       article: await getCmsArticle(db, session.identity, articleId)
     }))
+  );
+
+  server.registerTool(
+    "studio_list_article_versions",
+    {
+      title: "List Studio article versions",
+      description: "記事の保存履歴を新しい順に返します。現在・承認済み・公開中の版と復元元を確認できます。",
+      inputSchema: listArticleVersionsSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ articleId }) => executeTool(async () => {
+      const versions = await listCmsArticleVersions(db, session.identity, articleId);
+      return { count: versions.length, versions };
+    })
+  );
+
+  server.registerTool(
+    "studio_get_article_version",
+    {
+      title: "Get Studio article version",
+      description: "記事の指定revisionから本文、frontmatter、公開範囲、版の状態を読み取ります。",
+      inputSchema: getArticleVersionSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ articleId, revisionId }) => executeTool(async () => ({
+      version: await getCmsArticleVersion(db, session.identity, articleId, revisionId)
+    }))
+  );
+
+  server.registerTool(
+    "studio_list_article_version_checkpoints",
+    {
+      title: "List Studio article version checkpoints",
+      description: "同じ編集セッションにまとまった自動保存checkpointを新しい順に返します。続きを読む場合はnextBeforeRevisionNumberを指定します。",
+      inputSchema: listArticleVersionCheckpointsSchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ articleId, beforeRevisionNumber, versionId }) => executeTool(async () => {
+      const page = await listCmsArticleVersionCheckpoints(
+        db,
+        session.identity,
+        articleId,
+        versionId,
+        beforeRevisionNumber
+      );
+      return {
+        checkpoints: page.checkpoints,
+        nextBeforeRevisionNumber: page.nextBeforeRevisionNumber
+      };
+    })
   );
 
   server.registerTool(
@@ -493,6 +564,44 @@ export function createStudioMcpServer(
         { saveReason: "manual" }
       )
     }))
+  );
+
+  server.registerTool(
+    "studio_restore_article_version",
+    {
+      title: "Restore Studio article version",
+      description: "指定revisionの内容を、競合検知と監査記録付きの新しいimmutable revisionとして復元します。既存履歴や公開中の版は削除・上書きしません。",
+      inputSchema: restoreArticleVersionSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ articleId, expectedVersion, requestId, revisionId }) => executeTool(async () => {
+      const version = await getCmsArticleVersion(db, session.identity, articleId, revisionId);
+      const visibility = version.visibility
+        ?? (await getCmsArticle(db, session.identity, articleId)).visibility;
+      const article = await updateCmsArticle(
+        db,
+        session.identity,
+        articleId,
+        expectedVersion,
+        {
+          frontmatter: { ...version.revision.frontmatter, status: "draft" },
+          markdown: version.revision.markdown,
+          visibility
+        },
+        new Date(),
+        {
+          channel: "mcp",
+          client,
+          idempotency: { requestId, toolName: "studio_restore_article_version" }
+        },
+        { saveReason: "restored", sourceRevisionId: version.revision.id }
+      );
+      return {
+        article,
+        restoredFromRevisionId: version.revision.id,
+        restoredFromRevisionNumber: version.revision.number
+      };
+    })
   );
 
   server.registerTool(

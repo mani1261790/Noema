@@ -233,6 +233,7 @@ export interface CmsMutationContext {
       | "studio_create_draft"
       | "studio_request_changes"
       | "studio_request_review"
+      | "studio_restore_article_version"
       | "studio_update_draft";
   };
 }
@@ -1309,7 +1310,10 @@ export async function updateCmsArticle(
   const checksum = await operationChecksum({
     articleId,
     content: requestedContent,
-    expectedVersion
+    expectedVersion,
+    ...(revisionContext.sourceRevisionId
+      ? { sourceRevisionId: revisionContext.sourceRevisionId }
+      : {})
   });
   const replayArticleId = await findIdempotentArticle(
     db,
@@ -2270,6 +2274,7 @@ async function operationChecksum(input: {
   articleId: string;
   content: CmsArticleContentInput;
   expectedVersion: number;
+  sourceRevisionId?: string;
 }): Promise<string> {
   return sha256(JSON.stringify(input));
 }

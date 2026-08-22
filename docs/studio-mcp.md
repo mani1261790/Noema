@@ -1,6 +1,6 @@
 # Studio MCP接続・運用ガイド
 
-Noema Studio MCPを使うと、MCP対応クライアントからNoemaの記事を検索し、下書きの検証・プレビュー・保存・レビュー承認まで行えます。公開、記事の公開終了・復元、メンバー管理など、外部公開やアクセス権に影響する操作はStudio画面で行います。
+Noema Studio MCPを使うと、MCP対応クライアントからNoemaの記事を検索し、下書きの検証・プレビュー・保存、版履歴の確認・復元、レビュー承認まで行えます。公開、記事の公開終了・再公開、メンバー管理など、外部公開やアクセス権に影響する操作はStudio画面で行います。
 
 ## はじめに確認すること
 
@@ -70,7 +70,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 - `editor`: 編集者
 - `reviewer`: レビュー担当
 
-`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。MCPでは権限に応じて下書き編集、画像管理、レビュー依頼・修正依頼・承認まで行えます。公開、記事の公開終了・復元、画像の完全削除、メンバー管理はStudio画面で行います。
+`capabilities`には、編集、承認、公開、メンバー管理が可能かどうかが表示されます。MCPでは権限に応じて下書き編集、版履歴の確認・復元、画像管理、レビュー依頼・修正依頼・承認まで行えます。公開、記事の公開終了・再公開、画像の完全削除、メンバー管理はStudio画面で行います。
 
 ## MCPでできること
 
@@ -79,11 +79,15 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_whoami` | なし | 現在のメールアドレス、役割、権限を確認する |
 | `studio_list_articles` | なし | 記事を検索し、状態で絞り込む |
 | `studio_get_article` | なし | 記事IDから現在の本文と版情報を取得する |
+| `studio_list_article_versions` | なし | 記事の保存履歴と各版の状態を新しい順に取得する |
+| `studio_get_article_version` | なし | 指定した過去版の本文、記事情報、公開範囲を取得する |
+| `studio_list_article_version_checkpoints` | なし | 同じ編集セッションにまとまった自動保存checkpointを取得する |
 | `studio_list_assets` | なし | 画像を検索し、記事挿入用URLと利用状況を確認する |
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
 | `studio_preview_draft` | なし | 保存せず、公開サイト・Studioと同じレンダラーで記事HTMLと検証結果を返す |
 | `studio_create_draft` | 下書きを作成 | 記事と最初の版を作成する |
 | `studio_update_draft` | 下書きを更新 | 競合を確認して新しい版を追加する |
+| `studio_restore_article_version` | 下書きを更新 | 過去版を新しい版として競合検知・監査記録付きで復元する |
 | `studio_upload_asset` | 画像を追加 | R2へ画像を保存し、記事挿入用Markdownを返す |
 | `studio_update_asset` | 画像情報を更新 | 競合を確認してactiveな画像のaltと管理用タグを更新する |
 | `studio_archive_asset` | 画像をアーカイブ | 未使用のactive画像を競合検知付きで一覧から退避する |
@@ -92,7 +96,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_request_changes` | レビュー状態を変更 | レビュー担当が具体的な指摘を記録して要修正へ戻す |
 | `studio_approve_article` | レビュー状態を変更 | レビュー担当が理由を記録して最新版を承認する。公開はしない |
 
-MCPでは、公開、記事の保管・復元・削除、画像の完全削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。承認しても記事は公開されず、`publicationStatus`は変わりません。
+MCPでは、公開、記事の公開終了・再公開・削除、画像の完全削除、メンバー管理はできません。これらは、状態と影響を確認できるStudio画面で行います。過去版の復元は現在の下書きへ新しい版を追加する操作であり、公開状態は変更しません。承認しても記事は公開されず、`publicationStatus`は変わりません。
 
 ## 下書きを作成・更新する
 
@@ -176,6 +180,29 @@ MCPでは、公開、記事の保管・復元・削除、画像の完全削除�
 ```
 
 作成・更新が通信途中で失敗し、処理結果が分からない場合に限り、同じ入力と同じ`requestId`で再送します。同じ利用者、ツール、`requestId`、入力の再送は同じ処理として扱われ、版は重複しません。新しい操作では必ず新しい`requestId`を使ってください。
+
+## 版履歴を確認・復元する
+
+履歴の確認は`reviewer`、`editor`、`admin`が行えます。復元は記事を更新するため、`editor`または`admin`の権限が必要です。
+
+1. `studio_list_article_versions`へ`articleId`を渡し、復元候補を新しい順に取得します。
+2. 候補の`revisionId`を`studio_get_article_version`へ渡し、本文、frontmatter、公開範囲を確認します。
+3. 自動保存の途中経過も確認する場合は、候補の`versionId`を`studio_list_article_version_checkpoints`へ渡します。続きがあるときは、応答の`nextBeforeRevisionNumber`を次の呼び出しの`beforeRevisionNumber`へ指定します。
+4. `studio_get_article`で現在の`lockVersion`を取得します。
+5. 新しい`requestId`を生成し、`studio_restore_article_version`を実行します。
+
+```json
+{
+  "articleId": "11111111-1111-4111-8111-111111111111",
+  "revisionId": "22222222-2222-4222-8222-222222222222",
+  "expectedVersion": 7,
+  "requestId": "00000000-0000-4000-8000-000000000003"
+}
+```
+
+復元は指定した過去版を直接上書きしたり、その後の履歴を削除したりしません。過去版の内容を現在の下書きへコピーし、`saveReason: "restored"`と復元元のrevision IDを記録した新しいimmutable revisionを追加します。公開中の記事がある場合、その公開版は固定されたままです。復元後の原稿は`draft`となり、レビュー承認は解除されるため、内容を確認してから改めてレビューへ進めてください。
+
+別の編集が先に保存されて`lockVersion`が変わっていた場合は`revision_conflict`になります。現在の記事と復元候補をもう一度確認し、新しい`expectedVersion`と`requestId`で判断し直してください。通信途中で結果が分からない場合だけ、同じ入力と同じ`requestId`を再送できます。その再送では版を重複して追加しません。
 
 ## 画像をアップロードして本文へ挿入する
 
