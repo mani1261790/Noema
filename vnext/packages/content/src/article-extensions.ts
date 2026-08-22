@@ -15,6 +15,52 @@ export interface ArticleAccordionMeta {
   title: string;
 }
 
+const closingBracketOrQuote = /[\p{Pe}\p{Pf}]/u;
+const japaneseContinuation = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}々〆ヵヶー]/u;
+
+function characterBefore(source: string, index: number): string {
+  if (index <= 0) return "";
+  const lastUnit = source.charCodeAt(index - 1);
+  const start =
+    (lastUnit & 0xfc00) === 0xdc00 && index > 1
+      ? index - 2
+      : index - 1;
+  const codePoint = source.codePointAt(start);
+  return codePoint === undefined ? "" : String.fromCodePoint(codePoint);
+}
+
+function installJapaneseStrongDelimiterSupport(markdown: MarkdownIt): void {
+  const BaseInlineState = markdown.inline.State;
+
+  class ArticleInlineState extends BaseInlineState {
+    override scanDelims(start: number, canSplitWord: boolean) {
+      const scanned = super.scanDelims(start, canSplitWord);
+      // CommonMark does not close `**用語（term）**を` because the closing
+      // bracket is punctuation and the Japanese particle is not whitespace.
+      // Relax only that Japanese strong-delimiter boundary.
+      if (
+        scanned.can_close ||
+        this.src.charCodeAt(start) !== 0x2a ||
+        scanned.length !== 2
+      ) {
+        return scanned;
+      }
+
+      const markerEnd = start + scanned.length;
+      const previous = characterBefore(this.src, start);
+      const nextCodePoint = this.src.codePointAt(markerEnd);
+      const next = nextCodePoint === undefined ? "" : String.fromCodePoint(nextCodePoint);
+      if (!closingBracketOrQuote.test(previous) || !japaneseContinuation.test(next)) {
+        return scanned;
+      }
+
+      return { ...scanned, can_close: true };
+    }
+  }
+
+  markdown.inline.State = ArticleInlineState;
+}
+
 function lineText(state: StateBlock, line: number): string {
   return state.src.slice(
     state.bMarks[line] + state.tShift[line],
@@ -30,6 +76,7 @@ function offsetTokenMaps(tokens: Token[], offset: number): void {
 }
 
 export function installArticleMarkdownExtensions(markdown: MarkdownIt): void {
+  installJapaneseStrongDelimiterSupport(markdown);
   markdown.block.ruler.before(
     "fence",
     "article_accordion",

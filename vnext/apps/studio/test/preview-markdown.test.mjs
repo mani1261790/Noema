@@ -48,6 +48,14 @@ test("highlights known fenced code and safely renders unknown languages", () => 
   assert.match(unknown, /&lt;tag&gt;/);
 });
 
+test("renders parenthesized strong text followed by Japanese", () => {
+  const markdown = createPreviewMarkdown("https://blog.example/preview");
+  assert.match(
+    markdown.render("**ブランチ（branch）**の役割を説明します。"),
+    /<strong>ブランチ（branch）<\/strong>の役割/
+  );
+});
+
 test("rewrites inline and reference images without replacing the default image renderer", () => {
   const markdown = createPreviewMarkdown(publicSiteUrl);
   const inline = markdown.render('![強調 *された* alt](/images/a.png "A & B")');
