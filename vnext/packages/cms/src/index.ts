@@ -2,6 +2,7 @@ import {
   articleApproachSchema,
   articleFrontmatterSchema,
   articleImageSchema,
+  articleMarkdownGuidance,
   articleSourceSchema,
   articleTopicSchema,
   validateArticleMarkdown,
@@ -98,7 +99,7 @@ export const cmsDraftFrontmatterSchema = z.object({
 
 export const cmsArticleContentSchema = z.object({
   frontmatter: cmsDraftFrontmatterSchema,
-  markdown: z.string().max(1_048_576),
+  markdown: z.string().max(1_048_576).describe(articleMarkdownGuidance),
   visibility: cmsVisibilitySchema
 }).strict();
 

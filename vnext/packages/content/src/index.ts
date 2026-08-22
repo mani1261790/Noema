@@ -4,6 +4,8 @@ import {
   isSafeHttpUrl
 } from "./article-markdown";
 
+export { articleMarkdownGuidance } from "./article-extensions";
+
 export {
   extractArticleHeadingSlugs,
   extractArticleHeadings,
@@ -224,6 +226,12 @@ export const previewArticleMarkdown = `
 ## 質問して確かめる
 
 要約だけでなく、「どこに書かれているか」「分からない言葉をどう説明できるか」まで質問します。
+
+:::accordion 質問が思いつかないとき
+
+まずは「この資料の要点を三つ教えてください」と尋ね、回答の中で気になった言葉を次の質問につなげます。
+
+:::
 
 ## 次に進む
 

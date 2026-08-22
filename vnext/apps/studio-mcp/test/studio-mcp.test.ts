@@ -473,6 +473,7 @@ describe("Studio MCP tools", () => {
     };
     expect(result.mediaType).toBe("text/html");
     expect(result.html).toContain('<h2 id="安全な見出し">');
+    expect(result.html).toContain('class="article-presentation"');
     expect(result.html).toContain("katex");
     expect(result.html).not.toContain("<script");
     expect(result.html).not.toContain('href="javascript:');
@@ -481,6 +482,27 @@ describe("Studio MCP tools", () => {
       "SELECT COUNT(*) AS count FROM cms_audit_events"
     ).first<number>("count");
     expect(auditCount).toBe(0);
+    await connection.close();
+  });
+
+  it("advertises and renders the Noema accordion Markdown extension", async () => {
+    const connection = await connectClient();
+    const tools = await connection.client.listTools();
+    const createDraft = tools.tools.find((tool) => tool.name === "studio_create_draft");
+    expect(createDraft?.description).toContain(":::accordion タイトル");
+    expect(JSON.stringify(createDraft?.inputSchema)).toContain("アコーディオン");
+
+    const preview = await connection.client.callTool({
+      name: "studio_preview_draft",
+      arguments: {
+        ...validArticle("mcp-accordion-preview"),
+        markdown: "## 本文\n\n:::accordion 詳しい説明\n\n補足です。\n\n:::"
+      }
+    });
+    const result = preview.structuredContent as { html: string; valid: boolean };
+    expect(result.html).toContain('<details class="article-accordion">');
+    expect(result.html).toContain("<summary>詳しい説明</summary>");
+    expect(result.valid).toBe(true);
     await connection.close();
   });
 

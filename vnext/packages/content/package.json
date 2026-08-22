@@ -5,7 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./article-renderer": "./src/article-renderer.ts"
+    "./article-extensions": "./src/article-extensions.ts",
+    "./article-markdown": "./src/article-markdown.ts",
+    "./article-renderer": "./src/article-renderer.ts",
+    "./article-presentation": "./src/article-presentation.ts"
   },
   "scripts": {
     "test": "vitest run"

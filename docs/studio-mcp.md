@@ -81,7 +81,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_get_article` | なし | 記事IDから現在の本文と版情報を取得する |
 | `studio_list_assets` | なし | 画像を検索し、記事挿入用URLと利用状況を確認する |
 | `studio_validate_draft` | なし | 保存前の見出し情報とMarkdownを検証する |
-| `studio_preview_draft` | なし | 保存せず、公開サイトと同じレンダラーで本文HTMLと検証結果を返す |
+| `studio_preview_draft` | なし | 保存せず、公開サイト・Studioと同じレンダラーで記事HTMLと検証結果を返す |
 | `studio_create_draft` | 下書きを作成 | 記事と最初の版を作成する |
 | `studio_update_draft` | 下書きを更新 | 競合を確認して新しい版を追加する |
 | `studio_upload_asset` | 画像を追加 | R2へ画像を保存し、記事挿入用Markdownを返す |
@@ -137,7 +137,9 @@ MCPでは、公開、記事の保管・復元・削除、画像の完全削除�
 
 ### 保存前に表示を確認する
 
-`studio_preview_draft`へ`studio_validate_draft`と同じ入力を渡すと、保存せずに`html`、`mediaType: "text/html"`、検証結果の`issues`と`valid`を返します。公開サイトと同じMarkdown、コードハイライト、KaTeXレンダラーを使います。Markdownのraw HTMLは実行されず、危険なリンクはリンク化されません。
+`studio_preview_draft`へ`studio_validate_draft`と同じ入力を渡すと、保存せずに`html`、`mediaType: "text/html"`、検証結果の`issues`と`valid`を返します。公開サイトとStudioが共有する記事レンダラーを使い、記事ヘッダー、目次、本文、参考資料まで含むHTMLを生成します。Markdownのraw HTMLは実行されず、危険なリンクはリンク化されません。
+
+記事内アコーディオンなど、Noema固有の記法は[Noema記事Markdown拡張](./article-markdown.md)を参照してください。MCP server instructionsと記事作成・更新toolのschemaにも同じ記法を含めているため、AIクライアントはtool一覧から書式と制約を取得できます。
 
 プレビュー入力のMarkdownは65,536文字、生成HTMLは2,097,152文字までです。上限を超える場合は、原稿を分割して確認してください。これは本文のレンダリング確認であり、ブラウザ幅、CSS、フォントを含む最終的な見た目の確認はStudio画面で行います。
 
