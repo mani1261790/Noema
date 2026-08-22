@@ -102,7 +102,7 @@ import { suggestArticleMetadata } from "./article-autofill";
 import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
-import { CmsPublicationJourney } from "./CmsPublicationJourney";
+import { CmsPublicationJourney, getCmsWorkflowShortcut } from "./CmsPublicationJourney";
 import { CmsVersionHistory } from "./CmsVersionHistory";
 import { CmsTeamSettings } from "./CmsTeamSettings";
 import { CmsArticleSeriesEditor } from "./CmsArticleSeriesEditor";
@@ -135,7 +135,7 @@ import {
   ensureActiveCmsEditSession
 } from "./cms-versioning";
 
-type StudioSettingsMode = "metadata" | "publish" | "review";
+type StudioSettingsMode = "metadata" | "publish" | "review" | "series";
 type CmsSessionState =
   | { kind: "checking" }
   | { kind: "ready"; session: CmsSession }
@@ -2489,6 +2489,10 @@ export function App() {
     ["public", "unlisted"].includes(cmsPublishVisibility) &&
     !cmsDirty
   );
+  const cmsWorkflowShortcut = getCmsWorkflowShortcut(
+    cmsArticle?.reviewStatus ?? null,
+    Boolean(cmsSession?.capabilities.canPublish)
+  );
   const cmsLibraryConnection: CmsLibraryConnection = cmsSessionState.kind === "checking"
     ? { kind: "checking" }
     : cmsSessionState.kind === "unavailable"
@@ -2568,7 +2572,8 @@ export function App() {
           >
             {cmsEditorStatus}
           </p>
-          {!editorLocked ? <div className="studio-editor-toolbar__secondary-actions">
+          <div className="studio-editor-toolbar__secondary-actions">
+            {!editorLocked ? <>
             <button
               aria-controls="studio-asset-tray"
               aria-expanded={assetTrayOpen}
@@ -2614,7 +2619,8 @@ export function App() {
             >
               履歴
             </button> : null}
-            <button
+            </> : null}
+            {cmsWorkflowShortcut === "review" ? <button
               aria-controls="studio-article-settings"
               aria-expanded={settingsOpen && settingsMode === "review"}
               className="dads-button studio-review-shortcut"
@@ -2629,13 +2635,12 @@ export function App() {
               type="button"
             >
               レビュー
-            </button>
-            {cmsSession?.capabilities.canPublish && cmsArticle ? <button
+            </button> : cmsArticle ? <button
               aria-controls="studio-article-settings"
               aria-expanded={settingsOpen && settingsMode === "publish"}
               className="dads-button studio-publish-shortcut"
               data-size="md"
-              data-type={cmsArticle.reviewStatus === "approved" ? "solid-fill" : "outline"}
+              data-type="solid-fill"
               onClick={() => {
                 setPreviewFullscreen(false);
                 setAssetTrayOpen(false);
@@ -2646,7 +2651,23 @@ export function App() {
             >
               公開
             </button> : null}
-          </div> : null}
+            {cmsArticle && cmsSession?.capabilities.canEdit ? <button
+              aria-controls="studio-article-settings"
+              aria-expanded={settingsOpen && settingsMode === "series"}
+              className="dads-button studio-series-shortcut"
+              data-size="md"
+              data-type="outline"
+              onClick={() => {
+                setPreviewFullscreen(false);
+                setAssetTrayOpen(false);
+                setSettingsMode("series");
+                setSettingsOpen((current) => settingsMode === "series" ? !current : true);
+              }}
+              type="button"
+            >
+              シリーズ
+            </button> : null}
+          </div>
           {!editorLocked ? <button
             className="dads-button studio-save-shortcut"
             data-size="md"
@@ -2841,11 +2862,40 @@ export function App() {
               ? "送信内容を確認し、コメント・承認・差し戻しを行います。"
               : settingsMode === "publish"
                 ? "承認済みの内容と公開範囲を確認して公開します。"
-                : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
+                : settingsMode === "series"
+                  ? "記事本文や承認状態を変えずに、読む順序とシリーズ情報を管理します。"
+                  : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
             onClose={editorLocked ? undefined : () => setSettingsOpen(false)}
-            title={settingsMode === "review" ? "レビュー" : settingsMode === "publish" ? "公開" : "記事情報"}
+            title={settingsMode === "review"
+              ? "レビュー"
+              : settingsMode === "publish"
+                ? "公開"
+                : settingsMode === "series"
+                  ? "シリーズ"
+                  : "記事情報"}
             titleId="studio-settings-heading"
           />
+
+          {settingsMode === "series" && cmsArticle ? (
+            <section className="studio-series-settings" aria-labelledby="studio-settings-heading">
+              {cmsArticle.publicationStatus === "published" ? (
+                <p className="studio-series-settings__live-note" role="note">
+                  <strong>公開中の記事です。</strong>
+                  シリーズを保存すると、読者向けのシリーズ導線へすぐ反映されます。記事本文と承認状態は変わりません。
+                </p>
+              ) : null}
+              <CmsArticleSeriesEditor
+                articleId={cmsArticle.id}
+                articles={cmsArticles}
+                busy={cmsSeriesBusy}
+                canEdit={Boolean(cmsSession?.capabilities.canEdit)}
+                error={cmsSeriesError}
+                onLoadVersions={loadCmsSeriesHistory}
+                onSave={saveCmsSeries}
+                series={cmsSeries}
+              />
+            </section>
+          ) : null}
 
           <section className="studio-autofill" aria-labelledby="studio-autofill-heading">
             <div>
@@ -3153,24 +3203,6 @@ export function App() {
                   <strong>CMSが自動で管理</strong>
                   <span>公開日時は公開操作時、更新日は保存時に記録します。読了時間は本文から算出します（現在約{frontmatter.estimatedMinutes}分）。</span>
                 </div>
-              </div>
-            </details>
-
-            <details className="studio-disclosure">
-              <summary>シリーズ — {cmsArticle ? cmsSeries.find((item) => item.articleIds.includes(cmsArticle.id))?.title ?? "未設定" : "初回保存後に設定"}</summary>
-              <div className="studio-disclosure__content">
-                {cmsArticle ? (
-                  <CmsArticleSeriesEditor
-                    articleId={cmsArticle.id}
-                    articles={cmsArticles}
-                    busy={cmsSeriesBusy}
-                    canEdit={Boolean(cmsSession?.capabilities.canEdit) && !editorLocked}
-                    error={cmsSeriesError}
-                    onLoadVersions={loadCmsSeriesHistory}
-                    onSave={saveCmsSeries}
-                    series={cmsSeries}
-                  />
-                ) : <p className="studio-field__support">最初にCMSへ保存すると、この記事をシリーズへ追加できます。</p>}
               </div>
             </details>
 

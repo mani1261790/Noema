@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CmsPublicationJourney, getCmsJourneyStatus } from "../src/CmsPublicationJourney";
+import {
+  CmsPublicationJourney,
+  getCmsJourneyStatus,
+  getCmsWorkflowShortcut
+} from "../src/CmsPublicationJourney";
 
 describe("getCmsJourneyStatus", () => {
   it("maps CMS state to the four visible stages", () => {
@@ -38,5 +42,18 @@ describe("getCmsJourneyStatus", () => {
     expect(html.match(/is-complete/g)).toHaveLength(4);
     expect(html).not.toContain('aria-current="step"');
     expect(html).not.toContain("is-current");
+  });
+});
+
+describe("getCmsWorkflowShortcut", () => {
+  it("does not expose publishing before review approval", () => {
+    expect(getCmsWorkflowShortcut("draft", true)).toBe("review");
+    expect(getCmsWorkflowShortcut("in_review", true)).toBe("review");
+    expect(getCmsWorkflowShortcut("changes_requested", true)).toBe("review");
+  });
+
+  it("replaces the review shortcut with publishing after approval", () => {
+    expect(getCmsWorkflowShortcut("approved", true)).toBe("publish");
+    expect(getCmsWorkflowShortcut("approved", false)).toBe("review");
   });
 });
