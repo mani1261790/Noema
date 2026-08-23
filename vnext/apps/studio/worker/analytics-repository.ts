@@ -494,6 +494,27 @@ function formatHours(value: number): string {
   return value < 1 ? value.toFixed(1) : value.toFixed(0);
 }
 
+export async function cleanupCmsAnalyticsRetention(
+  db: D1Database,
+  now = new Date()
+): Promise<void> {
+  const today = now.toISOString().slice(0, 10);
+  const eventFactsCutoff = addDays(new Date(`${today}T00:00:00.000Z`), -34)
+    .toISOString()
+    .slice(0, 10);
+  const reportingCutoff = addDays(new Date(`${today}T00:00:00.000Z`), -399)
+    .toISOString()
+    .slice(0, 10);
+  await db.batch([
+    db.prepare("DELETE FROM cms_analytics_events WHERE event_date < ?1")
+      .bind(eventFactsCutoff),
+    db.prepare("DELETE FROM cms_analytics_daily WHERE event_date < ?1")
+      .bind(reportingCutoff),
+    db.prepare("DELETE FROM cms_analytics_ingestion_daily WHERE event_date < ?1")
+      .bind(reportingCutoff)
+  ]);
+}
+
 export async function rebuildCmsAnalyticsMart(
   db: D1Database,
   identity: CmsIdentity,
@@ -534,16 +555,15 @@ export async function rebuildCmsAnalyticsMart(
     );
   }
 
-  const count = await db.prepare(
-    `SELECT COUNT(*) AS count
-     FROM cms_analytics_events
-     WHERE event_date BETWEEN ?1 AND ?2`
-  ).bind(range.from, range.through).first<{ count: number }>();
-  const sourceEventCount = count?.count ?? 0;
   const runId = crypto.randomUUID();
   const startedAt = now.toISOString();
   const completedAt = startedAt;
-  await db.batch([
+  const [countResult] = await db.batch([
+    db.prepare(
+      `SELECT COUNT(*) AS count
+       FROM cms_analytics_events
+       WHERE event_date BETWEEN ?1 AND ?2`
+    ).bind(range.from, range.through),
     db.prepare(
       `DELETE FROM cms_analytics_daily
        WHERE event_date BETWEEN ?1 AND ?2`
@@ -605,16 +625,20 @@ export async function rebuildCmsAnalyticsMart(
          started_at,
          completed_at,
          initiated_by
-       ) VALUES (?1, 'rebuild', ?2, ?3, ?4, ?5, ?6, ?7)`
+       )
+       SELECT ?1, 'rebuild', ?2, ?3, COUNT(*), ?4, ?5, ?6
+       FROM cms_analytics_events
+       WHERE event_date BETWEEN ?2 AND ?3`
     ).bind(
       runId,
       range.from,
       range.through,
-      sourceEventCount,
       startedAt,
       completedAt,
       identity.subject
     )
   ]);
+  const countRow = countResult.results[0] as { count?: unknown } | undefined;
+  const sourceEventCount = typeof countRow?.count === "number" ? countRow.count : 0;
   return { completedAt, from: range.from, runId, sourceEventCount, through: range.through };
 }

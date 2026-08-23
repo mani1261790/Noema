@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCms,
   cmsAnalyticsEventRequestSchema,
+  cmsAnalyticsRebuildRequestSchema,
   cmsArticleActionSchema,
   cmsDraftFrontmatterSchema,
   cmsSeriesContentSchema,
@@ -122,6 +123,13 @@ describe("CMS contracts", () => {
       articleSlug: "local-ai-on-mac",
       attribution: { campaign: "質問本文を保存しない" },
       eventType: "landing"
+    }).success).toBe(false);
+  });
+
+  it("rejects impossible analytics rebuild calendar dates", () => {
+    expect(cmsAnalyticsRebuildRequestSchema.safeParse({
+      from: "2026-02-31",
+      through: "2026-03-01"
     }).success).toBe(false);
   });
 });

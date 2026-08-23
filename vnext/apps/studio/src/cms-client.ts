@@ -1099,12 +1099,12 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
     value.eventContractVersion !== 1 ||
     !isString(value.generatedAt) ||
     !(value.latestEventReceivedAt === null || isString(value.latestEventReceivedAt)) ||
-    value.metricCatalogVersion !== "2026-08-23" ||
+    !isString(value.metricCatalogVersion) ||
     !isString(value.rawCoverageFrom) ||
     !isString(value.reprocessableFrom) ||
     !isRecord(value.retention) ||
-    value.retention.eventFactsDays !== 35 ||
-    value.retention.reportingMartDays !== 400 ||
+    !isNonnegativeInteger(value.retention.eventFactsDays) ||
+    !isNonnegativeInteger(value.retention.reportingMartDays) ||
     !Array.isArray(value.sources) ||
     !(value.status === "healthy" || value.status === "attention" || value.status === "collecting" || value.status === "no_data")
   ) return null;
@@ -1127,10 +1127,13 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
     eventContractVersion: 1,
     generatedAt: value.generatedAt,
     latestEventReceivedAt: value.latestEventReceivedAt,
-    metricCatalogVersion: "2026-08-23",
+    metricCatalogVersion: value.metricCatalogVersion,
     rawCoverageFrom: value.rawCoverageFrom,
     reprocessableFrom: value.reprocessableFrom,
-    retention: { eventFactsDays: 35, reportingMartDays: 400 },
+    retention: {
+      eventFactsDays: value.retention.eventFactsDays,
+      reportingMartDays: value.retention.reportingMartDays
+    },
     sources,
     status: value.status
   };

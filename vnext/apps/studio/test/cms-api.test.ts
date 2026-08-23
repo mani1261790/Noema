@@ -7,6 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CmsArticleDetail, CmsMember, CmsSeries, CmsSession } from "@noema/cms";
 import { handleCmsApiRequest } from "../worker/cms-api";
 import { handleStudioApiRequest } from "../worker/app";
+import { cleanupCmsAnalyticsRetention } from "../worker/analytics-repository";
 
 const testEnv = env as Env & { CMS_TEST_MIGRATIONS: D1Migration[] };
 const ORIGIN = "https://studio.example.com";
@@ -213,6 +214,48 @@ describe("CMS HTTP API", () => {
       id: "mart_reconciliation",
       status: "pass"
     }));
+  });
+
+  it("enforces analytics retention even when ingestion is idle", async () => {
+    const now = new Date("2026-08-23T03:17:00.000Z");
+    const oldFactDate = "2026-07-19";
+    const expiredReportDate = "2025-07-19";
+    await testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_events (
+         event_id, schema_version, event_date, occurred_at, received_at,
+         article_id, article_slug, revision_number, event_type
+       ) VALUES (?1, 1, ?2, ?3, ?3, 'idle-fact', 'idle-fact', 1, 'landing')`
+    ).bind(
+      "019d2f30-4dc8-7a32-8a31-e5e80b4f0d9e",
+      oldFactDate,
+      `${oldFactDate}T00:00:00.000Z`
+    ).run();
+    await testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         event_count, updated_at
+       ) VALUES (?1, 'expired-report', 'expired-report', 1, 'landing', 1, ?2)`
+    ).bind(expiredReportDate, `${expiredReportDate}T00:00:00.000Z`).run();
+    await testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_ingestion_daily (
+         event_date, accepted_event_count, duplicate_event_count, updated_at
+       ) VALUES (?1, 1, 0, ?2)`
+    ).bind(expiredReportDate, `${expiredReportDate}T00:00:00.000Z`).run();
+
+    await cleanupCmsAnalyticsRetention(testEnv.CMS_DB, now);
+
+    const facts = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_analytics_events"
+    ).first<{ count: number }>();
+    const daily = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_analytics_daily"
+    ).first<{ count: number }>();
+    const ingestion = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_analytics_ingestion_daily"
+    ).first<{ count: number }>();
+    expect(facts?.count).toBe(0);
+    expect(daily?.count).toBe(1);
+    expect(ingestion?.count).toBe(1);
   });
 
   it("stores anchored review comments and records the resolution revision", async () => {

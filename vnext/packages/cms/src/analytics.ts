@@ -88,7 +88,7 @@ export const cmsAnalyticsDaysSchema = z.union([
   z.literal(90)
 ]);
 
-const analyticsDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
+const analyticsDateSchema = z.iso.date();
 export const cmsAnalyticsRebuildRequestSchema = z.object({
   from: analyticsDateSchema,
   through: analyticsDateSchema
@@ -203,12 +203,12 @@ export interface CmsAnalyticsHealth {
   eventContractVersion: typeof CMS_ANALYTICS_EVENT_CONTRACT_VERSION;
   generatedAt: string;
   latestEventReceivedAt: string | null;
-  metricCatalogVersion: typeof CMS_ANALYTICS_METRIC_CATALOG_VERSION;
+  metricCatalogVersion: string;
   rawCoverageFrom: string;
   reprocessableFrom: string;
   retention: {
-    eventFactsDays: 35;
-    reportingMartDays: 400;
+    eventFactsDays: number;
+    reportingMartDays: number;
   };
   sources: Array<{
     id: "noema_reader_events" | "cloudflare_web_analytics" | "google_search_console";

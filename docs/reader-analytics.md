@@ -54,6 +54,7 @@ flowchart LR
 - D1の`cms_analytics_events`が短期の正本です。契約バージョン、イベントID、発生・受信時刻、公開revision、イベント種別、限定した流入・遷移次元を保存し、35日保持します。HTTPリクエスト全体や読者単位の識別子は保存しません。
 - `cms_analytics_daily`は表示用マートです。イベント正本へのINSERTと同じDBトランザクション内のtriggerでUTC日次へ加算し、400日保持します。短期正本が残る範囲は再集計でき、長期傾向は日次マートで保持します。
 - `cms_analytics_ingestion_daily`は受理件数と重複除外件数を保持します。`cms_analytics_pipeline_state`は完全な正本のcoverage開始日を示し、移行前の集計を再処理可能と誤認しないために使います。
+- Studio Workerの日次scheduled cleanup（03:17 UTC）は、収集が止まっていても35日・400日の保持期限を適用します。収集trigger内の削除は高速経路として残します。
 - Analytics Engineは任意の短期探索層です。Cloudflare accountで有効化し`READER_ANALYTICS`をbindingした環境だけ、`noema_reader_events`へ同じイベントを送ります。blob 1〜10はイベント、slug、revision、source、medium、campaign、content、referrer host、遷移種別、遷移先slug、double 1は件数、indexは不変の記事IDです。bindingがない環境でもD1の正本とStudio/MCPの分析は動作します。
 - ブラウザの`sessionStorage`には流入識別子と30分の有効期限だけを保存します。永続的な読者IDや、イベント間を結合するセッションIDは作りません。
 

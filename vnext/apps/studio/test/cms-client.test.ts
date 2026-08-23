@@ -130,10 +130,10 @@ describe("CMS analytics client", () => {
         eventContractVersion: 1,
         generatedAt: "2026-08-23T01:00:00.000Z",
         latestEventReceivedAt: "2026-08-23T00:59:00.000Z",
-        metricCatalogVersion: "2026-08-23",
+        metricCatalogVersion: "2026-09-01",
         rawCoverageFrom: "2026-08-23",
         reprocessableFrom: "2026-08-23",
-        retention: { eventFactsDays: 35, reportingMartDays: 400 },
+        retention: { eventFactsDays: 45, reportingMartDays: 500 },
         sources: [{ id: "noema_reader_events", role: "記事内行動", status: "active" }],
         status: "healthy"
       },
@@ -167,6 +167,10 @@ describe("CMS analytics client", () => {
     if (result.ok) {
       expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
       expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
+      expect(result.value.health).toMatchObject({
+        metricCatalogVersion: "2026-09-01",
+        retention: { eventFactsDays: 45, reportingMartDays: 500 }
+      });
     }
     expect(fetchFn).toHaveBeenCalledWith(
       "/api/cms/analytics/summary?days=30",
