@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 import {
   cmsArticleContentSchema,
   cmsAnalyticsDaysSchema,
+  cmsAnalyticsRebuildRequestSchema,
   cmsAssetStatusSchema,
   cmsCreateArticleRequestSchema,
   cmsCreateSeriesRequestSchema,
@@ -59,7 +60,10 @@ import {
   listCmsSeriesVersions,
   updateCmsSeries
 } from "../../studio/worker/cms-series-repository";
-import { listCmsAnalyticsSummary } from "../../studio/worker/analytics-repository";
+import {
+  listCmsAnalyticsSummary,
+  rebuildCmsAnalyticsMart
+} from "../../studio/worker/analytics-repository";
 
 const MCP_PATH = "/mcp";
 const REQUEST_ID_SCHEMA = z.string().uuid();
@@ -364,6 +368,19 @@ export function createStudioMcpServer(
     },
     async ({ days }) => executeTool(async () => ({
       summary: await listCmsAnalyticsSummary(db, session.identity, days)
+    }))
+  );
+
+  server.registerTool(
+    "studio_rebuild_analytics_mart",
+    {
+      title: "Rebuild Studio analytics mart",
+      description: "完全なイベント正本が残る連続35日以内を対象に、日次分析マートを再構築します。admin専用です。",
+      inputSchema: cmsAnalyticsRebuildRequestSchema,
+      annotations: destructiveWriteAnnotations(false)
+    },
+    async (range) => executeTool(async () => ({
+      rebuild: await rebuildCmsAnalyticsMart(db, session.identity, range)
     }))
   );
 

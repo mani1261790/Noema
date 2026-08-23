@@ -22,7 +22,10 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(objects.objects.map((object) => object.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_ingestion_daily"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_pipeline_runs"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_series"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
@@ -46,6 +49,9 @@ beforeEach(async () => {
     testEnv.CMS_DB.prepare("DELETE FROM cms_members"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_member_invitations")
   ]);
+  await testEnv.CMS_DB.prepare(
+    "UPDATE cms_analytics_pipeline_state SET state_value = date('now', '+1 day'), updated_at = datetime('now') WHERE state_key = 'raw_coverage_complete_from'"
+  ).run();
 });
 
 describe("CMS HTTP API", () => {
@@ -111,7 +117,7 @@ describe("CMS HTTP API", () => {
     } };
 
     expect(response.status).toBe(200);
-    expect(retained?.count).toBe(0);
+    expect(retained?.count).toBe(1);
     expect(body.summary.totals).toMatchObject({
       article50Rate: 0.75,
       assistantSuccessRate: 0.5,
@@ -134,6 +140,7 @@ describe("CMS HTTP API", () => {
       qualifiedReadRate: 0.5
     }));
     expect(body.summary.sources).toHaveLength(1);
+    expect((body.summary as { health?: { status: string } }).health?.status).toBe("collecting");
   });
 
   it("rejects unsupported analytics ranges", async () => {
@@ -145,6 +152,67 @@ describe("CMS HTTP API", () => {
     );
     expect(response.status).toBe(400);
     await expectErrorCode(response, "invalid_analytics_range");
+  });
+
+  it("projects immutable facts once and lets an admin rebuild a corrupted mart", async () => {
+    await bootstrapAdmin();
+    const { article } = await createArticle("fact-based");
+    const date = new Date().toISOString().slice(0, 10);
+    const timestamp = `${date}T01:02:03.000Z`;
+    await testEnv.CMS_DB.prepare(
+      "UPDATE cms_analytics_pipeline_state SET state_value = ?1, updated_at = ?2 WHERE state_key = 'raw_coverage_complete_from'"
+    ).bind(date, timestamp).run();
+    const insert = testEnv.CMS_DB.prepare(
+      `INSERT OR IGNORE INTO cms_analytics_events (
+         event_id, schema_version, event_date, occurred_at, received_at,
+         article_id, article_slug, revision_number, event_type
+       ) VALUES (?1, 1, ?2, ?3, ?3, ?4, 'fact-based', ?5, 'landing')`
+    );
+    await insert.bind("019d2f30-4dc8-7a32-8a31-e5e80b4f0d9e", date, timestamp, article.id, article.revisionNumber).run();
+    await insert.bind("019d2f30-4dc8-7a32-8a31-e5e80b4f0d9e", date, timestamp, article.id, article.revisionNumber).run();
+    const projected = await testEnv.CMS_DB.prepare(
+      "SELECT event_count FROM cms_analytics_daily WHERE event_date = ?1 AND article_id = ?2"
+    ).bind(date, article.id).first<{ event_count: number }>();
+    expect(projected?.event_count).toBe(1);
+
+    await testEnv.CMS_DB.prepare(
+      "UPDATE cms_analytics_daily SET event_count = 9 WHERE event_date = ?1 AND article_id = ?2"
+    ).bind(date, article.id).run();
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/rebuild", {
+        body: JSON.stringify({ from: date, through: date }),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      rebuild: { from: date, sourceEventCount: 1, through: date }
+    });
+    const repaired = await testEnv.CMS_DB.prepare(
+      "SELECT event_count FROM cms_analytics_daily WHERE event_date = ?1 AND article_id = ?2"
+    ).bind(date, article.id).first<{ event_count: number }>();
+    const runs = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_analytics_pipeline_runs"
+    ).first<{ count: number }>();
+    expect(repaired?.event_count).toBe(1);
+    expect(runs?.count).toBe(1);
+
+    const summaryResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/summary?days=7"),
+      cmsEnv(),
+      ADMIN
+    );
+    const summaryBody = (await summaryResponse.json()) as {
+      summary: { health: { checks: Array<{ id: string; status: string }>; status: string } };
+    };
+    expect(summaryBody.summary.health.status).toBe("healthy");
+    expect(summaryBody.summary.health.checks).toContainEqual(expect.objectContaining({
+      id: "mart_reconciliation",
+      status: "pass"
+    }));
   });
 
   it("stores anchored review comments and records the resolution revision", async () => {

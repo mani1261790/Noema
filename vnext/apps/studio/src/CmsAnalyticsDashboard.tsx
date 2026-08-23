@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import {
+  cmsAnalyticsMetricCatalog,
   type CmsAnalyticsDays,
   type CmsAnalyticsSummary
 } from "@noema/cms";
-import { fetchCmsAnalyticsSummary, type CmsClientError } from "./cms-client";
+import {
+  fetchCmsAnalyticsSummary,
+  rebuildCmsAnalyticsMart,
+  type CmsClientError
+} from "./cms-client";
 import type { CmsLibraryConnection } from "./CmsArticleLibrary";
 
 interface CmsAnalyticsDashboardProps {
@@ -30,9 +35,29 @@ function sourceLabel(source: CmsAnalyticsSummary["sources"][number]): string {
   return "直接・不明";
 }
 
+const healthLabels = {
+  attention: "要確認",
+  collecting: "基準収集中",
+  healthy: "正常",
+  no_data: "データなし"
+} as const;
+
+const checkLabels = {
+  not_evaluated: "未評価",
+  pass: "正常",
+  warn: "要確認"
+} as const;
+
+const sourceNames = {
+  cloudflare_web_analytics: "Cloudflare Web Analytics",
+  google_search_console: "Google Search Console",
+  noema_reader_events: "Noema読者イベント"
+} as const;
+
 export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps) {
   const [days, setDays] = useState<CmsAnalyticsDays>(30);
   const [retry, setRetry] = useState(0);
+  const [rebuildState, setRebuildState] = useState<"idle" | "running" | "done" | "error">("idle");
   const [state, setState] = useState<AnalyticsState>({ kind: "loading" });
 
   useEffect(() => {
@@ -47,6 +72,20 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
     });
     return () => controller.abort();
   }, [connection.kind, days, retry]);
+
+  const rebuild = async (summary: CmsAnalyticsSummary) => {
+    const from = summary.health.reprocessableFrom > summary.range.from
+      ? summary.health.reprocessableFrom
+      : summary.range.from;
+    setRebuildState("running");
+    const result = await rebuildCmsAnalyticsMart(from, summary.range.through);
+    if (!result.ok) {
+      setRebuildState("error");
+      return;
+    }
+    setRebuildState("done");
+    setRetry((value) => value + 1);
+  };
 
   if (connection.kind === "checking") {
     return (
@@ -96,6 +135,68 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
         ) : null}
         {state.kind === "ready" ? (
           <>
+            <section
+              className={`studio-analytics__health is-${state.summary.health.status}`}
+              aria-labelledby="studio-analytics-health-heading"
+            >
+              <div className="studio-analytics__health-summary">
+                <div>
+                  <p className="studio-library__eyebrow">データ品質</p>
+                  <h2 id="studio-analytics-health-heading">判断可能性</h2>
+                </div>
+                <strong>{healthLabels[state.summary.health.status]}</strong>
+              </div>
+              <dl className="studio-analytics__health-meta">
+                <div><dt>受理イベント</dt><dd>{state.summary.health.acceptedEvents}</dd></div>
+                <div><dt>重複除外</dt><dd>{state.summary.health.duplicateEvents}</dd></div>
+                <div><dt>イベント契約</dt><dd>v{state.summary.health.eventContractVersion}</dd></div>
+                <div><dt>正本保持</dt><dd>{state.summary.health.retention.eventFactsDays}日</dd></div>
+                <div><dt>集計保持</dt><dd>{state.summary.health.retention.reportingMartDays}日</dd></div>
+              </dl>
+              <ul className="studio-analytics__checks">
+                {state.summary.health.checks.map((check) => (
+                  <li className={`is-${check.status}`} key={check.id}>
+                    <div><strong>{check.label}</strong><span>{checkLabels[check.status]}</span></div>
+                    <p>{check.detail}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="studio-analytics__lineage" aria-label="分析sourceの接続状態">
+                {state.summary.health.sources.map((source) => (
+                  <article key={source.id}>
+                    <div>
+                      <strong>{sourceNames[source.id]}</strong>
+                      <span>{source.status === "active" ? "接続中" : "未接続"}</span>
+                    </div>
+                    <p>{source.role}</p>
+                  </article>
+                ))}
+              </div>
+              <p className="studio-analytics__health-note">
+                完全coverageは{state.summary.health.rawCoverageFrom}から。現在再処理できるのは{state.summary.health.reprocessableFrom}以降。最終判定 {state.summary.health.generatedAt}
+              </p>
+              {connection.role === "admin" && state.summary.health.checks.some((check) => (
+                check.id === "mart_reconciliation" && check.status === "warn"
+              )) ? (
+                <div className="studio-analytics__repair">
+                  <button
+                    className="dads-button"
+                    data-size="md"
+                    data-type="outline"
+                    disabled={rebuildState === "running"}
+                    onClick={() => void rebuild(state.summary)}
+                    type="button"
+                  >
+                    {rebuildState === "running" ? "再集計しています…" : "正本から再集計"}
+                  </button>
+                  <span role="status">
+                    {rebuildState === "done" ? "再集計が完了しました。" : null}
+                    {rebuildState === "error" ? "再集計できませんでした。もう一度確認してください。" : null}
+                  </span>
+                </div>
+              ) : null}
+            </section>
+
             <section className="studio-analytics__kpis" aria-label="主要指標">
               <article><span>50%到達率</span><strong>{formatPercent(state.summary.totals.article50Rate)}</strong><small>{state.summary.totals.article50} / {state.summary.totals.landing}表示</small></article>
               <article><span>読了率</span><strong>{formatPercent(state.summary.totals.qualifiedReadRate)}</strong><small>本文末尾到達 ÷ 記事への到達</small></article>
@@ -154,6 +255,19 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                   <thead><tr><th scope="col">日付</th><th scope="col">到達</th><th scope="col">読了</th><th scope="col">次記事</th></tr></thead>
                   <tbody>{state.summary.daily.map((day) => <tr key={day.date}><th scope="row">{day.date}</th><td>{day.landing}</td><td>{day.articleEnd}</td><td>{day.navigationClick}</td></tr>)}</tbody>
                 </table>
+              </div>
+            </details>
+            <details className="studio-analytics__daily">
+              <summary>指標定義を見る</summary>
+              <div className="studio-analytics__metric-catalog">
+                {cmsAnalyticsMetricCatalog.map((metric) => (
+                  <article key={metric.id}>
+                    <h3>{metric.label}</h3>
+                    <code>{metric.numerator} ÷ {metric.denominator}</code>
+                    <p>{metric.decision}</p>
+                    <small>{metric.caveat}</small>
+                  </article>
+                ))}
               </div>
             </details>
             <p className="studio-analytics__privacy">質問本文、APIキー、会話内容、IPアドレス、永続的な利用者IDは分析データへ保存していません。</p>
