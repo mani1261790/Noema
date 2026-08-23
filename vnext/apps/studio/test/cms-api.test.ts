@@ -22,6 +22,7 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(objects.objects.map((object) => object.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_series"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
@@ -48,6 +49,73 @@ beforeEach(async () => {
 });
 
 describe("CMS HTTP API", () => {
+  it("reports reader behavior by published revision without reader identifiers", async () => {
+    await bootstrapAdmin();
+    const { article } = await createArticle("analytics-article");
+    const date = new Date().toISOString().slice(0, 10);
+    const timestamp = `${date}T00:00:00.000Z`;
+    const futureDate = new Date(`${date}T00:00:00.000Z`);
+    futureDate.setUTCDate(futureDate.getUTCDate() + 1);
+    const future = futureDate.toISOString().slice(0, 10);
+    const insert = testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         source, medium, campaign, content, referrer_host,
+         navigation_kind, target_slug, event_count, updated_at
+       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
+    );
+    await testEnv.CMS_DB.batch([
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "x", "social", "launch", "diagram", "", "", "", 4, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "x", "social", "launch", "diagram", "", "", "", 3, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "x", "social", "launch", "diagram", "", "", "", 2, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "x", "social", "launch", "diagram", "", "related", "next-article", 1, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_open", "", "", "", "", "", "", "", 2, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_success", "", "", "", "", "", "", "", 1, timestamp),
+      insert.bind(future, article.id, article.slug, article.revisionNumber, "landing", "", "", "", "", "", "", "", 100, `${future}T00:00:00.000Z`)
+    ]);
+
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/summary?days=30"),
+      cmsEnv(),
+      ADMIN
+    );
+    const body = (await response.json()) as { summary: {
+      articles: Array<{ assistantSuccessRate: number; onwardRate: number; qualifiedReadRate: number }>;
+      sources: Array<{ campaign: string; landing: number; qualifiedReadRate: number }>;
+      totals: { assistantSuccessRate: number; landing: number; onwardRate: number; qualifiedReadRate: number };
+    } };
+
+    expect(response.status).toBe(200);
+    expect(body.summary.totals).toMatchObject({
+      assistantSuccessRate: 0.5,
+      landing: 4,
+      onwardRate: 0.5,
+      qualifiedReadRate: 0.5
+    });
+    expect(body.summary.articles[0]).toMatchObject({
+      assistantSuccessRate: 0.5,
+      onwardRate: 0.5,
+      qualifiedReadRate: 0.5
+    });
+    expect(body.summary.sources).toContainEqual(expect.objectContaining({
+      campaign: "launch",
+      landing: 4,
+      qualifiedReadRate: 0.5
+    }));
+    expect(body.summary.sources).toHaveLength(1);
+  });
+
+  it("rejects unsupported analytics ranges", async () => {
+    await bootstrapAdmin();
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/summary?days=365"),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(response.status).toBe(400);
+    await expectErrorCode(response, "invalid_analytics_range");
+  });
+
   it("stores anchored review comments and records the resolution revision", async () => {
     await bootstrapAdmin();
     const { article: created } = await createArticle("anchored-review-api");

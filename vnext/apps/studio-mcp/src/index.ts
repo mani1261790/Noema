@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { Buffer } from "node:buffer";
 import {
   cmsArticleContentSchema,
+  cmsAnalyticsDaysSchema,
   cmsAssetStatusSchema,
   cmsCreateArticleRequestSchema,
   cmsCreateSeriesRequestSchema,
@@ -58,6 +59,7 @@ import {
   listCmsSeriesVersions,
   updateCmsSeries
 } from "../../studio/worker/cms-series-repository";
+import { listCmsAnalyticsSummary } from "../../studio/worker/analytics-repository";
 
 const MCP_PATH = "/mcp";
 const REQUEST_ID_SCHEMA = z.string().uuid();
@@ -85,6 +87,10 @@ const listArticlesSchema = z.object({
   query: z.string().trim().max(200).optional(),
   reviewStatus: cmsReviewStatusSchema.optional(),
   visibility: cmsVisibilitySchema.optional()
+}).strict();
+
+const analyticsSummarySchema = z.object({
+  days: cmsAnalyticsDaysSchema.default(30)
 }).strict();
 
 const getArticleSchema = z.object({
@@ -346,6 +352,19 @@ export function createStudioMcpServer(
         .slice(0, input.limit);
       return { articles, count: articles.length };
     })
+  );
+
+  server.registerTool(
+    "studio_get_analytics_summary",
+    {
+      title: "Get Studio analytics summary",
+      description: "個人を識別しない読者行動の日次集計を7日、30日、90日の期間で返します。",
+      inputSchema: analyticsSummarySchema,
+      annotations: readOnlyAnnotations()
+    },
+    async ({ days }) => executeTool(async () => ({
+      summary: await listCmsAnalyticsSummary(db, session.identity, days)
+    }))
   );
 
   server.registerTool(

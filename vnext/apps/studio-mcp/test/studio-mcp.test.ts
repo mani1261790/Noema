@@ -75,6 +75,7 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(storedAssets.objects.map((asset) => asset.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
@@ -134,6 +135,7 @@ describe("Studio MCP tools", () => {
       "studio_create_review_comment",
       "studio_create_series",
       "studio_delete_asset",
+      "studio_get_analytics_summary",
       "studio_get_article",
       "studio_get_article_version",
       "studio_get_series",
@@ -183,6 +185,30 @@ describe("Studio MCP tools", () => {
       identity: SESSION.identity
     });
 
+    await connection.close();
+  });
+
+  it("returns the same read-only analytics summary as Studio", async () => {
+    const date = new Date().toISOString().slice(0, 10);
+    await testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         event_count, updated_at
+       ) VALUES (?1, 'analytics-article', 'analytics-foundation', 2, 'landing', 4, ?2)`
+    ).bind(date, `${date}T01:00:00.000Z`).run();
+    const connection = await connectClient();
+    const result = await connection.client.callTool({
+      name: "studio_get_analytics_summary",
+      arguments: { days: 7 }
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      summary: {
+        articles: [{ landing: 4, revisionNumber: 2, slug: "analytics-foundation" }],
+        range: { days: 7 },
+        totals: { landing: 4 }
+      }
+    });
     await connection.close();
   });
 
@@ -1541,7 +1567,8 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(34);
+    expect(tools.tools).toHaveLength(35);
+    expect(tools.tools.some((tool) => tool.name === "studio_get_analytics_summary")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_article_versions")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_get_article_version")).toBe(true);

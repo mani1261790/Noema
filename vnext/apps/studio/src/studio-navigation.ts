@@ -1,6 +1,7 @@
-export type StudioView = "articles" | "assets" | "editor" | "team";
+export type StudioView = "analytics" | "articles" | "assets" | "editor" | "team";
 
 const studioViewPaths: Record<StudioView, string> = {
+  analytics: "/analytics",
   articles: "/articles",
   assets: "/assets",
   editor: "/editor",
