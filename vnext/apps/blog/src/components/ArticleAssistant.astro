@@ -114,6 +114,9 @@ const { preview = false, slug } = Astro.props;
       status.textContent = "回答を作成しています。";
       submit.disabled = true;
       form.setAttribute("aria-busy", "true");
+      document.dispatchEvent(new CustomEvent("noema:analytics", {
+        detail: { eventType: "assistant_open" }
+      }));
 
       try {
         const response = await fetch("/api/chat", {
@@ -159,8 +162,14 @@ const { preview = false, slug } = Astro.props;
         if (history.length > 6) history.splice(0, history.length - 6);
         questionInput.value = "";
         status.textContent = "回答を表示しました。";
+        document.dispatchEvent(new CustomEvent("noema:analytics", {
+          detail: { eventType: "assistant_success" }
+        }));
       } catch (error) {
         status.textContent = error instanceof Error ? error.message : "回答を作成できませんでした。";
+        document.dispatchEvent(new CustomEvent("noema:analytics", {
+          detail: { eventType: "assistant_error" }
+        }));
       } finally {
         submit.disabled = false;
         form.removeAttribute("aria-busy");

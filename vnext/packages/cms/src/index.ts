@@ -10,6 +10,8 @@ import {
 } from "@noema/content";
 import { z } from "zod";
 
+export * from "./analytics";
+
 export const cmsRoleSchema = z.enum(["admin", "editor", "reviewer"]);
 export const cmsReviewStatusSchema = z.enum([
   "draft",

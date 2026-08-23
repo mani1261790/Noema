@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canCms,
+  cmsAnalyticsEventRequestSchema,
   cmsArticleActionSchema,
   cmsDraftFrontmatterSchema,
   cmsSeriesContentSchema,
@@ -84,5 +85,34 @@ describe("CMS contracts", () => {
     }).success).toBe(false);
     expect(cmsSeriesContentSchema.safeParse({ ...series, slug: "Getting Started" }).success)
       .toBe(false);
+  });
+
+  it("accepts only bounded, content-free analytics dimensions", () => {
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      articleSlug: "local-ai-on-mac",
+      attribution: {
+        campaign: "ollama_series",
+        content: "memory_chart",
+        medium: "social",
+        referrerHost: "example.com",
+        source: "x"
+      },
+      eventType: "article_end"
+    }).success).toBe(true);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      articleSlug: "local-ai-on-mac",
+      eventType: "navigation_click",
+      navigationKind: "related",
+      targetSlug: "quantization-basics"
+    }).success).toBe(true);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      articleSlug: "local-ai-on-mac",
+      eventType: "navigation_click"
+    }).success).toBe(false);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      articleSlug: "local-ai-on-mac",
+      attribution: { campaign: "質問本文を保存しない" },
+      eventType: "landing"
+    }).success).toBe(false);
   });
 });
