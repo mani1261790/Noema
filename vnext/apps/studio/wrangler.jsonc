@@ -33,6 +33,24 @@
       "bucket_name": "noema-article-assets"
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "DISCORD_NOTIFICATIONS",
+        "queue": "noema-studio-discord-milestones"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "noema-studio-discord-milestones",
+        "max_batch_size": 5,
+        "max_batch_timeout": 5,
+        "max_retries": 10,
+        "dead_letter_queue": "noema-studio-discord-milestones-dlq",
+        "max_concurrency": 1
+      }
+    ]
+  },
   "exports": {
     "PublicationCoordinator": {
       "type": "durable-object",

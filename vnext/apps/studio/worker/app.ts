@@ -21,7 +21,7 @@ import {
 
 type StudioApiEnvironment = AccessEnvironment & Partial<Pick<
   Env,
-  "ARTICLE_ASSETS" | "CMS_BOOTSTRAP_ADMIN_EMAIL" | "CMS_DB" | "STUDIO_ALLOWED_ORIGIN"
+  "ARTICLE_ASSETS" | "CMS_BOOTSTRAP_ADMIN_EMAIL" | "CMS_DB" | "DISCORD_NOTIFICATIONS" | "STUDIO_ALLOWED_ORIGIN"
 >> & Pick<StudioAuthEnvironment, "BETTER_AUTH_SECRET">;
 type StudioEnvironment = Env & StudioApiEnvironment;
 
@@ -107,7 +107,8 @@ export async function handleStudioApiRequest(
           {
             ARTICLE_ASSETS: env.ARTICLE_ASSETS,
             CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
-            CMS_DB: env.CMS_DB
+            CMS_DB: env.CMS_DB,
+            DISCORD_NOTIFICATIONS: env.DISCORD_NOTIFICATIONS
           },
           identity
         );
@@ -124,7 +125,8 @@ export async function handleStudioApiRequest(
     {
       ARTICLE_ASSETS: env.ARTICLE_ASSETS,
       CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
-      CMS_DB: env.CMS_DB
+      CMS_DB: env.CMS_DB,
+      DISCORD_NOTIFICATIONS: env.DISCORD_NOTIFICATIONS
     },
     authentication.identity
   );
