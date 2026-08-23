@@ -57,6 +57,9 @@ describe("CMS HTTP API", () => {
     const futureDate = new Date(`${date}T00:00:00.000Z`);
     futureDate.setUTCDate(futureDate.getUTCDate() + 1);
     const future = futureDate.toISOString().slice(0, 10);
+    const expiredDate = new Date(`${date}T00:00:00.000Z`);
+    expiredDate.setUTCDate(expiredDate.getUTCDate() - 90);
+    const expired = expiredDate.toISOString().slice(0, 10);
     const insert = testEnv.CMS_DB.prepare(
       `INSERT INTO cms_analytics_daily (
          event_date, article_id, article_slug, revision_number, event_type,
@@ -65,6 +68,7 @@ describe("CMS HTTP API", () => {
        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
     );
     await testEnv.CMS_DB.batch([
+      insert.bind(expired, article.id, article.slug, article.revisionNumber, "landing", "old", "", "", "", "", "", "", 99, `${expired}T00:00:00.000Z`),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "x", "social", "launch", "diagram", "", "", "", 4, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "x", "social", "launch", "diagram", "", "", "", 3, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "x", "social", "launch", "diagram", "", "", "", 2, timestamp),
@@ -73,6 +77,9 @@ describe("CMS HTTP API", () => {
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_success", "", "", "", "", "", "", "", 1, timestamp),
       insert.bind(future, article.id, article.slug, article.revisionNumber, "landing", "", "", "", "", "", "", "", 100, `${future}T00:00:00.000Z`)
     ]);
+    const retained = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_analytics_daily WHERE event_date = ?1"
+    ).bind(expired).first<{ count: number }>();
 
     const response = await handleCmsApiRequest(
       cmsRequest("/api/cms/analytics/summary?days=30"),
@@ -104,6 +111,7 @@ describe("CMS HTTP API", () => {
     } };
 
     expect(response.status).toBe(200);
+    expect(retained?.count).toBe(0);
     expect(body.summary.totals).toMatchObject({
       article50Rate: 0.75,
       assistantSuccessRate: 0.5,

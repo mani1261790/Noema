@@ -18,6 +18,22 @@ export interface CmsAnalyticsDataset {
   }): void;
 }
 
+export interface CmsAnalyticsRateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
+export function analyticsRateLimitKey(request: Request): string {
+  return request.headers.get("cf-connecting-ip")?.trim() || "unknown";
+}
+
+export async function allowCmsAnalyticsEvent(
+  limiter: CmsAnalyticsRateLimiter,
+  request: Request
+): Promise<boolean> {
+  const outcome = await limiter.limit({ key: analyticsRateLimitKey(request) });
+  return outcome.success;
+}
+
 interface PublishedArticleRow {
   id: string;
   published_revision_number: number;

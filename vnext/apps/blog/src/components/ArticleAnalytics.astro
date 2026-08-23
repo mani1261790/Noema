@@ -6,7 +6,7 @@ interface Props {
 const { slug } = Astro.props;
 ---
 
-<span data-article-analytics data-article-slug={slug} hidden></span>
+<span data-article-analytics data-analytics-slug={slug} hidden></span>
 
 <script>
   type AnalyticsEventType =
@@ -31,7 +31,7 @@ const { slug } = Astro.props;
   };
 
   const analyticsRoot = document.querySelector<HTMLElement>("[data-article-analytics]");
-  const articleSlug = analyticsRoot?.dataset.articleSlug ?? "";
+  const articleSlug = analyticsRoot?.dataset.analyticsSlug ?? "";
   const attributionKey = "noema:analytics-attribution:v1";
   const attributionTtl = 30 * 60 * 1000;
   const sentEvents = new Set<string>();
@@ -55,7 +55,7 @@ const { slug } = Astro.props;
     }
   }
 
-  function readStoredAttribution(): Attribution | null {
+  function readStoredAttribution(): StoredAttribution | null {
     try {
       const value = sessionStorage.getItem(attributionKey);
       if (!value) return null;
@@ -64,7 +64,10 @@ const { slug } = Astro.props;
         sessionStorage.removeItem(attributionKey);
         return null;
       }
-      return parsed.attribution;
+      return {
+        attribution: parsed.attribution,
+        expiresAt: parsed.expiresAt
+      };
     } catch {
       return null;
     }
@@ -85,15 +88,15 @@ const { slug } = Astro.props;
       campaignAttribution.medium ||
       campaignAttribution.source
     );
+    const stored = hasCampaign ? null : readStoredAttribution();
     const attribution = hasCampaign
       ? campaignAttribution
-      : readStoredAttribution() ?? {
-          referrerHost: campaignAttribution.referrerHost
-        };
+      : stored?.attribution ?? { referrerHost: campaignAttribution.referrerHost };
+    const expiresAt = stored?.expiresAt ?? Date.now() + attributionTtl;
     try {
       sessionStorage.setItem(attributionKey, JSON.stringify({
         attribution,
-        expiresAt: Date.now() + attributionTtl
+        expiresAt
       } satisfies StoredAttribution));
     } catch {
       // Analytics remains available without browser storage.
@@ -125,10 +128,11 @@ const { slug } = Astro.props;
   sendEvent("landing");
 
   const articleBody = document.querySelector<HTMLElement>(".article-body");
+  let readingInteractionObserved = false;
   let measurementScheduled = false;
   const measureReadingProgress = () => {
     measurementScheduled = false;
-    if (!articleBody) return;
+    if (!articleBody || !readingInteractionObserved) return;
     const rect = articleBody.getBoundingClientRect();
     const articleTop = window.scrollY + rect.top;
     const articleBottom = articleTop + rect.height;
@@ -141,7 +145,10 @@ const { slug } = Astro.props;
     measurementScheduled = true;
     window.requestAnimationFrame(measureReadingProgress);
   };
-  window.addEventListener("scroll", scheduleMeasurement, { passive: true });
+  window.addEventListener("scroll", () => {
+    readingInteractionObserved = true;
+    scheduleMeasurement();
+  }, { passive: true });
   window.addEventListener("resize", scheduleMeasurement);
   scheduleMeasurement();
 

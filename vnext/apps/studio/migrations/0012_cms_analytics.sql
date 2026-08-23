@@ -47,3 +47,10 @@ CREATE INDEX cms_analytics_daily_article_idx
 
 CREATE INDEX cms_analytics_daily_source_idx
   ON cms_analytics_daily (source, medium, campaign, content, event_date DESC);
+
+CREATE TRIGGER cms_analytics_daily_retain_reporting_window
+AFTER INSERT ON cms_analytics_daily
+BEGIN
+  DELETE FROM cms_analytics_daily
+  WHERE event_date < date(NEW.event_date, '-89 days');
+END;

@@ -43,11 +43,17 @@ const { preview = false, slug } = Astro.props;
   const dialog = document.querySelector<HTMLElement>("[data-assistant-dialog]");
   const openButton = document.querySelector<HTMLButtonElement>("[data-open-assistant]");
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
+  const dispatchAssistantOpen = () => {
+    document.dispatchEvent(new CustomEvent("noema:analytics", {
+      detail: { eventType: "assistant_open" }
+    }));
+  };
   const openDialog = () => {
     if (!dialog) return;
     dialog.hidden = false;
     document.body.classList.add("has-assistant-dialog");
     closeButton?.focus();
+    dispatchAssistantOpen();
   };
   const closeDialog = () => {
     if (!dialog) return;
@@ -73,6 +79,8 @@ const { preview = false, slug } = Astro.props;
     const history: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     if (!keyInput || !questionInput || !status || !answer || !submit) return;
+
+    form.addEventListener("focusin", dispatchAssistantOpen, { once: true });
 
     toggle?.addEventListener("click", () => {
       const visible = keyInput.type === "text";
@@ -114,9 +122,6 @@ const { preview = false, slug } = Astro.props;
       status.textContent = "回答を作成しています。";
       submit.disabled = true;
       form.setAttribute("aria-busy", "true");
-      document.dispatchEvent(new CustomEvent("noema:analytics", {
-        detail: { eventType: "assistant_open" }
-      }));
 
       try {
         const response = await fetch("/api/chat", {

@@ -1,7 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
-import { recordCmsAnalyticsEvent, type CmsAnalyticsDatabase } from "./analytics";
+import {
+  allowCmsAnalyticsEvent,
+  analyticsRateLimitKey,
+  recordCmsAnalyticsEvent,
+  type CmsAnalyticsDatabase
+} from "./analytics";
 
 describe("reader analytics", () => {
+  it("uses the Cloudflare client address only as an ephemeral rate-limit key", () => {
+    expect(analyticsRateLimitKey(new Request("https://noema.example/articles/test", {
+      headers: { "cf-connecting-ip": "203.0.113.10" }
+    }))).toBe("203.0.113.10");
+    expect(analyticsRateLimitKey(new Request("http://localhost/articles/test"))).toBe("unknown");
+  });
+
+  it("stops analytics before storage when the edge rate limit is exhausted", async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    const request = new Request("https://noema.example/api/analytics/events", {
+      headers: { "cf-connecting-ip": "198.51.100.42" }
+    });
+
+    await expect(allowCmsAnalyticsEvent({ limit }, request)).resolves.toBe(false);
+    expect(limit).toHaveBeenCalledWith({ key: "198.51.100.42" });
+  });
+
   it("binds a published revision to both long-term and exploratory analytics", async () => {
     const first = vi.fn(async () => ({
       id: "article-id",

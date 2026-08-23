@@ -29,7 +29,7 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 | `article_end` | 本文末尾まで表示したとき |
 | `navigation_click` | シリーズ次記事または関連記事を選んだとき |
 | `share` | 共有URLのclipboard保存に成功したとき |
-| `assistant_open` | 有効な質問の送信を開始したとき |
+| `assistant_open` | モバイルの質問画面を開くか、デスクトップの質問欄を操作したとき |
 | `assistant_success` | アシスタント回答の表示に成功したとき |
 | `assistant_error` | アシスタント回答に失敗したとき |
 
@@ -46,16 +46,16 @@ flowchart LR
   Daily --> Studio["Studio / MCP\n7・30・90日集計"]
 ```
 
-- D1の`cms_analytics_daily`にはUTC日付、記事ID、公開slug、公開revision番号、イベント種別、件数、限定した流入識別子だけを集約保存します。生のリクエストや読者単位の行は残しません。
+- D1の`cms_analytics_daily`にはUTC日付、記事ID、公開slug、公開revision番号、イベント種別、件数、限定した流入識別子だけを集約保存します。生のリクエストや読者単位の行は残さず、Studioの最長表示範囲に合わせて直近90日を保持します。
 - Analytics Engineの`noema_reader_events`には同じイベントを探索用に送ります。blob 1〜10はイベント、slug、revision、source、medium、campaign、content、referrer host、遷移種別、遷移先slug、double 1は件数、indexは不変の記事IDです。保持期間はCloudflare側の仕様に従う短期データです。
 - ブラウザの`sessionStorage`には流入識別子と30分の有効期限だけを保存します。永続的な読者IDやセッションIDは作りません。
 
-質問本文、回答本文、会話履歴、APIキー、メールアドレス、IPアドレス、User-Agent、永続的な利用者IDは分析データへ保存しません。UTMのsource・medium・campaign・contentは小文字英数字と`.`、`_`、`-`だけに制限します。キャンペーン名へ個人情報を入れてはいけません。
+質問本文、回答本文、会話履歴、APIキー、メールアドレス、IPアドレス、User-Agent、永続的な利用者IDは分析データへ保存しません。IPアドレスは乱用防止のためCloudflare edgeのRate Limitingキーとして一時利用しますが、D1、Analytics Engine、アプリケーションログには保存しません。UTMのsource・medium・campaign・contentは小文字英数字と`.`、`_`、`-`だけに制限します。キャンペーン名へ個人情報を入れてはいけません。
 
 ## 運用上の注意
 
 - `landing`はブラウザ内のページ表示であり、厳密なユニークユーザー数ではありません。
-- 同一originヘッダー、JSON形式、4 KiB上限、固定schema、公開slugの存在を収集APIで検査します。これらは品質上の境界であり、botを完全に排除する認証ではありません。
+- 同一originヘッダー、JSON形式、4 KiB上限、固定schemaを収集APIで検査し、1 IPあたり毎分120イベントに制限します。未知のslugと受理したslugはどちらも204を返し、unlisted記事の存在を応答から推測できないようにします。これらは品質上の境界であり、botを完全に排除する認証ではありません。
 - D1書き込みを正本とし、Analytics Engineへの探索用送信だけが失敗しても収集APIは成功として扱います。失敗は構造化ログ`blog.analytics.exploratory_write_failed`へ残します。
 - 日次集計はUTCで区切ります。画面の対象期間より未来の日付は集計に含めません。
 - schema変更は新しいD1 migrationで行い、既存migrationを書き換えません。

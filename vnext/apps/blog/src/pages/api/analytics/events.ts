@@ -1,7 +1,10 @@
 import type { APIRoute } from "astro";
 import { cmsAnalyticsEventRequestSchema } from "@noema/cms";
 import { env } from "cloudflare:workers";
-import { recordCmsAnalyticsEvent } from "../../../lib/analytics";
+import {
+  allowCmsAnalyticsEvent,
+  recordCmsAnalyticsEvent
+} from "../../../lib/analytics";
 
 export const prerender = false;
 
@@ -67,12 +70,17 @@ export const POST: APIRoute = async ({ request, url }) => {
   if (!parsed.success) return json({ error: "invalid_event" }, 400);
 
   try {
+    if (!await allowCmsAnalyticsEvent(env.ANALYTICS_RATE_LIMITER, request)) {
+      return json({ error: "rate_limited" }, 429);
+    }
     const recorded = await recordCmsAnalyticsEvent(
       env.CMS_DB,
       env.READER_ANALYTICS,
       parsed.data
     );
-    if (!recorded) return json({ error: "article_not_found" }, 404);
+    if (!recorded) {
+      console.info(JSON.stringify({ event: "blog.analytics.unknown_slug" }));
+    }
     return new Response(null, {
       headers: { "cache-control": "no-store" },
       status: 204
