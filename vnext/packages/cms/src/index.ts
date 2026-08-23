@@ -222,12 +222,14 @@ export const cmsAssetMutationSchema = z.object({
   tags: z.array(boundedString(80)).max(30)
 }).strict();
 
+const cmsSeriesArticleIdsSchema = z.array(z.uuid()).max(100).refine(
+  (ids) => new Set(ids).size === ids.length,
+  "同じ記事をシリーズへ重複して追加できません"
+);
+
 export const cmsSeriesContentSchema = z.object({
   description: z.string().trim().min(1).max(500),
-  articleIds: z.array(z.uuid()).min(1).max(100).refine(
-    (ids) => new Set(ids).size === ids.length,
-    "同じ記事をシリーズへ重複して追加できません"
-  ),
+  articleIds: cmsSeriesArticleIdsSchema,
   slug: z.string().trim().min(1).max(100).regex(
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
     "slugは半角英数字とハイフンで入力してください"
@@ -235,11 +237,39 @@ export const cmsSeriesContentSchema = z.object({
   title: z.string().trim().min(1).max(100)
 }).strict();
 
-export const cmsCreateSeriesRequestSchema = cmsSeriesContentSchema;
+export const cmsCreateSeriesRequestSchema = cmsSeriesContentSchema.extend({
+  articleIds: z.array(z.uuid()).min(1).max(100).refine(
+    (ids) => new Set(ids).size === ids.length,
+    "同じ記事をシリーズへ重複して追加できません"
+  )
+}).strict();
 export const cmsUpdateSeriesRequestSchema = cmsSeriesContentSchema.extend({
   expectedVersion: z.number().int().positive(),
   restoredFromRevisionId: z.uuid().optional()
 }).strict();
+
+export const cmsDeleteSeriesRequestSchema = z.object({
+  expectedVersion: z.number().int().positive()
+}).strict();
+
+export const cmsMergeSeriesRequestSchema = z.object({
+  articleIds: z.array(z.uuid()).min(1).max(100).refine(
+    (ids) => new Set(ids).size === ids.length,
+    "同じ記事を統合後のシリーズへ重複して追加できません"
+  ),
+  sourceExpectedVersion: z.number().int().positive(),
+  sourceSeriesId: z.uuid(),
+  targetExpectedVersion: z.number().int().positive(),
+  targetSeriesId: z.uuid()
+}).strict().superRefine((value, context) => {
+  if (value.sourceSeriesId === value.targetSeriesId) {
+    context.addIssue({
+      code: "custom",
+      message: "統合元と統合先には別のシリーズを指定してください",
+      path: ["targetSeriesId"]
+    });
+  }
+});
 
 export interface CmsIdentity {
   email: string;

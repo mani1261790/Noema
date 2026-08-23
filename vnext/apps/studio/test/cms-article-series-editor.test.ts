@@ -36,7 +36,9 @@ const props: ComponentProps<typeof CmsArticleSeriesEditor> = {
   busy: false,
   canEdit: true,
   error: null,
+  onDelete: async () => true,
   onLoadVersions: async () => [],
+  onMerge: async () => null,
   onSave: async () => null,
   series: [existing]
 };
@@ -50,13 +52,21 @@ describe("CmsArticleSeriesEditor", () => {
     expect(html).toContain("追加して公開へ反映");
     expect(html).toContain("新しいシリーズを作る");
     expect(html).toContain("シリーズを作成して公開へ反映");
+    expect(html).toContain("空のシリーズ");
+    expect(html).toContain("削除");
   });
 
   it("shows position, ordering controls, and history for an existing membership", () => {
     const memberSeries = { ...existing, articleIds: [article.id], articles: [article] };
+    const mergeTarget = {
+      ...existing,
+      id: "33333333-3333-4333-8333-333333333333",
+      slug: "merge-target",
+      title: "統合先シリーズ"
+    };
     const html = renderToStaticMarkup(createElement(CmsArticleSeriesEditor, {
       ...props,
-      series: [memberSeries]
+      series: [memberSeries, mergeTarget]
     }));
 
     expect(html).toContain("学習シリーズ");
@@ -65,7 +75,9 @@ describe("CmsArticleSeriesEditor", () => {
     expect(html).toContain("シリーズ情報を編集");
     expect(html).toContain("シリーズを保存して公開へ反映");
     expect(html).toContain("この記事をシリーズから外す");
-    expect(html).toContain("最後の記事は外せません");
+    expect(html).toContain("最後の記事も外せます");
+    expect(html).toContain("別のシリーズへ統合");
+    expect(html).toContain("統合してこのシリーズを削除");
   });
 
   it("keeps series controls enabled for an approved article that is already published", () => {

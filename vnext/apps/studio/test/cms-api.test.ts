@@ -327,7 +327,7 @@ describe("CMS HTTP API", () => {
     });
   });
 
-  it("creates, reorders, and exposes restorable series revisions", async () => {
+  it("creates, reorders, empties, and deletes a series through the API", async () => {
     await bootstrapAdmin();
     const first = await createArticle("series-first");
     const second = await createArticle("series-second");
@@ -380,6 +380,92 @@ describe("CMS HTTP API", () => {
       [second.article.id, first.article.id],
       [first.article.id, second.article.id]
     ]);
+
+    const emptiedResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/series/${created.series.id}`, {
+        body: JSON.stringify({
+          articleIds: [],
+          description: updated.series.description,
+          expectedVersion: updated.series.lockVersion,
+          slug: updated.series.slug,
+          title: updated.series.title
+        }),
+        headers: { "content-type": "application/json", "if-match": '"cms-v2"' },
+        method: "PUT"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const emptied = (await emptiedResponse.json()) as { series: CmsSeries };
+    expect(emptiedResponse.status).toBe(200);
+    expect(emptied.series.articleIds).toEqual([]);
+
+    const deleteResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/series/${created.series.id}`, {
+        body: JSON.stringify({ expectedVersion: emptied.series.lockVersion }),
+        headers: { "content-type": "application/json", "if-match": '"cms-v3"' },
+        method: "DELETE"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(deleteResponse.status).toBe(204);
+  });
+
+  it("merges two series and removes the source through the API", async () => {
+    await bootstrapAdmin();
+    const first = await createArticle("api-merge-first");
+    const second = await createArticle("api-merge-second");
+    const createSeries = async (slug: string, articleId: string) => {
+      const response = await handleCmsApiRequest(
+        cmsRequest("/api/cms/series", {
+          body: JSON.stringify({
+            articleIds: [articleId],
+            description: `${slug}の説明です。`,
+            slug,
+            title: `${slug}シリーズ`
+          }),
+          headers: { "content-type": "application/json" },
+          method: "POST"
+        }),
+        cmsEnv(),
+        ADMIN
+      );
+      return ((await response.json()) as { series: CmsSeries }).series;
+    };
+    const source = await createSeries("api-merge-source", first.article.id);
+    const target = await createSeries("api-merge-target", second.article.id);
+
+    const mergeResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/series/merge", {
+        body: JSON.stringify({
+          articleIds: [second.article.id, first.article.id],
+          sourceExpectedVersion: source.lockVersion,
+          sourceSeriesId: source.id,
+          targetExpectedVersion: target.lockVersion,
+          targetSeriesId: target.id
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const merged = (await mergeResponse.json()) as { series: CmsSeries };
+    expect(mergeResponse.status).toBe(200);
+    expect(merged.series).toMatchObject({
+      articleIds: [second.article.id, first.article.id],
+      id: target.id,
+      lockVersion: 2
+    });
+
+    const listResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/series"),
+      cmsEnv(),
+      ADMIN
+    );
+    const listed = (await listResponse.json()) as { series: CmsSeries[] };
+    expect(listed.series.map((item) => item.id)).toEqual([target.id]);
   });
 
   it("bootstraps the configured administrator without exposing cacheable identity data", async () => {

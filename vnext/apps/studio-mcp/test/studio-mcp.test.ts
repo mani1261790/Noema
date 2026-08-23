@@ -138,6 +138,7 @@ describe("Studio MCP tools", () => {
       "studio_create_review_comment",
       "studio_create_series",
       "studio_delete_asset",
+      "studio_delete_series",
       "studio_get_analytics_summary",
       "studio_get_article",
       "studio_get_article_version",
@@ -150,6 +151,7 @@ describe("Studio MCP tools", () => {
       "studio_list_review_comments",
       "studio_list_series",
       "studio_list_series_versions",
+      "studio_merge_series",
       "studio_preview_draft",
       "studio_rebuild_analytics_mart",
       "studio_reopen_review_comment",
@@ -696,18 +698,76 @@ describe("Studio MCP tools", () => {
       arguments: { seriesId: created.id }
     });
     expect(seriesFrom(fetched.structuredContent)).toEqual(restored);
+
+    const mergeSource = seriesFrom((await connection.client.callTool({
+      name: "studio_create_series",
+      arguments: {
+        articleIds: [third!.id],
+        description: "統合後に削除されるシリーズです。",
+        slug: "mcp-merge-source",
+        title: "MCP統合元"
+      }
+    })).structuredContent);
+    const mergedResult = await connection.client.callTool({
+      name: "studio_merge_series",
+      arguments: {
+        articleIds: [first!.id, second!.id, third!.id],
+        sourceExpectedVersion: mergeSource.lockVersion,
+        sourceSeriesId: mergeSource.id,
+        targetExpectedVersion: restored.lockVersion,
+        targetSeriesId: restored.id
+      }
+    });
+    const merged = seriesFrom(mergedResult.structuredContent);
+    expect(merged).toMatchObject({
+      articleIds: [first!.id, second!.id, third!.id],
+      id: restored.id,
+      lockVersion: 4
+    });
+    expect(mergedResult.structuredContent).toMatchObject({ deletedSourceSeriesId: mergeSource.id });
+
+    const emptied = seriesFrom((await connection.client.callTool({
+      name: "studio_update_series",
+      arguments: {
+        articleIds: [],
+        description: merged.description,
+        expectedVersion: merged.lockVersion,
+        seriesId: merged.id,
+        slug: merged.slug,
+        title: merged.title
+      }
+    })).structuredContent);
+    expect(emptied.articleIds).toEqual([]);
+    const deleted = await connection.client.callTool({
+      name: "studio_delete_series",
+      arguments: { expectedVersion: emptied.lockVersion, seriesId: emptied.id }
+    });
+    expect(deleted.structuredContent).toEqual({ deleted: true, seriesId: emptied.id });
+    const afterDelete = await connection.client.callTool({
+      name: "studio_list_series",
+      arguments: {}
+    });
+    expect(afterDelete.structuredContent).toMatchObject({ count: 0 });
     expect(articles.every((article) => article.publicationStatus === "unpublished")).toBe(true);
     const seriesAudits = await testEnv.CMS_DB.prepare(
       "SELECT action, metadata_json FROM cms_audit_events WHERE action LIKE 'series.%' ORDER BY created_at, action"
     ).all<{ action: string; metadata_json: string }>();
     expect(seriesAudits.results.map((row) => row.action).sort()).toEqual([
       "series.created",
+      "series.created",
+      "series.deleted",
+      "series.merged",
       "series.restored",
+      "series.updated",
       "series.updated"
     ]);
     expect(seriesAudits.results.map((row) => JSON.parse(row.metadata_json).tool).sort()).toEqual([
       "studio_create_series",
+      "studio_create_series",
+      "studio_delete_series",
+      "studio_merge_series",
       "studio_restore_series_version",
+      "studio_update_series",
       "studio_update_series"
     ]);
     await connection.close();
@@ -1571,7 +1631,7 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(36);
+    expect(tools.tools).toHaveLength(38);
     expect(tools.tools.some((tool) => tool.name === "studio_get_analytics_summary")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_rebuild_analytics_mart")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
@@ -1590,6 +1650,8 @@ describe("Studio MCP HTTP boundary", () => {
     expect(tools.tools.some((tool) => tool.name === "studio_approve_article")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_delete_asset")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_create_series")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_delete_series")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_merge_series")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_update_series")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_review_comments")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_withdraw_review")).toBe(true);

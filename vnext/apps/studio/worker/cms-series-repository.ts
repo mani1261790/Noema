@@ -41,13 +41,13 @@ interface SeriesRow {
 }
 
 interface VersionRow {
-  article_id: string;
+  article_id: string | null;
   created_at: string;
   created_by_email: string;
   description: string;
   id: string;
   is_current: number;
-  position: number;
+  position: number | null;
   restored_from_revision_id: string | null;
   revision_number: number;
   slug: string;
@@ -93,6 +93,9 @@ export async function createCmsSeries(
   context: CmsMutationContext = {}
 ): Promise<CmsSeries> {
   requireEdit(identity);
+  if (content.articleIds.length === 0) {
+    throw new CmsRepositoryError("invalid_series", "シリーズの作成には記事が1件以上必要です。");
+  }
   await validateSeriesArticles(db, content.articleIds, null);
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
@@ -126,6 +129,186 @@ export async function createCmsSeries(
     throw mapSeriesWriteError(error);
   }
   return getCmsSeries(db, identity, id);
+}
+
+export async function deleteCmsSeries(
+  db: D1Database,
+  identity: CmsIdentity,
+  id: string,
+  expectedVersion: number,
+  context: CmsMutationContext = {}
+): Promise<void> {
+  requireEdit(identity);
+  const current = await getCmsSeries(db, identity, id);
+  if (current.lockVersion !== expectedVersion) {
+    throw new CmsRepositoryError("series_conflict", "別の編集者がシリーズを更新しました。最新版を読み込んでください。");
+  }
+  if (current.articleIds.length > 0) {
+    throw new CmsRepositoryError("series_not_empty", "記事をすべて別のシリーズへ移すか外してから削除してください。");
+  }
+  const now = new Date().toISOString();
+  const auditId = crypto.randomUUID();
+  let results: D1Result[];
+  try {
+    results = await db.batch([
+      db.prepare(`INSERT INTO cms_audit_events
+      (id, article_id, actor_subject, action, metadata_json, created_at)
+      SELECT ?1, NULL, ?2, 'series.deleted', ?3, ?4
+      FROM cms_series s
+      WHERE s.id = ?5 AND s.lock_version = ?6
+        AND NOT EXISTS (SELECT 1 FROM cms_article_series map WHERE map.series_id = s.id)`)
+      .bind(
+        auditId,
+        identity.subject,
+        JSON.stringify(auditMetadata({
+          deletedRevisionNumber: current.revisionNumber,
+          deletedSlug: current.slug,
+          deletedTitle: current.title,
+          seriesId: current.id
+        }, context)),
+        now,
+        id,
+        expectedVersion
+      ),
+      db.prepare(`DELETE FROM cms_series
+      WHERE id = ?1 AND lock_version = ?2
+        AND NOT EXISTS (SELECT 1 FROM cms_article_series map WHERE map.series_id = cms_series.id)`)
+      .bind(id, expectedVersion)
+    ]);
+  } catch (error) {
+    throw mapSeriesWriteError(error);
+  }
+  if (results[0]?.meta.changes !== 1 || (results[1]?.meta.changes ?? 0) < 1) {
+    throw new CmsRepositoryError("series_conflict", "別の編集者がシリーズを更新しました。最新版を読み込んでください。");
+  }
+}
+
+export async function mergeCmsSeries(
+  db: D1Database,
+  identity: CmsIdentity,
+  input: {
+    articleIds: string[];
+    sourceExpectedVersion: number;
+    sourceSeriesId: string;
+    targetExpectedVersion: number;
+    targetSeriesId: string;
+  },
+  context: CmsMutationContext = {}
+): Promise<CmsSeries> {
+  requireEdit(identity);
+  if (input.sourceSeriesId === input.targetSeriesId) {
+    throw new CmsRepositoryError("invalid_series", "統合元と統合先には別のシリーズを指定してください。");
+  }
+  const [source, target] = await Promise.all([
+    getCmsSeries(db, identity, input.sourceSeriesId),
+    getCmsSeries(db, identity, input.targetSeriesId)
+  ]);
+  if (
+    source.lockVersion !== input.sourceExpectedVersion ||
+    target.lockVersion !== input.targetExpectedVersion
+  ) {
+    throw new CmsRepositoryError("series_conflict", "別の編集者がシリーズを更新しました。最新版を読み込んでください。");
+  }
+  const currentArticleIds = new Set([...source.articleIds, ...target.articleIds]);
+  if (
+    input.articleIds.length === 0 ||
+    input.articleIds.length > 100 ||
+    new Set(input.articleIds).size !== input.articleIds.length ||
+    input.articleIds.length !== currentArticleIds.size ||
+    input.articleIds.some((articleId) => !currentArticleIds.has(articleId))
+  ) {
+    throw new CmsRepositoryError(
+      "invalid_series",
+      "統合後の記事順には、統合元と統合先の現在の記事を重複なくすべて指定してください。"
+    );
+  }
+
+  const now = new Date().toISOString();
+  const sourceGuardRevisionId = crypto.randomUUID();
+  const targetRevisionId = crypto.randomUUID();
+  const targetRevisionNumber = target.revisionNumber + 1;
+  let results: D1Result[];
+  try {
+    results = await db.batch([
+      db.prepare(`INSERT INTO cms_series_revisions (
+      id, series_id, revision_number, slug, title, description,
+      restored_from_revision_id, created_by_subject, created_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?8)`)
+      .bind(
+        sourceGuardRevisionId,
+        source.id,
+        source.revisionNumber + 1,
+        source.slug,
+        source.title,
+        source.description,
+        identity.subject,
+        now
+      ),
+      db.prepare(`INSERT INTO cms_series_revisions (
+      id, series_id, revision_number, slug, title, description,
+      restored_from_revision_id, created_by_subject, created_at
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?8)`)
+      .bind(
+        targetRevisionId,
+        target.id,
+        targetRevisionNumber,
+        target.slug,
+        target.title,
+        target.description,
+        identity.subject,
+        now
+      ),
+      db.prepare("DELETE FROM cms_article_series WHERE series_id IN (?1, ?2)")
+      .bind(source.id, target.id),
+      ...seriesItemStatements(db, targetRevisionId, target.id, input.articleIds),
+      db.prepare(`UPDATE cms_series
+      SET lock_version = lock_version + 1,
+          current_revision_id = ?1,
+          current_revision_number = ?2,
+          published_revision_id = ?1,
+          updated_by_subject = ?3,
+          updated_at = ?4
+      WHERE id = ?5 AND lock_version = ?6`)
+      .bind(
+        targetRevisionId,
+        targetRevisionNumber,
+        identity.subject,
+        now,
+        target.id,
+        input.targetExpectedVersion
+      ),
+      db.prepare("DELETE FROM cms_series WHERE id = ?1 AND lock_version = ?2")
+      .bind(source.id, input.sourceExpectedVersion),
+      db.prepare(`INSERT INTO cms_audit_events
+      (id, article_id, actor_subject, action, metadata_json, created_at)
+      VALUES (?1, NULL, ?2, 'series.merged', ?3, ?4)`)
+      .bind(
+        crypto.randomUUID(),
+        identity.subject,
+        JSON.stringify(auditMetadata({
+          articleIds: input.articleIds,
+          deletedSourceRevisionNumber: source.revisionNumber,
+          deletedSourceSeriesId: source.id,
+          deletedSourceSlug: source.slug,
+          deletedSourceTitle: source.title,
+          targetRevisionId,
+          targetSeriesId: target.id
+        }, context)),
+        now
+      )
+    ]);
+  } catch (error) {
+    throw mapSeriesWriteError(error);
+  }
+  const targetUpdateIndex = 3 + input.articleIds.length * 2;
+  const sourceDeleteIndex = targetUpdateIndex + 1;
+  if (
+    results[targetUpdateIndex]?.meta.changes !== 1 ||
+    (results[sourceDeleteIndex]?.meta.changes ?? 0) < 1
+  ) {
+    throw new CmsRepositoryError("series_conflict", "別の編集者がシリーズを更新しました。最新版を読み込んでください。");
+  }
+  return getCmsSeries(db, identity, target.id);
 }
 
 export async function updateCmsSeries(
@@ -218,7 +401,7 @@ export async function listCmsSeriesVersions(
   FROM cms_series_revisions sr
   JOIN cms_series s ON s.id = sr.series_id
   LEFT JOIN cms_members m ON m.subject = sr.created_by_subject
-  JOIN cms_series_revision_items item ON item.revision_id = sr.id
+  LEFT JOIN cms_series_revision_items item ON item.revision_id = sr.id
   WHERE sr.series_id = ?1
   ORDER BY sr.revision_number DESC, item.position`).bind(seriesId).all<VersionRow>();
   if (result.results.length === 0) {
@@ -229,9 +412,9 @@ export async function listCmsSeriesVersions(
   const versions = new Map<string, CmsSeriesVersion>();
   for (const row of result.results) {
     const current = versions.get(row.id);
-    if (current) current.articleIds.push(row.article_id);
+    if (current && row.article_id) current.articleIds.push(row.article_id);
     else versions.set(row.id, {
-      articleIds: [row.article_id],
+      articleIds: row.article_id ? [row.article_id] : [],
       createdAt: row.created_at,
       createdByEmail: row.created_by_email,
       description: row.description,
@@ -306,6 +489,7 @@ function seriesItemStatements(db: D1Database, revisionId: string, seriesId: stri
 }
 
 async function validateSeriesArticles(db: D1Database, articleIds: string[], seriesId: string | null): Promise<void> {
+  if (articleIds.length === 0) return;
   const placeholders = articleIds.map((_, index) => `?${index + 1}`).join(", ");
   const articles = await db.prepare(`SELECT id FROM cms_articles WHERE id IN (${placeholders})`)
     .bind(...articleIds).all<{ id: string }>();

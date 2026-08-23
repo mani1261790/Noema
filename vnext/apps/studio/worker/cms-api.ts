@@ -4,7 +4,9 @@ import {
   cmsAnalyticsRebuildRequestSchema,
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
+  cmsDeleteSeriesRequestSchema,
   cmsMemberMutationSchema,
+  cmsMergeSeriesRequestSchema,
   cmsReviewCommentActionSchema,
   cmsReviewCommentRequestSchema,
   cmsCreateSeriesRequestSchema,
@@ -38,8 +40,10 @@ import {
 } from "./cms-repository";
 import {
   createCmsSeries,
+  deleteCmsSeries,
   listCmsSeries,
   listCmsSeriesVersions,
+  mergeCmsSeries,
   updateCmsSeries
 } from "./cms-series-repository";
 import type { AccessIdentity } from "./access";
@@ -201,6 +205,21 @@ export async function handleCmsApiRequest(
       return methodNotAllowed("GET, POST");
     }
 
+    if (pathname === `${CMS_API_PREFIX}/series/merge`) {
+      if (request.method !== "POST") return methodNotAllowed("POST");
+      const body = await readCmsJson(request);
+      if (!body.ok) return body.response;
+      const parsed = cmsMergeSeriesRequestSchema.safeParse(body.value);
+      if (!parsed.success) return invalidRequest(parsed.error.issues);
+      const series = await mergeCmsSeries(
+        env.CMS_DB,
+        session.identity,
+        parsed.data,
+        { channel: "web" }
+      );
+      return cmsJson({ series }, 200, series.lockVersion);
+    }
+
     const seriesRoute = parseSeriesRoute(pathname);
     if (seriesRoute) {
       if (seriesRoute.kind === "versions") {
@@ -209,7 +228,23 @@ export async function handleCmsApiRequest(
           versions: await listCmsSeriesVersions(env.CMS_DB, session.identity, seriesRoute.id)
         });
       }
-      if (request.method !== "PUT") return methodNotAllowed("PUT");
+      if (request.method === "DELETE") {
+        const body = await readCmsJson(request);
+        if (!body.ok) return body.response;
+        const parsed = cmsDeleteSeriesRequestSchema.safeParse(body.value);
+        if (!parsed.success) return invalidRequest(parsed.error.issues);
+        const precondition = requireIfMatch(request, parsed.data.expectedVersion);
+        if (precondition) return precondition;
+        await deleteCmsSeries(
+          env.CMS_DB,
+          session.identity,
+          seriesRoute.id,
+          parsed.data.expectedVersion,
+          { channel: "web" }
+        );
+        return new Response(null, { status: 204 });
+      }
+      if (request.method !== "PUT") return methodNotAllowed("PUT, DELETE");
       const body = await readCmsJson(request);
       if (!body.ok) return body.response;
       const parsed = cmsUpdateSeriesRequestSchema.safeParse(body.value);
@@ -692,12 +727,14 @@ function cmsRepositoryError(error: unknown): Response {
     invalid_article: 400,
     invalid_asset: 400,
     invalid_transition: 409,
+    invalid_series: 400,
     last_admin_required: 409,
     member_not_registered: 403,
     revision_conflict: 412,
     self_approval_forbidden: 409,
     series_article_conflict: 409,
     series_conflict: 412,
+    series_not_empty: 409,
     series_not_found: 404,
     series_slug_conflict: 409,
     slug_conflict: 409

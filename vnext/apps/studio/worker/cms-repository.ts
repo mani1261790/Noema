@@ -203,6 +203,7 @@ export type CmsRepositoryErrorCode =
   | "invalid_article"
   | "invalid_asset"
   | "invalid_analytics_rebuild_range"
+  | "invalid_series"
   | "invalid_transition"
   | "last_admin_required"
   | "member_not_registered"
@@ -210,6 +211,7 @@ export type CmsRepositoryErrorCode =
   | "self_approval_forbidden"
   | "series_article_conflict"
   | "series_conflict"
+  | "series_not_empty"
   | "series_not_found"
   | "series_slug_conflict"
   | "slug_conflict";
