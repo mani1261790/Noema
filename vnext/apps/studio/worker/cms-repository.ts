@@ -202,6 +202,7 @@ export type CmsRepositoryErrorCode =
   | "idempotency_conflict"
   | "invalid_article"
   | "invalid_asset"
+  | "invalid_analytics_rebuild_range"
   | "invalid_transition"
   | "last_admin_required"
   | "member_not_registered"

@@ -1,6 +1,7 @@
 import {
   cmsAssetMutationSchema,
   cmsAnalyticsDaysSchema,
+  cmsAnalyticsRebuildRequestSchema,
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsMemberMutationSchema,
@@ -11,7 +12,7 @@ import {
   cmsUpdateArticleRequestSchema,
   type CmsIdentity
 } from "@noema/cms";
-import { listCmsAnalyticsSummary } from "./analytics-repository";
+import { listCmsAnalyticsSummary, rebuildCmsAnalyticsMart } from "./analytics-repository";
 import {
   CmsRepositoryError,
   completeCmsAssetDeletions,
@@ -86,6 +87,17 @@ export async function handleCmsApiRequest(
       if (!days.success) return cmsError(400, "invalid_analytics_range", "表示期間が正しくありません。");
       return cmsJson({
         summary: await listCmsAnalyticsSummary(env.CMS_DB, session.identity, days.data)
+      });
+    }
+
+    if (pathname === `${CMS_API_PREFIX}/analytics/rebuild`) {
+      if (request.method !== "POST") return methodNotAllowed("POST");
+      const body = await readCmsJson(request);
+      if (!body.ok) return body.response;
+      const range = cmsAnalyticsRebuildRequestSchema.safeParse(body.value);
+      if (!range.success) return invalidRequest(range.error.issues);
+      return cmsJson({
+        rebuild: await rebuildCmsAnalyticsMart(env.CMS_DB, session.identity, range.data)
       });
     }
 
@@ -676,6 +688,7 @@ function cmsRepositoryError(error: unknown): Response {
     cms_not_configured: 503,
     forbidden: 403,
     idempotency_conflict: 409,
+    invalid_analytics_rebuild_range: 400,
     invalid_article: 400,
     invalid_asset: 400,
     invalid_transition: 409,

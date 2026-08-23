@@ -13,6 +13,9 @@ import {
   type CmsAnalyticsCounts,
   type CmsAnalyticsDailyMetric,
   type CmsAnalyticsDays,
+  type CmsAnalyticsHealth,
+  type CmsAnalyticsQualityCheck,
+  type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
   type CmsAnalyticsSummary,
   type CmsArticleDetail,
@@ -45,6 +48,7 @@ const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
 const CMS_ASSETS_PATH = "/api/cms/assets";
 const CMS_ANALYTICS_PATH = "/api/cms/analytics/summary";
+const CMS_ANALYTICS_REBUILD_PATH = "/api/cms/analytics/rebuild";
 const AUTH_API_PREFIX = "/api/auth";
 const STUDIO_PASSWORD_PATH = "/api/studio-auth/password";
 
@@ -166,6 +170,38 @@ export async function fetchCmsAnalyticsSummary(
   if (!isRecord(result.value)) return invalidResponse(result.status);
   const summary = parseCmsAnalyticsSummary(result.value.summary);
   return summary ? { ok: true, value: summary } : invalidResponse(result.status);
+}
+
+export async function rebuildCmsAnalyticsMart(
+  from: string,
+  through: string,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsAnalyticsRebuildResult>> {
+  const result = await cmsRequest(CMS_ANALYTICS_REBUILD_PATH, {
+    body: JSON.stringify({ from, through }),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  }, options);
+  if (!result.ok) return result;
+  if (!isRecord(result.value) || !isRecord(result.value.rebuild)) return invalidResponse(result.status);
+  const rebuild = result.value.rebuild;
+  if (
+    !isString(rebuild.completedAt) ||
+    !isString(rebuild.from) ||
+    !isString(rebuild.runId) ||
+    !isNonnegativeInteger(rebuild.sourceEventCount) ||
+    !isString(rebuild.through)
+  ) return invalidResponse(result.status);
+  return {
+    ok: true,
+    value: {
+      completedAt: rebuild.completedAt,
+      from: rebuild.from,
+      runId: rebuild.runId,
+      sourceEventCount: rebuild.sourceEventCount,
+      through: rebuild.through
+    }
+  };
 }
 
 export async function configureStudioPassword(
@@ -1038,11 +1074,77 @@ function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null 
   };
 }
 
+function parseCmsAnalyticsQualityCheck(value: unknown): CmsAnalyticsQualityCheck | null {
+  if (
+    !isRecord(value) ||
+    !(value.id === "freshness" || value.id === "duplicate_rate" || value.id === "contract_conformance" || value.id === "revision_lineage" || value.id === "mart_reconciliation" || value.id === "funnel_consistency") ||
+    !isString(value.label) ||
+    !isString(value.detail) ||
+    !(value.status === "pass" || value.status === "warn" || value.status === "not_evaluated")
+  ) return null;
+  return {
+    detail: value.detail,
+    id: value.id,
+    label: value.label,
+    status: value.status
+  };
+}
+
+function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
+  if (
+    !isRecord(value) ||
+    !isNonnegativeInteger(value.acceptedEvents) ||
+    !Array.isArray(value.checks) ||
+    !isNonnegativeInteger(value.duplicateEvents) ||
+    value.eventContractVersion !== 1 ||
+    !isString(value.generatedAt) ||
+    !(value.latestEventReceivedAt === null || isString(value.latestEventReceivedAt)) ||
+    !isString(value.metricCatalogVersion) ||
+    !isString(value.rawCoverageFrom) ||
+    !isString(value.reprocessableFrom) ||
+    !isRecord(value.retention) ||
+    !isNonnegativeInteger(value.retention.eventFactsDays) ||
+    !isNonnegativeInteger(value.retention.reportingMartDays) ||
+    !Array.isArray(value.sources) ||
+    !(value.status === "healthy" || value.status === "attention" || value.status === "collecting" || value.status === "no_data")
+  ) return null;
+  const checks = value.checks.map(parseCmsAnalyticsQualityCheck);
+  if (!checks.every((check): check is CmsAnalyticsQualityCheck => check !== null)) return null;
+  const sources: CmsAnalyticsHealth["sources"] = [];
+  for (const source of value.sources) {
+    if (
+      !isRecord(source) ||
+      !(source.id === "noema_reader_events" || source.id === "cloudflare_web_analytics" || source.id === "google_search_console") ||
+      !isString(source.role) ||
+      !(source.status === "active" || source.status === "not_configured")
+    ) return null;
+    sources.push({ id: source.id, role: source.role, status: source.status });
+  }
+  return {
+    acceptedEvents: value.acceptedEvents,
+    checks,
+    duplicateEvents: value.duplicateEvents,
+    eventContractVersion: 1,
+    generatedAt: value.generatedAt,
+    latestEventReceivedAt: value.latestEventReceivedAt,
+    metricCatalogVersion: value.metricCatalogVersion,
+    rawCoverageFrom: value.rawCoverageFrom,
+    reprocessableFrom: value.reprocessableFrom,
+    retention: {
+      eventFactsDays: value.retention.eventFactsDays,
+      reportingMartDays: value.retention.reportingMartDays
+    },
+    sources,
+    status: value.status
+  };
+}
+
 function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   if (
     !isRecord(value) ||
     !Array.isArray(value.articles) ||
     !Array.isArray(value.daily) ||
+    !isRecord(value.health) ||
     !isRecord(value.range) ||
     !Array.isArray(value.sources) ||
     !isRecord(value.totals)
@@ -1050,12 +1152,14 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   const articles = value.articles.map(parseCmsAnalyticsArticle);
   const daily = value.daily.map(parseCmsAnalyticsDaily);
   const sources = value.sources.map(parseCmsAnalyticsSource);
+  const health = parseCmsAnalyticsHealth(value.health);
   const counts = parseAnalyticsCounts(value.totals);
   const days = value.range.days;
   if (
     !articles.every((item): item is CmsAnalyticsArticleMetric => item !== null) ||
     !daily.every((item): item is CmsAnalyticsDailyMetric => item !== null) ||
     !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
+    !health ||
     !counts ||
     !(days === 7 || days === 30 || days === 90) ||
     !isString(value.range.from) ||
@@ -1069,6 +1173,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   return {
     articles,
     daily,
+    health,
     range: { days, from: value.range.from, through: value.range.through },
     sources,
     totals: {

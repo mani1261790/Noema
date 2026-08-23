@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCms,
   cmsAnalyticsEventRequestSchema,
+  cmsAnalyticsRebuildRequestSchema,
   cmsArticleActionSchema,
   cmsDraftFrontmatterSchema,
   cmsSeriesContentSchema,
@@ -88,7 +89,13 @@ describe("CMS contracts", () => {
   });
 
   it("accepts only bounded, content-free analytics dimensions", () => {
+    const envelope = {
+      eventId: "019d2f30-4dc8-7a32-8a31-e5e80b4f0d9e",
+      occurredAt: "2026-08-23T01:02:03.000Z",
+      schemaVersion: 1
+    };
     expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
       articleSlug: "local-ai-on-mac",
       attribution: {
         campaign: "ollama_series",
@@ -100,19 +107,29 @@ describe("CMS contracts", () => {
       eventType: "article_end"
     }).success).toBe(true);
     expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
       articleSlug: "local-ai-on-mac",
       eventType: "navigation_click",
       navigationKind: "related",
       targetSlug: "quantization-basics"
     }).success).toBe(true);
     expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
       articleSlug: "local-ai-on-mac",
       eventType: "navigation_click"
     }).success).toBe(false);
     expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
       articleSlug: "local-ai-on-mac",
       attribution: { campaign: "質問本文を保存しない" },
       eventType: "landing"
+    }).success).toBe(false);
+  });
+
+  it("rejects impossible analytics rebuild calendar dates", () => {
+    expect(cmsAnalyticsRebuildRequestSchema.safeParse({
+      from: "2026-02-31",
+      through: "2026-03-01"
     }).success).toBe(false);
   });
 });

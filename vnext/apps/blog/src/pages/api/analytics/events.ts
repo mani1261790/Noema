@@ -73,12 +73,12 @@ export const POST: APIRoute = async ({ request, url }) => {
     if (!await allowCmsAnalyticsEvent(env.ANALYTICS_RATE_LIMITER, request)) {
       return json({ error: "rate_limited" }, 429);
     }
-    const recorded = await recordCmsAnalyticsEvent(
+    const outcome = await recordCmsAnalyticsEvent(
       env.CMS_DB,
       env.READER_ANALYTICS,
       parsed.data
     );
-    if (!recorded) {
+    if (outcome === "unknown_article") {
       console.info(JSON.stringify({ event: "blog.analytics.unknown_slug" }));
     }
     return new Response(null, {

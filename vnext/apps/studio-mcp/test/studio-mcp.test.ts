@@ -75,7 +75,10 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(storedAssets.objects.map((asset) => asset.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_ingestion_daily"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_pipeline_runs"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_audiences"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_asset_references"),
@@ -148,6 +151,7 @@ describe("Studio MCP tools", () => {
       "studio_list_series",
       "studio_list_series_versions",
       "studio_preview_draft",
+      "studio_rebuild_analytics_mart",
       "studio_reopen_review_comment",
       "studio_request_changes",
       "studio_request_review",
@@ -1567,8 +1571,9 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(35);
+    expect(tools.tools).toHaveLength(36);
     expect(tools.tools.some((tool) => tool.name === "studio_get_analytics_summary")).toBe(true);
+    expect(tools.tools.some((tool) => tool.name === "studio_rebuild_analytics_mart")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_list_article_versions")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_get_article_version")).toBe(true);

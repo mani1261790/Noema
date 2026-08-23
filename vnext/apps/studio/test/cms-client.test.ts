@@ -7,6 +7,7 @@ import {
   fetchCmsArticleVersionCheckpoints,
   fetchCmsArticleVersions,
   fetchCmsMembers,
+  rebuildCmsAnalyticsMart,
   runCmsArticleAction,
   updateCmsArticle
 } from "../src/cms-client";
@@ -122,6 +123,20 @@ describe("CMS analytics client", () => {
         title: "分析記事"
       }],
       daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3 }],
+      health: {
+        acceptedEvents: 10,
+        checks: [{ detail: "正常です。", id: "freshness", label: "収集鮮度", status: "pass" }],
+        duplicateEvents: 0,
+        eventContractVersion: 1,
+        generatedAt: "2026-08-23T01:00:00.000Z",
+        latestEventReceivedAt: "2026-08-23T00:59:00.000Z",
+        metricCatalogVersion: "2026-09-01",
+        rawCoverageFrom: "2026-08-23",
+        reprocessableFrom: "2026-08-23",
+        retention: { eventFactsDays: 45, reportingMartDays: 500 },
+        sources: [{ id: "noema_reader_events", role: "記事内行動", status: "active" }],
+        status: "healthy"
+      },
       range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
       sources: [{
         article50: 8,
@@ -152,6 +167,10 @@ describe("CMS analytics client", () => {
     if (result.ok) {
       expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
       expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
+      expect(result.value.health).toMatchObject({
+        metricCatalogVersion: "2026-09-01",
+        retention: { eventFactsDays: 45, reportingMartDays: 500 }
+      });
     }
     expect(fetchFn).toHaveBeenCalledWith(
       "/api/cms/analytics/summary?days=30",
@@ -172,6 +191,26 @@ describe("CMS analytics client", () => {
       error: { code: "invalid_response" },
       ok: false
     });
+  });
+
+  it("requests a bounded analytics mart rebuild", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({ rebuild: {
+      completedAt: "2026-08-23T01:02:03.000Z",
+      from: "2026-08-20",
+      runId: "019d2f30-4dc8-7a32-8a31-e5e80b4f0d9e",
+      sourceEventCount: 42,
+      through: "2026-08-23"
+    } }));
+
+    await expect(rebuildCmsAnalyticsMart("2026-08-20", "2026-08-23", { fetchFn }))
+      .resolves.toMatchObject({ ok: true, value: { sourceEventCount: 42 } });
+    expect(fetchFn).toHaveBeenCalledWith(
+      "/api/cms/analytics/rebuild",
+      expect.objectContaining({
+        body: JSON.stringify({ from: "2026-08-20", through: "2026-08-23" }),
+        method: "POST"
+      })
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import type { CmsAnalyticsEventRequest } from "@noema/cms";
 export interface CmsAnalyticsStatement {
   bind(...values: unknown[]): CmsAnalyticsStatement;
   first(): Promise<unknown | null>;
-  run(): Promise<unknown>;
+  run(): Promise<{ meta?: { changes?: number } } | unknown>;
 }
 
 export interface CmsAnalyticsDatabase {
@@ -59,6 +59,8 @@ export interface RecordAnalyticsOptions {
   now?: Date;
 }
 
+export type RecordAnalyticsOutcome = "recorded" | "duplicate" | "unknown_article";
+
 /**
  * Dataset: noema_reader_events
  *
@@ -76,7 +78,7 @@ export async function recordCmsAnalyticsEvent(
   dataset: CmsAnalyticsDataset | undefined,
   event: CmsAnalyticsEventRequest,
   options: RecordAnalyticsOptions = {}
-): Promise<boolean> {
+): Promise<RecordAnalyticsOutcome> {
   const article = await db.prepare(
     `SELECT id, published_revision_number, published_slug
      FROM cms_articles
@@ -85,7 +87,7 @@ export async function recordCmsAnalyticsEvent(
        AND published_slug = ?1
      LIMIT 1`
   ).bind(event.articleSlug).first();
-  if (!isPublishedArticleRow(article)) return false;
+  if (!isPublishedArticleRow(article)) return "unknown_article";
 
   const attribution = event.attribution ?? {};
   const source = attribution.source ?? "";
@@ -95,12 +97,18 @@ export async function recordCmsAnalyticsEvent(
   const referrerHost = attribution.referrerHost ?? "";
   const navigationKind = event.navigationKind ?? "";
   const targetSlug = event.targetSlug ?? "";
-  const timestamp = (options.now ?? new Date()).toISOString();
-  const eventDate = timestamp.slice(0, 10);
+  const receivedAt = (options.now ?? new Date()).toISOString();
+  // Reporting uses trusted server receipt time. Client time is retained only
+  // for clock-quality diagnostics and never changes the reporting partition.
+  const eventDate = receivedAt.slice(0, 10);
 
-  await db.prepare(
-    `INSERT INTO cms_analytics_daily (
+  const result = await db.prepare(
+    `INSERT OR IGNORE INTO cms_analytics_events (
+       event_id,
+       schema_version,
        event_date,
+       occurred_at,
+       received_at,
        article_id,
        article_slug,
        revision_number,
@@ -111,28 +119,14 @@ export async function recordCmsAnalyticsEvent(
        content,
        referrer_host,
        navigation_kind,
-       target_slug,
-       event_count,
-       updated_at
-     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 1, ?13)
-     ON CONFLICT (
-       event_date,
-       article_id,
-       revision_number,
-       event_type,
-       source,
-       medium,
-       campaign,
-       content,
-       referrer_host,
-       navigation_kind,
        target_slug
-     ) DO UPDATE SET
-       event_count = cms_analytics_daily.event_count + excluded.event_count,
-       article_slug = excluded.article_slug,
-       updated_at = excluded.updated_at`
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`
   ).bind(
+    event.eventId,
+    event.schemaVersion,
     eventDate,
+    event.occurredAt,
+    receivedAt,
     article.id,
     article.published_slug,
     article.published_revision_number,
@@ -143,11 +137,26 @@ export async function recordCmsAnalyticsEvent(
     content,
     referrerHost,
     navigationKind,
-    targetSlug,
-    timestamp
+    targetSlug
   ).run();
 
-  if (!dataset) return true;
+  const changes = result && typeof result === "object" && "meta" in result &&
+    result.meta && typeof result.meta === "object" && "changes" in result.meta
+    ? result.meta.changes
+    : undefined;
+  if (changes === 0) {
+    await db.prepare(
+      `INSERT INTO cms_analytics_ingestion_daily (
+         event_date, accepted_event_count, duplicate_event_count, updated_at
+       ) VALUES (?1, 0, 1, ?2)
+       ON CONFLICT (event_date) DO UPDATE SET
+         duplicate_event_count = cms_analytics_ingestion_daily.duplicate_event_count + 1,
+         updated_at = excluded.updated_at`
+    ).bind(eventDate, receivedAt).run();
+    return "duplicate";
+  }
+
+  if (!dataset) return "recorded";
 
   try {
     dataset.writeDataPoint({
@@ -167,12 +176,12 @@ export async function recordCmsAnalyticsEvent(
       indexes: [article.id]
     });
   } catch (error) {
-    // The D1 aggregate is canonical; exploratory Analytics Engine loss must not
+    // The D1 event fact is canonical; exploratory Analytics Engine loss must not
     // make a successfully stored reader event look like a failed request.
     console.warn(JSON.stringify({
       event: "blog.analytics.exploratory_write_failed",
       message: error instanceof Error ? error.message : String(error)
     }));
   }
-  return true;
+  return "recorded";
 }

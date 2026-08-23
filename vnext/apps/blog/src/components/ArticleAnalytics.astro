@@ -114,13 +114,24 @@ const { slug } = Astro.props;
     const key = `${eventType}:${navigation?.navigationKind ?? ""}:${navigation?.targetSlug ?? ""}`;
     if (sentEvents.has(key)) return;
     sentEvents.add(key);
-    const request = fetch("/api/analytics/events", {
-      body: JSON.stringify({ articleSlug, attribution, eventType, ...navigation }),
+    const payload = JSON.stringify({
+      articleSlug,
+      attribution,
+      eventId: crypto.randomUUID(),
+      eventType,
+      occurredAt: new Date().toISOString(),
+      schemaVersion: 1,
+      ...navigation
+    });
+    const send = () => fetch("/api/analytics/events", {
+      body: payload,
       headers: { "content-type": "application/json" },
       keepalive: true,
       method: "POST"
     });
-    void request.catch(() => {
+    void send().then((response) => (
+      response.status === 429 || response.status >= 500 ? send() : response
+    )).catch(() => send()).catch(() => {
       // Reader actions must never be interrupted by analytics availability.
     });
   }
