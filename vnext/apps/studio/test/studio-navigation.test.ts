@@ -10,6 +10,7 @@ import {
 describe("Studio navigation", () => {
   it("gives every Studio page a stable URL", () => {
     expect(studioViewHref("articles")).toBe("/articles");
+    expect(studioViewHref("analytics")).toBe("/analytics");
     expect(studioViewHref("editor")).toBe("/editor");
     expect(studioViewHref("assets")).toBe("/assets");
     expect(studioViewHref("team")).toBe("/team");
@@ -17,6 +18,7 @@ describe("Studio navigation", () => {
 
   it("restores a Studio page from browser history", () => {
     expect(readStudioView("/assets")).toBe("assets");
+    expect(readStudioView("/analytics/")).toBe("analytics");
     expect(readStudioView("/editor/")).toBe("editor");
     expect(readStudioView("/series")).toBe("articles");
   });

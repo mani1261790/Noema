@@ -1,0 +1,184 @@
+---
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+---
+
+<span data-article-analytics data-analytics-slug={slug} hidden></span>
+
+<script>
+  type AnalyticsEventType =
+    | "landing"
+    | "article_50"
+    | "article_end"
+    | "navigation_click"
+    | "share"
+    | "assistant_open"
+    | "assistant_success"
+    | "assistant_error";
+  type Attribution = {
+    campaign?: string;
+    content?: string;
+    medium?: string;
+    referrerHost?: string;
+    source?: string;
+  };
+  type StoredAttribution = {
+    attribution: Attribution;
+    expiresAt: number;
+  };
+
+  const analyticsRoot = document.querySelector<HTMLElement>("[data-article-analytics]");
+  const articleSlug = analyticsRoot?.dataset.analyticsSlug ?? "";
+  const attributionKey = "noema:analytics-attribution:v1";
+  const attributionTtl = 30 * 60 * 1000;
+  const sentEvents = new Set<string>();
+
+  function boundedIdentifier(value: string | null, maximum: number): string | undefined {
+    const normalized = value?.trim().toLowerCase() ?? "";
+    return normalized.length > 0 &&
+      normalized.length <= maximum &&
+      /^[a-z0-9][a-z0-9._-]*$/u.test(normalized)
+      ? normalized
+      : undefined;
+  }
+
+  function externalReferrerHost(): string | undefined {
+    if (!document.referrer) return undefined;
+    try {
+      const host = new URL(document.referrer).hostname.toLowerCase();
+      return host !== window.location.hostname && host.length <= 253 ? host : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function readStoredAttribution(): StoredAttribution | null {
+    try {
+      const value = sessionStorage.getItem(attributionKey);
+      if (!value) return null;
+      const parsed = JSON.parse(value) as Partial<StoredAttribution>;
+      if (!parsed.attribution || typeof parsed.expiresAt !== "number" || parsed.expiresAt <= Date.now()) {
+        sessionStorage.removeItem(attributionKey);
+        return null;
+      }
+      return {
+        attribution: parsed.attribution,
+        expiresAt: parsed.expiresAt
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function resolveAttribution(): Attribution {
+    const parameters = new URLSearchParams(window.location.search);
+    const campaignAttribution: Attribution = {
+      campaign: boundedIdentifier(parameters.get("utm_campaign"), 100),
+      content: boundedIdentifier(parameters.get("utm_content"), 100),
+      medium: boundedIdentifier(parameters.get("utm_medium"), 64),
+      referrerHost: externalReferrerHost(),
+      source: boundedIdentifier(parameters.get("utm_source"), 64)
+    };
+    const hasCampaign = Boolean(
+      campaignAttribution.campaign ||
+      campaignAttribution.content ||
+      campaignAttribution.medium ||
+      campaignAttribution.source
+    );
+    const stored = hasCampaign ? null : readStoredAttribution();
+    const attribution = hasCampaign
+      ? campaignAttribution
+      : stored?.attribution ?? { referrerHost: campaignAttribution.referrerHost };
+    const expiresAt = stored?.expiresAt ?? Date.now() + attributionTtl;
+    try {
+      sessionStorage.setItem(attributionKey, JSON.stringify({
+        attribution,
+        expiresAt
+      } satisfies StoredAttribution));
+    } catch {
+      // Analytics remains available without browser storage.
+    }
+    return attribution;
+  }
+
+  const attribution = resolveAttribution();
+
+  function sendEvent(
+    eventType: AnalyticsEventType,
+    navigation?: { navigationKind: "related" | "series_next"; targetSlug: string }
+  ): void {
+    if (!articleSlug) return;
+    const key = `${eventType}:${navigation?.navigationKind ?? ""}:${navigation?.targetSlug ?? ""}`;
+    if (sentEvents.has(key)) return;
+    sentEvents.add(key);
+    const request = fetch("/api/analytics/events", {
+      body: JSON.stringify({ articleSlug, attribution, eventType, ...navigation }),
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      method: "POST"
+    });
+    void request.catch(() => {
+      // Reader actions must never be interrupted by analytics availability.
+    });
+  }
+
+  sendEvent("landing");
+
+  const articleBody = document.querySelector<HTMLElement>(".article-body");
+  let readingInteractionObserved = false;
+  let measurementScheduled = false;
+  const measureReadingProgress = () => {
+    measurementScheduled = false;
+    if (!articleBody || !readingInteractionObserved) return;
+    const rect = articleBody.getBoundingClientRect();
+    const articleTop = window.scrollY + rect.top;
+    const articleBottom = articleTop + rect.height;
+    const viewportBottom = window.scrollY + window.innerHeight;
+    if (viewportBottom >= articleTop + rect.height / 2) sendEvent("article_50");
+    if (viewportBottom >= articleBottom) sendEvent("article_end");
+  };
+  const scheduleMeasurement = () => {
+    if (measurementScheduled) return;
+    measurementScheduled = true;
+    window.requestAnimationFrame(measureReadingProgress);
+  };
+  window.addEventListener("scroll", () => {
+    readingInteractionObserved = true;
+    scheduleMeasurement();
+  }, { passive: true });
+  window.addEventListener("resize", scheduleMeasurement);
+  scheduleMeasurement();
+
+  document.addEventListener("click", (event) => {
+    const anchor = event.target instanceof Element
+      ? event.target.closest<HTMLAnchorElement>("a")
+      : null;
+    const target = anchor?.closest<HTMLElement>("[data-analytics-navigation]");
+    const navigationKind = target?.dataset.analyticsNavigation;
+    if (!anchor || (navigationKind !== "related" && navigationKind !== "series_next")) return;
+    try {
+      const targetUrl = new URL(anchor.href, window.location.href);
+      const match = targetUrl.pathname.match(/^\/articles\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/u);
+      if (match?.[1]) sendEvent("navigation_click", {
+        navigationKind,
+        targetSlug: match[1]
+      });
+    } catch {
+      // Only canonical Noema article links are measured.
+    }
+  });
+
+  document.addEventListener("noema:analytics", (event) => {
+    if (!(event instanceof CustomEvent) || !event.detail || typeof event.detail !== "object") return;
+    const eventType = (event.detail as { eventType?: unknown }).eventType;
+    if (
+      eventType === "share" ||
+      eventType === "assistant_open" ||
+      eventType === "assistant_success" ||
+      eventType === "assistant_error"
+    ) sendEvent(eventType);
+  });
+</script>

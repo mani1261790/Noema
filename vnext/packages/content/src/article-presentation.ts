@@ -87,7 +87,7 @@ function renderSeriesEnd(
     ? `<a href="${attribute(resolveReference(previous.href, resolveLinkReference))}"><small>前の記事</small><strong>${escapeHtml(previous.title)}</strong></a>`
     : "<span></span>";
   const nextLink = next
-    ? `<a class="is-next" href="${attribute(resolveReference(next.href, resolveLinkReference))}"><small>次の記事</small><strong>${escapeHtml(next.title)}</strong></a>`
+    ? `<a class="is-next" data-analytics-navigation="series_next" href="${attribute(resolveReference(next.href, resolveLinkReference))}"><small>次の記事</small><strong>${escapeHtml(next.title)}</strong></a>`
     : `<a class="is-next" href="${attribute(resolveReference("/articles", resolveLinkReference))}"><small>シリーズを読み終えました</small><strong>ほかの記事を見る</strong></a>`;
   return `<nav class="article-series-end" aria-label="${attribute(`${series.title}の前後の記事`)}"><p><span>${escapeHtml(series.title)}</span><strong>${escapeHtml(current?.title ?? "")}</strong></p><div>${previousLink}${nextLink}</div></nav>`;
 }

@@ -11,6 +11,9 @@
     try {
       await navigator.clipboard.writeText(window.location.href);
       if (shareStatus) shareStatus.textContent = "URLをコピーしました。";
+      document.dispatchEvent(new CustomEvent("noema:analytics", {
+        detail: { eventType: "share" }
+      }));
     } catch {
       if (shareStatus) shareStatus.textContent = "URLをコピーできませんでした。アドレスバーからコピーしてください。";
     }

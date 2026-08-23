@@ -102,6 +102,7 @@ import {
   CmsArticleLibrary,
   type CmsLibraryConnection
 } from "./CmsArticleLibrary";
+import { CmsAnalyticsDashboard } from "./CmsAnalyticsDashboard";
 import type { CmsArticleFilter } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
 import { CmsAssetLibrary } from "./CmsAssetLibrary";
@@ -1119,6 +1120,16 @@ export function App() {
     setPreviewFullscreen(false);
   };
 
+  const showAnalytics = () => {
+    setOperationMessage(null);
+    if (hasMeaningfulArticleInput(frontmatter, body)) saveBrowserDraft(frontmatter, body);
+    pendingViewFocus.current = "studio-analytics-heading";
+    changeStudioView("analytics");
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
+    setAssetTrayOpen(false);
+  };
+
   useEffect(() => {
     writeStudioHistory(
       initialStudioView,
@@ -1178,6 +1189,8 @@ export function App() {
         ? "studio-article-library-heading"
         : nextView === "assets"
           ? "studio-asset-library-heading"
+          : nextView === "analytics"
+            ? "studio-analytics-heading"
           : nextView === "team"
             ? "studio-team-heading"
             : "editor-heading";
@@ -2864,10 +2877,11 @@ export function App() {
 
       {studioView !== "editor" ? (
         <nav aria-label="Studioの主要機能" className="studio-primary-nav">
-          <strong>Noema Studio</strong>
+          <strong aria-label="Noema Studio">Noema <span className="studio-primary-nav__product">Studio</span></strong>
           <div>
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
+            <a aria-current={studioView === "analytics" ? "page" : undefined} href={studioViewHref("analytics")} onClick={(event) => { event.preventDefault(); showAnalytics(); }}>分析</a>
             {cmsSession?.capabilities.canManageMembers ? (
               <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>チーム</a>
             ) : null}
@@ -2934,6 +2948,8 @@ export function App() {
           onUpdate={saveAsset}
           onUpload={uploadAssets}
         />
+      ) : studioView === "analytics" ? (
+        <CmsAnalyticsDashboard connection={cmsLibraryConnection} />
       ) : studioView === "team" ? (
         <CmsTeamSettings
           active={cmsMemberActive}

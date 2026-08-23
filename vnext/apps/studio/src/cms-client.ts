@@ -9,6 +9,12 @@ import {
   cmsReviewCommentStatusSchema,
   cmsVisibilitySchema,
   type CmsArticleAction,
+  type CmsAnalyticsArticleMetric,
+  type CmsAnalyticsCounts,
+  type CmsAnalyticsDailyMetric,
+  type CmsAnalyticsDays,
+  type CmsAnalyticsSourceMetric,
+  type CmsAnalyticsSummary,
   type CmsArticleDetail,
   type CmsArticleSummary,
   type CmsArticleVersionDetail,
@@ -38,6 +44,7 @@ const CMS_SERIES_PATH = "/api/cms/series";
 const CMS_MEMBERS_PATH = "/api/cms/members";
 const CMS_SESSION_PATH = "/api/cms/session";
 const CMS_ASSETS_PATH = "/api/cms/assets";
+const CMS_ANALYTICS_PATH = "/api/cms/analytics/summary";
 const AUTH_API_PREFIX = "/api/auth";
 const STUDIO_PASSWORD_PATH = "/api/studio-auth/password";
 
@@ -148,6 +155,17 @@ export async function fetchCmsSession(
   return session
     ? { ok: true, value: session }
     : invalidResponse(result.status);
+}
+
+export async function fetchCmsAnalyticsSummary(
+  days: CmsAnalyticsDays,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsAnalyticsSummary>> {
+  const result = await cmsRequest(`${CMS_ANALYTICS_PATH}?days=${days}`, { method: "GET" }, options);
+  if (!result.ok) return result;
+  if (!isRecord(result.value)) return invalidResponse(result.status);
+  const summary = parseCmsAnalyticsSummary(result.value.summary);
+  return summary ? { ok: true, value: summary } : invalidResponse(result.status);
 }
 
 export async function configureStudioPassword(
@@ -894,6 +912,173 @@ function parseCmsMember(value: unknown): CmsMember | null {
     provisioned: value.provisioned,
     role: role.data,
     updatedAt: value.updatedAt
+  };
+}
+
+function parseAnalyticsCounts(value: unknown): CmsAnalyticsCounts | null {
+  if (!isRecord(value)) return null;
+  const {
+    article50,
+    articleEnd,
+    assistantError,
+    assistantOpen,
+    assistantSuccess,
+    landing,
+    navigationClick,
+    relatedClick,
+    seriesNext,
+    share
+  } = value;
+  if (
+    !isNonnegativeInteger(article50) ||
+    !isNonnegativeInteger(articleEnd) ||
+    !isNonnegativeInteger(assistantError) ||
+    !isNonnegativeInteger(assistantOpen) ||
+    !isNonnegativeInteger(assistantSuccess) ||
+    !isNonnegativeInteger(landing) ||
+    !isNonnegativeInteger(navigationClick) ||
+    !isNonnegativeInteger(relatedClick) ||
+    !isNonnegativeInteger(seriesNext) ||
+    !isNonnegativeInteger(share)
+  ) return null;
+  return {
+    article50,
+    articleEnd,
+    assistantError,
+    assistantOpen,
+    assistantSuccess,
+    landing,
+    navigationClick,
+    relatedClick,
+    seriesNext,
+    share
+  };
+}
+
+function isNullableRate(value: unknown): value is number | null {
+  return value === null || (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0
+  );
+}
+
+function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | null {
+  const counts = parseAnalyticsCounts(value);
+  if (
+    !counts ||
+    !isRecord(value) ||
+    !isString(value.articleId) ||
+    !isNullableRate(value.article50Rate) ||
+    !isNullableRate(value.assistantSuccessRate) ||
+    !isNullableRate(value.assistantUseRate) ||
+    !isNullableRate(value.onwardRate) ||
+    !isNullableRate(value.qualifiedReadRate) ||
+    !isNonnegativeInteger(value.revisionNumber) ||
+    !isString(value.slug) ||
+    !isString(value.title)
+  ) return null;
+  return {
+    ...counts,
+    articleId: value.articleId,
+    article50Rate: value.article50Rate,
+    assistantSuccessRate: value.assistantSuccessRate,
+    assistantUseRate: value.assistantUseRate,
+    onwardRate: value.onwardRate,
+    qualifiedReadRate: value.qualifiedReadRate,
+    revisionNumber: value.revisionNumber,
+    slug: value.slug,
+    title: value.title
+  };
+}
+
+function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | null {
+  if (
+    !isRecord(value) ||
+    !isNonnegativeInteger(value.article50) ||
+    !isNullableRate(value.article50Rate) ||
+    !isNonnegativeInteger(value.articleEnd) ||
+    !isString(value.campaign) ||
+    !isString(value.content) ||
+    !isNonnegativeInteger(value.landing) ||
+    !isString(value.medium) ||
+    !isNonnegativeInteger(value.navigationClick) ||
+    !isNullableRate(value.qualifiedReadRate) ||
+    !isString(value.referrerHost) ||
+    !isString(value.source)
+  ) return null;
+  return {
+    article50: value.article50,
+    article50Rate: value.article50Rate,
+    articleEnd: value.articleEnd,
+    campaign: value.campaign,
+    content: value.content,
+    landing: value.landing,
+    medium: value.medium,
+    navigationClick: value.navigationClick,
+    qualifiedReadRate: value.qualifiedReadRate,
+    referrerHost: value.referrerHost,
+    source: value.source
+  };
+}
+
+function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null {
+  if (
+    !isRecord(value) ||
+    !isNonnegativeInteger(value.articleEnd) ||
+    !isString(value.date) ||
+    !isNonnegativeInteger(value.landing) ||
+    !isNonnegativeInteger(value.navigationClick)
+  ) return null;
+  return {
+    articleEnd: value.articleEnd,
+    date: value.date,
+    landing: value.landing,
+    navigationClick: value.navigationClick
+  };
+}
+
+function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.articles) ||
+    !Array.isArray(value.daily) ||
+    !isRecord(value.range) ||
+    !Array.isArray(value.sources) ||
+    !isRecord(value.totals)
+  ) return null;
+  const articles = value.articles.map(parseCmsAnalyticsArticle);
+  const daily = value.daily.map(parseCmsAnalyticsDaily);
+  const sources = value.sources.map(parseCmsAnalyticsSource);
+  const counts = parseAnalyticsCounts(value.totals);
+  const days = value.range.days;
+  if (
+    !articles.every((item): item is CmsAnalyticsArticleMetric => item !== null) ||
+    !daily.every((item): item is CmsAnalyticsDailyMetric => item !== null) ||
+    !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
+    !counts ||
+    !(days === 7 || days === 30 || days === 90) ||
+    !isString(value.range.from) ||
+    !isString(value.range.through) ||
+    !isNullableRate(value.totals.article50Rate) ||
+    !isNullableRate(value.totals.assistantSuccessRate) ||
+    !isNullableRate(value.totals.assistantUseRate) ||
+    !isNullableRate(value.totals.onwardRate) ||
+    !isNullableRate(value.totals.qualifiedReadRate)
+  ) return null;
+  return {
+    articles,
+    daily,
+    range: { days, from: value.range.from, through: value.range.through },
+    sources,
+    totals: {
+      ...counts,
+      article50Rate: value.totals.article50Rate,
+      assistantSuccessRate: value.totals.assistantSuccessRate,
+      assistantUseRate: value.totals.assistantUseRate,
+      onwardRate: value.totals.onwardRate,
+      qualifiedReadRate: value.totals.qualifiedReadRate
+    }
   };
 }
 

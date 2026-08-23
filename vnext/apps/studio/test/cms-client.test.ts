@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createBlankArticle } from "../src/draft-storage";
 import {
   fetchCmsArticles,
+  fetchCmsAnalyticsSummary,
   fetchCmsArticleVersion,
   fetchCmsArticleVersionCheckpoints,
   fetchCmsArticleVersions,
@@ -88,6 +89,87 @@ describe("CMS article list client", () => {
         retryable: true,
         status: 200
       },
+      ok: false
+    });
+  });
+});
+
+describe("CMS analytics client", () => {
+  it("parses revision and source metrics", async () => {
+    const counts = {
+      article50: 8,
+      articleEnd: 6,
+      assistantError: 1,
+      assistantOpen: 3,
+      assistantSuccess: 2,
+      landing: 10,
+      navigationClick: 3,
+      relatedClick: 2,
+      seriesNext: 1,
+      share: 1
+    };
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({ summary: {
+      articles: [{
+        ...counts,
+        articleId: "11111111-1111-4111-8111-111111111111",
+        article50Rate: 0.8,
+        assistantSuccessRate: 2 / 3,
+        assistantUseRate: 0.3,
+        onwardRate: 0.5,
+        qualifiedReadRate: 0.6,
+        revisionNumber: 4,
+        slug: "analytics-article",
+        title: "分析記事"
+      }],
+      daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3 }],
+      range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
+      sources: [{
+        article50: 8,
+        article50Rate: 0.8,
+        articleEnd: 6,
+        campaign: "launch",
+        content: "diagram",
+        landing: 10,
+        medium: "social",
+        navigationClick: 3,
+        qualifiedReadRate: 0.6,
+        referrerHost: "",
+        source: "x"
+      }],
+      totals: {
+        ...counts,
+        article50Rate: 0.8,
+        assistantSuccessRate: 2 / 3,
+        assistantUseRate: 0.3,
+        onwardRate: 0.5,
+        qualifiedReadRate: 0.6
+      }
+    } }));
+
+    const result = await fetchCmsAnalyticsSummary(30, { fetchFn });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
+      expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
+    }
+    expect(fetchFn).toHaveBeenCalledWith(
+      "/api/cms/analytics/summary?days=30",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
+
+  it("rejects malformed analytics counts", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({ summary: {
+      articles: [],
+      daily: [],
+      range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
+      sources: [],
+      totals: { landing: "10" }
+    } }));
+
+    expect(await fetchCmsAnalyticsSummary(30, { fetchFn })).toMatchObject({
+      error: { code: "invalid_response" },
       ok: false
     });
   });

@@ -1,6 +1,7 @@
 ---
 import { topicLabels } from "@noema/content";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
+import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
@@ -61,6 +62,7 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
   authors={article.data.authors}
   jsonLd={jsonLd}
 >
+  <ArticleAnalytics slug={article.data.slug} />
   <div class="noema-container article-page">
     <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.data.title }]} />

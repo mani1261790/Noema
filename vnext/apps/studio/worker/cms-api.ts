@@ -1,5 +1,6 @@
 import {
   cmsAssetMutationSchema,
+  cmsAnalyticsDaysSchema,
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsMemberMutationSchema,
@@ -10,6 +11,7 @@ import {
   cmsUpdateArticleRequestSchema,
   type CmsIdentity
 } from "@noema/cms";
+import { listCmsAnalyticsSummary } from "./analytics-repository";
 import {
   CmsRepositoryError,
   completeCmsAssetDeletions,
@@ -75,6 +77,16 @@ export async function handleCmsApiRequest(
     if (pathname === `${CMS_API_PREFIX}/session`) {
       if (request.method !== "GET") return methodNotAllowed("GET");
       return cmsJson(session);
+    }
+
+    if (pathname === `${CMS_API_PREFIX}/analytics/summary`) {
+      if (request.method !== "GET") return methodNotAllowed("GET");
+      const requestedDays = Number(new URL(request.url).searchParams.get("days") ?? "30");
+      const days = cmsAnalyticsDaysSchema.safeParse(requestedDays);
+      if (!days.success) return cmsError(400, "invalid_analytics_range", "表示期間が正しくありません。");
+      return cmsJson({
+        summary: await listCmsAnalyticsSummary(env.CMS_DB, session.identity, days.data)
+      });
     }
 
     if (pathname === `${CMS_API_PREFIX}/assets`) {

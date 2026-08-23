@@ -6,6 +6,22 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
+  "ratelimits": [
+    {
+      "name": "ANALYTICS_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "READER_ANALYTICS",
+      "dataset": "noema_reader_events"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "CMS_DB",

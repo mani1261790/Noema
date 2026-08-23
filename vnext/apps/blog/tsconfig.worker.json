@@ -12,6 +12,7 @@
   "include": [
     "src/lib/cms-publication-repository.ts",
     "src/lib/cms-publications.ts",
+    "src/lib/analytics.ts",
     "src/worker-configuration.d.ts"
   ],
   "exclude": ["src/env.d.ts"]
