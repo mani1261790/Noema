@@ -73,7 +73,7 @@ export interface RecordAnalyticsOptions {
  */
 export async function recordCmsAnalyticsEvent(
   db: CmsAnalyticsDatabase,
-  dataset: CmsAnalyticsDataset,
+  dataset: CmsAnalyticsDataset | undefined,
   event: CmsAnalyticsEventRequest,
   options: RecordAnalyticsOptions = {}
 ): Promise<boolean> {
@@ -146,6 +146,8 @@ export async function recordCmsAnalyticsEvent(
     targetSlug,
     timestamp
   ).run();
+
+  if (!dataset) return true;
 
   try {
     dataset.writeDataPoint({

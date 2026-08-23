@@ -16,12 +16,6 @@
       }
     }
   ],
-  "analytics_engine_datasets": [
-    {
-      "binding": "READER_ANALYTICS",
-      "dataset": "noema_reader_events"
-    }
-  ],
   "d1_databases": [
     {
       "binding": "CMS_DB",

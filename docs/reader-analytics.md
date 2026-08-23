@@ -42,12 +42,12 @@ flowchart LR
   Reader["公開記事"] --> Endpoint["同一origin収集API"]
   Endpoint --> Resolve["公開revisionをD1で解決"]
   Resolve --> Daily["D1 日次集計\n長期の正本"]
-  Resolve --> Explore["Analytics Engine\n短期探索"]
+  Resolve -. optional .-> Explore["Analytics Engine\n短期探索"]
   Daily --> Studio["Studio / MCP\n7・30・90日集計"]
 ```
 
 - D1の`cms_analytics_daily`にはUTC日付、記事ID、公開slug、公開revision番号、イベント種別、件数、限定した流入識別子だけを集約保存します。生のリクエストや読者単位の行は残さず、Studioの最長表示範囲に合わせて直近90日を保持します。
-- Analytics Engineの`noema_reader_events`には同じイベントを探索用に送ります。blob 1〜10はイベント、slug、revision、source、medium、campaign、content、referrer host、遷移種別、遷移先slug、double 1は件数、indexは不変の記事IDです。保持期間はCloudflare側の仕様に従う短期データです。
+- Analytics Engineは任意の短期探索層です。Cloudflare accountで有効化し`READER_ANALYTICS`をbindingした環境だけ、`noema_reader_events`へ同じイベントを送ります。blob 1〜10はイベント、slug、revision、source、medium、campaign、content、referrer host、遷移種別、遷移先slug、double 1は件数、indexは不変の記事IDです。bindingがない環境でもD1の正本とStudio/MCPの分析は動作します。
 - ブラウザの`sessionStorage`には流入識別子と30分の有効期限だけを保存します。永続的な読者IDやセッションIDは作りません。
 
 質問本文、回答本文、会話履歴、APIキー、メールアドレス、IPアドレス、User-Agent、永続的な利用者IDは分析データへ保存しません。IPアドレスは乱用防止のためCloudflare edgeのRate Limitingキーとして一時利用しますが、D1、Analytics Engine、アプリケーションログには保存しません。UTMのsource・medium・campaign・contentは小文字英数字と`.`、`_`、`-`だけに制限します。キャンペーン名へ個人情報を入れてはいけません。
@@ -56,6 +56,6 @@ flowchart LR
 
 - `landing`はブラウザ内のページ表示であり、厳密なユニークユーザー数ではありません。
 - 同一originヘッダー、JSON形式、4 KiB上限、固定schemaを収集APIで検査し、1 IPあたり毎分120イベントに制限します。未知のslugと受理したslugはどちらも204を返し、unlisted記事の存在を応答から推測できないようにします。これらは品質上の境界であり、botを完全に排除する認証ではありません。
-- D1書き込みを正本とし、Analytics Engineへの探索用送信だけが失敗しても収集APIは成功として扱います。失敗は構造化ログ`blog.analytics.exploratory_write_failed`へ残します。
+- D1書き込みを正本とし、Analytics Engineのbindingがなくても収集APIは成功として扱います。bindingがある環境で探索用送信だけが失敗した場合も、D1書き込みは成功したまま構造化ログ`blog.analytics.exploratory_write_failed`へ残します。
 - 日次集計はUTCで区切ります。画面の対象期間より未来の日付は集計に含めません。
 - schema変更は新しいD1 migrationで行い、既存migrationを書き換えません。
