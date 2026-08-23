@@ -7,6 +7,11 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
+  "triggers": {
+    // 毎分: レビュー依頼・公開などの節目だけを個別に投稿する。
+    // 08:00 UTC (17:00 JST): 前回投稿以降の下書き作業をまとめて1本投稿する。
+    "crons": ["* * * * *", "0 8 * * *"]
+  },
   "routes": [
     {
       "pattern": "studio.noema-learn.uk",
