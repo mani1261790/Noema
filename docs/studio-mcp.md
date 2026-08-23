@@ -77,6 +77,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | ツール | データ変更 | 用途 |
 | --- | --- | --- |
 | `studio_whoami` | なし | 現在のメールアドレス、役割、権限を確認する |
+| `studio_get_analytics_summary` | なし | 個人を識別しない読者行動の7日・30日・90日集計を取得する |
 | `studio_list_articles` | なし | 記事を検索し、状態で絞り込む |
 | `studio_get_article` | なし | 記事IDから現在の本文と版情報を取得する |
 | `studio_list_article_versions` | なし | 記事の保存履歴と各版の状態を新しい順に取得する |

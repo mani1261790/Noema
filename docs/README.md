@@ -14,6 +14,7 @@
 | 記事内でアコーディオンなどの独自Markdownを使う | [Noema記事Markdown拡張](./article-markdown.md) |
 | Studioへメンバーを追加する | [メンバーを招待する](./studio-blog-connectivity.md#メンバーを招待する) |
 | MCP clientからStudio CMSを編集する | [Studio MCP接続・運用ガイド](./studio-mcp.md) |
+| 記事の読了・回遊・アシスタント利用を分析する | [読者行動分析基盤](./reader-analytics.md) |
 | 公開範囲や公開後の修正方法を確認する | [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md#公開範囲) |
 | codeやD1 schemaをCloudflareへ反映する | [開発環境デプロイ](./development-deployment.md#自動デプロイの流れ) |
 | CMSのrole、状態遷移、API境界を実装する | [CMS contract](../vnext/packages/cms/README.md) |
@@ -23,6 +24,7 @@
 - [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md): D1への保存、role、review、公開範囲、ブログ反映、メンバー管理、トラブル対応の運用上の正
 - [Studio MCP接続・運用ガイド](./studio-mcp.md): remote MCPの認証、tool境界、再送安全性、導入・確認手順
 - [Noema記事Markdown拡張](./article-markdown.md): raw HTMLを使わない記事内UI記法とMCPでの利用方法
+- [読者行動分析基盤](./reader-analytics.md): 指標、イベント、保存境界、Studioでの確認方法
 - [コンテンツ・掲載方針](./content-strategy.md): 注目記事の大小、記事タイプ、テーマ、公開範囲、OIF表記方針
 
 ## 開発・デプロイ
