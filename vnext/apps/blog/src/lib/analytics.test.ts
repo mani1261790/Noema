@@ -125,6 +125,31 @@ describe("reader analytics", () => {
     warning.mockRestore();
   });
 
+  it("stores the canonical aggregate without an Analytics Engine binding", async () => {
+    const run = vi.fn(async () => undefined);
+    const db: CmsAnalyticsDatabase = {
+      prepare(query) {
+        return {
+          bind() { return this; },
+          first: query.startsWith("SELECT")
+            ? vi.fn(async () => ({
+                id: "article-id",
+                published_revision_number: 1,
+                published_slug: "d1-only"
+              }))
+            : vi.fn(async () => null),
+          run
+        };
+      }
+    };
+
+    await expect(recordCmsAnalyticsEvent(db, undefined, {
+      articleSlug: "d1-only",
+      eventType: "landing"
+    })).resolves.toBe(true);
+    expect(run).toHaveBeenCalledOnce();
+  });
+
   it("does not write events for an unpublished slug", async () => {
     const run = vi.fn(async () => undefined);
     const db: CmsAnalyticsDatabase = {

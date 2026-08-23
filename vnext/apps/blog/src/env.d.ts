@@ -5,7 +5,7 @@ declare module "cloudflare:workers" {
     ANALYTICS_RATE_LIMITER: RateLimit;
     ARTICLE_ASSETS: R2Bucket;
     CMS_DB: D1Database;
-    READER_ANALYTICS: AnalyticsEngineDataset;
+    READER_ANALYTICS?: AnalyticsEngineDataset;
   };
 
   export { env };
