@@ -133,6 +133,40 @@ export async function updateCmsSeriesRecord(
   return seriesResult(result);
 }
 
+export async function deleteCmsSeriesRecord(
+  seriesId: string,
+  expectedVersion: number,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<null>> {
+  const result = await cmsRequest(`${CMS_SERIES_PATH}/${encodeURIComponent(seriesId)}`, {
+    body: JSON.stringify({ expectedVersion }),
+    headers: {
+      "content-type": "application/json",
+      "if-match": cmsEtag(expectedVersion)
+    },
+    method: "DELETE"
+  }, options);
+  return result.ok ? { ok: true, value: null } : result;
+}
+
+export async function mergeCmsSeriesRecords(
+  input: {
+    articleIds: string[];
+    sourceExpectedVersion: number;
+    sourceSeriesId: string;
+    targetExpectedVersion: number;
+    targetSeriesId: string;
+  },
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<CmsSeries>> {
+  const result = await cmsRequest(`${CMS_SERIES_PATH}/merge`, {
+    body: JSON.stringify(input),
+    headers: { "content-type": "application/json" },
+    method: "POST"
+  }, options);
+  return seriesResult(result);
+}
+
 export async function fetchCmsSeriesVersions(
   seriesId: string,
   options: CmsRequestOptions = {}
@@ -538,6 +572,9 @@ async function cmsRequest(
       ...init,
       signal: options.signal
     });
+    if (response.ok && response.status === 204) {
+      return { ok: true, status: response.status, value: null };
+    }
     const mediaType = response.headers.get("content-type")
       ?.split(";", 1)[0]
       ?.trim()

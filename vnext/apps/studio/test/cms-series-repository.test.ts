@@ -4,8 +4,10 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createCmsArticle, resolveCmsSession } from "../worker/cms-repository";
 import {
   createCmsSeries,
+  deleteCmsSeries,
   listCmsSeries,
   listCmsSeriesVersions,
+  mergeCmsSeries,
   updateCmsSeries
 } from "../worker/cms-series-repository";
 
@@ -22,6 +24,7 @@ beforeEach(async () => {
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_audit_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_revisions"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_articles"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_members"),
@@ -128,6 +131,86 @@ describe("CMS article series", () => {
       title: created.title
     })).rejects.toMatchObject({ code: "series_conflict" });
     expect((await listCmsSeries(testEnv.CMS_DB, identity))[0]?.articleIds).toEqual([second.id, first.id]);
+  });
+
+  it("allows an existing series to become empty and deletes only an empty series", async () => {
+    const identity = await adminIdentity();
+    const first = await createCmsArticle(testEnv.CMS_DB, identity, article("empty-source"), NOW);
+    const created = await createCmsSeries(testEnv.CMS_DB, identity, {
+      articleIds: [first.id],
+      description: "移行後に削除するシリーズです。",
+      slug: "empty-source-series",
+      title: "空にするシリーズ"
+    });
+
+    await expect(deleteCmsSeries(
+      testEnv.CMS_DB,
+      identity,
+      created.id,
+      created.lockVersion
+    )).rejects.toMatchObject({ code: "series_not_empty" });
+
+    const emptied = await updateCmsSeries(testEnv.CMS_DB, identity, created.id, created.lockVersion, {
+      articleIds: [],
+      description: created.description,
+      slug: created.slug,
+      title: created.title
+    });
+    expect(emptied).toMatchObject({ articleIds: [], lockVersion: 2, revisionNumber: 2 });
+    expect((await listCmsSeriesVersions(testEnv.CMS_DB, identity, created.id))[0])
+      .toMatchObject({ articleIds: [], isCurrent: true, number: 2 });
+
+    await deleteCmsSeries(testEnv.CMS_DB, identity, created.id, emptied.lockVersion);
+    expect(await listCmsSeries(testEnv.CMS_DB, identity)).toEqual([]);
+    expect(await testEnv.CMS_DB.prepare(
+      "SELECT action FROM cms_audit_events WHERE action = 'series.deleted'"
+    ).first("action")).toBe("series.deleted");
+  });
+
+  it("merges two series in the requested order and removes the source", async () => {
+    const identity = await adminIdentity();
+    const first = await createCmsArticle(testEnv.CMS_DB, identity, article("merge-first"), NOW);
+    const second = await createCmsArticle(testEnv.CMS_DB, identity, article("merge-second"), NOW);
+    const third = await createCmsArticle(testEnv.CMS_DB, identity, article("merge-third"), NOW);
+    const source = await createCmsSeries(testEnv.CMS_DB, identity, {
+      articleIds: [first.id, second.id],
+      description: "統合元です。",
+      slug: "merge-source",
+      title: "統合元"
+    });
+    const target = await createCmsSeries(testEnv.CMS_DB, identity, {
+      articleIds: [third.id],
+      description: "統合先です。",
+      slug: "merge-target",
+      title: "統合先"
+    });
+
+    await expect(mergeCmsSeries(testEnv.CMS_DB, identity, {
+      articleIds: [third.id, first.id],
+      sourceExpectedVersion: source.lockVersion,
+      sourceSeriesId: source.id,
+      targetExpectedVersion: target.lockVersion,
+      targetSeriesId: target.id
+    })).rejects.toMatchObject({ code: "invalid_series" });
+
+    const merged = await mergeCmsSeries(testEnv.CMS_DB, identity, {
+      articleIds: [third.id, second.id, first.id],
+      sourceExpectedVersion: source.lockVersion,
+      sourceSeriesId: source.id,
+      targetExpectedVersion: target.lockVersion,
+      targetSeriesId: target.id
+    });
+    expect(merged).toMatchObject({
+      articleIds: [third.id, second.id, first.id],
+      id: target.id,
+      lockVersion: 2,
+      revisionNumber: 2
+    });
+    await expect(listCmsSeriesVersions(testEnv.CMS_DB, identity, source.id))
+      .rejects.toMatchObject({ code: "series_not_found" });
+    expect(await testEnv.CMS_DB.prepare(
+      "SELECT action FROM cms_audit_events WHERE action = 'series.merged'"
+    ).first("action")).toBe("series.merged");
   });
 });
 

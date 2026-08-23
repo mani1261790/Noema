@@ -47,6 +47,7 @@ import {
 } from "@noema/cms";
 import {
   createCmsSeriesRecord,
+  deleteCmsSeriesRecord,
   createCmsArticle as createCmsArticleRecord,
   createCmsReviewCommentRecord,
   configureStudioPassword,
@@ -60,6 +61,7 @@ import {
   fetchCmsSeriesVersions,
   signInStudio,
   runCmsArticleAction,
+  mergeCmsSeriesRecords,
   updateCmsReviewCommentStatusRecord,
   updateCmsArticle as updateCmsArticleRecord,
   updateCmsSeriesRecord,
@@ -2254,6 +2256,59 @@ export function App() {
     return [];
   };
 
+  const deleteEmptyCmsSeries = async (series: CmsSeries): Promise<boolean> => {
+    if (cmsSessionState.kind !== "ready" || !cmsSessionState.session.capabilities.canEdit) return false;
+    setCmsSeriesBusy(true);
+    setCmsSeriesError(null);
+    const result = await deleteCmsSeriesRecord(series.id, series.lockVersion);
+    setCmsSeriesBusy(false);
+    if (!result.ok) {
+      setCmsSeriesError(result.error.message);
+      showNotification({ text: result.error.message, title: "シリーズを削除できませんでした", tone: "error" });
+      return false;
+    }
+    setCmsSeries((items) => items.filter((item) => item.id !== series.id));
+    showNotification({
+      text: `「${series.title}」を削除しました。記事と公開状態には影響しません。`,
+      title: "空のシリーズを削除しました",
+      tone: "info"
+    });
+    return true;
+  };
+
+  const mergeCmsSeries = async (
+    source: CmsSeries,
+    target: CmsSeries,
+    articleIds: string[]
+  ): Promise<CmsSeries | null> => {
+    if (cmsSessionState.kind !== "ready" || !cmsSessionState.session.capabilities.canEdit) return null;
+    setCmsSeriesBusy(true);
+    setCmsSeriesError(null);
+    const result = await mergeCmsSeriesRecords({
+      articleIds,
+      sourceExpectedVersion: source.lockVersion,
+      sourceSeriesId: source.id,
+      targetExpectedVersion: target.lockVersion,
+      targetSeriesId: target.id
+    });
+    setCmsSeriesBusy(false);
+    if (!result.ok) {
+      setCmsSeriesError(result.error.message);
+      showNotification({ text: result.error.message, title: "シリーズを統合できませんでした", tone: "error" });
+      return null;
+    }
+    setCmsSeries((items) => [
+      result.value,
+      ...items.filter((item) => item.id !== source.id && item.id !== target.id)
+    ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
+    showNotification({
+      text: `「${source.title}」の記事を「${target.title}」へ移し、統合元を削除しました。`,
+      title: "シリーズを統合しました",
+      tone: "info"
+    });
+    return result.value;
+  };
+
   const configurePasswordLogin = async (password: string) => {
     if (cmsSessionState.kind !== "ready" || cmsSessionState.session.passwordLoginReadyAt) return;
     setPasswordMigrationBusy(true);
@@ -3063,7 +3118,9 @@ export function App() {
                 busy={cmsSeriesBusy}
                 canEdit={Boolean(cmsSession?.capabilities.canEdit)}
                 error={cmsSeriesError}
+                onDelete={deleteEmptyCmsSeries}
                 onLoadVersions={loadCmsSeriesHistory}
+                onMerge={mergeCmsSeries}
                 onSave={saveCmsSeries}
                 series={cmsSeries}
               />

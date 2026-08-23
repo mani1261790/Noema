@@ -97,6 +97,8 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_create_series` | シリーズを作成 | 記事を指定順でまとめたシリーズを作成する |
 | `studio_update_series` | シリーズを更新 | 競合検知付きでシリーズ情報と記事順を変更する |
 | `studio_restore_series_version` | シリーズを更新 | 過去のシリーズ内容と記事順を新しい版として復元する |
+| `studio_merge_series` | シリーズを統合 | 2シリーズの全記事を指定順で統合先へ移し、統合元を削除する。取り消し不可 |
+| `studio_delete_series` | シリーズを完全削除 | 記事が0件のシリーズと履歴を削除する。取り消し不可 |
 | `studio_upload_asset` | 画像を追加 | R2へ画像を保存し、記事挿入用Markdownを返す |
 | `studio_update_asset` | 画像情報を更新 | 競合を確認してactiveな画像のaltと管理用タグを更新する |
 | `studio_archive_asset` | 画像をアーカイブ | 未使用のactive画像を競合検知付きで一覧から退避する |
@@ -222,7 +224,7 @@ MCPでは、記事の公開、公開終了、再公開はできません。過�
 
 ## シリーズを作成・編集する
 
-シリーズの`articleIds`は、そのまま読者へ示す記事順です。更新前に`studio_get_series`で現在の`lockVersion`を取得し、`studio_update_series`の`expectedVersion`へ指定します。同じ記事を複数シリーズへ入れたり、同一シリーズ内で重複させたりすることはできません。
+シリーズの`articleIds`は、そのまま読者へ示す記事順です。更新前に`studio_get_series`で現在の`lockVersion`を取得し、`studio_update_series`の`expectedVersion`へ指定します。同じ記事を複数シリーズへ入れたり、同一シリーズ内で重複させたりすることはできません。既存シリーズは移行作業のため`articleIds: []`にできますが、新規作成時は1記事以上が必要です。
 
 ```json
 {
@@ -239,6 +241,24 @@ MCPでは、記事の公開、公開終了、再公開はできません。過�
 ```
 
 過去の並びへ戻す場合は、`studio_list_series_versions`で対象の`versionId`を確認し、最新版の`lockVersion`とともに`studio_restore_series_version`へ渡します。復元は履歴を削除せず、新しいシリーズ版を追加します。シリーズ操作は記事の`publicationStatus`を変更しません。
+
+記事を個別に移す場合は、先に移行元を`studio_update_series`で空にし、移行先へ記事を追加してから、空になった移行元を`studio_delete_series`で削除できます。削除は空シリーズにだけ許可され、シリーズ履歴も削除されます。
+
+2シリーズ全体をまとめる場合は`studio_merge_series`を使います。`articleIds`には、統合元と統合先に現在含まれる全記事を重複なく、統合後に読ませたい順序で指定します。両方のシリーズを再取得して最新`lockVersion`を使い、統合元が削除されることを利用者へ確認してから実行します。
+
+```json
+{
+  "sourceSeriesId": "11111111-1111-4111-8111-111111111111",
+  "sourceExpectedVersion": 3,
+  "targetSeriesId": "44444444-4444-4444-8444-444444444444",
+  "targetExpectedVersion": 5,
+  "articleIds": [
+    "55555555-5555-4555-8555-555555555555",
+    "22222222-2222-4222-8222-222222222222",
+    "33333333-3333-4333-8333-333333333333"
+  ]
+}
+```
 
 ## 画像をアップロードして本文へ挿入する
 
@@ -402,6 +422,8 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 | `asset_in_use` | 記事から参照されている画像です。本文とヒーロー画像の利用箇所を確認し、参照を外して保存してからアーカイブします。 |
 | `series_conflict` | 他の編集者が先にシリーズを更新しています。`studio_get_series`で最新版と記事順を確認します。 |
 | `series_article_conflict` | 記事が別のシリーズに含まれているか、同じシリーズ内で重複しています。シリーズ一覧を確認します。 |
+| `series_not_empty` | 記事が残るシリーズを削除しようとしています。記事を移すか、シリーズ統合を使います。 |
+| `invalid_series` | 統合後の記事順に不足、重複、無関係な記事があります。両シリーズを再取得して全記事を並べ直します。 |
 | `last_admin_required` | 最後の有効な管理者を無効化または降格しようとしています。別の管理者を先に追加します。 |
 | `invalid_transition` | 現在の記事または画像の状態では操作できません。`studio_get_article`または`studio_list_assets`で最新状態を確認します。 |
 | `self_approval_forbidden` | レビュー担当者が自分で保存した最新版を承認しようとしています。別のレビュー担当者または管理者に確認を依頼します。 |
@@ -455,4 +477,4 @@ npm run check --workspace @noema/studio-mcp
 npm run deploy:dry-run --workspace @noema/studio-mcp
 ```
 
-`develop`へのmerge後は、ActionsのmigrationとStudio MCP Worker deployが成功したことを確認します。その後、Access認証、`studio_whoami`、記事・シリーズ・Asset一覧、検証、テスト用下書きとシリーズの作成・更新・履歴復元、レビューコメントと状態遷移を順に確認します。管理者ではメンバー一覧、未使用のテスト画像では削除も確認します。公開、公開終了、再公開のツールが一覧に存在しないことを受入条件にします。
+`develop`へのmerge後は、ActionsのmigrationとStudio MCP Worker deployが成功したことを確認します。その後、Access認証、`studio_whoami`、記事・シリーズ・Asset一覧、検証、テスト用下書きとシリーズの作成・更新・空状態・統合・空シリーズ削除・履歴復元、レビューコメントと状態遷移を順に確認します。管理者ではメンバー一覧、未使用のテスト画像では削除も確認します。公開、公開終了、再公開のツールが一覧に存在しないことを受入条件にします。

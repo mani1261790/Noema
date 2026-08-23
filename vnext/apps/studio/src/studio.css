@@ -4258,6 +4258,7 @@ textarea.studio-control {
 
 .studio-article-series__form label,
 .studio-article-series__existing label,
+.studio-article-series__merge > label,
 .studio-article-series__form details > label {
   display: grid;
   gap: .375rem;
@@ -4337,6 +4338,40 @@ textarea.studio-control {
 .studio-article-series__error {
   color: #b3261e;
   font-weight: 700;
+}
+
+.studio-article-series__merge {
+  display: grid;
+  gap: .75rem;
+}
+
+.studio-article-series__empty {
+  display: grid;
+  gap: .75rem;
+  padding: 1rem;
+  border: 1px solid #d7a29d;
+  border-radius: .5rem;
+  background: #fff8f7;
+}
+
+.studio-article-series__empty h4,
+.studio-article-series__empty p {
+  margin: 0;
+}
+
+.studio-article-series__empty ul {
+  display: grid;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.studio-article-series__empty li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
 }
 
 @media (max-width: 1050px) {
@@ -4778,6 +4813,7 @@ textarea.studio-control {
 
 @media (max-width: 420px) {
   .studio-article-series__heading,
+  .studio-article-series__empty li,
   .studio-article-series__position,
   .studio-article-series__history li {
     display: grid;
@@ -4785,6 +4821,7 @@ textarea.studio-control {
   }
 
   .studio-article-series__heading .dads-button,
+  .studio-article-series__empty .dads-button,
   .studio-article-series__actions .dads-button,
   .studio-article-series__existing .dads-button {
     width: 100%;

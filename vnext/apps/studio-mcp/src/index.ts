@@ -8,10 +8,13 @@ import {
   cmsAssetStatusSchema,
   cmsCreateArticleRequestSchema,
   cmsCreateSeriesRequestSchema,
+  cmsDeleteSeriesRequestSchema,
   cmsMemberMutationSchema,
+  cmsMergeSeriesRequestSchema,
   cmsPublicationStatusSchema,
   cmsReviewCommentRequestSchema,
   cmsReviewStatusSchema,
+  cmsSeriesContentSchema,
   cmsVisibilitySchema,
   validateCmsArticleForReview,
   type CmsAsset,
@@ -55,9 +58,11 @@ import {
 } from "../../studio/worker/cms-repository";
 import {
   createCmsSeries,
+  deleteCmsSeries,
   getCmsSeries,
   listCmsSeries,
   listCmsSeriesVersions,
+  mergeCmsSeries,
   updateCmsSeries
 } from "../../studio/worker/cms-series-repository";
 import {
@@ -112,10 +117,16 @@ const listSeriesSchema = z.object({
 
 const createSeriesSchema = cmsCreateSeriesRequestSchema;
 
-const updateSeriesSchema = cmsCreateSeriesRequestSchema.extend({
+const updateSeriesSchema = cmsSeriesContentSchema.extend({
   expectedVersion: z.number().int().positive(),
   seriesId: z.string().uuid()
 }).strict();
+
+const deleteSeriesSchema = cmsDeleteSeriesRequestSchema.extend({
+  seriesId: z.string().uuid()
+}).strict();
+
+const mergeSeriesSchema = cmsMergeSeriesRequestSchema;
 
 const restoreSeriesVersionSchema = z.object({
   expectedVersion: z.number().int().positive(),
@@ -320,7 +331,7 @@ export function createStudioMcpServer(
     name: "noema-studio",
     version: "0.1.0"
   }, {
-    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。レビュー修正ではstudio_list_review_commentsでstatus=openの指摘とanchorの引用・オフセット・前後文脈を確認し、studio_get_articleで現在本文を取得して該当箇所を修正します。本文更新後にstudio_resolve_review_commentで各指摘を対応済みにし、未対応が0件になってからレビューを再依頼してください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
+    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。レビュー修正ではstudio_list_review_commentsでstatus=openの指摘とanchorの引用・オフセット・前後文脈を確認し、studio_get_articleで現在本文を取得して該当箇所を修正します。本文更新後にstudio_resolve_review_commentで各指摘を対応済みにし、未対応が0件になってからレビューを再依頼してください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。既存シリーズはarticleIdsを空にでき、空のシリーズだけstudio_delete_seriesで削除できます。2シリーズをまとめる場合は、両方の全記事を重複なく並べたarticleIdsと最新lockVersionをstudio_merge_seriesへ渡します。統合元シリーズは削除されるため、実行前に統合先と記事順を利用者へ明示してください。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
   });
 
   server.registerTool(
@@ -476,6 +487,45 @@ export function createStudioMcpServer(
         content,
         undefined,
         { channel: "mcp", client, tool: "studio_update_series" }
+      )
+    }))
+  );
+
+  server.registerTool(
+    "studio_delete_series",
+    {
+      title: "Delete empty Studio series",
+      description: "記事が0件のシリーズを削除します。シリーズ履歴も削除され、取り消せません。",
+      inputSchema: deleteSeriesSchema,
+      annotations: destructiveWriteAnnotations()
+    },
+    async ({ expectedVersion, seriesId }) => executeTool(async () => {
+      await deleteCmsSeries(
+        db,
+        session.identity,
+        seriesId,
+        expectedVersion,
+        { channel: "mcp", client, tool: "studio_delete_series" }
+      );
+      return { deleted: true, seriesId };
+    })
+  );
+
+  server.registerTool(
+    "studio_merge_series",
+    {
+      title: "Merge Studio series",
+      description: "統合元と統合先の全記事を指定順で統合先へ移し、統合元シリーズとその履歴を削除します。公開状態は変更しません。",
+      inputSchema: mergeSeriesSchema,
+      annotations: destructiveWriteAnnotations()
+    },
+    async (input) => executeTool(async () => ({
+      deletedSourceSeriesId: input.sourceSeriesId,
+      series: await mergeCmsSeries(
+        db,
+        session.identity,
+        input,
+        { channel: "mcp", client, tool: "studio_merge_series" }
       )
     }))
   );

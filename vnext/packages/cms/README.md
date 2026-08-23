@@ -108,6 +108,12 @@ Studio Workerは次のCMS endpointを提供します。
 - `GET /api/cms/articles/{id}/comments`
 - `POST /api/cms/articles/{id}/comments`
 - `PATCH /api/cms/articles/{id}/comments/{commentId}`
+- `GET /api/cms/series`
+- `POST /api/cms/series`
+- `PUT /api/cms/series/{id}`（既存シリーズは空の記事順を保存可能）
+- `DELETE /api/cms/series/{id}`（空シリーズだけ削除可能）
+- `POST /api/cms/series/merge`
+- `GET /api/cms/series/{id}/versions`
 - `GET /api/cms/members`
 - `PUT /api/cms/members`
 - `POST /api/studio-auth/password`（既存メンバーの初回設定）

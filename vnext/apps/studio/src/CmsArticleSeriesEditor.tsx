@@ -28,7 +28,9 @@ export function CmsArticleSeriesEditor({
   busy,
   canEdit,
   error,
+  onDelete,
   onLoadVersions,
+  onMerge,
   onSave,
   series
 }: {
@@ -37,7 +39,9 @@ export function CmsArticleSeriesEditor({
   busy: boolean;
   canEdit: boolean;
   error: string | null;
+  onDelete: (series: CmsSeries) => Promise<boolean>;
   onLoadVersions: (seriesId: string) => Promise<CmsSeriesVersion[]>;
+  onMerge: (source: CmsSeries, target: CmsSeries, articleIds: string[]) => Promise<CmsSeries | null>;
   onSave: (
     current: CmsSeries | null,
     content: CmsSeriesContent,
@@ -50,6 +54,7 @@ export function CmsArticleSeriesEditor({
     [articleId, series]
   );
   const [selectedSeriesId, setSelectedSeriesId] = useState("");
+  const [mergeTargetId, setMergeTargetId] = useState("");
   const [title, setTitle] = useState(() => membership?.title ?? "");
   const [description, setDescription] = useState(() => membership?.description ?? "");
   const [slug, setSlug] = useState(() => membership?.slug ?? "");
@@ -73,6 +78,7 @@ export function CmsArticleSeriesEditor({
     setSlugEdited(Boolean(membership));
     setArticleIds(membership?.articleIds ?? []);
     setVersions(null);
+    setMergeTargetId("");
   }, [membership?.id, membership?.lockVersion]);
 
   const moveCurrentArticle = (offset: number) => {
@@ -141,8 +147,13 @@ export function CmsArticleSeriesEditor({
   };
 
   const removeFromSeries = async () => {
-    if (!membership || articleIds.length <= 1) return;
-    if (!window.confirm(`この記事を「${membership.title}」から外しますか？ シリーズ履歴から復元できます。`)) return;
+    if (!membership) return;
+    const leavesEmpty = articleIds.length === 1;
+    if (!window.confirm(
+      leavesEmpty
+        ? `この記事を「${membership.title}」から外しますか？ シリーズは空の状態で残り、あとから削除できます。`
+        : `この記事を「${membership.title}」から外しますか？ シリーズ履歴から復元できます。`
+    )) return;
     await onSave(membership, {
       articleIds: articleIds.filter((id) => id !== articleId),
       description,
@@ -150,6 +161,24 @@ export function CmsArticleSeriesEditor({
       title
     });
   };
+
+  const mergeIntoExisting = async () => {
+    if (!membership) return;
+    const target = series.find((item) => item.id === mergeTargetId);
+    if (!target || target.id === membership.id) return;
+    if (!window.confirm(
+      `「${membership.title}」を「${target.title}」へ統合しますか？ ` +
+      "統合元シリーズは削除され、記事は統合先の末尾へ追加されます。この操作は取り消せません。"
+    )) return;
+    const merged = await onMerge(
+      membership,
+      target,
+      [...target.articleIds, ...membership.articleIds]
+    );
+    if (merged) setMergeTargetId("");
+  };
+
+  const emptySeries = series.filter((item) => item.articleIds.length === 0);
 
   if (!membership) {
     return (
@@ -181,6 +210,12 @@ export function CmsArticleSeriesEditor({
             <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy || !title.trim()} type="submit">{createSeriesLabel}</button>
           </form>
         </details>
+        <EmptySeriesCleanup
+          busy={busy}
+          canEdit={canEdit}
+          onDelete={onDelete}
+          series={emptySeries}
+        />
       </section>
     );
   }
@@ -224,11 +259,90 @@ export function CmsArticleSeriesEditor({
           </ol>
         </details>
         <div className="studio-article-series__actions">
-          <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy || articleIds.length === 0} type="submit">{saveSeriesLabel}</button>
-          <button className="dads-button" data-size="md" data-type="outline" disabled={!canEdit || busy || articleIds.length <= 1} onClick={() => void removeFromSeries()} type="button">この記事をシリーズから外す</button>
+          <button className="dads-button" data-size="md" data-type="solid-fill" disabled={!canEdit || busy} type="submit">{saveSeriesLabel}</button>
+          <button className="dads-button" data-size="md" data-type="outline" disabled={!canEdit || busy} onClick={() => void removeFromSeries()} type="button">この記事をシリーズから外す</button>
         </div>
-        {articleIds.length <= 1 ? <p className="studio-field__support">最後の記事は外せません。シリーズを残すには、先に別の記事を追加してください。</p> : null}
+        {articleIds.length === 1 ? <p className="studio-field__support">最後の記事も外せます。空になったシリーズは、この画面から削除できます。</p> : null}
       </form>
+      {series.some((item) => item.id !== membership.id) ? (
+        <details className="studio-disclosure studio-article-series__merge">
+          <summary>別のシリーズへ統合</summary>
+          <p>このシリーズの記事を統合先の末尾へ移し、このシリーズを削除します。</p>
+          <label htmlFor="article-series-merge-target">統合先シリーズ</label>
+          <select
+            disabled={!canEdit || busy}
+            id="article-series-merge-target"
+            onChange={(event) => setMergeTargetId(event.target.value)}
+            value={mergeTargetId}
+          >
+            <option value="">選択してください</option>
+            {series.filter((item) => item.id !== membership.id).map((item) => (
+              <option key={item.id} value={item.id}>{item.title}（{item.articleIds.length}記事）</option>
+            ))}
+          </select>
+          <button
+            className="dads-button"
+            data-size="md"
+            data-type="outline"
+            disabled={!canEdit || busy || !mergeTargetId}
+            onClick={() => void mergeIntoExisting()}
+            type="button"
+          >
+            統合してこのシリーズを削除
+          </button>
+        </details>
+      ) : null}
+      <EmptySeriesCleanup
+        busy={busy}
+        canEdit={canEdit}
+        onDelete={onDelete}
+        series={emptySeries.filter((item) => item.id !== membership.id)}
+      />
+    </section>
+  );
+}
+
+function EmptySeriesCleanup({
+  busy,
+  canEdit,
+  onDelete,
+  series
+}: {
+  busy: boolean;
+  canEdit: boolean;
+  onDelete: (series: CmsSeries) => Promise<boolean>;
+  series: CmsSeries[];
+}) {
+  if (series.length === 0) return null;
+  const remove = async (item: CmsSeries) => {
+    if (!window.confirm(
+      `空のシリーズ「${item.title}」を削除しますか？ シリーズ履歴も削除され、この操作は取り消せません。`
+    )) return;
+    await onDelete(item);
+  };
+  return (
+    <section className="studio-article-series__empty" aria-labelledby="empty-series-heading">
+      <div>
+        <h4 id="empty-series-heading">空のシリーズ</h4>
+        <p>記事の移行が終わったシリーズを削除できます。</p>
+      </div>
+      <ul>
+        {series.map((item) => (
+          <li key={item.id}>
+            <span>{item.title}</span>
+            <button
+              className="dads-button"
+              data-size="sm"
+              data-type="outline"
+              disabled={!canEdit || busy}
+              onClick={() => void remove(item)}
+              type="button"
+            >
+              削除
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
