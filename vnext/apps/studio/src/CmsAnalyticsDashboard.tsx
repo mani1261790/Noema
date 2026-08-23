@@ -97,9 +97,10 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
         {state.kind === "ready" ? (
           <>
             <section className="studio-analytics__kpis" aria-label="主要指標">
-              <article><span>記事への到達</span><strong>{state.summary.totals.landing}</strong><small>公開記事の表示回数</small></article>
+              <article><span>50%到達率</span><strong>{formatPercent(state.summary.totals.article50Rate)}</strong><small>{state.summary.totals.article50} / {state.summary.totals.landing}表示</small></article>
               <article><span>読了率</span><strong>{formatPercent(state.summary.totals.qualifiedReadRate)}</strong><small>本文末尾到達 ÷ 記事への到達</small></article>
               <article><span>次記事移動率</span><strong>{formatPercent(state.summary.totals.onwardRate)}</strong><small>シリーズ・関連記事クリック ÷ 読了</small></article>
+              <article><span>アシスタント利用率</span><strong>{formatPercent(state.summary.totals.assistantUseRate)}</strong><small>{state.summary.totals.assistantOpen}開始 ÷ {state.summary.totals.landing}表示</small></article>
               <article><span>アシスタント成功率</span><strong>{formatPercent(state.summary.totals.assistantSuccessRate)}</strong><small>回答成功 ÷ 質問開始</small></article>
             </section>
 
@@ -111,14 +112,15 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
               {state.summary.articles.length === 0 ? <p>この期間の読者行動はまだありません。</p> : (
                 <div className="studio-analytics__table-wrap">
                   <table>
-                    <caption className="sr-only">公開revision別の記事到達、読了、回遊、アシスタント成功率</caption>
-                    <thead><tr><th scope="col">記事</th><th scope="col">到達</th><th scope="col">50%</th><th scope="col">読了</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">移動率</th><th scope="col">AI成功</th></tr></thead>
+                    <caption className="sr-only">公開revision別の記事到達、読了、回遊、共有、アシスタント利用</caption>
+                    <thead><tr><th scope="col">記事</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">シリーズ次</th><th scope="col">関連記事</th><th scope="col">移動率</th><th scope="col">共有</th><th scope="col">AI開始</th><th scope="col">AI成功率</th></tr></thead>
                     <tbody>{state.summary.articles.map((article) => (
                       <tr key={`${article.articleId}:${article.revisionNumber}`}>
                         <th scope="row"><strong>{article.title}</strong><small>{article.slug}・rev.{article.revisionNumber}</small></th>
-                        <td>{article.landing}</td><td>{article.article50}</td><td>{article.articleEnd}</td>
-                        <td>{formatPercent(article.qualifiedReadRate)}</td><td>{article.navigationClick}</td>
-                        <td>{formatPercent(article.onwardRate)}</td><td>{formatPercent(article.assistantSuccessRate)}</td>
+                        <td>{article.landing}</td><td>{formatPercent(article.article50Rate)}</td>
+                        <td>{formatPercent(article.qualifiedReadRate)}</td><td>{article.seriesNext}</td>
+                        <td>{article.relatedClick}</td><td>{formatPercent(article.onwardRate)}</td>
+                        <td>{article.share}</td><td>{article.assistantOpen}</td><td>{formatPercent(article.assistantSuccessRate)}</td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -131,12 +133,12 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
               {state.summary.sources.length === 0 ? <p>この期間の流入データはまだありません。</p> : (
                 <div className="studio-analytics__table-wrap">
                   <table>
-                    <caption className="sr-only">流入元別の記事到達、読了、回遊</caption>
-                    <thead><tr><th scope="col">流入元</th><th scope="col">キャンペーン</th><th scope="col">内容</th><th scope="col">到達</th><th scope="col">読了</th><th scope="col">読了率</th><th scope="col">次記事</th></tr></thead>
+                    <caption className="sr-only">流入元別の記事到達、50%到達、読了、回遊</caption>
+                    <thead><tr><th scope="col">流入元</th><th scope="col">キャンペーン</th><th scope="col">内容</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th></tr></thead>
                     <tbody>{state.summary.sources.map((source) => (
                       <tr key={`${source.source}\u0000${source.medium}\u0000${source.campaign}\u0000${source.content}\u0000${source.referrerHost}`}>
                         <th scope="row">{sourceLabel(source)}</th><td>{source.campaign || "—"}</td><td>{source.content || "—"}</td>
-                        <td>{source.landing}</td><td>{source.articleEnd}</td><td>{formatPercent(source.qualifiedReadRate)}</td><td>{source.navigationClick}</td>
+                        <td>{source.landing}</td><td>{formatPercent(source.article50Rate)}</td><td>{formatPercent(source.qualifiedReadRate)}</td><td>{source.navigationClick}</td>
                       </tr>
                     ))}</tbody>
                   </table>

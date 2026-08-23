@@ -2877,7 +2877,7 @@ export function App() {
 
       {studioView !== "editor" ? (
         <nav aria-label="Studioの主要機能" className="studio-primary-nav">
-          <strong>Noema Studio</strong>
+          <strong aria-label="Noema Studio">Noema <span className="studio-primary-nav__product">Studio</span></strong>
           <div>
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>

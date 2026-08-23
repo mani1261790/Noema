@@ -112,7 +112,9 @@ describe("CMS analytics client", () => {
       articles: [{
         ...counts,
         articleId: "11111111-1111-4111-8111-111111111111",
+        article50Rate: 0.8,
         assistantSuccessRate: 2 / 3,
+        assistantUseRate: 0.3,
         onwardRate: 0.5,
         qualifiedReadRate: 0.6,
         revisionNumber: 4,
@@ -122,6 +124,8 @@ describe("CMS analytics client", () => {
       daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3 }],
       range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
       sources: [{
+        article50: 8,
+        article50Rate: 0.8,
         articleEnd: 6,
         campaign: "launch",
         content: "diagram",
@@ -134,7 +138,9 @@ describe("CMS analytics client", () => {
       }],
       totals: {
         ...counts,
+        article50Rate: 0.8,
         assistantSuccessRate: 2 / 3,
+        assistantUseRate: 0.3,
         onwardRate: 0.5,
         qualifiedReadRate: 0.6
       }

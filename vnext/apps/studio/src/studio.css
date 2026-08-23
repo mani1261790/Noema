@@ -2497,7 +2497,7 @@ a {
 
 .studio-analytics__kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
 }
@@ -4314,6 +4314,11 @@ textarea.studio-control {
 
   .studio-primary-nav strong {
     font-size: 1rem;
+    white-space: nowrap;
+  }
+
+  .studio-primary-nav__product {
+    display: none;
   }
 
   .studio-primary-nav a {

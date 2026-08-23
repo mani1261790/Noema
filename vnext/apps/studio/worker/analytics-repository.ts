@@ -163,7 +163,9 @@ export async function listCmsAnalyticsSummary(
     const metric = articleMetrics.get(key) ?? {
       ...emptyCounts(),
       articleId: row.article_id,
+      article50Rate: null,
       assistantSuccessRate: null,
+      assistantUseRate: null,
       onwardRate: null,
       qualifiedReadRate: null,
       revisionNumber: row.revision_number,
@@ -175,7 +177,9 @@ export async function listCmsAnalyticsSummary(
   }
   const articles = [...articleMetrics.values()].map((metric) => ({
     ...metric,
+    article50Rate: ratio(metric.article50, metric.landing),
     assistantSuccessRate: ratio(metric.assistantSuccess, metric.assistantOpen),
+    assistantUseRate: ratio(metric.assistantOpen, metric.landing),
     onwardRate: ratio(metric.navigationClick, metric.articleEnd),
     qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
   })).sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
@@ -184,6 +188,8 @@ export async function listCmsAnalyticsSummary(
   for (const row of sourceResult.results) {
     const key = [row.source, row.medium, row.campaign, row.content, row.referrer_host].join("\u0000");
     const metric = sourceMetrics.get(key) ?? {
+      article50: 0,
+      article50Rate: null,
       articleEnd: 0,
       campaign: row.campaign,
       content: row.content,
@@ -195,14 +201,21 @@ export async function listCmsAnalyticsSummary(
       source: row.source
     };
     if (row.event_type === "landing") metric.landing += row.event_count;
+    if (row.event_type === "article_50") metric.article50 += row.event_count;
     if (row.event_type === "article_end") metric.articleEnd += row.event_count;
     if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
     sourceMetrics.set(key, metric);
   }
   const sources = [...sourceMetrics.values()]
-    .filter((metric) => metric.landing > 0 || metric.articleEnd > 0 || metric.navigationClick > 0)
+    .filter((metric) => (
+      metric.landing > 0 ||
+      metric.article50 > 0 ||
+      metric.articleEnd > 0 ||
+      metric.navigationClick > 0
+    ))
     .map((metric) => ({
       ...metric,
+      article50Rate: ratio(metric.article50, metric.landing),
       qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
@@ -234,7 +247,9 @@ export async function listCmsAnalyticsSummary(
     sources,
     totals: {
       ...totals,
+      article50Rate: ratio(totals.article50, totals.landing),
       assistantSuccessRate: ratio(totals.assistantSuccess, totals.assistantOpen),
+      assistantUseRate: ratio(totals.assistantOpen, totals.landing),
       onwardRate: ratio(totals.navigationClick, totals.articleEnd),
       qualifiedReadRate: ratio(totals.articleEnd, totals.landing)
     }

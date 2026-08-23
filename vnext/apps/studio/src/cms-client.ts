@@ -969,7 +969,9 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
     !counts ||
     !isRecord(value) ||
     !isString(value.articleId) ||
+    !isNullableRate(value.article50Rate) ||
     !isNullableRate(value.assistantSuccessRate) ||
+    !isNullableRate(value.assistantUseRate) ||
     !isNullableRate(value.onwardRate) ||
     !isNullableRate(value.qualifiedReadRate) ||
     !isNonnegativeInteger(value.revisionNumber) ||
@@ -979,7 +981,9 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
   return {
     ...counts,
     articleId: value.articleId,
+    article50Rate: value.article50Rate,
     assistantSuccessRate: value.assistantSuccessRate,
+    assistantUseRate: value.assistantUseRate,
     onwardRate: value.onwardRate,
     qualifiedReadRate: value.qualifiedReadRate,
     revisionNumber: value.revisionNumber,
@@ -991,6 +995,8 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
 function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | null {
   if (
     !isRecord(value) ||
+    !isNonnegativeInteger(value.article50) ||
+    !isNullableRate(value.article50Rate) ||
     !isNonnegativeInteger(value.articleEnd) ||
     !isString(value.campaign) ||
     !isString(value.content) ||
@@ -1002,6 +1008,8 @@ function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | nul
     !isString(value.source)
   ) return null;
   return {
+    article50: value.article50,
+    article50Rate: value.article50Rate,
     articleEnd: value.articleEnd,
     campaign: value.campaign,
     content: value.content,
@@ -1052,7 +1060,9 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !(days === 7 || days === 30 || days === 90) ||
     !isString(value.range.from) ||
     !isString(value.range.through) ||
+    !isNullableRate(value.totals.article50Rate) ||
     !isNullableRate(value.totals.assistantSuccessRate) ||
+    !isNullableRate(value.totals.assistantUseRate) ||
     !isNullableRate(value.totals.onwardRate) ||
     !isNullableRate(value.totals.qualifiedReadRate)
   ) return null;
@@ -1063,7 +1073,9 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     sources,
     totals: {
       ...counts,
+      article50Rate: value.totals.article50Rate,
       assistantSuccessRate: value.totals.assistantSuccessRate,
+      assistantUseRate: value.totals.assistantUseRate,
       onwardRate: value.totals.onwardRate,
       qualifiedReadRate: value.totals.qualifiedReadRate
     }

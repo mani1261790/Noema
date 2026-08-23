@@ -105,7 +105,9 @@ export interface CmsAnalyticsCounts {
 
 export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
   articleId: string;
+  article50Rate: number | null;
   assistantSuccessRate: number | null;
+  assistantUseRate: number | null;
   onwardRate: number | null;
   qualifiedReadRate: number | null;
   revisionNumber: number;
@@ -114,6 +116,8 @@ export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
 }
 
 export interface CmsAnalyticsSourceMetric {
+  article50: number;
+  article50Rate: number | null;
   articleEnd: number;
   campaign: string;
   content: string;
@@ -142,7 +146,9 @@ export interface CmsAnalyticsSummary {
   };
   sources: CmsAnalyticsSourceMetric[];
   totals: CmsAnalyticsCounts & {
+    article50Rate: number | null;
     assistantSuccessRate: number | null;
+    assistantUseRate: number | null;
     onwardRate: number | null;
     qualifiedReadRate: number | null;
   };

@@ -80,24 +80,47 @@ describe("CMS HTTP API", () => {
       ADMIN
     );
     const body = (await response.json()) as { summary: {
-      articles: Array<{ assistantSuccessRate: number; onwardRate: number; qualifiedReadRate: number }>;
-      sources: Array<{ campaign: string; landing: number; qualifiedReadRate: number }>;
-      totals: { assistantSuccessRate: number; landing: number; onwardRate: number; qualifiedReadRate: number };
+      articles: Array<{
+        article50Rate: number;
+        assistantSuccessRate: number;
+        assistantUseRate: number;
+        onwardRate: number;
+        qualifiedReadRate: number;
+      }>;
+      sources: Array<{
+        article50Rate: number;
+        campaign: string;
+        landing: number;
+        qualifiedReadRate: number;
+      }>;
+      totals: {
+        article50Rate: number;
+        assistantSuccessRate: number;
+        assistantUseRate: number;
+        landing: number;
+        onwardRate: number;
+        qualifiedReadRate: number;
+      };
     } };
 
     expect(response.status).toBe(200);
     expect(body.summary.totals).toMatchObject({
+      article50Rate: 0.75,
       assistantSuccessRate: 0.5,
+      assistantUseRate: 0.5,
       landing: 4,
       onwardRate: 0.5,
       qualifiedReadRate: 0.5
     });
     expect(body.summary.articles[0]).toMatchObject({
+      article50Rate: 0.75,
       assistantSuccessRate: 0.5,
+      assistantUseRate: 0.5,
       onwardRate: 0.5,
       qualifiedReadRate: 0.5
     });
     expect(body.summary.sources).toContainEqual(expect.objectContaining({
+      article50Rate: 0.75,
       campaign: "launch",
       landing: 4,
       qualifiedReadRate: 0.5
