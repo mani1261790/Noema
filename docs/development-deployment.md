@@ -139,9 +139,12 @@ Discordへ送るのは、記事とrevision 1の作成、レビュー依頼、公
 
 ```bash
 cd vnext
-npx wrangler queues list
-npx wrangler queues create noema-studio-discord-milestones
-npx wrangler queues create noema-studio-discord-milestones-dlq
+npx wrangler queues list \
+  --config apps/studio/wrangler.jsonc
+npx wrangler queues create noema-studio-discord-milestones \
+  --config apps/studio/wrangler.jsonc
+npx wrangler queues create noema-studio-discord-milestones-dlq \
+  --config apps/studio/wrangler.jsonc
 ```
 
 専用の検証チャンネルでDiscord Webhookを作成し、値をログやIssueへ貼らずStudio Worker Secretへ設定します。Studio MCPへ同じSecretを設定する必要はありません。
