@@ -152,7 +152,7 @@ npx wrangler secret put DISCORD_WEBHOOK_URL \
   --config apps/studio/wrangler.jsonc
 ```
 
-QueueとSecretが揃う前にこの機能を含むPRをmergeしません。初回の実疎通では検証用記事を1件作成し、限定記事の題名、メールアドレス、本文、レビューコメントがDiscord payloadへ含まれないことを確認します。
+`wrangler.jsonc`の`secrets.required`にも`DISCORD_WEBHOOK_URL`を宣言しています。Secretが未設定ならStudio Workerのdeployは失敗し、Webhookなしのconsumerを有効化しません。QueueとSecretが揃う前にこの機能を含むPRをmergeしません。初回の実疎通では検証用記事を1件作成し、限定記事の題名、メールアドレス、本文、レビューコメントがDiscord payloadへ含まれないことを確認します。
 
 ### D1 backupの現在地
 
