@@ -3399,6 +3399,10 @@ textarea.studio-control {
   width: min(100% - 2rem, 56rem);
 }
 
+.studio-workspace.is-review-workspace .studio-live-preview .article-body {
+  cursor: text;
+}
+
 .studio-writing-canvas {
   position: relative;
   min-width: 0;

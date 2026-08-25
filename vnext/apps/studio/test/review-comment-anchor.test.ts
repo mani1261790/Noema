@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createReviewCommentAnchor,
+  createReviewCommentAnchorFromRenderedSelection,
+  getRenderedReviewCommentQuote,
   locateReviewCommentAnchor
 } from "../src/review-comment-anchor";
 
@@ -43,5 +45,49 @@ describe("review comment anchors", () => {
   it("reports a removed quote as unavailable", () => {
     const anchor = createReviewCommentAnchor("修正前の文章", 0, "修正前".length);
     expect(anchor && locateReviewCommentAnchor("修正後の文章", anchor)).toBeNull();
+  });
+
+  it("maps a rendered article selection back to its Markdown source", () => {
+    const markdown = "## 導入\n\nレンダリングされた本文から指摘します。\n\n## 次へ";
+    const anchor = createReviewCommentAnchorFromRenderedSelection(
+      markdown,
+      "本文から指摘",
+      "レンダリングされた",
+      "します。"
+    );
+    expect(anchor).toMatchObject({
+      quote: "本文から指摘",
+      startOffset: markdown.indexOf("本文から指摘")
+    });
+  });
+
+  it("uses rendered context to distinguish repeated selections", () => {
+    const markdown = "前半で対象を説明します。\n\n後半で対象を詳しく説明します。";
+    const anchor = createReviewCommentAnchorFromRenderedSelection(
+      markdown,
+      "対象",
+      "後半で",
+      "を詳しく説明します。"
+    );
+    expect(anchor?.startOffset).toBe(markdown.lastIndexOf("対象"));
+  });
+
+  it("maps rendered whitespace to Markdown line breaks", () => {
+    const markdown = "改行を含む\n文章を選びます。";
+    const anchor = createReviewCommentAnchorFromRenderedSelection(
+      markdown,
+      "改行を含む 文章"
+    );
+    expect(anchor?.quote).toBe("改行を含む\n文章");
+  });
+
+  it("maps a rendered selection across inline Markdown formatting", () => {
+    const markdown = "これは**重要な説明**です。";
+    const anchor = createReviewCommentAnchorFromRenderedSelection(
+      markdown,
+      "これは重要な説明です"
+    );
+    expect(anchor?.quote).toBe("これは**重要な説明**です");
+    expect(anchor && getRenderedReviewCommentQuote(anchor.quote)).toBe("これは重要な説明です");
   });
 });
