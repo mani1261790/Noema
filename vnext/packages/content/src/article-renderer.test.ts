@@ -94,8 +94,18 @@ describe("renderArticlePresentation", () => {
       editor: { href: "/editors/0123?x=\"", name: "山田 <編集>" }
     });
 
-    expect(html).toContain("<dt>編集</dt>");
+    expect(html).toContain("<dt>編集者</dt>");
     expect(html).toContain('href="/editors/0123?x=&quot;"');
     expect(html).toContain("山田 &lt;編集&gt;");
+    expect(html.match(/山田 &lt;編集&gt;/g)).toHaveLength(1);
+    expect(html).not.toContain("<dt>執筆</dt>");
+    expect(html).not.toContain("Noema編集部");
+  });
+
+  it("uses the editorial authors as the single editor fallback", () => {
+    const html = renderArticlePresentation(frontmatter, "## 本文\n\n説明です。");
+
+    expect(html).toContain("<dt>編集者</dt><dd>Noema編集部</dd>");
+    expect(html).not.toContain("<dt>執筆</dt>");
   });
 });
