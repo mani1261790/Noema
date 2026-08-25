@@ -110,9 +110,9 @@ export function renderArticlePresentation(
         return `<li><a href="${attribute(href)}">${escapeHtml(tag)}</a></li>`;
       }).join("")}</ul>`
     : "";
-  const editor = options.editor
-    ? `<div><dt>編集</dt><dd><a href="${attribute(resolveReference(options.editor.href, options.resolveLinkReference))}">${escapeHtml(options.editor.name)}</a></dd></div>`
-    : "";
+  const attribution = options.editor
+    ? `<div><dt>編集者</dt><dd><a href="${attribute(resolveReference(options.editor.href, options.resolveLinkReference))}">${escapeHtml(options.editor.name)}</a></dd></div>`
+    : `<div><dt>編集者</dt><dd>${escapeHtml(frontmatter.authors.join("、"))}</dd></div>`;
   const hero = frontmatter.heroImage
     ? `<figure class="article-hero-image"><img src="${attribute(resolveReference(frontmatter.heroImage.src, options.resolveImageReference))}" alt="${attribute(frontmatter.heroImage.alt)}"></figure>`
     : "";
@@ -131,5 +131,5 @@ export function renderArticlePresentation(
   const seriesIntro = options.series ? renderSeriesIntro(options.series, options.resolveLinkReference) : "";
   const seriesEnd = options.series ? renderSeriesEnd(options.series, options.resolveLinkReference) : "";
 
-  return `<div class="article-presentation"><header class="article-header"><h1>${escapeHtml(frontmatter.title)}</h1><p>${escapeHtml(frontmatter.description)}</p><dl class="article-meta"><div><dt>執筆</dt><dd>${escapeHtml(frontmatter.authors.join("、"))}</dd></div>${editor}<div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 ${frontmatter.estimatedMinutes}分</dd></div>${publishedAt ? `<div><dt>公開</dt><dd><time datetime="${attribute(frontmatter.publishedAt ?? "")}">${escapeHtml(publishedAt)}</time></dd></div>` : ""}<div><dt>更新</dt><dd><time datetime="${attribute(frontmatter.updatedAt)}">${escapeHtml(updatedAt)}</time></dd></div></dl>${tags}</header>${hero}${seriesIntro}<section class="article-outcome"><h2>この記事でできるようになること</h2><p>${escapeHtml(frontmatter.outcome)}</p></section>${toc}<article class="article-body">${renderedMarkdown}</article>${sources}${seriesEnd}</div>`;
+  return `<div class="article-presentation"><header class="article-header"><h1>${escapeHtml(frontmatter.title)}</h1><p>${escapeHtml(frontmatter.description)}</p><dl class="article-meta">${attribution}<div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 ${frontmatter.estimatedMinutes}分</dd></div>${publishedAt ? `<div><dt>公開</dt><dd><time datetime="${attribute(frontmatter.publishedAt ?? "")}">${escapeHtml(publishedAt)}</time></dd></div>` : ""}<div><dt>更新</dt><dd><time datetime="${attribute(frontmatter.updatedAt)}">${escapeHtml(updatedAt)}</time></dd></div></dl>${tags}</header>${hero}${seriesIntro}<section class="article-outcome"><h2>この記事でできるようになること</h2><p>${escapeHtml(frontmatter.outcome)}</p></section>${toc}<article class="article-body">${renderedMarkdown}</article>${sources}${seriesEnd}</div>`;
 }

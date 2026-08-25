@@ -35,6 +35,7 @@ const presentationHtml = renderArticlePresentation(article.data, article.markdow
 const canonicalUrl = new URL(`/articles/${article.data.slug}/`, Astro.site ?? "https://noema-learn.uk");
 const ogImagePath = "/og/default.png";
 const ogImageUrl = new URL(ogImagePath, Astro.site ?? "https://noema-learn.uk");
+const attributedAuthors = article.editor ? [article.editor.displayName] : article.data.authors;
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Article",
@@ -45,8 +46,11 @@ const jsonLd = {
   inLanguage: "ja",
   mainEntityOfPage: canonicalUrl.toString(),
   image: [ogImageUrl.toString()],
-  author: article.data.authors.map((name: string) => ({ "@type": "Person", name })),
-  ...(article.editor ? { editor: { "@type": "Person", name: article.editor.displayName, url: new URL(article.editor.href, canonicalUrl).toString() } } : {}),
+  author: attributedAuthors.map((name: string) => ({
+    "@type": "Person",
+    name,
+    ...(article.editor ? { url: new URL(article.editor.href, canonicalUrl).toString() } : {})
+  })),
   publisher: { "@type": "Organization", name: "Noema", url: new URL("/", canonicalUrl).toString() }
 };
 const topic = article.data.topics[0] ?? "technology";
@@ -61,7 +65,7 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
   pageType="article"
   publishedAt={article.data.publishedAt}
   updatedAt={article.data.updatedAt}
-  authors={article.data.authors}
+  authors={attributedAuthors}
   jsonLd={jsonLd}
 >
   <ArticleAnalytics slug={article.data.slug} />
