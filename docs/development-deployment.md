@@ -25,6 +25,7 @@ GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 | 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（期待値404） |
 | CMS database | D1 `noema-cms` | 記事、revision、role、review、公開範囲の正本 |
 | 記事画像 | R2 | accountで未有効のためupload不可 |
+| Discord通知 | Queue `noema-studio-discord-milestones` | 記事作成、レビュー依頼、公開成功の3イベントだけを非同期配送 |
 
 ブログの`workers.dev` URL、StudioとStudio MCPのcustom domainには、最後に成功した`develop`のCloudflare Worker versionが表示されます。記事本文はD1から実行時に読み取るため、同じWorker versionのままでもCMSの公開操作によって内容が変わります。
 
@@ -79,6 +80,7 @@ Cloudflare側では対象accountとzoneへ限定し、少なくとも次の操�
 
 - Account: Workers Scriptsの編集
 - Account: D1の編集
+- Account: Queuesの編集
 - Zone `noema-learn.uk`: Workers Routeの編集
 
 R2 bucketはaccountで未有効です。R2の有効化、bucket作成、billingに関わる操作はdeploy workflowへ追加せず、明示承認後に一度だけ行います。
@@ -126,6 +128,34 @@ npx wrangler d1 migrations apply noema-cms \
 ```
 
 Migrationの適用履歴はD1の`d1_migrations` tableでWranglerが管理します。このtableを手作業で変更したり、適用済みfileを書き換えたりしません。schemaを戻す必要がある場合も、適用履歴を削除せず新しいforward migrationを作成します。
+
+## Discord節目通知の初期設定
+
+Discordへ送るのは、記事とrevision 1の作成、レビュー依頼、公開成功の3イベントだけです。revision 2以降、保存、画像操作、コメント、承認、アーカイブ、日次ダイジェストは送信しません。
+
+通知はD1のoutboxへCMS更新と同時に記録し、Queue consumerからDiscord Webhookへ配送します。StudioとStudio MCPは同じQueueのproducerであり、Webhook URLを持つのはStudio Workerだけです。
+
+初回deploy前にQueueとdead-letter Queueを作成します。既存resourceを作り直さず、`wrangler queues list`で名前を確認してから不足分だけ作成します。
+
+```bash
+cd vnext
+npx wrangler queues list \
+  --config apps/studio/wrangler.jsonc
+npx wrangler queues create noema-studio-discord-milestones \
+  --config apps/studio/wrangler.jsonc
+npx wrangler queues create noema-studio-discord-milestones-dlq \
+  --config apps/studio/wrangler.jsonc
+```
+
+専用の検証チャンネルでDiscord Webhookを作成し、値をログやIssueへ貼らずStudio Worker Secretへ設定します。Studio MCPへ同じSecretを設定する必要はありません。
+
+```bash
+cd vnext
+npx wrangler secret put DISCORD_WEBHOOK_URL \
+  --config apps/studio/wrangler.jsonc
+```
+
+`wrangler.jsonc`の`secrets.required`にも`DISCORD_WEBHOOK_URL`を宣言しています。Secretが未設定ならStudio Workerのdeployは失敗し、Webhookなしのconsumerを有効化しません。QueueとSecretが揃う前にこの機能を含むPRをmergeしません。初回の実疎通では検証用記事を1件作成し、限定記事の題名、メールアドレス、本文、レビューコメントがDiscord payloadへ含まれないことを確認します。
 
 ### D1 backupの現在地
 

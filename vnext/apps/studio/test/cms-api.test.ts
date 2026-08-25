@@ -8,6 +8,10 @@ import type { CmsArticleDetail, CmsMember, CmsSeries, CmsSession } from "@noema/
 import { handleCmsApiRequest } from "../worker/cms-api";
 import { handleStudioApiRequest } from "../worker/app";
 import { cleanupCmsAnalyticsRetention } from "../worker/analytics-repository";
+import type {
+  CmsDiscordNotificationQueue,
+  CmsDiscordQueueMessage
+} from "../worker/discord-milestone-notifications";
 
 const testEnv = env as Env & { CMS_TEST_MIGRATIONS: D1Migration[] };
 const ORIGIN = "https://studio.example.com";
@@ -23,6 +27,7 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(objects.objects.map((object) => object.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_discord_notification_outbox"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_ingestion_daily"),
@@ -56,6 +61,52 @@ beforeEach(async () => {
 });
 
 describe("CMS HTTP API", () => {
+  it("passes article creation and review milestones to the Queue binding", async () => {
+    await bootstrapAdmin();
+    const messages: CmsDiscordQueueMessage[] = [];
+    const queue: CmsDiscordNotificationQueue = {
+      async send(message) {
+        messages.push(message);
+      }
+    };
+    const createdResponse = await handleCmsApiRequest(
+      cmsRequest("/api/cms/articles", {
+        body: JSON.stringify(validArticle("http-notifications")),
+        headers: { "content-type": "application/json" },
+        method: "POST"
+      }),
+      cmsEnv(queue),
+      ADMIN
+    );
+    const created = (await createdResponse.json()) as { article: CmsArticleDetail };
+    const reviewResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.article.id}/actions`, {
+        body: JSON.stringify({
+          action: "request_review",
+          expectedVersion: created.article.lockVersion
+        }),
+        headers: {
+          "content-type": "application/json",
+          "if-match": `"cms-v${created.article.lockVersion}"`
+        },
+        method: "POST"
+      }),
+      cmsEnv(queue),
+      ADMIN
+    );
+
+    expect(createdResponse.status).toBe(201);
+    expect(reviewResponse.status).toBe(200);
+    expect(messages).toHaveLength(2);
+    const kinds = await testEnv.CMS_DB.prepare(
+      "SELECT kind FROM cms_discord_notification_outbox ORDER BY created_at ASC"
+    ).all<{ kind: string }>();
+    expect(kinds.results.map((row) => row.kind)).toEqual([
+      "article_created",
+      "review_requested"
+    ]);
+  });
+
   it("reports reader behavior by published revision without reader identifiers", async () => {
     await bootstrapAdmin();
     const { article } = await createArticle("analytics-article");
@@ -1037,11 +1088,12 @@ async function createArticle(slug = "safe-concurrency"): Promise<{
   return { article: body.article, response };
 }
 
-function cmsEnv() {
+function cmsEnv(notificationQueue?: CmsDiscordNotificationQueue) {
   return {
     ARTICLE_ASSETS: testEnv.ARTICLE_ASSETS,
     CMS_BOOTSTRAP_ADMIN_EMAIL: ADMIN.email,
-    CMS_DB: testEnv.CMS_DB
+    CMS_DB: testEnv.CMS_DB,
+    DISCORD_NOTIFICATIONS: notificationQueue
   };
 }
 

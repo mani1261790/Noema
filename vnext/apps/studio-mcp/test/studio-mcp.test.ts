@@ -13,6 +13,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { CmsSession } from "@noema/cms";
 import { AccessTokenRejectedError } from "../../studio/worker/access";
+import type {
+  CmsDiscordNotificationQueue,
+  CmsDiscordQueueMessage
+} from "../../studio/worker/discord-milestone-notifications";
 import {
   createStudioMcpServer,
   handleStudioMcpRequest
@@ -81,6 +85,7 @@ beforeEach(async () => {
     await testEnv.ARTICLE_ASSETS.delete(storedAssets.objects.map((asset) => asset.key));
   }
   await testEnv.CMS_DB.batch([
+    testEnv.CMS_DB.prepare("DELETE FROM cms_discord_notification_outbox"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_ingestion_daily"),
@@ -133,6 +138,41 @@ beforeEach(async () => {
 });
 
 describe("Studio MCP tools", () => {
+  it("passes draft creation and review milestones to the Queue binding", async () => {
+    const messages: CmsDiscordQueueMessage[] = [];
+    const queue: CmsDiscordNotificationQueue = {
+      async send(message) {
+        messages.push(message);
+      }
+    };
+    const connection = await connectClient(SESSION, queue);
+    const created = articleFrom((await connection.client.callTool({
+      name: "studio_create_draft",
+      arguments: {
+        ...validArticle("mcp-notifications"),
+        requestId: "00000000-0000-4000-8000-000000000001"
+      }
+    })).structuredContent);
+    await connection.client.callTool({
+      name: "studio_request_review",
+      arguments: {
+        articleId: created.id,
+        expectedVersion: created.lockVersion,
+        requestId: "00000000-0000-4000-8000-000000000002"
+      }
+    });
+
+    expect(messages).toHaveLength(2);
+    const kinds = await testEnv.CMS_DB.prepare(
+      "SELECT kind FROM cms_discord_notification_outbox ORDER BY created_at ASC"
+    ).all<{ kind: string }>();
+    expect(kinds.results.map((row) => row.kind)).toEqual([
+      "article_created",
+      "review_requested"
+    ]);
+    await connection.close();
+  });
+
   it("exposes CMS editing tools without publication actions and returns the current identity", async () => {
     const connection = await connectClient();
     const tools = await connection.client.listTools();
@@ -1696,12 +1736,16 @@ describe("Studio MCP HTTP boundary", () => {
   });
 });
 
-async function connectClient(session: CmsSession = SESSION) {
+async function connectClient(
+  session: CmsSession = SESSION,
+  notificationQueue?: CmsDiscordNotificationQueue
+) {
   const server = createStudioMcpServer(
     testEnv.CMS_DB,
     testEnv.ARTICLE_ASSETS,
     session,
-    "Noema MCP test"
+    "Noema MCP test",
+    notificationQueue
   );
   const client = new Client({ name: "noema-test", version: "0.1.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

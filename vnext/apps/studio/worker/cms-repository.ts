@@ -36,6 +36,12 @@ import {
 } from "@noema/cms";
 import type { ArticleFrontmatter } from "@noema/content";
 import { z } from "zod";
+import {
+  createDiscordMilestoneOutboxStatement,
+  enqueueDiscordMilestoneNotification,
+  type CmsDiscordNotificationQueue,
+  type CmsDiscordOutboxInput
+} from "./discord-milestone-notifications";
 
 interface MemberRow {
   active: number;
@@ -247,6 +253,7 @@ export interface CmsRevisionWriteContext {
 export interface CmsMutationContext {
   channel?: "mcp" | "web";
   client?: string;
+  notificationQueue?: CmsDiscordNotificationQueue;
   tool?: string;
   idempotency?: {
     requestId: string;
@@ -1440,6 +1447,15 @@ export async function createCmsArticle(
         )),
         timestamp
       ),
+      createDiscordMilestoneOutboxStatement(db, {
+        articleId,
+        createdAt: timestamp,
+        id: auditId,
+        kind: "article_created",
+        revisionId,
+        title: content.frontmatter.title,
+        visibility: content.visibility
+      }),
       ...cmsArticleAssetReferenceStatements(
         db,
         articleId,
@@ -1461,6 +1477,13 @@ export async function createCmsArticle(
     if (isUniqueConstraint(error, "cms_articles.slug")) throw slugConflict();
     throw error;
   }
+
+  await enqueueDiscordMilestoneNotification(
+    db,
+    context.notificationQueue,
+    auditId,
+    now
+  );
 
   return getCmsArticle(db, identity, articleId);
 }
@@ -1703,6 +1726,15 @@ export async function transitionCmsArticle(
   const nextVersion = expectedVersion + 1;
   const auditId = crypto.randomUUID();
   const transition = buildTransition(current, detail, identity, action, transitionOptions, timestamp);
+  const notification = discordTransitionNotification({
+    action,
+    articleId,
+    auditId,
+    current,
+    detail,
+    timestamp,
+    transition
+  });
 
   let result: D1Result[];
   try {
@@ -1778,6 +1810,9 @@ export async function transitionCmsArticle(
             timestamp
           )]
         : []),
+      ...(notification
+        ? [createDiscordMilestoneOutboxStatement(db, notification)]
+        : []),
       ...idempotencyStatementForAudit(
         db,
         identity,
@@ -1812,6 +1847,14 @@ export async function transitionCmsArticle(
     );
     if (replay) return getCmsArticle(db, identity, replay);
     throw revisionConflict();
+  }
+  if (notification) {
+    await enqueueDiscordMilestoneNotification(
+      db,
+      context.notificationQueue,
+      notification.id,
+      now
+    );
   }
   return getCmsArticle(db, identity, articleId);
 }
@@ -2266,6 +2309,46 @@ function withCmsManagedMetadata(
       updatedAt: now.toISOString().slice(0, 10)
     }
   };
+}
+
+function discordTransitionNotification(input: {
+  action: CmsArticleAction;
+  articleId: string;
+  auditId: string;
+  current: CurrentArticleRow;
+  detail: CmsArticleDetail;
+  timestamp: string;
+  transition: ReturnType<typeof buildTransition>;
+}): CmsDiscordOutboxInput | null {
+  if (input.action === "request_review") {
+    return {
+      articleId: input.articleId,
+      createdAt: input.timestamp,
+      id: input.auditId,
+      kind: "review_requested",
+      revisionId: input.current.current_revision_id,
+      title: input.detail.currentRevision.frontmatter.title,
+      visibility: input.transition.draftVisibility
+    };
+  }
+  if (
+    input.action === "publish" &&
+    (
+      input.current.publication_status !== "published" ||
+      input.current.published_revision_id !== input.current.current_revision_id
+    )
+  ) {
+    return {
+      articleId: input.articleId,
+      createdAt: input.timestamp,
+      id: input.auditId,
+      kind: "article_published",
+      revisionId: input.current.current_revision_id,
+      title: input.detail.currentRevision.frontmatter.title,
+      visibility: input.transition.publishedVisibility ?? input.transition.draftVisibility
+    };
+  }
+  return null;
 }
 
 function buildTransition(

@@ -31,6 +31,14 @@
       "bucket_name": "noema-article-assets"
     }
   ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "DISCORD_NOTIFICATIONS",
+        "queue": "noema-studio-discord-milestones"
+      }
+    ]
+  },
   "observability": {
     "enabled": true,
     "logs": {

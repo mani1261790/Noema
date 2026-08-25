@@ -49,6 +49,7 @@ import {
   updateCmsSeries
 } from "./cms-series-repository";
 import type { AccessIdentity } from "./access";
+import type { CmsDiscordNotificationQueue } from "./discord-milestone-notifications";
 
 const CMS_API_PREFIX = "/api/cms";
 const MAX_CMS_REQUEST_BYTES = 1_200_000;
@@ -66,6 +67,7 @@ export interface CmsApiEnvironment {
   ARTICLE_ASSETS?: R2Bucket;
   CMS_BOOTSTRAP_ADMIN_EMAIL?: string;
   CMS_DB: D1Database;
+  DISCORD_NOTIFICATIONS?: CmsDiscordNotificationQueue;
 }
 
 export async function handleCmsApiRequest(
@@ -199,7 +201,7 @@ export async function handleCmsApiRequest(
           session.identity,
           content,
           undefined,
-          {},
+          { notificationQueue: env.DISCORD_NOTIFICATIONS },
           { editSessionId }
         );
         return cmsJson({ article }, 201, article.lockVersion);
@@ -429,7 +431,9 @@ export async function handleCmsApiRequest(
       route.id,
       parsed.data.action,
       parsed.data.expectedVersion,
-      { note: parsed.data.note, visibility: parsed.data.visibility }
+      { note: parsed.data.note, visibility: parsed.data.visibility },
+      new Date(),
+      { notificationQueue: env.DISCORD_NOTIFICATIONS }
     );
     return cmsJson({ article }, 200, article.lockVersion);
   } catch (error) {

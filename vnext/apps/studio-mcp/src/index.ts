@@ -71,6 +71,7 @@ import {
   listCmsAnalyticsSummary,
   rebuildCmsAnalyticsMart
 } from "../../studio/worker/analytics-repository";
+import type { CmsDiscordNotificationQueue } from "../../studio/worker/discord-milestone-notifications";
 
 const MCP_PATH = "/mcp";
 const REQUEST_ID_SCHEMA = z.string().uuid();
@@ -309,7 +310,13 @@ export async function handleStudioMcpRequest(
 
   const client = request.headers.get("user-agent")?.trim().slice(0, 200);
   const handler = createMcpHandler(
-    () => createStudioMcpServer(env.CMS_DB, env.ARTICLE_ASSETS, session, client),
+    () => createStudioMcpServer(
+      env.CMS_DB,
+      env.ARTICLE_ASSETS,
+      session,
+      client,
+      env.DISCORD_NOTIFICATIONS
+    ),
     {
       allowedHostnames: ["mcp.noema-learn.uk"],
       corsOptions: false,
@@ -328,7 +335,8 @@ export function createStudioMcpServer(
   db: D1Database,
   bucket: R2Bucket,
   session: CmsSession,
-  client?: string
+  client?: string,
+  notificationQueue?: CmsDiscordNotificationQueue
 ): McpServer {
   const server = new McpServer({
     name: "noema-studio",
@@ -915,7 +923,8 @@ export function createStudioMcpServer(
         {
           channel: "mcp",
           client,
-          idempotency: { requestId, toolName: "studio_create_draft" }
+          idempotency: { requestId, toolName: "studio_create_draft" },
+          notificationQueue
         }
       )
     }))
@@ -1005,7 +1014,8 @@ export function createStudioMcpServer(
         {
           channel: "mcp",
           client,
-          idempotency: { requestId, toolName: "studio_request_review" }
+          idempotency: { requestId, toolName: "studio_request_review" },
+          notificationQueue
         }
       )
     }))
