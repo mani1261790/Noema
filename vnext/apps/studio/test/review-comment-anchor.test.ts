@@ -72,6 +72,17 @@ describe("review comment anchors", () => {
     expect(anchor?.startOffset).toBe(markdown.lastIndexOf("対象"));
   });
 
+  it("uses projected rendered context for repeated formatted selections", () => {
+    const markdown = "**前半で**対象を説明します。\n\n**後半で**対象を詳しく説明します。";
+    const anchor = createReviewCommentAnchorFromRenderedSelection(
+      markdown,
+      "対象",
+      "前半で対象を説明します。後半で",
+      "を詳しく説明します。"
+    );
+    expect(anchor?.startOffset).toBe(markdown.lastIndexOf("対象"));
+  });
+
   it("maps rendered whitespace to Markdown line breaks", () => {
     const markdown = "改行を含む\n文章を選びます。";
     const anchor = createReviewCommentAnchorFromRenderedSelection(

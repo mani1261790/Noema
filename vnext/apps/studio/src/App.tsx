@@ -121,7 +121,6 @@ import { CmsLogin } from "./CmsLogin";
 import { resolveLockedArticleSurface } from "./locked-article-surface";
 import {
   createReviewCommentAnchorFromRenderedSelection,
-  getRenderedReviewCommentQuote,
   locateReviewCommentAnchor
 } from "./review-comment-anchor";
 import {
@@ -2191,10 +2190,18 @@ export function App() {
     }
     window.requestAnimationFrame(() => {
       const articleBody = renderedArticle.current?.querySelector<HTMLElement>(".article-body");
-      const renderedQuote = getRenderedReviewCommentQuote(comment.anchor?.quote ?? "");
+      const sourceLine = body.slice(0, location.startOffset).split("\n").length - 1;
       const matchingBlock = articleBody && Array.from(
-        articleBody.querySelectorAll<HTMLElement>("p, li, h2, h3, h4, blockquote, td, th, pre")
-      ).find((element) => element.textContent?.includes(renderedQuote));
+        articleBody.querySelectorAll<HTMLElement>("[data-source-line-start][data-source-line-end]")
+      ).filter((element) => {
+        const startLine = Number(element.dataset.sourceLineStart);
+        const endLine = Number(element.dataset.sourceLineEnd);
+        return startLine <= sourceLine && sourceLine < endLine;
+      }).sort((left, right) => (
+        Number(left.dataset.sourceLineEnd) - Number(left.dataset.sourceLineStart)
+      ) - (
+        Number(right.dataset.sourceLineEnd) - Number(right.dataset.sourceLineStart)
+      ))[0];
       matchingBlock?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   };

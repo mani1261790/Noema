@@ -42,11 +42,17 @@ export function createReviewCommentAnchorFromRenderedSelection(
   const selected = candidates.map(({ startOffset, endOffset }) => ({
     endOffset,
     score: commonSuffixLength(
-      markdown.slice(Math.max(0, startOffset - prefixContext.length), startOffset),
-      prefixContext
+      getRenderedReviewCommentQuote(markdown.slice(
+        Math.max(0, startOffset - CONTEXT_LENGTH * 3),
+        startOffset
+      )),
+      normalizeRenderedText(prefixContext)
     ) + commonPrefixLength(
-      markdown.slice(endOffset, endOffset + suffixContext.length),
-      suffixContext
+      getRenderedReviewCommentQuote(markdown.slice(
+        endOffset,
+        endOffset + CONTEXT_LENGTH * 3
+      )),
+      normalizeRenderedText(suffixContext)
     ),
     startOffset
   })).sort((left, right) => right.score - left.score || left.startOffset - right.startOffset)[0];

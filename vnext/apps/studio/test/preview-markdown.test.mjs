@@ -56,6 +56,15 @@ test("renders parenthesized strong text followed by Japanese", () => {
   );
 });
 
+test("adds source line ranges to rendered Studio article blocks", () => {
+  const markdown = createPreviewMarkdown(publicSiteUrl);
+  const rendered = markdown.render("## 導入\n\n本文です。\n\n- 項目");
+
+  assert.match(rendered, /<h2[^>]*data-source-line-start="0"[^>]*data-source-line-end="1"/);
+  assert.match(rendered, /<p[^>]*data-source-line-start="2"[^>]*data-source-line-end="3"/);
+  assert.match(rendered, /<li[^>]*data-source-line-start="4"[^>]*data-source-line-end="5"/);
+});
+
 test("rewrites inline and reference images without replacing the default image renderer", () => {
   const markdown = createPreviewMarkdown(publicSiteUrl);
   const inline = markdown.render('![強調 *された* alt](/images/a.png "A & B")');
