@@ -7,6 +7,7 @@ import { CmsTeamSettings } from "../src/CmsTeamSettings";
 const members: CmsMember[] = [
   {
     active: true,
+    displayName: "Noema管理者",
     email: "owner@example.com",
     passwordLoginReadyAt: null,
     provisioned: true,
@@ -15,6 +16,7 @@ const members: CmsMember[] = [
   },
   {
     active: true,
+    displayName: null,
     email: "editor@example.com",
     passwordLoginReadyAt: null,
     provisioned: false,
@@ -26,16 +28,21 @@ const members: CmsMember[] = [
 const baseProps: ComponentProps<typeof CmsTeamSettings> = {
   active: true,
   busy: false,
-  connection: { email: "owner@example.com", kind: "ready", role: "admin" },
+  connection: { displayName: "Noema管理者", email: "owner@example.com", kind: "ready", publicId: "0123456789abcdef0123456789abcdef", role: "admin" },
   email: "",
   error: null,
   members,
   onActiveChange: () => undefined,
   onEdit: () => undefined,
   onEmailChange: () => undefined,
+  onProfileNameChange: () => undefined,
+  onProfileSubmit: () => undefined,
   onRetry: () => undefined,
   onRoleChange: () => undefined,
   onSubmit: () => undefined,
+  profileBusy: false,
+  profileError: null,
+  profileName: "Noema管理者",
   role: "editor"
 };
 
@@ -58,15 +65,26 @@ describe("CmsTeamSettings", () => {
   it("protects the signed-in member and offers editing for other members", () => {
     const html = renderTeam();
 
-    expect(html.match(/設定を編集/g)).toHaveLength(1);
+    expect(html.match(/アクセスを編集/g)).toHaveLength(1);
     expect(html.match(/>自分</g)).toHaveLength(1);
   });
 
   it("shows connection failures without rendering the invitation form", () => {
     const html = renderTeam({ connection: { kind: "unavailable", message: "接続できません" } });
 
-    expect(html).toContain("チームを表示できません");
+    expect(html).toContain("プロフィールを表示できません");
     expect(html).toContain("接続できません");
     expect(html).not.toContain('type="email"');
+  });
+
+  it("lets non-admin members edit only their own public name", () => {
+    const html = renderTeam({
+      connection: { displayName: "レビュー担当", email: "reviewer@example.com", kind: "ready", publicId: "fedcba9876543210fedcba9876543210", role: "reviewer" },
+      profileName: "レビュー担当"
+    });
+
+    expect(html).toContain("自分の公開名");
+    expect(html).toContain("本文は編集できません");
+    expect(html).not.toContain("メンバーのアクセス管理");
   });
 });

@@ -14,7 +14,9 @@ const session: CmsSession = {
     canPublish: true
   },
   identity: {
+    displayName: "Noema編集者",
     email: "owner@example.com",
+    publicId: "0123456789abcdef0123456789abcdef",
     role: "admin",
     subject: "owner-subject"
   },

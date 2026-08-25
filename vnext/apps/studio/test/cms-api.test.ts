@@ -479,7 +479,8 @@ describe("CMS HTTP API", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(session.identity).toEqual({ ...ADMIN, role: "admin" });
+    expect(session.identity).toMatchObject({ ...ADMIN, displayName: null, role: "admin" });
+    expect(session.identity.publicId).toMatch(/^[a-f0-9]{32}$/u);
     expect(session.capabilities).toEqual({
       canApprove: true,
       canComment: true,
@@ -690,6 +691,46 @@ describe("CMS HTTP API", () => {
     await expectErrorCode(forbidden, "forbidden");
   });
 
+  it("lets each signed-in member set only their own public display name", async () => {
+    await bootstrapAdmin();
+    const updated = await handleCmsApiRequest(
+      cmsRequest("/api/cms/profile", {
+        body: JSON.stringify({ displayName: "Noema 編集部" }),
+        headers: { "content-type": "application/json" },
+        method: "PUT"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const session = (await updated.json()) as CmsSession;
+
+    expect(updated.status).toBe(200);
+    expect(session.identity).toMatchObject({
+      displayName: "Noema 編集部",
+      email: ADMIN.email
+    });
+    expect(session.identity.publicId).toMatch(/^[a-f0-9]{32}$/u);
+    const audit = await testEnv.CMS_DB.prepare(
+      "SELECT actor_subject, metadata_json FROM cms_audit_events WHERE action = 'profile.updated'"
+    ).first<{ actor_subject: string; metadata_json: string }>();
+    expect(audit?.actor_subject).toBe(ADMIN.subject);
+    expect(JSON.parse(audit?.metadata_json ?? "{}")).toMatchObject({
+      channel: "web",
+      displayName: "Noema 編集部"
+    });
+
+    const invalid = await handleCmsApiRequest(
+      cmsRequest("/api/cms/profile", {
+        body: JSON.stringify({ displayName: "別名\n二行目" }),
+        headers: { "content-type": "application/json" },
+        method: "PUT"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(invalid.status).toBe(400);
+  });
+
   it("rejects cross-origin mutations before Access verification", async () => {
     const verifyAccessToken = vi.fn().mockResolvedValue(ADMIN);
     const response = await handleStudioApiRequest(
@@ -782,7 +823,8 @@ describe("CMS HTTP API", () => {
     );
     expect(session.status).toBe(200);
     const cmsSession = await session.json() as CmsSession;
-    expect(cmsSession.identity).toEqual({ ...ADMIN, role: "admin" });
+    expect(cmsSession.identity).toMatchObject({ ...ADMIN, displayName: null, role: "admin" });
+    expect(cmsSession.identity.publicId).toMatch(/^[a-f0-9]{32}$/u);
     expect(cmsSession.passwordLoginReadyAt).toBeTruthy();
     expect(verifyAccessToken).toHaveBeenCalledTimes(2);
   });

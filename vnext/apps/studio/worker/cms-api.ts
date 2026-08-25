@@ -5,6 +5,7 @@ import {
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
   cmsDeleteSeriesRequestSchema,
+  cmsMemberProfileMutationSchema,
   cmsMemberMutationSchema,
   cmsMergeSeriesRequestSchema,
   cmsReviewCommentActionSchema,
@@ -36,6 +37,7 @@ import {
   updateCmsArticle,
   updateCmsAsset,
   updateCmsReviewCommentStatus,
+  updateCmsMemberProfile,
   upsertCmsMemberInvitation
 } from "./cms-repository";
 import {
@@ -82,6 +84,21 @@ export async function handleCmsApiRequest(
     if (pathname === `${CMS_API_PREFIX}/session`) {
       if (request.method !== "GET") return methodNotAllowed("GET");
       return cmsJson(session);
+    }
+
+    if (pathname === `${CMS_API_PREFIX}/profile`) {
+      if (request.method !== "PUT") return methodNotAllowed("PUT");
+      const body = await readCmsJson(request);
+      if (!body.ok) return body.response;
+      const parsed = cmsMemberProfileMutationSchema.safeParse(body.value);
+      if (!parsed.success) return invalidRequest(parsed.error.issues);
+      return cmsJson(await updateCmsMemberProfile(
+        env.CMS_DB,
+        session.identity,
+        parsed.data.displayName,
+        new Date(),
+        { channel: "web" }
+      ));
     }
 
     if (pathname === `${CMS_API_PREFIX}/analytics/summary`) {
@@ -726,6 +743,7 @@ function cmsRepositoryError(error: unknown): Response {
     invalid_analytics_rebuild_range: 400,
     invalid_article: 400,
     invalid_asset: 400,
+    invalid_display_name: 400,
     invalid_transition: 409,
     invalid_series: 400,
     last_admin_required: 409,

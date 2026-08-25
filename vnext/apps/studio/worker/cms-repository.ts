@@ -39,8 +39,10 @@ import { z } from "zod";
 
 interface MemberRow {
   active: number;
+  display_name: string | null;
   email: string;
   password_login_ready_at: string | null;
+  public_id: string | null;
   role: string;
   subject: string;
 }
@@ -166,6 +168,7 @@ interface ReviewCommentRow {
 
 interface MemberListRow {
   active: number;
+  display_name: string | null;
   email: string;
   password_login_ready_at: string | null;
   provisioned: number;
@@ -202,6 +205,7 @@ export type CmsRepositoryErrorCode =
   | "idempotency_conflict"
   | "invalid_article"
   | "invalid_asset"
+  | "invalid_display_name"
   | "invalid_analytics_rebuild_range"
   | "invalid_series"
   | "invalid_transition"
@@ -282,7 +286,7 @@ export async function resolveCmsSession(
 ): Promise<CmsSession> {
   const normalizedEmail = accessIdentity.email.trim().toLowerCase();
   let member = await db.prepare(
-    "SELECT subject, email, role, active, password_login_ready_at FROM cms_members WHERE subject = ?1"
+    "SELECT subject, email, role, active, password_login_ready_at, display_name, public_id FROM cms_members WHERE subject = ?1"
   ).bind(accessIdentity.subject).first<MemberRow>();
 
   if (!member) {
@@ -310,7 +314,7 @@ export async function resolveCmsSession(
        ON CONFLICT DO NOTHING`
     ).bind(accessIdentity.subject, normalizedEmail, timestamp).run();
     member = await db.prepare(
-      "SELECT subject, email, role, active, password_login_ready_at FROM cms_members WHERE subject = ?1"
+      "SELECT subject, email, role, active, password_login_ready_at, display_name, public_id FROM cms_members WHERE subject = ?1"
     ).bind(accessIdentity.subject).first<MemberRow>();
     if (!member) {
       throw new CmsRepositoryError(
@@ -328,7 +332,7 @@ export async function resolveExistingCmsSession(
   accessIdentity: { email: string; subject: string }
 ): Promise<CmsSession> {
   const member = await db.prepare(
-    "SELECT subject, email, role, active, password_login_ready_at FROM cms_members WHERE subject = ?1"
+    "SELECT subject, email, role, active, password_login_ready_at, display_name, public_id FROM cms_members WHERE subject = ?1"
   ).bind(accessIdentity.subject).first<MemberRow>();
   if (!member) {
     throw new CmsRepositoryError(
@@ -342,7 +346,7 @@ export async function resolveExistingCmsSession(
 
 function sessionFromMember(member: MemberRow): CmsSession {
   const role = parseRole(member.role);
-  if (member.active !== 1 || !role) {
+  if (member.active !== 1 || !role || !member.public_id) {
     throw new CmsRepositoryError(
       "member_not_registered",
       "このCMSメンバーは無効です。"
@@ -352,7 +356,9 @@ function sessionFromMember(member: MemberRow): CmsSession {
   return {
     capabilities: cmsCapabilitiesFor(role),
     identity: {
+      displayName: member.display_name,
       email: member.email,
+      publicId: member.public_id,
       role,
       subject: member.subject
     },
@@ -1818,6 +1824,7 @@ export async function listCmsMembers(
   const result = await db.prepare(
     `SELECT
        i.email,
+       m.display_name,
        COALESCE(m.role, i.role) AS role,
        COALESCE(m.active, i.active) AS active,
        m.password_login_ready_at,
@@ -1833,6 +1840,7 @@ export async function listCmsMembers(
     if (!role) throw new Error("CMS member role is invalid.");
     return {
       active: row.active === 1,
+      displayName: row.display_name,
       email: row.email,
       passwordLoginReadyAt: row.password_login_ready_at,
       provisioned: row.provisioned === 1,
@@ -1840,6 +1848,45 @@ export async function listCmsMembers(
       updatedAt: row.updated_at
     };
   });
+}
+
+export async function updateCmsMemberProfile(
+  db: D1Database,
+  identity: CmsIdentity,
+  displayName: string,
+  now = new Date(),
+  context: CmsMutationContext = {}
+): Promise<CmsSession> {
+  const normalizedName = displayName.trim();
+  const timestamp = now.toISOString();
+  try {
+    const results = await db.batch([
+      db.prepare(
+        `UPDATE cms_members
+         SET display_name = ?1, updated_at = ?2
+         WHERE subject = ?3 AND active = 1`
+      ).bind(normalizedName, timestamp, identity.subject),
+      db.prepare(
+        `INSERT INTO cms_audit_events
+          (id, article_id, actor_subject, action, metadata_json, created_at)
+         VALUES (?1, NULL, ?2, 'profile.updated', ?3, ?4)`
+      ).bind(
+        crypto.randomUUID(),
+        identity.subject,
+        JSON.stringify(auditMetadata({ displayName: normalizedName }, context)),
+        timestamp
+      )
+    ]);
+    if (results[0]?.meta.changes !== 1) {
+      throw new CmsRepositoryError("member_not_registered", "このCMSメンバーは無効です。");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("invalid_cms_display_name")) {
+      throw new CmsRepositoryError("invalid_display_name", "表示名は1〜80文字の1行で入力してください。");
+    }
+    throw error;
+  }
+  return resolveExistingCmsSession(db, identity);
 }
 
 export async function upsertCmsMemberInvitation(

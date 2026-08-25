@@ -2327,6 +2327,72 @@ a {
   color: var(--color-key-900);
 }
 
+.studio-team__profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  gap: 1.5rem 2rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #949494;
+}
+
+.studio-team__profile h2,
+.studio-team__section-heading h2 {
+  margin: 0;
+  font-size: calc(22 / 16 * 1rem);
+  line-height: 1.5;
+}
+
+.studio-team__profile > div > p,
+.studio-team__section-heading p,
+.studio-team__help,
+.studio-team__role p {
+  margin: .5rem 0 0;
+  color: #555;
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.65;
+}
+
+.studio-team__profile form {
+  display: grid;
+  align-content: start;
+  gap: .5rem;
+}
+
+.studio-team__profile form > label {
+  font-weight: 700;
+}
+
+.studio-team__profile input[type="text"] {
+  width: 100%;
+  min-height: 48px;
+  padding: .75rem;
+  color: #1a1a1a;
+  background: #fff;
+  border: 2px solid #767676;
+  font: inherit;
+}
+
+.studio-team__profile .dads-button {
+  justify-self: start;
+  margin-top: .5rem;
+}
+
+.studio-team__role {
+  grid-column: 1 / -1;
+  padding-top: 1rem;
+  border-top: 1px solid #b4b4b4;
+}
+
+.studio-team__admin {
+  margin-top: 3rem;
+}
+
+.studio-team__section-heading {
+  max-width: 48rem;
+}
+
 .studio-team__layout {
   display: grid;
   grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
@@ -2342,8 +2408,8 @@ a {
   border: 1px solid #949494;
 }
 
-.studio-team__invite h2,
-.studio-team__members h2 {
+.studio-team__invite h3,
+.studio-team__members h3 {
   margin: 0;
   font-size: calc(22 / 16 * 1rem);
   line-height: 1.5;
@@ -4790,8 +4856,13 @@ textarea.studio-control {
   }
 
   .studio-team__layout,
+  .studio-team__profile,
   .studio-team__list li {
     grid-template-columns: 1fr;
+  }
+
+  .studio-team__profile .dads-button {
+    width: 100%;
   }
 
   .studio-team__identity {

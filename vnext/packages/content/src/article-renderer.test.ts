@@ -88,4 +88,14 @@ describe("renderArticlePresentation", () => {
     expect(html).toContain("次の記事");
     expect(html).toContain('<article class="article-body"><h2 id="本文">本文</h2>');
   });
+
+  it("renders the connected editor as a safe profile link", () => {
+    const html = renderArticlePresentation(frontmatter, "## 本文\n\n説明です。", {
+      editor: { href: "/editors/0123?x=\"", name: "山田 <編集>" }
+    });
+
+    expect(html).toContain("<dt>編集</dt>");
+    expect(html).toContain('href="/editors/0123?x=&quot;"');
+    expect(html).toContain("山田 &lt;編集&gt;");
+  });
 });
