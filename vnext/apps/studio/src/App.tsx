@@ -117,6 +117,7 @@ import { CmsArticleSeriesEditor } from "./CmsArticleSeriesEditor";
 import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
 import { CmsReviewComments } from "./CmsReviewComments";
 import { CmsLogin } from "./CmsLogin";
+import { resolveLockedArticleSurface } from "./locked-article-surface";
 import {
   createReviewCommentAnchor,
   locateReviewCommentAnchor
@@ -1303,10 +1304,13 @@ export function App() {
           !cmsSessionState.session.capabilities.canEdit ||
           ["in_review", "approved"].includes(result.value.reviewStatus);
         if (targetLocked) {
-          const opensPublish = cmsSessionState.session.capabilities.canPublish && result.value.reviewStatus === "approved";
-          setSettingsMode(opensPublish ? "publish" : "review");
+          const surface = resolveLockedArticleSurface(
+            cmsSessionState.session.capabilities.canPublish,
+            result.value.reviewStatus
+          );
+          setSettingsMode(surface.mode);
           setSettingsOpen(true);
-          setPreviewFullscreen(opensPublish);
+          setPreviewFullscreen(surface.previewOnly);
         }
       } else {
         setEditorArticleRestoreState({ error: result.error, kind: "error" });
@@ -1346,12 +1350,13 @@ export function App() {
     if (articleId === cmsArticle?.id) {
       showEditor();
       if (editorLocked) {
-        const opensPublish = Boolean(
-          cmsSession?.capabilities.canPublish && cmsArticle.reviewStatus === "approved"
+        const surface = resolveLockedArticleSurface(
+          Boolean(cmsSession?.capabilities.canPublish),
+          cmsArticle.reviewStatus
         );
-        setSettingsMode(opensPublish ? "publish" : "review");
+        setSettingsMode(surface.mode);
         setSettingsOpen(true);
-        setPreviewFullscreen(opensPublish);
+        setPreviewFullscreen(surface.previewOnly);
       }
       return true;
     }
@@ -1394,14 +1399,14 @@ export function App() {
         !cmsSessionState.session.capabilities.canEdit ||
         ["in_review", "approved"].includes(result.value.reviewStatus);
       if (targetLocked) {
-        const opensPublish = Boolean(
+        const surface = resolveLockedArticleSurface(
           cmsSessionState.kind === "ready" &&
-          cmsSessionState.session.capabilities.canPublish &&
-          result.value.reviewStatus === "approved"
+          cmsSessionState.session.capabilities.canPublish,
+          result.value.reviewStatus
         );
-        setSettingsMode(opensPublish ? "publish" : "review");
+        setSettingsMode(surface.mode);
         setSettingsOpen(true);
-        setPreviewFullscreen(opensPublish);
+        setPreviewFullscreen(surface.previewOnly);
       }
       if (associatingRecovery && application.manualSaveRequired) {
         showNotification({
@@ -2852,7 +2857,7 @@ export function App() {
               data-size="md"
               data-type="outline"
               onClick={() => {
-                setPreviewFullscreen(false);
+                setPreviewFullscreen(editorLocked);
                 setAssetTrayOpen(false);
                 setSettingsMode("review");
                 setSettingsOpen((current) => settingsMode === "review" ? !current : true);
@@ -3576,17 +3581,21 @@ export function App() {
           <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
             <div className="studio-writing-controls">
               {validationVisible && blockingErrorCount > 0 ? <button type="button" onClick={focusValidation} aria-controls="article-validation">入力エラー {blockingErrorCount}</button> : null}
-              {!editorLocked ? <button
+              {(!editorLocked || (settingsOpen && settingsMode === "review")) ? <button
                 aria-pressed={previewFullscreen}
                 className="studio-preview-toggle"
                 onClick={() => {
-                  setSettingsOpen(false);
-                  setAssetTrayOpen(false);
+                  if (!editorLocked) {
+                    setSettingsOpen(false);
+                    setAssetTrayOpen(false);
+                  }
                   setPreviewFullscreen((current) => !current);
                 }}
                 type="button"
               >
-                {previewFullscreen ? "編集に戻る" : "プレビューのみ"}
+                {editorLocked
+                  ? previewFullscreen ? "本文から指摘箇所を選ぶ" : "記事表示に戻る"
+                  : previewFullscreen ? "編集に戻る" : "プレビューのみ"}
               </button> : null}
             </div>
             <div className={`studio-writing-canvas ${assetDropActive ? "is-asset-drop" : ""}`} hidden={previewFullscreen}>
