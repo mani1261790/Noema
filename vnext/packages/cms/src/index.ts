@@ -272,7 +272,9 @@ export const cmsMergeSeriesRequestSchema = z.object({
 });
 
 export interface CmsIdentity {
+  displayName: string | null;
   email: string;
+  publicId: string;
   role: CmsRole;
   subject: string;
 }
@@ -401,12 +403,20 @@ export interface CmsSeriesVersion {
 
 export interface CmsMember {
   active: boolean;
+  displayName: string | null;
   email: string;
   passwordLoginReadyAt: string | null;
   provisioned: boolean;
   role: CmsRole;
   updatedAt: string;
 }
+
+export const cmsMemberProfileMutationSchema = z.object({
+  displayName: z.string().trim().min(1).max(80).refine(
+    (value) => !/[\r\n]/u.test(value),
+    "表示名は1行で入力してください"
+  )
+}).strict();
 
 export interface CmsAsset {
   alt: string;

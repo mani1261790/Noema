@@ -2,6 +2,7 @@ import type { CmsVisibility } from "@noema/cms";
 import { describe, expect, it } from "vitest";
 import {
   getCmsPublishedSeriesByArticleSlug,
+  getCmsPublishedEditorProfile,
   isCmsPublicationVisible,
   parseCmsPublishedArticleRow,
   type CmsPublicationDatabase,
@@ -42,6 +43,8 @@ describe("CMS publication visibility", () => {
   it("uses the immutable published revision and server timestamps", () => {
     const result = parseCmsPublishedArticleRow({
       frontmatter_json: JSON.stringify(validFrontmatter),
+      editor_display_name: "山田 編集",
+      editor_public_id: "0123456789abcdef0123456789abcdef",
       markdown: "## 本文\n\n公開済みの本文です。",
       published_at: "2026-07-18T01:02:03.000Z",
       published_slug: "cms-published-article",
@@ -56,6 +59,11 @@ describe("CMS publication visibility", () => {
     expect(result.data.slug).toBe("cms-published-article");
     expect(result.revisionNumber).toBe(4);
     expect(result.visibility).toBe("unlisted");
+    expect(result.editor).toEqual({
+      displayName: "山田 編集",
+      href: "/editors/0123456789abcdef0123456789abcdef",
+      publicId: "0123456789abcdef0123456789abcdef",
+    });
   });
 
   it("fails closed when a restricted row reaches the public parser", () => {
@@ -78,6 +86,46 @@ describe("CMS publication visibility", () => {
       revision_created_at: "2026-07-17T05:06:07.000Z",
       revision_number: 1,
     }, "listing")).toThrow(/does not match/);
+  });
+});
+
+describe("published editor profiles", () => {
+  it("lists only public articles saved by the selected editor", async () => {
+    const row = {
+      editor_display_name: "山田 編集",
+      editor_public_id: "0123456789abcdef0123456789abcdef",
+      frontmatter_json: JSON.stringify(validFrontmatter),
+      published_at: "2026-07-18T01:02:03.000Z",
+      published_slug: "cms-published-article",
+      published_visibility: "public",
+      revision_created_at: "2026-07-17T05:06:07.000Z",
+      revision_number: 4,
+    };
+    const db = {
+      prepare(query: string) {
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() {
+            return (query.includes("FROM cms_members")
+              ? { display_name: "山田 編集", public_id: "0123456789abcdef0123456789abcdef", subject: "editor-subject" }
+              : null) as T | null;
+          },
+          async all<T>() { return { results: [row] as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    const profile = await getCmsPublishedEditorProfile(db, "0123456789abcdef0123456789abcdef");
+    expect(profile).toMatchObject({ displayName: "山田 編集" });
+    expect(profile?.articles.map((article) => article.slug)).toEqual(["cms-published-article"]);
+  });
+
+  it("rejects public IDs outside the opaque identifier contract", async () => {
+    let prepared = false;
+    const db = { prepare() { prepared = true; throw new Error("unexpected query"); } } as unknown as CmsPublicationDatabase;
+    expect(await getCmsPublishedEditorProfile(db, "editor@example.com")).toBeNull();
+    expect(prepared).toBe(false);
   });
 });
 

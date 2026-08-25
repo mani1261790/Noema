@@ -21,9 +21,20 @@ export interface CmsPublicationDatabase {
 
 export interface CmsPublishedArticleSummary {
   data: ArticleFrontmatter;
+  editor?: CmsPublishedEditor | null;
   publishedAt: string;
   revisionNumber: number;
   visibility: Extract<CmsVisibility, "public" | "unlisted">;
+}
+
+export interface CmsPublishedEditor {
+  displayName: string;
+  href: string;
+  publicId: string;
+}
+
+export interface CmsPublishedEditorProfile extends CmsPublishedEditor {
+  articles: ArticleSummary[];
 }
 
 export interface CmsPublishedArticle extends CmsPublishedArticleSummary {
@@ -40,6 +51,8 @@ export interface CmsPublishedSeriesContext {
 }
 
 interface CmsPublishedArticleRow {
+  editor_display_name?: string | null;
+  editor_public_id?: string | null;
   frontmatter_json: string;
   markdown?: string;
   published_at: string;
@@ -54,7 +67,9 @@ const publishedSummaryColumns = `r.frontmatter_json,
   a.published_slug,
   a.published_visibility,
   r.created_at AS revision_created_at,
-  r.revision_number`;
+  r.revision_number,
+  m.display_name AS editor_display_name,
+  m.public_id AS editor_public_id`;
 
 export function isCmsPublicationVisible(
   visibility: CmsVisibility,
@@ -97,6 +112,13 @@ export function parseCmsPublishedArticleRow(
 
   const summary: CmsPublishedArticleSummary = {
     data: data.data,
+    editor: row.editor_display_name && row.editor_public_id
+      ? {
+          displayName: row.editor_display_name,
+          href: `/editors/${row.editor_public_id}`,
+          publicId: row.editor_public_id,
+        }
+      : null,
     publishedAt: row.published_at,
     revisionNumber: row.revision_number,
     visibility: visibility.data,
@@ -111,6 +133,7 @@ export async function listCmsPublicArticleSummaries(
     `SELECT ${publishedSummaryColumns}
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
      WHERE a.publication_status = 'published'
        AND a.published_visibility = 'public'
      ORDER BY a.published_at DESC, a.id ASC`,
@@ -132,6 +155,7 @@ export async function getCmsPublishedArticleBySlug(
        r.markdown
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
      WHERE a.publication_status = 'published'
        AND a.published_visibility IN ('public', 'unlisted')
        AND a.published_slug = ?1
@@ -171,6 +195,7 @@ export async function getCmsPublishedSeriesByArticleSlug(
      JOIN cms_series_revision_items item ON item.revision_id = s.published_revision_id
      JOIN cms_articles a ON a.id = item.article_id
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
      WHERE s.id = ?1
        AND a.publication_status = 'published'
        AND a.published_visibility = 'public'
@@ -182,6 +207,60 @@ export async function getCmsPublishedSeriesByArticleSlug(
   const currentIndex = items.findIndex((item) => item.slug === articleSlug);
   if (currentIndex < 0) return null;
   return { ...series, currentIndex, items };
+}
+
+export async function getCmsPublishedEditorProfile(
+  db: CmsPublicationDatabase,
+  publicId: string,
+): Promise<CmsPublishedEditorProfile | null> {
+  if (!/^[a-f0-9]{32}$/.test(publicId)) return null;
+  const editor = await db.prepare(
+    `SELECT subject, display_name, public_id
+     FROM cms_members
+     WHERE public_id = ?1
+       AND display_name IS NOT NULL
+     LIMIT 1`,
+  ).bind(publicId).first<{ display_name: string; public_id: string; subject: string }>();
+  if (!editor) return null;
+
+  const result = await db.prepare(
+    `SELECT ${publishedSummaryColumns}
+     FROM cms_articles a
+     JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
+     WHERE a.publication_status = 'published'
+       AND a.published_visibility = 'public'
+       AND r.created_by_subject = ?1
+     ORDER BY a.published_at DESC, a.id ASC`,
+  ).bind(editor.subject).all<CmsPublishedArticleRow>();
+
+  return {
+    articles: result.results.map((row) => toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data)),
+    displayName: editor.display_name,
+    href: `/editors/${editor.public_id}`,
+    publicId: editor.public_id,
+  };
+}
+
+export async function listCmsPublishedEditors(
+  db: CmsPublicationDatabase,
+): Promise<CmsPublishedEditor[]> {
+  const result = await db.prepare(
+    `SELECT DISTINCT m.display_name, m.public_id
+     FROM cms_articles a
+     JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     JOIN cms_members m ON m.subject = r.created_by_subject
+     WHERE a.publication_status = 'published'
+       AND a.published_visibility = 'public'
+       AND m.display_name IS NOT NULL
+       AND m.public_id IS NOT NULL
+     ORDER BY m.display_name COLLATE NOCASE, m.public_id`,
+  ).all<{ display_name: string; public_id: string }>();
+  return result.results.map((editor) => ({
+    displayName: editor.display_name,
+    href: `/editors/${editor.public_id}`,
+    publicId: editor.public_id,
+  }));
 }
 
 function isoDate(value: string, field: string): string {

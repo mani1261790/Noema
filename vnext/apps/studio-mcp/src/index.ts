@@ -9,6 +9,7 @@ import {
   cmsCreateArticleRequestSchema,
   cmsCreateSeriesRequestSchema,
   cmsDeleteSeriesRequestSchema,
+  cmsMemberProfileMutationSchema,
   cmsMemberMutationSchema,
   cmsMergeSeriesRequestSchema,
   cmsPublicationStatusSchema,
@@ -54,6 +55,7 @@ import {
   updateIdempotentCmsAssetStatus,
   updateCmsArticle,
   updateCmsReviewCommentStatus,
+  updateCmsMemberProfile,
   upsertCmsMemberInvitation
 } from "../../studio/worker/cms-repository";
 import {
@@ -144,6 +146,7 @@ const reviewCommentStatusSchema = z.object({
 }).strict();
 
 const upsertMemberSchema = cmsMemberMutationSchema;
+const updateProfileSchema = cmsMemberProfileMutationSchema;
 
 const deleteAssetSchema = z.object({
   assetId: z.string().uuid()
@@ -869,7 +872,14 @@ export function createStudioMcpServer(
       annotations: readOnlyAnnotations()
     },
     async ({ frontmatter, markdown, visibility }) => executeTool(async () => {
-      const html = renderArticlePresentation(frontmatter, markdown);
+      const html = renderArticlePresentation(frontmatter, markdown, {
+        editor: session.identity.displayName
+          ? {
+              href: `/editors/${session.identity.publicId}`,
+              name: session.identity.displayName
+            }
+          : null
+      });
       if (html.length > MAX_PREVIEW_HTML_CHARS) {
         throw new CmsRepositoryError(
           "invalid_article",
@@ -1066,6 +1076,27 @@ export function createStudioMcpServer(
     name: "studio_revoke_approval",
     title: "Revoke Studio approval"
   });
+
+  server.registerTool(
+    "studio_update_profile",
+    {
+      title: "Update my Studio profile",
+      description: "現在接続している本人の公開表示名を設定します。他のメンバーの名前は変更できません。",
+      inputSchema: updateProfileSchema,
+      annotations: writeAnnotations(true)
+    },
+    async ({ displayName }) => executeTool(async () => {
+      const updatedSession = await updateCmsMemberProfile(
+        db,
+        session.identity,
+        displayName,
+        new Date(),
+        { channel: "mcp", client, tool: "studio_update_profile" }
+      );
+      session.identity = updatedSession.identity;
+      return { session: updatedSession };
+    })
+  );
 
   server.registerTool(
     "studio_list_members",

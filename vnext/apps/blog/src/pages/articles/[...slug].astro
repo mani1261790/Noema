@@ -24,6 +24,7 @@ const relatedArticles = findRelatedArticles(
   summaries.filter((item) => !seriesSlugs.has(item.slug)),
 );
 const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
+  editor: article.editor ? { href: article.editor.href, name: article.editor.displayName } : null,
   series: series ? {
     currentIndex: series.currentIndex,
     description: series.description,
@@ -45,6 +46,7 @@ const jsonLd = {
   mainEntityOfPage: canonicalUrl.toString(),
   image: [ogImageUrl.toString()],
   author: article.data.authors.map((name: string) => ({ "@type": "Person", name })),
+  ...(article.editor ? { editor: { "@type": "Person", name: article.editor.displayName, url: new URL(article.editor.href, canonicalUrl).toString() } } : {}),
   publisher: { "@type": "Organization", name: "Noema", url: new URL("/", canonicalUrl).toString() }
 };
 const topic = article.data.topics[0] ?? "technology";

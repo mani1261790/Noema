@@ -411,6 +411,7 @@ describe("CMS member client", () => {
       members: [
         {
           active: true,
+          displayName: null,
           email: "pending@example.com",
           passwordLoginReadyAt: null,
           provisioned: false,
@@ -419,6 +420,7 @@ describe("CMS member client", () => {
         },
         {
           active: true,
+          displayName: "レビュー担当",
           email: "reviewer@example.com",
           passwordLoginReadyAt: "2026-07-18T00:00:00.000Z",
           provisioned: true,

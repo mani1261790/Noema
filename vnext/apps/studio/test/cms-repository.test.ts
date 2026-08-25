@@ -255,11 +255,13 @@ describe("CMS repository", () => {
       NOW
     );
 
-    expect(session.identity).toEqual({
+    expect(session.identity).toMatchObject({
+      displayName: null,
       email: "owner@example.com",
       role: "admin",
       subject: "owner-subject"
     });
+    expect(session.identity.publicId).toMatch(/^[a-f0-9]{32}$/u);
 
     await expect(resolveCmsSession(
       testEnv.CMS_DB,

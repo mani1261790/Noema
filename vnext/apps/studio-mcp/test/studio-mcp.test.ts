@@ -29,7 +29,9 @@ const SESSION: CmsSession = {
     canPublish: false
   },
   identity: {
+    displayName: "編集者",
     email: "editor@example.com",
+    publicId: "11111111111111111111111111111111",
     role: "editor",
     subject: "editor-subject"
   }
@@ -44,7 +46,9 @@ const REVIEWER_SESSION: CmsSession = {
     canPublish: false
   },
   identity: {
+    displayName: "レビュー担当",
     email: "reviewer@example.com",
+    publicId: "22222222222222222222222222222222",
     role: "reviewer",
     subject: "reviewer-subject"
   }
@@ -59,7 +63,9 @@ const ADMIN_SESSION: CmsSession = {
     canPublish: true
   },
   identity: {
+    displayName: "管理者",
     email: "admin@example.com",
+    publicId: "33333333333333333333333333333333",
     role: "admin",
     subject: "admin-subject"
   }
@@ -164,6 +170,7 @@ describe("Studio MCP tools", () => {
       "studio_revoke_approval",
       "studio_update_asset",
       "studio_update_draft",
+      "studio_update_profile",
       "studio_update_series",
       "studio_upload_asset",
       "studio_upsert_member",
@@ -564,6 +571,9 @@ describe("Studio MCP tools", () => {
     expect(result.mediaType).toBe("text/html");
     expect(result.html).toContain('<h2 id="安全な見出し">');
     expect(result.html).toContain('class="article-presentation"');
+    expect(result.html).toContain('href="/editors/11111111111111111111111111111111"');
+    expect(result.html).toContain("編集者");
+    expect(result.html).not.toContain("editor@example.com");
     expect(result.html).toContain("katex");
     expect(result.html).not.toContain("<script");
     expect(result.html).not.toContain('href="javascript:');
@@ -941,6 +951,27 @@ describe("Studio MCP tools", () => {
       tool: "studio_upsert_member"
     });
     await admin.close();
+  });
+
+  it("lets a connection update only its own public display name", async () => {
+    const connection = await connectClient();
+    const updated = await connection.client.callTool({
+      name: "studio_update_profile",
+      arguments: { displayName: "山田 編集" }
+    });
+    expect(updated.structuredContent).toMatchObject({
+      session: { identity: { displayName: "山田 編集", email: "editor@example.com" } }
+    });
+
+    const whoami = await connection.client.callTool({ name: "studio_whoami", arguments: {} });
+    expect(whoami.structuredContent).toMatchObject({
+      identity: { displayName: "山田 編集", email: "editor@example.com" }
+    });
+    const stored = await testEnv.CMS_DB.prepare(
+      "SELECT display_name FROM cms_members WHERE subject = ?1"
+    ).bind(SESSION.identity.subject).first<{ display_name: string }>();
+    expect(stored?.display_name).toBe("山田 編集");
+    await connection.close();
   });
 
   it("permanently deletes an unused asset and advertises the operation as destructive", async () => {
@@ -1631,7 +1662,7 @@ describe("Studio MCP HTTP boundary", () => {
     await client.connect(transport);
     const tools = await client.listTools();
 
-    expect(tools.tools).toHaveLength(38);
+    expect(tools.tools).toHaveLength(39);
     expect(tools.tools.some((tool) => tool.name === "studio_get_analytics_summary")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_rebuild_analytics_mart")).toBe(true);
     expect(tools.tools.some((tool) => tool.name === "studio_create_draft")).toBe(true);

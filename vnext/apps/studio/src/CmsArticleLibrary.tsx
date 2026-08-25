@@ -14,7 +14,7 @@ import { getCmsJourneyStatus } from "./CmsPublicationJourney";
 
 export type CmsLibraryConnection =
   | { kind: "checking" }
-  | { kind: "ready"; email: string; role: CmsRole }
+  | { displayName?: string | null; email: string; kind: "ready"; publicId?: string; role: CmsRole }
   | { kind: "unavailable"; message: string };
 
 interface CmsArticleLibraryProps {

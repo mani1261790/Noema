@@ -68,6 +68,7 @@ import {
   updateCmsAsset as updateCmsAssetRecord,
   deleteCmsAsset as deleteCmsAssetRecord,
   uploadCmsAsset,
+  updateCmsProfile,
   upsertCmsMember,
   type CmsClientError,
   type CmsSeriesContent
@@ -652,6 +653,9 @@ export function App() {
   const [cmsMembers, setCmsMembers] = useState<CmsMember[]>([]);
   const [cmsMembersBusy, setCmsMembersBusy] = useState(false);
   const [cmsMembersError, setCmsMembersError] = useState<string | null>(null);
+  const [cmsProfileName, setCmsProfileName] = useState("");
+  const [cmsProfileBusy, setCmsProfileBusy] = useState(false);
+  const [cmsProfileError, setCmsProfileError] = useState<string | null>(null);
   const [passwordMigrationBusy, setPasswordMigrationBusy] = useState(false);
   const [passwordMigrationError, setPasswordMigrationError] = useState<string | null>(null);
   const [loginBusy, setLoginBusy] = useState(false);
@@ -768,6 +772,12 @@ export function App() {
   );
   const previewHtml = useMemo(
     () => DOMPurify.sanitize(renderArticlePresentation(frontmatter, deferredBody, {
+      editor: cmsSessionState.kind === "ready" && cmsSessionState.session.identity.displayName
+        ? {
+            href: `/editors/${cmsSessionState.session.identity.publicId}`,
+            name: cmsSessionState.session.identity.displayName
+          }
+        : null,
       markdownRenderer: markdown,
       resolveImageReference: (reference) => resolvePreviewImageReference(reference, publicSiteUrl),
       resolveLinkReference: (reference) => resolvePublicSiteReference(reference, publicSiteUrl),
@@ -776,7 +786,7 @@ export function App() {
       ADD_ATTR: ["encoding", "target"],
       ADD_TAGS: ["annotation", "semantics"]
     }),
-    [deferredBody, frontmatter, previewSeries]
+    [cmsSessionState, deferredBody, frontmatter, previewSeries]
   );
   const bodyIssues = useMemo(() => validateArticleMarkdown(deferredBody), [deferredBody]);
   const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");
@@ -876,6 +886,11 @@ export function App() {
     const timer = window.setTimeout(() => setOperationMessage(null), 6_000);
     return () => window.clearTimeout(timer);
   }, [operationMessage]);
+
+  useEffect(() => {
+    if (cmsSessionState.kind !== "ready") return;
+    setCmsProfileName(cmsSessionState.session.identity.displayName ?? "");
+  }, [cmsSessionState]);
 
   useEffect(() => {
     if (cmsSessionState.kind !== "ready" || !cmsSessionState.session.capabilities.canManageMembers) {
@@ -2219,6 +2234,28 @@ export function App() {
     setCmsMembersBusy(false);
   };
 
+  const saveCmsProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (cmsSessionState.kind !== "ready") return;
+    const displayName = cmsProfileName.trim();
+    if (!displayName) return;
+    setCmsProfileBusy(true);
+    setCmsProfileError(null);
+    const result = await updateCmsProfile(displayName);
+    if (result.ok) {
+      setCmsSessionState({ kind: "ready", session: result.value });
+      setCmsProfileName(result.value.identity.displayName ?? "");
+      showNotification({
+        text: "公開記事の編集者名と編集者ページに反映されます。",
+        title: "公開名を保存しました",
+        tone: "info"
+      });
+    } else {
+      setCmsProfileError(result.error.message);
+    }
+    setCmsProfileBusy(false);
+  };
+
   const saveCmsSeries = async (
     current: CmsSeries | null,
     content: CmsSeriesContent,
@@ -2716,8 +2753,10 @@ export function App() {
     : cmsSessionState.kind === "unavailable"
       ? { kind: "unavailable", message: cmsSessionState.error.message }
       : {
+          displayName: cmsSessionState.session.identity.displayName,
           email: cmsSessionState.session.identity.email,
           kind: "ready",
+          publicId: cmsSessionState.session.identity.publicId,
           role: cmsSessionState.session.identity.role
         };
   const cmsAssetConnection: CmsLibraryConnection = cmsAssetsError
@@ -2942,9 +2981,7 @@ export function App() {
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
             <a aria-current={studioView === "analytics" ? "page" : undefined} href={studioViewHref("analytics")} onClick={(event) => { event.preventDefault(); showAnalytics(); }}>分析</a>
-            {cmsSession?.capabilities.canManageMembers ? (
-              <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>チーム</a>
-            ) : null}
+            <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>プロフィール</a>
           </div>
         </nav>
       ) : null}
@@ -3026,9 +3063,14 @@ export function App() {
             window.requestAnimationFrame(() => document.getElementById("cms-member-email")?.focus());
           }}
           onEmailChange={setCmsMemberEmail}
+          onProfileNameChange={setCmsProfileName}
+          onProfileSubmit={(event) => void saveCmsProfile(event)}
           onRetry={() => setCmsRefresh((current) => current + 1)}
           onRoleChange={setCmsMemberRole}
           onSubmit={(event) => void saveCmsMember(event)}
+          profileBusy={cmsProfileBusy}
+          profileError={cmsProfileError}
+          profileName={cmsProfileName}
           role={cmsMemberRole}
         />
       ) : (
