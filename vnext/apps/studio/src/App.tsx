@@ -120,7 +120,7 @@ import { CmsReviewComments } from "./CmsReviewComments";
 import { CmsLogin } from "./CmsLogin";
 import { resolveLockedArticleSurface } from "./locked-article-surface";
 import {
-  createReviewCommentAnchor,
+  createReviewCommentAnchorFromRenderedSelection,
   locateReviewCommentAnchor
 } from "./review-comment-anchor";
 import {
@@ -677,6 +677,7 @@ export function App() {
   const [assetOperationBusy, setAssetOperationBusy] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
   const bodyInput = useRef<HTMLTextAreaElement>(null);
+  const renderedArticle = useRef<HTMLDivElement>(null);
   const assetTrigger = useRef<HTMLButtonElement>(null);
   const versionHistoryTrigger = useRef<HTMLButtonElement>(null);
   const reviewCommentInput = useRef<HTMLTextAreaElement>(null);
@@ -2133,7 +2134,7 @@ export function App() {
   };
 
   const captureCmsReviewSelection = (
-    element: HTMLTextAreaElement,
+    element: HTMLDivElement,
     focusCommentInput = false
   ) => {
     if (
@@ -2143,7 +2144,28 @@ export function App() {
       !cmsArticle ||
       !["in_review", "approved"].includes(cmsArticle.reviewStatus)
     ) return;
-    const anchor = createReviewCommentAnchor(body, element.selectionStart, element.selectionEnd);
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    const articleBody = element.querySelector<HTMLElement>(".article-body");
+    if (
+      !articleBody ||
+      !articleBody.contains(range.startContainer) ||
+      !articleBody.contains(range.endContainer)
+    ) return;
+
+    const prefixRange = document.createRange();
+    prefixRange.selectNodeContents(articleBody);
+    prefixRange.setEnd(range.startContainer, range.startOffset);
+    const suffixRange = document.createRange();
+    suffixRange.selectNodeContents(articleBody);
+    suffixRange.setStart(range.endContainer, range.endOffset);
+    const anchor = createReviewCommentAnchorFromRenderedSelection(
+      body,
+      selection.toString(),
+      prefixRange.toString(),
+      suffixRange.toString()
+    );
     if (!anchor) return;
     setCmsReviewCommentTarget("body");
     setCmsReviewCommentAnchor(anchor);
@@ -2155,7 +2177,7 @@ export function App() {
   const focusCmsReviewComment = (comment: CmsReviewComment) => {
     if (!comment.anchor) return;
     const location = locateReviewCommentAnchor(body, comment.anchor);
-    setPreviewFullscreen(false);
+    setPreviewFullscreen(true);
     setSettingsMode("review");
     setSettingsOpen(true);
     if (!location) {
@@ -2167,8 +2189,20 @@ export function App() {
       return;
     }
     window.requestAnimationFrame(() => {
-      bodyInput.current?.focus();
-      bodyInput.current?.setSelectionRange(location.startOffset, location.endOffset);
+      const articleBody = renderedArticle.current?.querySelector<HTMLElement>(".article-body");
+      const sourceLine = body.slice(0, location.startOffset).split("\n").length - 1;
+      const matchingBlock = articleBody && Array.from(
+        articleBody.querySelectorAll<HTMLElement>("[data-source-line-start][data-source-line-end]")
+      ).filter((element) => {
+        const startLine = Number(element.dataset.sourceLineStart);
+        const endLine = Number(element.dataset.sourceLineEnd);
+        return startLine <= sourceLine && sourceLine < endLine;
+      }).sort((left, right) => (
+        Number(left.dataset.sourceLineEnd) - Number(left.dataset.sourceLineStart)
+      ) - (
+        Number(right.dataset.sourceLineEnd) - Number(right.dataset.sourceLineStart)
+      ))[0];
+      matchingBlock?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   };
 
@@ -3575,7 +3609,7 @@ export function App() {
 
         <section
           aria-labelledby="editor-heading"
-          className={`studio-editor ${editorLocked ? "has-lock" : ""} ${previewFullscreen ? "is-preview-fullscreen" : ""}`}
+          className={`studio-editor ${editorLocked && !contentReviewLocked ? "has-lock" : ""} ${previewFullscreen ? "is-preview-fullscreen" : ""}`}
           id="studio-editor"
         >
           <h2 className="sr-only" id="editor-heading">{previewFullscreen ? "記事プレビュー" : "Markdown本文"}</h2>
@@ -3613,11 +3647,9 @@ export function App() {
                 </button>
               </div>
             </div>
-          ) : editorLocked ? (
+          ) : editorLocked && !contentReviewLocked ? (
             <p className="studio-editor__lock" role="status">
-              {contentReviewLocked
-                ? "レビュー対象の本文を固定しています。内容を確認し、必要な点はレビューコメントへ残してください。"
-                : "この役割では記事本体を編集できません。レビューコメントとワークフロー操作を利用できます。"}
+              この役割では記事本体を編集できません。レビューコメントとワークフロー操作を利用できます。
             </p>
           ) : null}
           <div className={`studio-writing-layout has-preview ${previewFullscreen ? "is-preview-only" : ""}`}>
@@ -3636,7 +3668,7 @@ export function App() {
                 type="button"
               >
                 {editorLocked
-                  ? previewFullscreen ? "本文から指摘箇所を選ぶ" : "記事表示に戻る"
+                  ? previewFullscreen ? "Markdownを確認する" : "記事表示に戻る"
                   : previewFullscreen ? "編集に戻る" : "プレビューのみ"}
               </button> : null}
             </div>
@@ -3667,9 +3699,6 @@ export function App() {
                   if (asset) insertBodyAsset(asset);
                 }}
                 onChange={(event) => { if (!editorLocked) { setBody(event.target.value); setPublicationIssues([]); } }}
-                onKeyUp={(event) => captureCmsReviewSelection(event.currentTarget)}
-                onMouseUp={(event) => captureCmsReviewSelection(event.currentTarget, true)}
-                onSelect={(event) => captureCmsReviewSelection(event.currentTarget)}
                 placeholder="## はじめに\n\nここからMarkdownで本文を書きます。"
                 readOnly={editorLocked}
                 required
@@ -3678,7 +3707,17 @@ export function App() {
                 value={body}
               />
             </div>
-            <div className="studio-live-preview studio-preview" aria-label="ライブプレビュー">
+            <div
+              className="studio-live-preview studio-preview"
+              aria-label="ライブプレビュー"
+              onKeyUp={(event) => captureCmsReviewSelection(event.currentTarget)}
+              onMouseUp={(event) => captureCmsReviewSelection(event.currentTarget, true)}
+              onTouchEnd={(event) => {
+                const element = event.currentTarget;
+                window.requestAnimationFrame(() => captureCmsReviewSelection(element));
+              }}
+              ref={renderedArticle}
+            >
               <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
             </div>
           </div>
