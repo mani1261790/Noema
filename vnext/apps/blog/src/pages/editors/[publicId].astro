@@ -1,0 +1,39 @@
+---
+import ArticleRow from "../../components/ArticleRow.astro";
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPublishedEditorProfile } from "../../lib/cms-publications";
+
+const publicId = Astro.params.publicId ?? "";
+const editor = await getPublishedEditorProfile(publicId);
+if (!editor) return new Response("Not found", { status: 404 });
+const description = `${editor.displayName}が編集したNoemaの記事を紹介します。`;
+const canonicalUrl = new URL(editor.href, Astro.site ?? "https://noema-learn.uk");
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: editor.displayName,
+  url: canonicalUrl.toString()
+};
+---
+
+<BaseLayout title={`${editor.displayName} | Noema編集者`} description={description} jsonLd={jsonLd}>
+  <div class="noema-container editor-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "記事", href: "/articles" }, { label: editor.displayName }]} />
+    <header class="editor-page__header">
+      <h1>{editor.displayName}</h1>
+      <p>Noemaで公開記事の編集を担当しています。</p>
+    </header>
+    <section aria-labelledby="editor-articles-heading">
+      <div class="editor-page__section-heading">
+        <h2 id="editor-articles-heading">編集した記事</h2>
+        <p>{editor.articles.length}件</p>
+      </div>
+      {editor.articles.length > 0 ? (
+        <div class="article-list editor-page__articles">
+          {editor.articles.map((article) => <ArticleRow article={article} />)}
+        </div>
+      ) : <p class="editor-page__empty">現在公開している記事はありません。</p>}
+    </section>
+  </div>
+</BaseLayout>

@@ -900,6 +900,56 @@ body.noema-public .site-search-form__input input:focus-visible {
   font-size: calc(14 / 16 * 1rem);
 }
 
+.article-meta a {
+  color: var(--color-key-1000);
+  text-underline-offset: .2em;
+}
+
+.editor-page {
+  padding-block: 2rem 6rem;
+}
+
+.editor-page__header {
+  max-width: 45rem;
+  margin-block: 2rem 4rem;
+}
+
+.editor-page__header h1 {
+  margin: 0;
+  color: var(--color-key-1000);
+  font-size: calc(45 / 16 * 1rem);
+  line-height: 1.4;
+}
+
+.editor-page__header p {
+  margin: 1rem 0 0;
+  font-size: calc(17 / 16 * 1rem);
+  line-height: 1.7;
+}
+
+.editor-page__section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--noema-border);
+}
+
+.editor-page__section-heading h2,
+.editor-page__section-heading p {
+  margin: 0;
+}
+
+.editor-page__articles {
+  margin-top: 1.5rem;
+}
+
+.editor-page__empty {
+  margin-top: 1.5rem;
+  color: var(--color-neutral-solid-gray-600);
+}
+
 .article-toc {
   margin-block: 2rem 3rem;
 }
