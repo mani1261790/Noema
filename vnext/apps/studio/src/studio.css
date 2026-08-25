@@ -4730,7 +4730,33 @@ textarea.studio-control {
   .studio-workspace.is-review-workspace .studio-editor {
     grid-column: 1;
     grid-row: 1;
-    min-height: 70dvh;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    grid-template-rows: auto;
+  }
+
+  .studio-workspace.is-review-workspace .studio-writing-layout,
+  .studio-workspace.is-review-workspace .studio-live-preview {
+    height: auto;
+    overflow: visible;
+  }
+
+  .studio-workspace.is-review-workspace .studio-writing-controls {
+    position: static;
+    justify-content: flex-end;
+    padding: .75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid #949494;
+  }
+
+  .studio-workspace.is-review-workspace .studio-preview-toggle {
+    min-height: 44px;
+  }
+
+  .studio-workspace.is-review-workspace .studio-preview-toggle[aria-pressed="true"] {
+    color: #fff;
+    background: var(--color-key-900);
   }
 
   .studio-workspace.is-review-workspace .studio-settings {
