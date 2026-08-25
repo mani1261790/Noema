@@ -39,7 +39,6 @@ import {
   type CmsRole,
   type CmsReviewComment,
   type CmsReviewCommentAnchor,
-  type CmsReviewCommentTarget,
   type CmsSession,
   type CmsSeries,
   type CmsSeriesVersion,
@@ -613,7 +612,6 @@ export function App() {
   const [cmsReviewComments, setCmsReviewComments] = useState<CmsReviewComment[]>([]);
   const [cmsReviewCommentsBusy, setCmsReviewCommentsBusy] = useState(false);
   const [cmsReviewCommentBody, setCmsReviewCommentBody] = useState("");
-  const [cmsReviewCommentTarget, setCmsReviewCommentTarget] = useState<CmsReviewCommentTarget>("body");
   const [cmsReviewCommentAnchor, setCmsReviewCommentAnchor] = useState<CmsReviewCommentAnchor | null>(null);
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false);
   const [cmsRecoveryReference, setCmsRecoveryReference] = useState<StudioDraftCmsArticle | null>(
@@ -1954,7 +1952,7 @@ export function App() {
       const openCommentCount = cmsReviewComments.filter((comment) => comment.status === "open").length;
       if (openCommentCount === 0) {
         showNotification({
-          text: "本文の該当箇所または記事全体へ指摘を追加してください。",
+          text: "レンダリングされた記事本文で指摘箇所を選択し、コメントを追加してください。",
           title: "修正箇所を先に記録してください",
           tone: "info"
         });
@@ -2106,13 +2104,12 @@ export function App() {
       reviewCommentInput.current?.focus();
       return;
     }
+    if (!cmsReviewCommentAnchor) return;
     setCmsOperationBusy(true);
     const result = await createCmsReviewCommentRecord(cmsArticle.id, {
-      ...(cmsReviewCommentTarget === "body" && cmsReviewCommentAnchor
-        ? { anchor: cmsReviewCommentAnchor }
-        : {}),
+      anchor: cmsReviewCommentAnchor,
       body: commentBody,
-      target: cmsReviewCommentTarget
+      target: "body"
     });
     if (result.ok) {
       setCmsReviewComments((current) => [...current, result.value]);
@@ -2167,7 +2164,6 @@ export function App() {
       suffixRange.toString()
     );
     if (!anchor) return;
-    setCmsReviewCommentTarget("body");
     setCmsReviewCommentAnchor(anchor);
     if (focusCommentInput) {
       window.requestAnimationFrame(() => reviewCommentInput.current?.focus());
@@ -3286,8 +3282,8 @@ export function App() {
                 </h3>
                 <p>
                   {cmsArticle && ["draft", "changes_requested"].includes(cmsArticle.reviewStatus) && cmsReviewComments.length > 0
-                    ? "未対応の指摘を開くと、左の本文で該当箇所を選択します。修正を保存してから対応済みにしてください。"
-                    : "本文の該当箇所を選択してコメントし、未対応の指摘をまとめて差し戻します。"}
+                    ? "未対応の指摘を開くと、記事本文の該当箇所へ移動します。Markdownを修正・保存してから対応済みにしてください。"
+                    : "レンダリングされた記事本文で該当箇所を選択してコメントし、未対応の指摘をまとめて差し戻します。"}
                 </p>
               </div>
               {cmsArticle?.reviewNote ? (
@@ -3309,11 +3305,6 @@ export function App() {
                   onCommentFocus={focusCmsReviewComment}
                   onStatusChange={(comment, action) => void changeCmsReviewCommentStatus(comment, action)}
                   onSubmit={(event) => { event.preventDefault(); void addCmsReviewComment(); }}
-                  onTargetChange={(target) => {
-                    setCmsReviewCommentTarget(target);
-                    if (target !== "body") setCmsReviewCommentAnchor(null);
-                  }}
-                  target={cmsReviewCommentTarget}
                 />
               ) : null}
               <h3 className="studio-cms__next-action">レビューの操作</h3>

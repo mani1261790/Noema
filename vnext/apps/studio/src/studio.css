@@ -2020,7 +2020,6 @@ a {
   cursor: pointer;
 }
 
-.studio-review-comments__form select,
 .studio-review-comments__form textarea {
   box-sizing: border-box;
   width: 100%;
@@ -2038,7 +2037,6 @@ a {
   resize: vertical;
 }
 
-.studio-review-comments__form select:focus-visible,
 .studio-review-comments__form textarea:focus-visible {
   outline: 3px solid var(--studio-focus, #005fcc);
   outline-offset: 2px;
