@@ -182,13 +182,29 @@ jobs:
             return 1
           }
 
-          fetch_expected https://noema-learn.uk/ 200 /tmp/noema-home.html '<link rel="canonical" href="https://noema-learn.uk/"'
-          fetch_expected https://noema-learn.uk/robots.txt 200 /tmp/noema-robots.txt
+          production_origin="https://noema-learn-production.mani1261790.workers.dev"
+          public_status="$(curl --silent --show-error --max-time 20 --output /tmp/noema-public-home.html --write-out '%{http_code}' https://noema-learn.uk/ || true)"
+          case "${public_status}" in
+            200)
+              grep -Fq '<link rel="canonical" href="https://noema-learn.uk/"' /tmp/noema-public-home.html
+              echo "Verified public hostname from the GitHub runner: 200."
+              ;;
+            403)
+              echo "Public hostname returned 403 to the GitHub-hosted runner; continuing through the verified Worker Route and production origin."
+              ;;
+            *)
+              echo "Public hostname returned unexpected status ${public_status:-no response}." >&2
+              exit 1
+              ;;
+          esac
+
+          fetch_expected "${production_origin}/" 200 /tmp/noema-home.html '<link rel="canonical" href="https://noema-learn.uk/"'
+          fetch_expected "${production_origin}/robots.txt" 200 /tmp/noema-robots.txt
           grep -Fq 'Allow: /' /tmp/noema-robots.txt
           grep -Fq 'Sitemap: https://noema-learn.uk/sitemap.xml' /tmp/noema-robots.txt
 
           fetch_expected https://noema-learn.mani1261790.workers.dev/articles/ 200 /tmp/noema-development-articles.html
-          fetch_expected https://noema-learn.uk/articles/ 200 /tmp/noema-production-articles.html
+          fetch_expected "${production_origin}/articles/" 200 /tmp/noema-production-articles.html
           { grep -oE 'href="/articles/[^"#?]+' /tmp/noema-development-articles.html || true; } | sort -u > /tmp/noema-development-article-paths.txt
           { grep -oE 'href="/articles/[^"#?]+' /tmp/noema-production-articles.html || true; } | sort -u > /tmp/noema-production-article-paths.txt
           diff -u /tmp/noema-development-article-paths.txt /tmp/noema-production-article-paths.txt
@@ -196,9 +212,9 @@ jobs:
           while IFS= read -r article_href; do
             article_path="${article_href#href=\"}"
             test -z "$article_path" && continue
-            fetch_expected "https://noema-learn.uk${article_path}" 200 /dev/null
+            fetch_expected "${production_origin}${article_path}" 200 /dev/null
           done < /tmp/noema-production-article-paths.txt
 
-          fetch_expected https://noema-learn.uk/privacy/ 200 /dev/null
+          fetch_expected "${production_origin}/privacy/" 200 /dev/null
           fetch_expected https://studio.noema-learn.uk/ 302 /dev/null
           fetch_expected https://mcp.noema-learn.uk/mcp 401 /dev/null
