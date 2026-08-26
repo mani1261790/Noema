@@ -2,10 +2,12 @@ import { env } from "cloudflare:workers";
 import {
   getCmsPublishedArticleBySlug,
   getCmsPublishedArticleRedirect,
+  getCmsPublishedSeriesBySlug,
   getCmsArticleLinkAvailability,
   getCmsPublishedEditorProfile,
   getCmsPublishedSeriesByArticleSlug,
   listCmsPublicArticleSummaries,
+  listCmsPublishedSeries,
   listCmsPublishedEditors,
 } from "./cms-publication-repository";
 
@@ -30,6 +32,14 @@ export function getArticleLinkAvailability(
 
 export function getPublishedSeriesByArticleSlug(slug: string) {
   return getCmsPublishedSeriesByArticleSlug(env.CMS_DB, slug);
+}
+
+export function listPublishedSeries() {
+  return listCmsPublishedSeries(env.CMS_DB);
+}
+
+export function getPublishedSeriesBySlug(slug: string) {
+  return getCmsPublishedSeriesBySlug(env.CMS_DB, slug);
 }
 
 export function getPublishedEditorProfile(publicId: string) {

@@ -41,13 +41,17 @@ export interface CmsPublishedArticle extends CmsPublishedArticleSummary {
   markdown: string;
 }
 
-export interface CmsPublishedSeriesContext {
-  currentIndex: number;
+export interface CmsPublishedSeries {
   description: string;
+  href: string;
   id: string;
   items: ArticleSummary[];
   slug: string;
   title: string;
+}
+
+export interface CmsPublishedSeriesContext extends CmsPublishedSeries {
+  currentIndex: number;
 }
 
 export type CmsArticleLinkAvailability = "available" | "unavailable";
@@ -62,6 +66,13 @@ interface CmsPublishedArticleRow {
   published_visibility: string;
   revision_created_at: string;
   revision_number: number;
+}
+
+interface CmsPublishedSeriesRow extends CmsPublishedArticleRow {
+  series_description: string;
+  series_id: string;
+  series_slug: string;
+  series_title: string;
 }
 
 const publishedSummaryColumns = `r.frontmatter_json,
@@ -285,7 +296,56 @@ export async function getCmsPublishedSeriesByArticleSlug(
   );
   const currentIndex = items.findIndex((item) => item.slug === articleSlug);
   if (currentIndex < 0) return null;
-  return { ...series, currentIndex, items };
+  return { ...series, currentIndex, href: `/series/${series.slug}`, items };
+}
+
+export async function listCmsPublishedSeries(
+  db: CmsPublicationDatabase,
+): Promise<CmsPublishedSeries[]> {
+  const result = await db.prepare(
+    `SELECT s.id AS series_id,
+       sr.slug AS series_slug,
+       sr.title AS series_title,
+       sr.description AS series_description,
+       ${publishedSummaryColumns}
+     FROM cms_series s
+     JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
+     JOIN cms_series_revision_items item ON item.revision_id = s.published_revision_id
+     JOIN cms_articles a ON a.id = item.article_id
+     JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
+     WHERE a.publication_status = 'published'
+       AND a.published_visibility = 'public'
+     ORDER BY s.updated_at DESC, s.id ASC, item.position ASC`,
+  ).all<CmsPublishedSeriesRow>();
+
+  return groupPublishedSeries(result.results);
+}
+
+export async function getCmsPublishedSeriesBySlug(
+  db: CmsPublicationDatabase,
+  slug: string,
+): Promise<CmsPublishedSeries | null> {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+  const result = await db.prepare(
+    `SELECT s.id AS series_id,
+       sr.slug AS series_slug,
+       sr.title AS series_title,
+       sr.description AS series_description,
+       ${publishedSummaryColumns}
+     FROM cms_series s
+     JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
+     JOIN cms_series_revision_items item ON item.revision_id = s.published_revision_id
+     JOIN cms_articles a ON a.id = item.article_id
+     JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     LEFT JOIN cms_members m ON m.subject = r.created_by_subject
+     WHERE sr.slug = ?1
+       AND a.publication_status = 'published'
+       AND a.published_visibility = 'public'
+     ORDER BY item.position ASC`,
+  ).bind(slug).all<CmsPublishedSeriesRow>();
+
+  return groupPublishedSeries(result.results)[0] ?? null;
 }
 
 export async function getCmsPublishedEditorProfile(
@@ -348,4 +408,24 @@ function isoDate(value: string, field: string): string {
     throw new Error(`CMS ${field} is not a valid ISO date.`);
   }
   return date;
+}
+
+function groupPublishedSeries(rows: CmsPublishedSeriesRow[]): CmsPublishedSeries[] {
+  const grouped = new Map<string, CmsPublishedSeries>();
+  for (const row of rows) {
+    let series = grouped.get(row.series_id);
+    if (!series) {
+      series = {
+        description: row.series_description,
+        href: `/series/${row.series_slug}`,
+        id: row.series_id,
+        items: [],
+        slug: row.series_slug,
+        title: row.series_title,
+      };
+      grouped.set(row.series_id, series);
+    }
+    series.items.push(toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data));
+  }
+  return [...grouped.values()];
 }
