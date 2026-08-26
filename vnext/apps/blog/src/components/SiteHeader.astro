@@ -1,71 +1,66 @@
----
-interface Props {
-  currentPath: string;
-}
-
-const { currentPath } = Astro.props;
-const navItems = [
-  { href: "/articles", label: "記事を読む" },
-  { href: "/topics/control-engineering", label: "テーマから探す" },
-  { href: "/about", label: "Noemaについて" }
-];
-
-const isCurrent = (href: string) => currentPath === href || currentPath.startsWith(`${href}/`);
----
-
-<header class="site-header">
+<header class="site-header" data-site-header>
   <div class="noema-container site-header__inner">
     <a class="site-header__brand" href="/" aria-label="Noema ホーム">Noema</a>
-
-    <nav class="site-header__nav" aria-label="メインメニュー">
-      <ul class="site-header__nav-list">
-        {navItems.map((item) => (
-          <li>
-            <a class:list={["site-header__nav-link", { "is-current": isCurrent(item.href) }]} href={item.href} aria-current={isCurrent(item.href) ? "page" : undefined}>
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-
-    <a class="site-header__search" href="/articles#search">
-      <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <button class="site-header__search" type="button" aria-expanded="false" aria-controls="site-search-panel" data-site-search-toggle>
+      <svg class="noema-icon site-header__search-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="m20.5 19.8-4.8-4.8a7.5 7.5 0 1 0-.7.7l4.8 4.8.7-.7ZM4 10a6 6 0 1 1 12 0 6 6 0 0 1-12 0Z" fill="currentColor" />
       </svg>
-      サイト内検索
-    </a>
-
-    <button class="dads-hamburger-menu-button site-header__menu-button" type="button" aria-controls="mobile-navigation" aria-expanded="false">
-      <svg class="dads-hamburger-menu-button__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M3 18V16H21V18H3ZM3 13V11H21V13H3ZM3 8V6H21V8H3Z" fill="currentcolor" />
+      <svg class="noema-icon site-header__close-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="1.5" />
       </svg>
-      <span data-menu-label>メニュー</span>
+      <span data-site-search-label>検索</span>
     </button>
   </div>
 
-  <nav id="mobile-navigation" class="site-header__mobile-nav" aria-label="モバイルメニュー" hidden>
-    <div class="noema-container">
-      <ul>
-        {navItems.map((item) => (
-          <li><a href={item.href} aria-current={isCurrent(item.href) ? "page" : undefined}>{item.label}</a></li>
-        ))}
-        <li><a href="/articles#search">サイト内検索</a></li>
-      </ul>
+  <div id="site-search-panel" class="site-search-panel" data-site-search-panel data-open="false" aria-hidden="true" inert>
+    <div class="site-search-panel__clip">
+      <div class="noema-container site-search-panel__inner">
+        <form class="site-search-form" action="/articles" method="get" role="search">
+          <button class="site-search-form__submit" type="submit" aria-label="検索">
+            <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" />
+            </svg>
+          </button>
+          <label class="site-search-form__input">
+            <span class="noema-visually-hidden">記事を検索</span>
+            <input data-site-search-input type="search" name="keyword" placeholder="記事を検索" autocomplete="off" />
+          </label>
+        </form>
+      </div>
     </div>
-  </nav>
+  </div>
 </header>
 
 <script>
-  const button = document.querySelector<HTMLButtonElement>(".site-header__menu-button");
-  const navigation = document.querySelector<HTMLElement>("#mobile-navigation");
-  const label = button?.querySelector<HTMLElement>("[data-menu-label]");
+  const siteHeader = document.querySelector<HTMLElement>("[data-site-header]");
+  const searchToggle = siteHeader?.querySelector<HTMLButtonElement>("[data-site-search-toggle]");
+  const searchPanel = siteHeader?.querySelector<HTMLElement>("[data-site-search-panel]");
+  const searchLabel = siteHeader?.querySelector<HTMLElement>("[data-site-search-label]");
 
-  button?.addEventListener("click", () => {
-    if (!navigation) return;
-    const nextOpen = navigation.hidden;
-    navigation.hidden = !nextOpen;
-    button.setAttribute("aria-expanded", String(nextOpen));
-    if (label) label.textContent = nextOpen ? "閉じる" : "メニュー";
+  const setSearchOpen = (open: boolean, returnFocus = false) => {
+    if (!searchToggle || !searchPanel) return;
+    searchToggle.setAttribute("aria-expanded", String(open));
+    searchPanel.dataset.open = String(open);
+    searchPanel.setAttribute("aria-hidden", String(!open));
+    if (searchLabel) searchLabel.textContent = open ? "閉じる" : "検索";
+    if (open) {
+      searchPanel.removeAttribute("inert");
+    } else {
+      searchPanel.setAttribute("inert", "");
+      if (returnFocus) searchToggle.focus();
+    }
+  };
+
+  searchToggle?.addEventListener("click", () => {
+    setSearchOpen(searchToggle.getAttribute("aria-expanded") !== "true");
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && searchToggle?.getAttribute("aria-expanded") === "true") setSearchOpen(false, true);
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (searchToggle?.getAttribute("aria-expanded") !== "true") return;
+    if (event.target instanceof Node && !siteHeader?.contains(event.target)) setSearchOpen(false);
   });
 </script>

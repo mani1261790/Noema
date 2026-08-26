@@ -1,0 +1,30 @@
+{
+  "name": "@noema/studio-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --config wrangler.jsonc",
+    "types": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --strict-vars=false",
+    "test": "npm run types && MCP_ACCESS_POLICY_AUD=test-audience vitest run",
+    "check": "npm run types && tsc --noEmit --pretty false",
+    "build": "npm run check",
+    "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config wrangler.jsonc",
+    "deploy": "npm run build && wrangler deploy --config wrangler.jsonc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "@noema/cms": "0.1.0",
+    "@noema/content": "0.1.0",
+    "agents": "0.21.0",
+    "jose": "^6.2.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.21.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
+  }
+}

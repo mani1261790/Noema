@@ -8,6 +8,8 @@ on:
 jobs:
   vnext-checks:
     runs-on: ubuntu-latest
+    env:
+      VITE_PUBLIC_SITE_URL: https://noema-learn.mani1261790.workers.dev
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -26,6 +28,10 @@ jobs:
       - name: Audit dependencies
         working-directory: vnext
         run: npm audit --audit-level=high
+
+      - name: Test current application
+        working-directory: vnext
+        run: npm test
 
       - name: Validate current application
         working-directory: vnext

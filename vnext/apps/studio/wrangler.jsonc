@@ -1,14 +1,63 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "noema-studio",
+  "main": "worker/index.ts",
   "account_id": "2ea670c2a6ff28e248ef084adf095e8b",
-  "compatibility_date": "2026-07-10",
+  "compatibility_date": "2026-07-17",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "preview_urls": true,
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "studio.noema-learn.uk",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "falling-smoke-5c0f.cloudflareaccess.com",
+    "ACCESS_POLICY_AUD": "882b7c1d2c863c9223f84857969a0bdb36b9979272e6af645d087473e0c18de9",
+    "CMS_BOOTSTRAP_ADMIN_EMAIL": "mani1261790@gmail.com",
+    "STUDIO_ALLOWED_ORIGIN": "https://studio.noema-learn.uk"
+  },
+  "d1_databases": [
+    {
+      "binding": "CMS_DB",
+      "database_name": "noema-cms",
+      "database_id": "1be074f8-8d97-4422-a081-5eeaadcb5cd0",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_ASSETS",
+      "bucket_name": "noema-article-assets"
+    }
+  ],
+  "exports": {
+    "PublicationCoordinator": {
+      "type": "durable-object",
+      "state": "deleted"
+    }
+  },
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*"]
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05
+    }
+  },
+  "triggers": {
+    "crons": ["17 3 * * *"]
   }
 }

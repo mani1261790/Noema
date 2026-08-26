@@ -22,6 +22,7 @@ jobs:
     timeout-minutes: 20
     env:
       VITE_PUBLIC_SITE_URL: https://noema-learn.mani1261790.workers.dev
+      NOEMA_PREVIEW_CONTENT: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -37,6 +38,10 @@ jobs:
         working-directory: vnext
         run: npm ci
 
+      - name: Test current application
+        working-directory: vnext
+        run: npm test
+
       - name: Validate current application
         working-directory: vnext
         run: npm run check
@@ -50,15 +55,24 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/public-gate
-          wranglerVersion: "4.110.0"
+          wranglerVersion: "4.120.1"
           command: deploy --config wrangler.jsonc
+
+      - name: Apply CMS database migrations
+        working-directory: vnext
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          npx wrangler d1 migrations apply noema-cms
+          --remote
+          --config apps/studio/wrangler.jsonc
 
       - name: Deploy blog Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/blog
-          wranglerVersion: "4.110.0"
+          wranglerVersion: "4.120.1"
           command: deploy --config dist/server/wrangler.json
 
       - name: Deploy Studio Worker
@@ -66,5 +80,17 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/studio
-          wranglerVersion: "4.110.0"
+          wranglerVersion: "4.120.1"
+          secrets: |
+            BETTER_AUTH_SECRET
+          command: deploy --config wrangler.jsonc
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+
+      - name: Deploy Studio MCP Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: vnext/apps/studio-mcp
+          wranglerVersion: "4.120.1"
           command: deploy --config wrangler.jsonc

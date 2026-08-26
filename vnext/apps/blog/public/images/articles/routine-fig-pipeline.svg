@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 306" width="100%" role="img"
+     aria-label="作業の自動記録とカレンダー・Gitの履歴を突き合わせて正本データを作り、そこから提出物を毎回生成し直す流れの図">
+  <defs>
+    <marker id="p-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#00645F"/>
+    </marker>
+    <marker id="p-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4355A5"/>
+    </marker>
+    <style>
+      .s { font-family: 'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif; }
+      .b  { font-size: 15px; fill: #1C2422; font-weight: 700; }
+      .n  { font-size: 14px; fill: #1C2422; }
+      .m  { font-size: 12px; fill: #5A6360; }
+      .t  { font-size: 12px; fill: #00645F; font-weight: 700; }
+      .ac { font-size: 13px; fill: #4355A5; font-weight: 700; }
+      .box  { fill: #FFFFFF; stroke: #00645F; stroke-width: 1.5; }
+      .boxm { fill: #FFFFFF; stroke: #8A918E; stroke-width: 1.5; }
+      .arw  { fill: none; stroke: #00645F; stroke-width: 1.8; }
+    </style>
+  </defs>
+
+  <rect width="900" height="306" fill="#FAF9F5"/>
+
+  <!-- 1. 作業する -->
+  <rect class="box" x="20" y="102" width="104" height="60" rx="10"/>
+  <text class="s b" x="72" y="138" text-anchor="middle">作業する</text>
+
+  <!-- arrow 1 -->
+  <line class="arw" x1="126" y1="132" x2="176" y2="132" marker-end="url(#p-teal)"/>
+  <text class="s t" x="151" y="118" text-anchor="middle">自動記録</text>
+
+  <!-- 2. 3つのソース -->
+  <rect x="180" y="70" width="176" height="124" rx="12" fill="#FFFFFF" stroke="#00645F" stroke-width="1.5"/>
+  <rect class="boxm" x="196" y="84"  width="144" height="30" rx="6"/>
+  <text class="s n" x="268" y="104" text-anchor="middle">作業ログ</text>
+  <rect class="boxm" x="196" y="120" width="144" height="30" rx="6"/>
+  <text class="s n" x="268" y="140" text-anchor="middle">カレンダー</text>
+  <rect class="boxm" x="196" y="156" width="144" height="30" rx="6"/>
+  <text class="s n" x="268" y="176" text-anchor="middle">Gitの履歴</text>
+
+  <!-- arrow 2 -->
+  <line class="arw" x1="358" y1="132" x2="416" y2="132" marker-end="url(#p-teal)"/>
+  <text class="s t" x="387" y="118" text-anchor="middle">突き合わせ</text>
+
+  <!-- 3. 正本データ -->
+  <rect x="420" y="102" width="150" height="60" rx="10" fill="#FFFFFF" stroke="#4355A5" stroke-width="2"/>
+  <text class="s b" x="495" y="128" text-anchor="middle">正本データ</text>
+  <text class="s m" x="495" y="150" text-anchor="middle">テキスト2ファイル</text>
+  <text class="s ac" x="495" y="90" text-anchor="middle">手で直すのはここだけ</text>
+
+  <!-- arrow 3 -->
+  <line class="arw" x1="572" y1="132" x2="646" y2="132" marker-end="url(#p-teal)"/>
+  <text class="s t" x="609" y="118" text-anchor="middle">スクリプト</text>
+
+  <!-- 4. 提出物 -->
+  <rect class="box" x="650" y="102" width="130" height="60" rx="10"/>
+  <text class="s b" x="715" y="138" text-anchor="middle">提出物</text>
+
+  <!-- 何度でも（正本 → 提出物 の作り直し） -->
+  <path d="M495,168 C495,232 715,232 715,170"
+        fill="none" stroke="#4355A5" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#p-accent)"/>
+  <text class="s ac" x="605" y="262" text-anchor="middle">何度でも作り直せる</text>
+
+  <text class="s m" x="20" y="42">記録は勝手に貯まり、提出物は毎回そこから生成される。</text>
+</svg>

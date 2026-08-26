@@ -6,6 +6,29 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
+  "ratelimits": [
+    {
+      "name": "ANALYTICS_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "CMS_DB",
+      "database_name": "noema-cms",
+      "database_id": "1be074f8-8d97-4422-a081-5eeaadcb5cd0"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARTICLE_ASSETS",
+      "bucket_name": "noema-article-assets"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

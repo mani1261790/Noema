@@ -1,0 +1,19 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="ページが見つかりません | Noema"
+  description="URLが変更されたか、現在は公開されていない可能性があります。"
+  noindex
+>
+  <div class="noema-reading-container not-found-page">
+    <p class="not-found-page__code" aria-hidden="true">404</p>
+    <h1>ページが見つかりません</h1>
+    <p>URLが変更されたか、現在は公開されていない可能性があります。</p>
+    <nav aria-label="ページが見つからない場合の移動先">
+      <a class="dads-button" data-size="md" data-type="solid-fill" href="/articles">記事を探す</a>
+      <a class="dads-link" href="/">トップへ戻る</a>
+    </nav>
+  </div>
+</BaseLayout>

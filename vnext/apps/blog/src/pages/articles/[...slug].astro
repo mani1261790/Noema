@@ -1,44 +1,100 @@
 ---
-import { getCollection, render, type CollectionEntry } from "astro:content";
+import { extractArticleLinkReferences, topicLabels } from "@noema/content";
+import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
-import ArticleToc from "../../components/ArticleToc.astro";
+import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import RelatedArticles from "../../components/RelatedArticles.astro";
+import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { findRelatedArticles, toArticleSummary } from "../../lib/articles";
+import { getArticleLinkAvailability, getPublishedArticleBySlug, getPublishedArticleRedirect, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
+import { renderArticlePresentation } from "@noema/content/article-presentation";
 
-export const prerender = true;
-
-export async function getStaticPaths() {
-  const articles = await getCollection("articles", ({ data }) => data.status === "published");
-  return articles.map((article) => ({ params: { slug: article.data.slug }, props: { article } }));
+const slug = Astro.params.slug ?? "";
+const article = await getPublishedArticleBySlug(slug);
+if (!article) {
+  const redirectSlug = await getPublishedArticleRedirect(slug);
+  if (redirectSlug) return Astro.redirect(`/articles/${redirectSlug}/`, 301);
+  return Astro.rewrite("/404");
 }
-
-interface Props {
-  article: CollectionEntry<"articles">;
-}
-
-const { article } = Astro.props;
-const { Content, headings } = await render(article);
+const articleLinkReferences = extractArticleLinkReferences(article.markdown);
+const [summaries, series, articleLinkAvailability] = await Promise.all([
+  listPublicArticleSummaries(),
+  getPublishedSeriesByArticleSlug(slug),
+  getArticleLinkAvailability(articleLinkReferences.map((reference) => reference.slug), article.visibility)
+]);
+const unavailableArticleHrefs = new Set(
+  articleLinkReferences
+    .filter((reference) => articleLinkAvailability.get(reference.slug) !== "available")
+    .map((reference) => reference.href)
+);
+const markdownRenderer = createArticleMarkdownRenderer({
+  resolveLinkAvailability: (href) => unavailableArticleHrefs.has(href) ? "unavailable" : "available"
+});
+const currentSummary = toArticleSummary(article.data);
+const seriesSlugs = new Set(series?.items.map((item) => item.slug) ?? []);
+const relatedArticles = findRelatedArticles(
+  currentSummary,
+  summaries.filter((item) => !seriesSlugs.has(item.slug)),
+);
+const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
+  editor: article.editor ? { href: article.editor.href, name: article.editor.displayName } : null,
+  markdownRenderer,
+  series: series ? {
+    currentIndex: series.currentIndex,
+    description: series.description,
+    items: series.items,
+    title: series.title
+  } : null
+});
+const canonicalUrl = new URL(`/articles/${article.data.slug}/`, Astro.site ?? "https://noema-learn.uk");
+const ogImagePath = "/og/default.png";
+const ogImageUrl = new URL(ogImagePath, Astro.site ?? "https://noema-learn.uk");
+const attributedAuthors = article.editor ? [article.editor.displayName] : article.data.authors;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  headline: article.data.title,
+  description: article.data.description,
+  datePublished: article.data.publishedAt,
+  dateModified: article.data.updatedAt,
+  inLanguage: "ja",
+  mainEntityOfPage: canonicalUrl.toString(),
+  image: [ogImageUrl.toString()],
+  author: attributedAuthors.map((name: string) => ({
+    "@type": "Person",
+    name,
+    ...(article.editor ? { url: new URL(article.editor.href, canonicalUrl).toString() } : {})
+  })),
+  publisher: { "@type": "Organization", name: "Noema", url: new URL("/", canonicalUrl).toString() }
+};
 const topic = article.data.topics[0] ?? "technology";
-const tocItems = headings
-  .filter((heading) => heading.depth === 2)
-  .map((heading) => ({ href: `#${heading.slug}`, label: heading.text }));
+const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
 
-<BaseLayout title={`${article.data.title} | Noema`} description={article.data.description}>
+<BaseLayout
+  title={`${article.data.title} | Noema`}
+  description={article.data.description}
+  noindex={article.visibility === "unlisted"}
+  image={ogImagePath}
+  pageType="article"
+  publishedAt={article.data.publishedAt}
+  updatedAt={article.data.updatedAt}
+  authors={attributedAuthors}
+  jsonLd={jsonLd}
+>
+  <ArticleAnalytics slug={article.data.slug} />
   <div class="noema-container article-page">
     <div class="article-page__main">
-      <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topic, href: `/topics/${topic}` }, { label: article.data.title }]} />
-      <header class="article-header">
-        <h1>{article.data.title}</h1>
-        <p>{article.data.description}</p>
-        <dl class="article-meta">
-          <div><dt class="noema-visually-hidden">難易度</dt><dd><span class="article-meta__level">{article.data.difficulty}</span></dd></div>
-          <div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 {article.data.estimatedMinutes}分</dd></div>
-          <div><dt class="noema-visually-hidden">更新日</dt><dd><time datetime={article.data.updatedAt}>{article.data.updatedAt}</time></dd></div>
-        </dl>
-      </header>
-      {tocItems.length > 0 && <ArticleToc items={tocItems} />}
-      <article class="article-body"><Content /></article>
+      <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.data.title }]} />
+      <Fragment set:html={presentationHtml} />
+      <ShareArticle />
+      <RelatedArticles articles={relatedArticles} />
+      <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
+        <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
+        <a class="dads-link" href="/articles">すべての記事を見る</a>
+      </nav>
     </div>
     <div class="article-page__aside"><ArticleAssistant slug={article.data.slug} /></div>
   </div>

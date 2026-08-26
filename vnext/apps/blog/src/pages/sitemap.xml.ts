@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
-import { getCollection } from "astro:content";
 import { topicLabels } from "@noema/content";
-
-export const prerender = true;
+import { listPublicArticleSummaries, listPublishedEditors } from "../lib/cms-publications";
 
 export const GET: APIRoute = async ({ site }) => {
   const base = site ?? new URL("https://noema-learn.uk");
-  const articles = await getCollection("articles", ({ data }) => data.status === "published");
+  const [articles, editors] = await Promise.all([
+    listPublicArticleSummaries(),
+    listPublishedEditors()
+  ]);
   const paths = [
     "/",
     "/articles",
@@ -14,7 +15,8 @@ export const GET: APIRoute = async ({ site }) => {
     "/privacy",
     "/terms",
     ...Object.keys(topicLabels).map((slug) => `/topics/${slug}`),
-    ...articles.map((article) => `/articles/${article.data.slug}`)
+    ...articles.map((article) => `/articles/${article.slug}`),
+    ...editors.map((editor) => editor.href)
   ];
   const urls = paths
     .map((path) => `  <url><loc>${new URL(path, base).toString()}</loc></url>`)

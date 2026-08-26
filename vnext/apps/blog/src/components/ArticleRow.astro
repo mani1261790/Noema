@@ -1,24 +1,36 @@
 ---
-import type { ArticlePreview } from "@noema/content";
+import { topicLabels, type ArticleSummary } from "@noema/content";
+import { getArticleApproachTone } from "../lib/articlePresentation";
+import { formatJapaneseDate } from "../lib/articles";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
-  article: ArticlePreview;
+  article: ArticleSummary;
+  headingLevel?: 2 | 3;
+  compact?: boolean;
 }
 
-const { article } = Astro.props;
+const { article, headingLevel = 2, compact = false } = Astro.props;
+const topic = article.topics[0];
+const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
+const approachTone = getArticleApproachTone(article);
 ---
 
-<article class="article-row">
-  <div class="article-row__visual" aria-hidden="true">
-    <svg viewBox="0 0 120 64">
-      <path d="M13 20h28v20H13zM79 20h28v20H79zM41 30h38M55 21l10 9-10 9" fill="none" stroke="currentColor" stroke-width="2" />
-    </svg>
-  </div>
+<a class:list={["article-row", compact && "article-row--compact", `article-approach--${approachTone}`]} href={article.href}>
   <div class="article-row__body">
-    <h3><a href={article.href}>{article.title}</a></h3>
-    <p>{article.excerpt}</p>
+    <p class="article-row__topic">{topicLabel}</p>
+    {headingLevel === 3
+      ? <h3 class="article-row__title">{article.title}</h3>
+      : <h2 class="article-row__title">{article.title}</h2>}
+    <p class="article-row__excerpt">{article.excerpt}</p>
+    {article.tags.length > 0 && (
+      <ul class="article-row__tags" aria-label="タグ">
+        {article.tags.slice(0, 3).map((tag) => <li>{tag}</li>)}
+      </ul>
+    )}
+    <div class="article-row__meta">
+      <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
+      <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
+    </div>
   </div>
-  <time datetime={article.publishedAt}>{article.publishedAt?.replaceAll("-", ".")}</time>
-  <span class="article-row__arrow"><ArrowIcon /></span>
-</article>
+</a>

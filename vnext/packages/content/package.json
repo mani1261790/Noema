@@ -4,9 +4,25 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./article-extensions": "./src/article-extensions.ts",
+    "./article-markdown": "./src/article-markdown.ts",
+    "./article-renderer": "./src/article-renderer.ts",
+    "./article-presentation": "./src/article-presentation.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
   },
   "dependencies": {
+    "github-slugger": "^2.0.0",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.45",
+    "markdown-it": "^14.3.0",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "vitest": "^4.1.10"
   }
 }

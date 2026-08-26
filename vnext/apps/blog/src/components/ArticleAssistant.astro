@@ -2,13 +2,19 @@
 import AssistantForm from "./AssistantForm.astro";
 
 interface Props {
+  preview?: boolean;
   slug: string;
 }
 
-const { slug } = Astro.props;
+const { preview = false, slug } = Astro.props;
 ---
 
-<aside class="assistant-desktop" aria-labelledby="assistant-desktop-heading" data-article-slug={slug}>
+<aside
+  class="assistant-desktop"
+  aria-labelledby="assistant-desktop-heading"
+  data-article-preview={preview ? "true" : "false"}
+  data-article-slug={slug}
+>
   <AssistantForm idPrefix="desktop" headingId="assistant-desktop-heading" />
 </aside>
 
@@ -31,15 +37,23 @@ const { slug } = Astro.props;
 </div>
 
 <script>
-  const articleSlug = document.querySelector<HTMLElement>("[data-article-slug]")?.dataset.articleSlug;
+  const articleContext = document.querySelector<HTMLElement>("[data-article-slug]");
+  const articleSlug = articleContext?.dataset.articleSlug;
+  const previewArticle = articleContext?.dataset.articlePreview === "true";
   const dialog = document.querySelector<HTMLElement>("[data-assistant-dialog]");
   const openButton = document.querySelector<HTMLButtonElement>("[data-open-assistant]");
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
+  const dispatchAssistantOpen = () => {
+    document.dispatchEvent(new CustomEvent("noema:analytics", {
+      detail: { eventType: "assistant_open" }
+    }));
+  };
   const openDialog = () => {
     if (!dialog) return;
     dialog.hidden = false;
     document.body.classList.add("has-assistant-dialog");
     closeButton?.focus();
+    dispatchAssistantOpen();
   };
   const closeDialog = () => {
     if (!dialog) return;
@@ -61,15 +75,25 @@ const { slug } = Astro.props;
     const submit = form.querySelector<HTMLButtonElement>("button[type='submit']");
     const toggle = form.querySelector<HTMLButtonElement>("[data-toggle-key]");
     const clear = form.querySelector<HTMLButtonElement>("[data-clear-conversation]");
+    const suggestions = form.querySelectorAll<HTMLButtonElement>("[data-question-suggestion]");
     const history: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     if (!keyInput || !questionInput || !status || !answer || !submit) return;
+
+    form.addEventListener("focusin", dispatchAssistantOpen, { once: true });
 
     toggle?.addEventListener("click", () => {
       const visible = keyInput.type === "text";
       keyInput.type = visible ? "password" : "text";
       toggle.setAttribute("aria-pressed", String(!visible));
       toggle.setAttribute("aria-label", visible ? "APIキーを表示" : "APIキーを隠す");
+    });
+
+    suggestions.forEach((suggestion) => {
+      suggestion.addEventListener("click", () => {
+        questionInput.value = suggestion.textContent?.trim() ?? "";
+        questionInput.focus();
+      });
     });
 
     clear?.addEventListener("click", () => {
@@ -106,7 +130,12 @@ const { slug } = Astro.props;
             "content-type": "application/json",
             "x-openai-api-key": apiKey
           },
-          body: JSON.stringify({ slug: articleSlug, question, history })
+          body: JSON.stringify({
+            slug: articleSlug,
+            question,
+            history,
+            ...(previewArticle ? { preview: true } : {})
+          })
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "回答を作成できませんでした。");
@@ -116,12 +145,36 @@ const { slug } = Astro.props;
         const paragraph = document.createElement("p");
         paragraph.textContent = payload.answer;
         answer.append(heading, paragraph);
+        if (Array.isArray(payload.references) && payload.references.length > 0) {
+          const referenceHeading = document.createElement("h4");
+          referenceHeading.textContent = "読み返す場所";
+          const referenceList = document.createElement("ul");
+          payload.references.forEach((reference: unknown) => {
+            if (!reference || typeof reference !== "object") return;
+            const id = (reference as { id?: unknown }).id;
+            const text = (reference as { text?: unknown }).text;
+            if (typeof id !== "string" || typeof text !== "string") return;
+            const item = document.createElement("li");
+            const link = document.createElement("a");
+            link.href = `#${encodeURIComponent(id)}`;
+            link.textContent = text;
+            item.append(link);
+            referenceList.append(item);
+          });
+          if (referenceList.childElementCount > 0) answer.append(referenceHeading, referenceList);
+        }
         history.push({ role: "user", content: question }, { role: "assistant", content: payload.answer });
         if (history.length > 6) history.splice(0, history.length - 6);
         questionInput.value = "";
         status.textContent = "回答を表示しました。";
+        document.dispatchEvent(new CustomEvent("noema:analytics", {
+          detail: { eventType: "assistant_success" }
+        }));
       } catch (error) {
         status.textContent = error instanceof Error ? error.message : "回答を作成できませんでした。";
+        document.dispatchEvent(new CustomEvent("noema:analytics", {
+          detail: { eventType: "assistant_error" }
+        }));
       } finally {
         submit.disabled = false;
         form.removeAttribute("aria-busy");

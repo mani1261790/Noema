@@ -1,6 +1,7 @@
 ---
 import "@noema/ui/styles";
 import "../styles/blog.css";
+import "@noema/ui/article-styles";
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 
@@ -8,14 +9,28 @@ interface Props {
   title?: string;
   description?: string;
   noindex?: boolean;
+  image?: string;
+  pageType?: "website" | "article";
+  publishedAt?: string;
+  updatedAt?: string;
+  authors?: string[];
+  jsonLd?: Record<string, unknown>;
 }
 
 const {
-  title = "Noema — 技術を、わかる言葉で。",
-  description = "専門的な技術を、直感と具体例から非技術者にもわかる言葉で解説する技術ブログです。",
-  noindex = false
+  title = "Noema",
+  description = "AIでできることと、その仕組みを、直感と具体例からひもとく技術メディアです。",
+  noindex = false,
+  image = "/og/default.png",
+  pageType = "website",
+  publishedAt,
+  updatedAt,
+  authors = [],
+  jsonLd
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn.uk");
+const ogImage = new URL(image, Astro.site ?? "https://noema-learn.uk");
+const serializedJsonLd = jsonLd ? JSON.stringify(jsonLd).replaceAll("<", "\\u003c") : "";
 ---
 
 <!doctype html>
@@ -23,9 +38,29 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
+    <meta name="theme-color" content="#00645f" />
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex,nofollow" />}
     <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="application/rss+xml" title="Noema RSS" href="/rss.xml" />
+    <meta property="og:site_name" content="Noema" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:type" content={pageType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    {publishedAt && <meta property="article:published_time" content={publishedAt} />}
+    {updatedAt && <meta property="article:modified_time" content={updatedAt} />}
+    {authors.map((author) => <meta property="article:author" content={author} />)}
+    {jsonLd && <script is:inline type="application/ld+json" set:html={serializedJsonLd} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -34,9 +69,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? "https://noema-learn
     />
     <title>{title}</title>
   </head>
-  <body>
+  <body class="noema-public">
     <a class="noema-skip-link" href="#main-content">本文へ移動</a>
-    <SiteHeader currentPath={Astro.url.pathname} />
+    <SiteHeader />
     <main id="main-content">
       <slot />
     </main>

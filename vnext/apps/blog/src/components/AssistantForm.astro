@@ -21,10 +21,15 @@ const { idPrefix, headingId, hideHeading = false } = Astro.props;
     </div>
     <div class="assistant-field">
       <label for={`${idPrefix}-question`}>質問</label>
+      <div class="assistant-suggestions" aria-label="質問の例">
+        <button type="button" data-question-suggestion>この記事を一言でまとめると？</button>
+        <button type="button" data-question-suggestion>身近な例で説明して</button>
+        <button type="button" data-question-suggestion>どこを読み返せばいい？</button>
+      </div>
       <textarea id={`${idPrefix}-question`} data-question rows="5" maxlength="1000" placeholder="この記事の内容について質問してください"></textarea>
     </div>
     <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">質問する</button>
-    <p class="assistant-privacy">APIキーと会話はNoemaに保存されません。</p>
+    <p class="assistant-privacy">APIキー、質問、記事本文は回答をつくるためOpenAIへ送信され、Noemaには保存されません。</p>
     <p class="assistant-status" data-assistant-status role="status" aria-live="polite"></p>
     <div class="assistant-answer" data-assistant-answer aria-live="polite"></div>
     <button class="assistant-clear" type="button" data-clear-conversation>会話を消去</button>

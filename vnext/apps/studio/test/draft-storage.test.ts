@@ -1,0 +1,387 @@
+import { describe, expect, it } from "vitest";
+import {
+  DRAFT_STORAGE_KEY,
+  DRAFT_STORAGE_VERSION,
+  LAST_OPENED_CMS_ARTICLE_KEY,
+  clearDraft,
+  createBlankArticle,
+  forgetLastOpenedCmsArticle,
+  hasMeaningfulArticleInput,
+  loadLastOpenedCmsArticleId,
+  loadDraft,
+  rememberLastOpenedCmsArticle,
+  resolveBrowserStorage,
+  saveDraft,
+  type DraftStorage,
+  type StudioDraft
+} from "../src/draft-storage";
+
+class MemoryStorage implements DraftStorage {
+  readonly values = new Map<string, string>();
+  getError: unknown;
+  setError: unknown;
+  removeError: unknown;
+
+  getItem(key: string): string | null {
+    if (this.getError) throw this.getError;
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    if (this.setError) throw this.setError;
+    this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    if (this.removeError) throw this.removeError;
+    this.values.delete(key);
+  }
+}
+
+function incompleteDraft(): StudioDraft {
+  return {
+    frontmatter: {
+      ...createBlankArticle("2026-07-18"),
+      title: "書きかけのタイトル",
+      description: "",
+      slug: "still editing!",
+      outcome: "この続きを考える",
+      authors: [],
+      topics: [],
+      tags: ["AI", "下書き"],
+      prerequisites: ["基礎知識"],
+      estimatedMinutes: 0,
+      sources: [{ title: "", url: "", checkedAt: "" }]
+    },
+    body: "## 書きかけ\n\n本文も保存する"
+  };
+}
+
+describe("resolveBrowserStorage", () => {
+  it("returns the browser storage when the host exposes it", () => {
+    const storage = new MemoryStorage();
+    expect(resolveBrowserStorage({ localStorage: storage })).toEqual({
+      available: true,
+      storage
+    });
+  });
+
+  it("contains a throwing localStorage getter and returns an unavailable adapter", () => {
+    const host = Object.defineProperty({}, "localStorage", {
+      get() {
+        throw new Error("SecurityError");
+      }
+    });
+
+    const resolved = resolveBrowserStorage(host);
+    expect(resolved.available).toBe(false);
+    expect(loadDraft(resolved.storage)).toEqual({
+      status: "invalid",
+      reason: "storage_unavailable"
+    });
+    expect(saveDraft(resolved.storage, incompleteDraft())).toEqual({
+      ok: false,
+      reason: "storage_unavailable"
+    });
+  });
+});
+
+describe("last opened CMS article", () => {
+  it("remembers the selected article separately from recovery content", () => {
+    const storage = new MemoryStorage();
+    expect(rememberLastOpenedCmsArticle(storage, "article-123")).toEqual({ ok: true });
+    expect(storage.values.get(LAST_OPENED_CMS_ARTICLE_KEY)).toBe("article-123");
+    expect(loadLastOpenedCmsArticleId(storage)).toBe("article-123");
+    expect(forgetLastOpenedCmsArticle(storage)).toEqual({ ok: true });
+    expect(loadLastOpenedCmsArticleId(storage)).toBeNull();
+  });
+
+  it("ignores invalid and unavailable remembered selections", () => {
+    const storage = new MemoryStorage();
+    expect(rememberLastOpenedCmsArticle(storage, " ")).toEqual({
+      ok: false,
+      reason: "invalid_article_id"
+    });
+    storage.values.set(LAST_OPENED_CMS_ARTICLE_KEY, "a".repeat(129));
+    expect(loadLastOpenedCmsArticleId(storage)).toBeNull();
+    storage.getError = new Error("unavailable");
+    expect(loadLastOpenedCmsArticleId(storage)).toBeNull();
+  });
+});
+
+describe("createBlankArticle", () => {
+  it("creates an editor-safe blank article instead of copying preview content", () => {
+    expect(createBlankArticle("2026-07-18")).toEqual({
+      title: "",
+      description: "",
+      slug: "",
+      status: "draft",
+      updatedAt: "2026-07-18",
+      authors: ["Noema編集部"],
+      topics: ["conversational-ai"],
+      tags: [],
+      approach: "experience",
+      outcome: "",
+      prerequisites: [],
+      estimatedMinutes: 10,
+      heroImage: null,
+      sources: []
+    });
+  });
+
+  it("rejects an impossible supplied calendar date", () => {
+    expect(() => createBlankArticle("2026-02-31")).toThrow(RangeError);
+  });
+});
+
+describe("hasMeaningfulArticleInput", () => {
+  it("treats a blank article as empty even when its date is not parseable", () => {
+    expect(hasMeaningfulArticleInput({
+      ...createBlankArticle("2026-07-18"),
+      updatedAt: "not-yet-a-date"
+    }, "   ")).toBe(false);
+  });
+
+  it("detects body or metadata input", () => {
+    const blank = createBlankArticle("2026-07-18");
+    expect(hasMeaningfulArticleInput(blank, "## 本文")).toBe(true);
+    expect(hasMeaningfulArticleInput({ ...blank, title: "タイトル" }, "")).toBe(true);
+  });
+});
+
+describe("loadDraft", () => {
+  it("distinguishes an empty store", () => {
+    expect(loadDraft(new MemoryStorage())).toEqual({ status: "empty" });
+  });
+
+  it("marks a meaningful unversioned draft as needing a safe CMS association choice", () => {
+    const storage = new MemoryStorage();
+    const draft = incompleteDraft();
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
+      frontmatter: {
+        ...draft.frontmatter,
+        excerpt: "legacy preview data",
+        href: "/preview/article",
+        previewOnly: true
+      },
+      body: draft.body
+    }));
+
+    const result = loadDraft(storage);
+
+    expect(result).toEqual({
+      status: "restored",
+      source: "legacy",
+      updatedAt: null,
+      draft: { ...draft, cmsAssociation: "unknown" }
+    });
+    if (result.status === "restored") {
+      expect(result.draft.frontmatter).not.toHaveProperty("excerpt");
+      expect(result.draft.frontmatter.tags).toEqual(["AI", "下書き"]);
+      expect(result.draft.frontmatter.sources).toEqual([{ title: "", url: "", checkedAt: "" }]);
+    }
+  });
+
+  it("does not require a CMS association choice for an empty unversioned draft", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      frontmatter: createBlankArticle("2026-07-18"),
+      body: ""
+    };
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "legacy",
+      updatedAt: null,
+      draft
+    });
+  });
+
+  it("restores a bounded versioned record with its save timestamp", () => {
+    const storage = new MemoryStorage();
+    const draft = incompleteDraft();
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
+      version: DRAFT_STORAGE_VERSION,
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      frontmatter: draft.frontmatter,
+      body: draft.body
+    }));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      draft
+    });
+  });
+
+  it("marks a previous-version browser draft as needing a safe CMS association choice", () => {
+    const storage = new MemoryStorage();
+    const draft = incompleteDraft();
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      frontmatter: draft.frontmatter,
+      body: draft.body
+    }));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      draft: { ...draft, cmsAssociation: "unknown" }
+    });
+  });
+
+  it("does not require a CMS association choice for an empty previous-version draft", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      frontmatter: createBlankArticle("2026-07-18"),
+      body: ""
+    };
+    storage.values.set(DRAFT_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      frontmatter: draft.frontmatter,
+      body: draft.body
+    }));
+
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T01:02:03.000Z",
+      draft
+    });
+  });
+
+  it.each([
+    ["malformed JSON", "{"],
+    ["unsupported version", JSON.stringify({ version: 99, updatedAt: "2026-07-18T00:00:00Z", frontmatter: {}, body: "" })],
+    ["wrong nested type", JSON.stringify({ frontmatter: { ...incompleteDraft().frontmatter, tags: "AI" }, body: "" })],
+    ["oversized body", JSON.stringify({ frontmatter: incompleteDraft().frontmatter, body: "x".repeat(1_048_577) })]
+  ])("marks %s as invalid", (_name, stored) => {
+    const storage = new MemoryStorage();
+    storage.values.set(DRAFT_STORAGE_KEY, stored);
+    expect(loadDraft(storage).status).toBe("invalid");
+  });
+
+  it("reports storage read failures as invalid without throwing", () => {
+    const storage = new MemoryStorage();
+    storage.getError = new Error("denied");
+    expect(loadDraft(storage)).toEqual({
+      status: "invalid",
+      reason: "storage_unavailable"
+    });
+  });
+});
+
+describe("saveDraft", () => {
+  it("writes a versioned record using an injected clock and preserves incomplete fields", () => {
+    const storage = new MemoryStorage();
+    const draft = incompleteDraft();
+    const result = saveDraft(storage, draft, {
+      now: () => new Date("2026-07-18T04:05:06.000Z")
+    });
+
+    expect(result).toEqual({ ok: true, updatedAt: "2026-07-18T04:05:06.000Z" });
+    expect(JSON.parse(storage.values.get(DRAFT_STORAGE_KEY) ?? "null")).toEqual({
+      version: DRAFT_STORAGE_VERSION,
+      updatedAt: "2026-07-18T04:05:06.000Z",
+      frontmatter: draft.frontmatter,
+      body: draft.body
+    });
+    expect(loadDraft(storage)).toMatchObject({ status: "restored", draft });
+  });
+
+  it("preserves the CMS identity needed to resume editing the same article", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      ...incompleteDraft(),
+      cmsArticle: {
+        id: "11111111-1111-4111-8111-111111111111",
+        lockVersion: 7,
+        visibility: "unlisted",
+        autosavePaused: true
+      }
+    };
+
+    expect(saveDraft(storage, draft, {
+      now: () => new Date("2026-07-18T04:05:06.000Z")
+    })).toEqual({ ok: true, updatedAt: "2026-07-18T04:05:06.000Z" });
+    expect(loadDraft(storage)).toEqual({
+      status: "restored",
+      source: "versioned",
+      updatedAt: "2026-07-18T04:05:06.000Z",
+      draft
+    });
+  });
+
+  it("preserves an unresolved legacy CMS association without inventing an article identity", () => {
+    const storage = new MemoryStorage();
+    const draft: StudioDraft = {
+      ...incompleteDraft(),
+      cmsAssociation: "unknown"
+    };
+
+    expect(saveDraft(storage, draft, {
+      now: () => new Date("2026-07-18T04:05:06.000Z")
+    })).toEqual({ ok: true, updatedAt: "2026-07-18T04:05:06.000Z" });
+    expect(loadDraft(storage)).toMatchObject({ status: "restored", draft });
+  });
+
+  it("rejects a draft with both a CMS identity and an unresolved association", () => {
+    const storage = new MemoryStorage();
+    expect(saveDraft(storage, {
+      ...incompleteDraft(),
+      cmsArticle: {
+        id: "11111111-1111-4111-8111-111111111111",
+        lockVersion: 7,
+        visibility: "public"
+      },
+      cmsAssociation: "unknown"
+    })).toEqual({ ok: false, reason: "invalid_draft" });
+  });
+
+  it("returns a failure instead of throwing when the storage write fails", () => {
+    const storage = new MemoryStorage();
+    storage.setError = new Error("quota exceeded");
+
+    expect(saveDraft(storage, incompleteDraft())).toEqual({
+      ok: false,
+      reason: "storage_unavailable"
+    });
+  });
+
+  it("does not write an unbounded draft", () => {
+    const storage = new MemoryStorage();
+    const draft = incompleteDraft();
+    draft.frontmatter.title = "x".repeat(1_001);
+
+    expect(saveDraft(storage, draft)).toEqual({
+      ok: false,
+      reason: "invalid_draft"
+    });
+    expect(storage.values.size).toBe(0);
+  });
+});
+
+describe("clearDraft", () => {
+  it("clears the stored record and reports success", () => {
+    const storage = new MemoryStorage();
+    storage.values.set(DRAFT_STORAGE_KEY, "draft");
+
+    expect(clearDraft(storage)).toEqual({ ok: true });
+    expect(storage.values.has(DRAFT_STORAGE_KEY)).toBe(false);
+  });
+
+  it("returns a failure instead of throwing when removal is unavailable", () => {
+    const storage = new MemoryStorage();
+    storage.removeError = new Error("denied");
+
+    expect(clearDraft(storage)).toEqual({
+      ok: false,
+      reason: "storage_unavailable"
+    });
+  });
+});
