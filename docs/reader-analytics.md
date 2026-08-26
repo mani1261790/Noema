@@ -29,7 +29,7 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 | `article_end` | 本文末尾まで表示したとき |
 | `navigation_click` | シリーズ次記事または関連記事を選んだとき |
 | `share` | 共有URLのclipboard保存に成功したとき |
-| `assistant_open` | モバイルの質問画面を開くか、デスクトップの質問欄を操作したとき |
+| `assistant_open` | 「この記事について質問」ボタンから質問パネルを開いたとき |
 | `assistant_success` | アシスタント回答の表示に成功したとき |
 | `assistant_error` | アシスタント回答に失敗したとき |
 
