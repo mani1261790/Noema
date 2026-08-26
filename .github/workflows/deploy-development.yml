@@ -38,6 +38,10 @@ jobs:
         working-directory: vnext
         run: npm ci
 
+      - name: Audit dependencies
+        working-directory: vnext
+        run: npm audit --audit-level=high
+
       - name: Test current application
         working-directory: vnext
         run: npm test
@@ -50,13 +54,9 @@ jobs:
         working-directory: vnext
         run: npm run build
 
-      - name: Keep public hostname closed
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: vnext/apps/public-gate
-          wranglerVersion: "4.126.0"
-          command: deploy --config wrangler.jsonc
+      - name: Validate deployment packages
+        working-directory: vnext
+        run: npm run deploy:dry-run
 
       - name: Apply CMS database migrations
         working-directory: vnext
@@ -94,3 +94,23 @@ jobs:
           workingDirectory: vnext/apps/studio-mcp
           wranglerVersion: "4.126.0"
           command: deploy --config wrangler.jsonc
+
+      - name: Verify development CMS publications
+        working-directory: vnext
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          npx wrangler d1 execute noema-cms \
+            --remote \
+            --config apps/studio/wrangler.jsonc \
+            --command "SELECT a.published_slug FROM cms_articles a JOIN cms_article_revisions r ON r.id = a.published_revision_id WHERE a.publication_status = 'published' AND a.published_visibility = 'public' ORDER BY a.published_at DESC, a.id ASC" \
+            --json > /tmp/noema-cms-publications.json
+          curl --fail-with-body --silent --show-error --max-time 20 \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            --output /tmp/noema-development-articles.html \
+            https://noema-learn.mani1261790.workers.dev/articles/
+          node apps/blog/scripts/verify-cms-publication-parity.mjs \
+            /tmp/noema-cms-publications.json \
+            development=/tmp/noema-development-articles.html

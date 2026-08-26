@@ -37,6 +37,10 @@ jobs:
         working-directory: vnext
         run: npm ci
 
+      - name: Audit dependencies
+        working-directory: vnext
+        run: npm audit --audit-level=high
+
       - name: Test current application
         working-directory: vnext
         run: npm test
@@ -48,6 +52,10 @@ jobs:
       - name: Build current application
         working-directory: vnext
         run: npm run build
+
+      - name: Validate deployment packages
+        working-directory: vnext
+        run: npm run deploy:dry-run
 
       - name: Apply CMS database migrations
         working-directory: vnext
@@ -158,6 +166,9 @@ jobs:
 
       - name: Verify production endpoints
         shell: bash
+        working-directory: vnext
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -201,6 +212,11 @@ jobs:
           }
 
           production_origin="https://noema-learn-production.mani1261790.workers.dev"
+          npx wrangler d1 execute noema-cms \
+            --remote \
+            --config apps/studio/wrangler.jsonc \
+            --command "SELECT a.published_slug FROM cms_articles a JOIN cms_article_revisions r ON r.id = a.published_revision_id WHERE a.publication_status = 'published' AND a.published_visibility = 'public' ORDER BY a.published_at DESC, a.id ASC" \
+            --json > /tmp/noema-cms-publications.json
           public_status="$(curl --silent --show-error --max-time 20 --output /tmp/noema-public-home.html --write-out '%{http_code}' https://noema-learn.uk/ || true)"
           case "${public_status}" in
             200)
@@ -223,15 +239,18 @@ jobs:
 
           fetch_expected https://noema-learn.mani1261790.workers.dev/articles/ 200 /tmp/noema-development-articles.html
           fetch_expected "${production_origin}/articles/" 200 /tmp/noema-production-articles.html
-          { grep -oE 'href="/articles/[^"#?]+' /tmp/noema-development-articles.html || true; } | sort -u > /tmp/noema-development-article-paths.txt
-          { grep -oE 'href="/articles/[^"#?]+' /tmp/noema-production-articles.html || true; } | sort -u > /tmp/noema-production-article-paths.txt
-          diff -u /tmp/noema-development-article-paths.txt /tmp/noema-production-article-paths.txt
+          node apps/blog/scripts/verify-cms-publication-parity.mjs \
+            /tmp/noema-cms-publications.json \
+            development=/tmp/noema-development-articles.html \
+            production=/tmp/noema-production-articles.html
 
-          while IFS= read -r article_href; do
-            article_path="${article_href#href=\"}"
+          jq --raw-output '.[].results[].published_slug | "/articles/\(.)"' \
+            /tmp/noema-cms-publications.json > /tmp/noema-cms-publication-paths.txt
+          while IFS= read -r article_path; do
             test -z "$article_path" && continue
+            fetch_expected "https://noema-learn.mani1261790.workers.dev${article_path}" 200 /dev/null
             fetch_expected "${production_origin}${article_path}" 200 /dev/null
-          done < /tmp/noema-production-article-paths.txt
+          done < /tmp/noema-cms-publication-paths.txt
 
           fetch_expected "${production_origin}/privacy/" 200 /dev/null
           verify_custom_domain_boundary https://studio.noema-learn.uk/ 302
