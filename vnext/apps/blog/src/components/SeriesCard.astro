@@ -1,0 +1,23 @@
+---
+import type { CmsPublishedSeries } from "../lib/cms-publication-repository";
+import ArrowIcon from "./ArrowIcon.astro";
+
+interface Props {
+  series: CmsPublishedSeries;
+}
+
+const { series } = Astro.props;
+const previewItems = series.items.slice(0, 3);
+---
+
+<a class="series-card" href={series.href}>
+  <div class="series-card__body">
+    <p class="series-card__eyebrow">全{series.items.length}本</p>
+    <h3>{series.title}</h3>
+    <p class="series-card__description">{series.description}</p>
+    <ol class="series-card__preview" aria-label={`${series.title}の記事`}>
+      {previewItems.map((article, index) => <li><span>{index + 1}</span>{article.title}</li>)}
+    </ol>
+  </div>
+  <span class="series-card__link">シリーズを読む <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span></span>
+</a>

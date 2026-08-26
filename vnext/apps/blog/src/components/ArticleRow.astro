@@ -1,6 +1,5 @@
 ---
 import { topicLabels, type ArticleSummary } from "@noema/content";
-import { getArticleApproachTone } from "../lib/articlePresentation";
 import { formatJapaneseDate } from "../lib/articles";
 import ArrowIcon from "./ArrowIcon.astro";
 
@@ -13,10 +12,9 @@ interface Props {
 const { article, headingLevel = 2, compact = false } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
-const approachTone = getArticleApproachTone(article);
 ---
 
-<a class:list={["article-row", compact && "article-row--compact", `article-approach--${approachTone}`]} href={article.href}>
+<a class:list={["article-row", compact && "article-row--compact"]} href={article.href}>
   <div class="article-row__body">
     <p class="article-row__topic">{topicLabel}</p>
     {headingLevel === 3
