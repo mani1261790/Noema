@@ -11,7 +11,7 @@
     "validate:articles": "node scripts/validate-article-paths.mjs",
     "validate:deployment-config": "node scripts/validate-deployment-config.mjs",
     "validate:content": "tsx scripts/validate-content.ts && npm run validate:articles",
-    "test": "vitest run && node --test scripts/validate-article-paths.node-test.mjs",
+    "test": "vitest run && node --test scripts/*.node-test.mjs",
     "predev": "npm run cms:migrate:local && npm run validate:content && npm run generate:og",
     "dev": "astro dev",
     "check": "npm run types && npm run validate:content && astro check && npm run check:worker",
