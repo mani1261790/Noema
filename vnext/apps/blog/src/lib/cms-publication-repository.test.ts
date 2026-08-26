@@ -61,7 +61,9 @@ describe("CMS publication visibility", () => {
     expect(result.data.publishedAt).toBe("2026-07-18");
     expect(result.data.updatedAt).toBe("2026-07-17");
     expect(result.data.slug).toBe("cms-published-article");
+    expect(result.publishedAt).toBe("2026-07-18T01:02:03.000Z");
     expect(result.revisionNumber).toBe(4);
+    expect(result.updatedAt).toBe("2026-07-17T05:06:07.000Z");
     expect(result.visibility).toBe("unlisted");
     expect(result.editor).toEqual({
       displayName: "山田 編集",
@@ -216,7 +218,7 @@ describe("published article series", () => {
           bind() { return statement; },
           async first<T>() {
             const value = query.includes("current_article")
-              ? { description: "順番に学ぶシリーズです。", id: "series-id", slug: "learning-path", title: "学習シリーズ" }
+              ? { description: "順番に学ぶシリーズです。", id: "series-id", slug: "learning-path", title: "学習シリーズ", updated_at: "2026-07-21T00:00:00.000Z" }
               : null;
             return value as T | null;
           },
@@ -234,6 +236,7 @@ describe("published article series", () => {
       href: "/series/learning-path",
       slug: "learning-path",
       title: "学習シリーズ",
+      updatedAt: "2026-07-21",
     });
     expect(result?.items.map((item) => [item.slug, item.href])).toEqual([
       ["first", "/articles/first"],
@@ -252,6 +255,9 @@ describe("published article series", () => {
       series_id: seriesId,
       series_slug: seriesId,
       series_title: `${seriesId}のタイトル`,
+      series_updated_at: seriesId === "series-a"
+        ? "2026-07-21T03:02:03.000Z"
+        : "2026-07-22T03:02:03.000Z",
       frontmatter_json: JSON.stringify({ ...validFrontmatter, slug, title: `${slug}の記事` }),
       published_at: `${date}T01:02:03.000Z`,
       published_slug: slug,
@@ -271,9 +277,9 @@ describe("published article series", () => {
     } satisfies CmsPublicationDatabase;
 
     const result = await listCmsPublishedSeries(db);
-    expect(result.map((series) => [series.slug, series.href, series.items.map((item) => item.slug)])).toEqual([
-      ["series-a", "/series/series-a", ["first", "second"]],
-      ["series-b", "/series/series-b", ["other"]],
+    expect(result.map((series) => [series.slug, series.href, series.updatedAt, series.items.map((item) => item.slug)])).toEqual([
+      ["series-a", "/series/series-a", "2026-07-21", ["first", "second"]],
+      ["series-b", "/series/series-b", "2026-07-22", ["other"]],
     ]);
   });
 
@@ -284,6 +290,7 @@ describe("published article series", () => {
       series_id: "series-id",
       series_slug: "learning-path",
       series_title: "学習シリーズ",
+      series_updated_at: "2026-07-21T03:02:03.000Z",
       frontmatter_json: JSON.stringify({ ...validFrontmatter, slug: "first" }),
       published_at: "2026-07-18T01:02:03.000Z",
       published_slug: "first",
@@ -306,6 +313,7 @@ describe("published article series", () => {
     await expect(getCmsPublishedSeriesBySlug(db, "learning-path")).resolves.toMatchObject({
       href: "/series/learning-path",
       slug: "learning-path",
+      updatedAt: "2026-07-21",
     });
     await expect(getCmsPublishedSeriesBySlug(db, "../private")).resolves.toBeNull();
     expect(calls).toBe(1);
