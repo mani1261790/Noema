@@ -28,6 +28,7 @@ function article(lockVersion: number): CmsArticleDetail {
     currentRevision: {
       createdAt: "2026-07-18T00:00:00.000Z",
       createdByEmail: "editor@example.com",
+      editor: null,
       frontmatter,
       id: "22222222-2222-4222-8222-222222222222",
       markdown: "## CMSの本文",
