@@ -4,9 +4,11 @@ import SeriesCard from "../components/SeriesCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { sortArticlesByDate } from "../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../lib/cms-publications";
+import { listActiveTopics } from "../lib/topics";
 
 const [articles, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const recentArticles = sortArticlesByDate(articles).slice(0, 5);
+const activeTopics = listActiveTopics(articles);
 ---
 
 <BaseLayout>
@@ -54,6 +56,26 @@ const recentArticles = sortArticlesByDate(articles).slice(0, 5);
     <section class="home-empty" aria-labelledby="empty-heading">
       <div class="noema-container noema-empty-state">
         <h2 id="empty-heading">記事はまだありません</h2>
+      </div>
+    </section>
+  )}
+
+  {activeTopics.length > 0 && (
+    <section class="home-topics" aria-labelledby="topic-heading">
+      <div class="noema-container">
+        <h2 id="topic-heading" class="noema-section-heading">テーマから探す</h2>
+        <p class="home-topics__lead">関心のあるテーマから、いま読める記事をたどれます。</p>
+        <ul class="home-topic-list">
+          {activeTopics.map((topic) => (
+            <li>
+              <div class="home-topic-list__heading">
+                <h3><a class="dads-link" href={`/topics/${topic.slug}`}>{topic.label}</a></h3>
+                <p>{topic.articleCount}件の記事</p>
+              </div>
+              <p class="home-topic-list__description">{topic.description}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   )}
