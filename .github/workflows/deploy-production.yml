@@ -75,7 +75,7 @@ jobs:
           command: >-
             deploy --config dist/server/wrangler.json
             --name noema-learn-production
-            --route 'noema-learn.uk/*'
+            --route noema-learn.uk/*
 
       - name: Deploy Studio Worker
         uses: cloudflare/wrangler-action@v3
