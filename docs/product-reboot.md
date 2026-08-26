@@ -227,7 +227,7 @@ MVPのプロバイダーは1つに絞る。推奨は OpenAI API から開始し�
 
 AWS版とCloudFrontは退役済みであり、ドメインのネームサーバーはCloudflareが管理している。現行applicationはCloudflare Workersへdeployされ、ブログは`workers.dev`、StudioはCloudflare Accessで保護されたcustom domainで確認する。
 
-現在の配信状態:
+本番公開前の配信状態:
 
 - `develop`の最新versionをブログの`workers.dev` URLとStudioのcustom domainへ自動deployする
 - code deploy前にD1 `noema-cms`へ未適用migrationを適用する
@@ -237,7 +237,7 @@ AWS版とCloudFrontは退役済みであり、ドメインのネームサーバ�
 - ブログWorkerは本番hostnameのrouteをまだ持たない
 - Studio Workerの`workers.dev`とpreview URLは無効化し、Accessを通らない入口を作らない
 
-公開切替は、SEO、security、mobile、記事アシスタントを受入確認した後、公開ゲートからrouteを外してブログWorkerへcustom domainまたはrouteを移す別作業とする。開発preview workflowを本番公開へ流用しない。
+本番公開では、公開ゲートからrouteを外し、既存のCloudflare DNSを維持したままブログWorkerへ`noema-learn.uk/*`のWorker Routeを移す。開発preview workflowは本番公開へ流用せず、`main`専用の本番workflowから実行する。
 
 ## 9. 現行機能の扱い
 
