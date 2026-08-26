@@ -950,6 +950,36 @@ body.noema-public .site-search-form__input input:focus-visible {
   color: var(--color-neutral-solid-gray-600);
 }
 
+.not-found-page {
+  padding-block: 5rem 8rem;
+}
+
+.not-found-page__code {
+  margin: 0;
+  color: var(--noema-muted);
+  font-size: calc(17 / 16 * 1rem);
+  font-weight: 700;
+}
+
+.not-found-page h1 {
+  margin: .5rem 0 1rem;
+  font-size: calc(45 / 16 * 1rem);
+  line-height: 1.4;
+}
+
+.not-found-page > p:not(.not-found-page__code) {
+  margin: 0;
+  font-size: calc(17 / 16 * 1rem);
+}
+
+.not-found-page nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-top: 2rem;
+}
+
 .article-toc {
   margin-block: 2rem 3rem;
 }
@@ -1544,10 +1574,15 @@ body.has-assistant-dialog {
 
   .page-heading h1,
   .prose-page > h1,
-  .article-header h1 {
+  .article-header h1,
+  .not-found-page h1 {
     font-size: calc(28 / 16 * 1rem);
     line-height: 1.5;
     letter-spacing: 0.01em;
+  }
+
+  .not-found-page {
+    padding-block: 3rem 6rem;
   }
 
   .article-toc--desktop {

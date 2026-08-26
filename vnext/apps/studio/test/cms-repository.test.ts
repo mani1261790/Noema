@@ -565,6 +565,195 @@ describe("CMS repository", () => {
     )).rejects.toMatchObject({ code: "invalid_article" });
   });
 
+  it("blocks review for a link to an unknown article but allows an existing unpublished target", async () => {
+    const admin = await bootstrapAdmin();
+    const missingInput = validArticle("missing-link-source");
+    missingInput.markdown = "## 本文\n\n[存在しない記事](/articles/not-created)を参照します。";
+    const missingSource = await createCmsArticle(testEnv.CMS_DB, admin.identity, missingInput, NOW);
+
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      missingSource.id,
+      "request_review",
+      missingSource.lockVersion,
+      {},
+      NOW
+    )).rejects.toMatchObject({
+      code: "invalid_article",
+      issues: [expect.objectContaining({ path: ["markdown", 3] })]
+    });
+
+    await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("future-article"),
+      NOW
+    );
+    const pendingInput = validArticle("pending-link-source");
+    pendingInput.markdown = "## 本文\n\n[公開予定の記事](/articles/future-article)を参照します。";
+    let pendingSource = await createCmsArticle(testEnv.CMS_DB, admin.identity, pendingInput, NOW);
+    pendingSource = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      pendingSource.id,
+      "request_review",
+      pendingSource.lockVersion,
+      {},
+      NOW
+    );
+    expect(pendingSource.reviewStatus).toBe("in_review");
+  });
+
+  it("prevents publication from removing a heading referenced by another published article", async () => {
+    const admin = await bootstrapAdmin();
+    const targetInput = validArticle("fragment-target");
+    targetInput.markdown = "## 残す見出し\n\n参照先の本文です。";
+    let target = await createCmsArticle(testEnv.CMS_DB, admin.identity, targetInput, NOW);
+    target = await publishArticle(admin.identity, target, "public");
+
+    const sourceInput = validArticle("fragment-source");
+    sourceInput.markdown = "## 本文\n\n[参照先](/articles/fragment-target#残す見出し)を確認します。";
+    let source = await createCmsArticle(testEnv.CMS_DB, admin.identity, sourceInput, NOW);
+    source = await publishArticle(admin.identity, source, "public");
+    expect(source.publicationStatus).toBe("published");
+
+    target = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      target.id,
+      "request_changes",
+      target.lockVersion,
+      { note: "見出しを変更します。" },
+      NOW
+    );
+    target = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      target.id,
+      target.lockVersion,
+      { ...validArticle("fragment-target"), markdown: "## 別の見出し\n\n更新後の本文です。" },
+      NOW
+    );
+    await resolveOpenReviewComments(admin.identity, target);
+    target = await transitionCmsArticle(testEnv.CMS_DB, admin.identity, target.id, "request_review", target.lockVersion, {}, NOW);
+    target = await transitionCmsArticle(testEnv.CMS_DB, admin.identity, target.id, "approve", target.lockVersion, {}, NOW);
+
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      target.id,
+      "publish",
+      target.lockVersion,
+      { visibility: "public" },
+      NOW
+    )).rejects.toMatchObject({ code: "invalid_article" });
+  });
+
+  it("creates a historical redirect when a published slug changes", async () => {
+    const admin = await bootstrapAdmin();
+    let article = await createCmsArticle(testEnv.CMS_DB, admin.identity, validArticle("old-public-slug"), NOW);
+    article = await publishArticle(admin.identity, article, "public");
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_changes",
+      article.lockVersion,
+      { note: "slugを変更します。" },
+      NOW
+    );
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      validArticle("new-public-slug"),
+      NOW
+    );
+    await resolveOpenReviewComments(admin.identity, article);
+    article = await publishArticle(admin.identity, article, "public");
+
+    const redirect = await testEnv.CMS_DB.prepare(
+      "SELECT article_id FROM cms_article_slug_redirects WHERE old_slug = 'old-public-slug'"
+    ).first<string>("article_id");
+    expect(article.publishedSlug).toBe("new-public-slug");
+    expect(redirect).toBe(article.id);
+
+    const sourceInput = validArticle("historical-link-source");
+    sourceInput.markdown = "## 本文\n\n[以前のURL](/articles/old-public-slug#cmsで管理する)を参照します。";
+    let source = await createCmsArticle(testEnv.CMS_DB, admin.identity, sourceInput, NOW);
+    source = await publishArticle(admin.identity, source, "public");
+    expect(source.publicationStatus).toBe("published");
+
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_changes",
+      article.lockVersion,
+      { note: "参照中の見出しを変更します。" },
+      NOW
+    );
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      article.lockVersion,
+      { ...validArticle("new-public-slug"), markdown: "## 新しい見出し\n\n更新後の本文です。" },
+      NOW
+    );
+    await resolveOpenReviewComments(admin.identity, article);
+    article = await transitionCmsArticle(testEnv.CMS_DB, admin.identity, article.id, "request_review", article.lockVersion, {}, NOW);
+    article = await transitionCmsArticle(testEnv.CMS_DB, admin.identity, article.id, "approve", article.lockVersion, {}, NOW);
+
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "publish",
+      article.lockVersion,
+      { visibility: "public" },
+      NOW
+    )).rejects.toMatchObject({ code: "invalid_article" });
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "archive",
+      article.lockVersion,
+      {},
+      NOW
+    )).rejects.toMatchObject({
+      code: "invalid_transition",
+      issues: [expect.objectContaining({ path: ["publishedArticles", "historical-link-source", 3] })]
+    });
+  });
+
+  it("blocks publication end while another published article links to the target", async () => {
+    const admin = await bootstrapAdmin();
+    let target = await createCmsArticle(testEnv.CMS_DB, admin.identity, validArticle("archive-target"), NOW);
+    target = await publishArticle(admin.identity, target, "public");
+    const sourceInput = validArticle("archive-source");
+    sourceInput.markdown = "## 本文\n\n[参照先](/articles/archive-target)を確認します。";
+    let source = await createCmsArticle(testEnv.CMS_DB, admin.identity, sourceInput, NOW);
+    source = await publishArticle(admin.identity, source, "public");
+    expect(source.publicationStatus).toBe("published");
+
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      target.id,
+      "archive",
+      target.lockVersion,
+      {},
+      NOW
+    )).rejects.toMatchObject({
+      code: "invalid_transition",
+      issues: [expect.objectContaining({ path: ["publishedArticles", "archive-source", 3] })]
+    });
+  });
+
   it("does not allow two live publications to claim the same pinned slug", async () => {
     const admin = await bootstrapAdmin();
     let first = await createCmsArticle(
@@ -1066,6 +1255,57 @@ async function bootstrapAdmin() {
     "owner@example.com",
     NOW
   );
+}
+
+async function publishArticle(
+  identity: Awaited<ReturnType<typeof bootstrapAdmin>>["identity"],
+  initial: Awaited<ReturnType<typeof createCmsArticle>>,
+  visibility: "public" | "unlisted"
+) {
+  let article = await transitionCmsArticle(
+    testEnv.CMS_DB,
+    identity,
+    initial.id,
+    "request_review",
+    initial.lockVersion,
+    {},
+    NOW
+  );
+  article = await transitionCmsArticle(
+    testEnv.CMS_DB,
+    identity,
+    article.id,
+    "approve",
+    article.lockVersion,
+    {},
+    NOW
+  );
+  return transitionCmsArticle(
+    testEnv.CMS_DB,
+    identity,
+    article.id,
+    "publish",
+    article.lockVersion,
+    { visibility },
+    NOW
+  );
+}
+
+async function resolveOpenReviewComments(
+  identity: Awaited<ReturnType<typeof bootstrapAdmin>>["identity"],
+  article: Awaited<ReturnType<typeof createCmsArticle>>
+) {
+  const comments = await listCmsReviewComments(testEnv.CMS_DB, identity, article.id);
+  for (const comment of comments.filter((comment) => comment.status === "open")) {
+    await updateCmsReviewCommentStatus(
+      testEnv.CMS_DB,
+      identity,
+      article.id,
+      comment.id,
+      "resolve",
+      NOW
+    );
+  }
 }
 
 function validArticle(slug: string) {

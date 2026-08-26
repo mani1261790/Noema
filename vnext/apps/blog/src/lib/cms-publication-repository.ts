@@ -50,6 +50,8 @@ export interface CmsPublishedSeriesContext {
   title: string;
 }
 
+export type CmsArticleLinkAvailability = "available" | "unavailable";
+
 interface CmsPublishedArticleRow {
   editor_display_name?: string | null;
   editor_public_id?: string | null;
@@ -168,6 +170,83 @@ export async function getCmsPublishedArticleBySlug(
     throw new Error("CMS published revision is missing its Markdown body.");
   }
   return article;
+}
+
+export async function getCmsPublishedArticleRedirect(
+  db: CmsPublicationDatabase,
+  oldSlug: string,
+): Promise<string | null> {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(oldSlug)) return null;
+  const row = await db.prepare(
+    `SELECT a.published_slug
+     FROM cms_article_slug_redirects redirect
+     JOIN cms_articles a ON a.id = redirect.article_id
+     WHERE redirect.old_slug = ?1
+       AND a.publication_status = 'published'
+       AND a.published_visibility IN ('public', 'unlisted')
+       AND a.published_slug IS NOT NULL
+     LIMIT 1`,
+  ).bind(oldSlug).first<{ published_slug: string }>();
+  return row?.published_slug ?? null;
+}
+
+export async function getCmsArticleLinkAvailability(
+  db: CmsPublicationDatabase,
+  slugs: Iterable<string>,
+  sourceVisibility: Extract<CmsVisibility, "public" | "unlisted">,
+): Promise<Map<string, CmsArticleLinkAvailability>> {
+  const targets = [...new Set(slugs)].filter((slug) =>
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug),
+  );
+  const availability = new Map<string, CmsArticleLinkAvailability>(
+    targets.map((slug) => [slug, "unavailable"]),
+  );
+
+  for (let offset = 0; offset < targets.length; offset += 50) {
+    const chunk = targets.slice(offset, offset + 50);
+    const placeholders = chunk.map((_, index) => `?${index + 1}`).join(", ");
+    const [articles, redirects] = await Promise.all([
+      db.prepare(
+        `SELECT slug, publication_status, published_slug, published_visibility
+         FROM cms_articles
+         WHERE slug IN (${placeholders}) OR published_slug IN (${placeholders})`,
+      ).bind(...chunk).all<{
+        publication_status: string;
+        published_slug: string | null;
+        published_visibility: string | null;
+        slug: string;
+      }>(),
+      db.prepare(
+        `SELECT redirect.old_slug, a.publication_status, a.published_visibility
+         FROM cms_article_slug_redirects redirect
+         JOIN cms_articles a ON a.id = redirect.article_id
+         WHERE redirect.old_slug IN (${placeholders})`,
+      ).bind(...chunk).all<{
+        old_slug: string;
+        publication_status: string;
+        published_visibility: string | null;
+      }>(),
+    ]);
+
+    for (const row of articles.results) {
+      const publishedSlug = row.published_slug;
+      if (!publishedSlug || !availability.has(publishedSlug)) continue;
+      const visible = row.published_visibility === "public" ||
+        (sourceVisibility === "unlisted" && row.published_visibility === "unlisted");
+      if (row.publication_status === "published" && visible) {
+        availability.set(publishedSlug, "available");
+      }
+    }
+    for (const row of redirects.results) {
+      const visible = row.published_visibility === "public" ||
+        (sourceVisibility === "unlisted" && row.published_visibility === "unlisted");
+      if (row.publication_status === "published" && visible) {
+        availability.set(row.old_slug, "available");
+      }
+    }
+  }
+
+  return availability;
 }
 
 export async function getCmsPublishedSeriesByArticleSlug(

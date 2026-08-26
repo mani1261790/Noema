@@ -1,5 +1,6 @@
 ---
-import { topicLabels } from "@noema/content";
+import { extractArticleLinkReferences, topicLabels } from "@noema/content";
+import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
@@ -7,16 +8,30 @@ import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, toArticleSummary } from "../../lib/articles";
-import { getPublishedArticleBySlug, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
+import { getArticleLinkAvailability, getPublishedArticleBySlug, getPublishedArticleRedirect, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
 import { renderArticlePresentation } from "@noema/content/article-presentation";
 
 const slug = Astro.params.slug ?? "";
 const article = await getPublishedArticleBySlug(slug);
-if (!article) return new Response("Not found", { status: 404 });
-const [summaries, series] = await Promise.all([
+if (!article) {
+  const redirectSlug = await getPublishedArticleRedirect(slug);
+  if (redirectSlug) return Astro.redirect(`/articles/${redirectSlug}/`, 301);
+  return Astro.rewrite("/404");
+}
+const articleLinkReferences = extractArticleLinkReferences(article.markdown);
+const [summaries, series, articleLinkAvailability] = await Promise.all([
   listPublicArticleSummaries(),
-  getPublishedSeriesByArticleSlug(slug)
+  getPublishedSeriesByArticleSlug(slug),
+  getArticleLinkAvailability(articleLinkReferences.map((reference) => reference.slug), article.visibility)
 ]);
+const unavailableArticleHrefs = new Set(
+  articleLinkReferences
+    .filter((reference) => articleLinkAvailability.get(reference.slug) !== "available")
+    .map((reference) => reference.href)
+);
+const markdownRenderer = createArticleMarkdownRenderer({
+  resolveLinkAvailability: (href) => unavailableArticleHrefs.has(href) ? "unavailable" : "available"
+});
 const currentSummary = toArticleSummary(article.data);
 const seriesSlugs = new Set(series?.items.map((item) => item.slug) ?? []);
 const relatedArticles = findRelatedArticles(
@@ -25,6 +40,7 @@ const relatedArticles = findRelatedArticles(
 );
 const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
   editor: article.editor ? { href: article.editor.href, name: article.editor.displayName } : null,
+  markdownRenderer,
   series: series ? {
     currentIndex: series.currentIndex,
     description: series.description,

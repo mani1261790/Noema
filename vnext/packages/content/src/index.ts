@@ -9,6 +9,7 @@ export { articleMarkdownGuidance } from "./article-extensions";
 export {
   extractArticleHeadingSlugs,
   extractArticleHeadings,
+  extractArticleLinkReferences,
   isSafeArticleMarkdownUrl,
   isSafeHttpUrl,
   validateArticleMarkdown,
@@ -16,6 +17,7 @@ export {
   type ArticleMarkdownIssueCode,
   type ArticleMarkdownIssueSeverity,
   type ArticleHeading,
+  type ArticleLinkReference,
   type ArticleMarkdownUrlKind,
   type ValidateArticleMarkdownOptions
 } from "./article-markdown";

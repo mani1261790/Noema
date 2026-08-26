@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { validateArticleMarkdown } from "./article-markdown";
+import { extractArticleLinkReferences, validateArticleMarkdown } from "./article-markdown";
 import { renderArticlePresentation } from "./article-presentation";
-import { renderArticleMarkdown } from "./article-renderer";
+import {
+  createArticleMarkdownRenderer,
+  renderArticleMarkdown,
+  renderArticleMarkdownWith,
+} from "./article-renderer";
 import type { ArticleFrontmatter } from "./index";
 
 const frontmatter: ArticleFrontmatter = {
@@ -64,6 +68,31 @@ describe("article Markdown extensions", () => {
     expect(codes("## 本文\n\n:::accordion\n\n本文\n\n:::")).toContain("accordion-title");
     expect(codes("## 本文\n\n:::accordion 補足\n\n本文")).toContain("accordion-unclosed");
     expect(codes("## 本文\n\n:::accordion 外側\n\n:::accordion 内側\n\n本文\n\n:::\n\n:::")).toContain("accordion-nested");
+  });
+
+  it("extracts canonical internal article links with fragments and source lines", () => {
+    expect(extractArticleLinkReferences([
+      "## 本文",
+      "",
+      "[公開予定](/articles/future#概要)",
+      "[外部](https://example.com/articles/other)",
+    ].join("\n"))).toEqual([
+      { fragment: "概要", href: "/articles/future#%E6%A6%82%E8%A6%81", line: 3, slug: "future" },
+    ]);
+  });
+
+  it("renders an unavailable article reference as explanatory text instead of a link", () => {
+    const renderer = createArticleMarkdownRenderer({
+      resolveLinkAvailability: (href) => href === "/articles/future" ? "unavailable" : "available",
+    });
+    const html = renderArticleMarkdownWith(
+      renderer,
+      "[公開中](/articles/current)と[次の記事](/articles/future)を参照します。",
+    );
+
+    expect(html).toContain('<a href="/articles/current">公開中</a>');
+    expect(html).toContain('<span class="article-link-unavailable">次の記事</span><span class="article-link-unavailable__status">（現在は公開されていません）</span>');
+    expect(html).not.toContain('href="/articles/future"');
   });
 });
 

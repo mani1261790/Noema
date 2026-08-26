@@ -35,6 +35,7 @@ hljs.registerAliases(["js", "jsx", "ts", "tsx"], { languageName: "typescript" })
 
 export interface ArticleMarkdownRendererOptions {
   externalLinksInNewTab?: boolean;
+  resolveLinkAvailability?: (reference: string) => "available" | "unavailable";
   resolveImageReference?: (reference: string) => string;
   resolveLinkReference?: (reference: string) => string;
 }
@@ -165,9 +166,20 @@ export function createArticleMarkdownRenderer(
   };
 
   const defaultLinkRule = markdown.renderer.rules.link_open;
+  const defaultLinkCloseRule = markdown.renderer.rules.link_close;
   markdown.renderer.rules.link_open = (tokens, index, rendererOptions, environment, self) => {
     const token = tokens[index];
     const href = token.attrGet("href");
+    if (href && options.resolveLinkAvailability?.(href) === "unavailable") {
+      token.tag = "span";
+      token.attrs = [["class", "article-link-unavailable"]];
+      const closing = tokens.slice(index + 1).find((candidate) => candidate.type === "link_close");
+      if (closing) {
+        closing.tag = "span";
+        closing.meta = { ...(closing.meta ?? {}), articleLinkUnavailable: true };
+      }
+      return self.renderToken(tokens, index, rendererOptions);
+    }
     if (href && options.resolveLinkReference) token.attrSet("href", options.resolveLinkReference(href));
     if (href && options.externalLinksInNewTab && !href.startsWith("#")) {
       token.attrSet("target", "_blank");
@@ -175,6 +187,14 @@ export function createArticleMarkdownRenderer(
     }
     return defaultLinkRule
       ? defaultLinkRule(tokens, index, rendererOptions, environment, self)
+      : self.renderToken(tokens, index, rendererOptions);
+  };
+  markdown.renderer.rules.link_close = (tokens, index, rendererOptions, environment, self) => {
+    if (tokens[index].meta?.articleLinkUnavailable === true) {
+      return `${self.renderToken(tokens, index, rendererOptions)}<span class="article-link-unavailable__status">（現在は公開されていません）</span>`;
+    }
+    return defaultLinkCloseRule
+      ? defaultLinkCloseRule(tokens, index, rendererOptions, environment, self)
       : self.renderToken(tokens, index, rendererOptions);
   };
 
