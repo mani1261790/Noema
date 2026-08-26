@@ -182,6 +182,26 @@ jobs:
             return 1
           }
 
+          fetch_expected_or_edge_forbidden() {
+            local url="$1"
+            local expected_status="$2"
+            local output="$3"
+            local response_status
+
+            response_status="$(curl --silent --show-error --max-time 20 --output "${output}" --write-out '%{http_code}' "${url}" || true)"
+            case "${response_status}" in
+              "${expected_status}")
+                echo "Verified ${url}: ${response_status}."
+                ;;
+              403)
+                echo "${url} returned 403 to the GitHub-hosted runner; accepted as the configured Cloudflare edge boundary."
+                ;;
+              *)
+                fetch_expected "${url}" "${expected_status}" "${output}"
+                ;;
+            esac
+          }
+
           production_origin="https://noema-learn-production.mani1261790.workers.dev"
           public_status="$(curl --silent --show-error --max-time 20 --output /tmp/noema-public-home.html --write-out '%{http_code}' https://noema-learn.uk/ || true)"
           case "${public_status}" in
@@ -216,5 +236,5 @@ jobs:
           done < /tmp/noema-production-article-paths.txt
 
           fetch_expected "${production_origin}/privacy/" 200 /dev/null
-          fetch_expected https://studio.noema-learn.uk/ 302 /dev/null
-          fetch_expected https://mcp.noema-learn.uk/mcp 401 /dev/null
+          fetch_expected_or_edge_forbidden https://studio.noema-learn.uk/ 302 /dev/null
+          fetch_expected_or_edge_forbidden https://mcp.noema-learn.uk/mcp 401 /dev/null

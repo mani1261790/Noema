@@ -179,6 +179,8 @@ curl -I https://studio.noema-learn.uk/
 curl -I https://noema-learn.uk/
 ```
 
+GitHub-hosted runnerからcustom domainがCloudflareのedge policyで403になる場合は、workflow内のdeploy成功とRoute確認を前提に、その403を保護境界として記録します。一般回線ではStudioの302とStudio MCPの401を別途確認します。
+
 CMS変更では、一般公開、限定URL、運営メンバー限定、保管の各記事が意図したsurfaceだけに出ることも確認します。指定メンバー公開は読者認証が未接続のため、公開操作が拒否されることを期待値とします。
 
 ## 手動デプロイ
