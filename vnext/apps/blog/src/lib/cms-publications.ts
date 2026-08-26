@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import {
   getCmsPublishedArticleBySlug,
+  getCmsPublishedArticleRedirect,
+  getCmsArticleLinkAvailability,
   getCmsPublishedEditorProfile,
   getCmsPublishedSeriesByArticleSlug,
   listCmsPublicArticleSummaries,
@@ -13,6 +15,17 @@ export function listPublicArticleSummaries() {
 
 export function getPublishedArticleBySlug(slug: string) {
   return getCmsPublishedArticleBySlug(env.CMS_DB, slug);
+}
+
+export function getPublishedArticleRedirect(slug: string) {
+  return getCmsPublishedArticleRedirect(env.CMS_DB, slug);
+}
+
+export function getArticleLinkAvailability(
+  slugs: Iterable<string>,
+  sourceVisibility: "public" | "unlisted",
+) {
+  return getCmsArticleLinkAvailability(env.CMS_DB, slugs, sourceVisibility);
 }
 
 export function getPublishedSeriesByArticleSlug(slug: string) {

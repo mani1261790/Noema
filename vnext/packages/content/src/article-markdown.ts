@@ -57,6 +57,13 @@ interface ArticleHref {
   slug: string | null;
 }
 
+export interface ArticleLinkReference {
+  fragment: string | null;
+  href: string;
+  line: number;
+  slug: string;
+}
+
 const parser = new MarkdownIt({ html: true, linkify: true });
 installArticleMarkdownExtensions(parser);
 const sourcePositionKey = "noemaSourcePosition";
@@ -222,6 +229,26 @@ export function extractArticleHeadings(source: string): Array<Pick<ArticleHeadin
   return collectHeadings(parser.parse(source, {}))
     .filter((heading) => heading.depth === 2)
     .map(({ slug, text }) => ({ slug, text }));
+}
+
+export function extractArticleLinkReferences(source: string): ArticleLinkReference[] {
+  const references: ArticleLinkReference[] = [];
+  for (const token of parser.parse(source, {})) {
+    for (const child of token.children ?? []) {
+      if (child.type !== "link_open") continue;
+      const href = child.attrGet("href");
+      if (href === null) continue;
+      const target = articleHref(href);
+      if (!target || target.invalid || !target.slug) continue;
+      references.push({
+        fragment: target.fragment,
+        href,
+        line: inlineTokenLine(token, child),
+        slug: target.slug,
+      });
+    }
+  }
+  return references;
 }
 
 export function validateArticleMarkdown(
@@ -428,7 +455,7 @@ export function validateArticleMarkdown(
         pushUnique(issues, {
           code: "unchecked-article-link",
           severity: "warning",
-          message: "記事リンクの存在は公開ビルドで確認します。",
+          message: "記事リンクの存在はレビュー依頼時にCMSで確認します。",
           line: childLine,
         });
       }

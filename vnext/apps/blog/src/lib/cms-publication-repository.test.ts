@@ -1,8 +1,10 @@
 import type { CmsVisibility } from "@noema/cms";
 import { describe, expect, it } from "vitest";
 import {
+  getCmsArticleLinkAvailability,
   getCmsPublishedSeriesByArticleSlug,
   getCmsPublishedEditorProfile,
+  getCmsPublishedArticleRedirect,
   isCmsPublicationVisible,
   parseCmsPublishedArticleRow,
   type CmsPublicationDatabase,
@@ -86,6 +88,69 @@ describe("CMS publication visibility", () => {
       revision_created_at: "2026-07-17T05:06:07.000Z",
       revision_number: 1,
     }, "listing")).toThrow(/does not match/);
+  });
+});
+
+describe("article link availability", () => {
+  it("only marks destinations available when their published visibility is readable from the source", async () => {
+    const rows = [
+      { publication_status: "published", published_slug: "public-target", published_visibility: "public", slug: "public-target" },
+      { publication_status: "published", published_slug: "unlisted-target", published_visibility: "unlisted", slug: "unlisted-target" },
+      { publication_status: "unpublished", published_slug: null, published_visibility: null, slug: "future-target" },
+    ];
+    const db = {
+      prepare(query: string) {
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return null as T | null; },
+          async all<T>() {
+            return { results: (query.includes("cms_article_slug_redirects")
+              ? [{ old_slug: "historical-target", publication_status: "published", published_visibility: "public" }]
+              : rows) as T[] };
+          },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    await expect(getCmsArticleLinkAvailability(
+      db,
+      ["public-target", "unlisted-target", "future-target", "historical-target", "missing-target"],
+      "public",
+    )).resolves.toEqual(new Map([
+      ["public-target", "available"],
+      ["unlisted-target", "unavailable"],
+      ["future-target", "unavailable"],
+      ["historical-target", "available"],
+      ["missing-target", "unavailable"],
+    ]));
+
+    const unlistedSource = await getCmsArticleLinkAvailability(db, ["unlisted-target"], "unlisted");
+    expect(unlistedSource.get("unlisted-target")).toBe("available");
+  });
+});
+
+describe("published article redirects", () => {
+  it("redirects a historical slug only while its article remains published", async () => {
+    const db = {
+      prepare() {
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return { published_slug: "new-slug" } as T; },
+          async all<T>() { return { results: [] as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    await expect(getCmsPublishedArticleRedirect(db, "old-slug")).resolves.toBe("new-slug");
+  });
+
+  it("rejects noncanonical historical slugs without querying the database", async () => {
+    let prepared = false;
+    const db = { prepare() { prepared = true; throw new Error("unexpected query"); } } as unknown as CmsPublicationDatabase;
+    await expect(getCmsPublishedArticleRedirect(db, "../private")).resolves.toBeNull();
+    expect(prepared).toBe(false);
   });
 });
 

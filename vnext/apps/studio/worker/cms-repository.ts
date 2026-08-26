@@ -34,7 +34,12 @@ import {
   type CmsSession,
   type CmsVisibility
 } from "@noema/cms";
-import type { ArticleFrontmatter } from "@noema/content";
+import {
+  extractArticleHeadingSlugs,
+  extractArticleLinkReferences,
+  type ArticleFrontmatter,
+  type ArticleLinkReference
+} from "@noema/content";
 import { z } from "zod";
 
 interface MemberRow {
@@ -103,6 +108,22 @@ interface CurrentArticleRow {
   reviewed_by_subject: string | null;
   review_status: string;
   slug: string;
+}
+
+interface ArticleLinkTargetRow {
+  current_markdown: string;
+  id: string;
+  publication_status: string;
+  published_markdown: string | null;
+  published_slug: string | null;
+  resolves_to_published: number;
+  slug: string;
+}
+
+interface PublishedArticleLinkSourceRow {
+  article_id: string;
+  markdown: string;
+  published_slug: string;
 }
 
 interface ArticleVersionSummaryRow {
@@ -1706,9 +1727,64 @@ export async function transitionCmsArticle(
     : options;
   const detail = await getCmsArticle(db, identity, articleId);
   const timestamp = now.toISOString();
+  const transition = buildTransition(current, detail, identity, action, transitionOptions, timestamp);
+  if (action === "request_review" || action === "publish") {
+    const outboundIssues = await validateArticleLinkTargets(
+      db,
+      articleId,
+      detail.currentRevision.markdown
+    );
+    if (outboundIssues.length > 0) {
+      throw new CmsRepositoryError(
+        "invalid_article",
+        action === "publish"
+          ? "公開前に記事リンクを確認してください。"
+          : "レビュー依頼前に記事リンクを確認してください。",
+        outboundIssues
+      );
+    }
+  }
+  const articleRouteSlugs = action === "publish" || action === "archive"
+    ? await listArticleRouteSlugs(db, articleId, current)
+    : [];
+  if (action === "publish") {
+    const inboundIssues = await validateInboundArticleFragments(
+      db,
+      articleId,
+      articleRouteSlugs,
+      detail.currentRevision.markdown
+    );
+    if (inboundIssues.length > 0) {
+      throw new CmsRepositoryError(
+        "invalid_article",
+        "公開すると参照元の記事内リンクが切れるため、見出しを戻すか参照元を修正してください。",
+        inboundIssues
+      );
+    }
+    const redirectOwner = await db.prepare(
+      "SELECT article_id FROM cms_article_slug_redirects WHERE old_slug = ?1"
+    ).bind(current.slug).first<string>("article_id");
+    if (redirectOwner && redirectOwner !== articleId) throw slugConflict();
+  }
+  if (action === "archive" && current.published_slug) {
+    const inbound = await findPublishedInboundArticleLinks(
+      db,
+      articleId,
+      articleRouteSlugs
+    );
+    if (inbound.length > 0) {
+      throw new CmsRepositoryError(
+        "invalid_transition",
+        `公開中の記事${new Set(inbound.map((reference) => reference.sourceSlug)).size}件から参照されています。参照元を修正して再公開してから公開を終了してください。`,
+        inbound.map((reference) => ({
+          message: `「${reference.sourceSlug}」の${reference.line}行目から参照されています。`,
+          path: ["publishedArticles", reference.sourceSlug, reference.line]
+        }))
+      );
+    }
+  }
   const nextVersion = expectedVersion + 1;
   const auditId = crypto.randomUUID();
-  const transition = buildTransition(current, detail, identity, action, transitionOptions, timestamp);
 
   let result: D1Result[];
   try {
@@ -1770,6 +1846,23 @@ export async function transitionCmsArticle(
         articleId,
         expectedVersion
       ),
+      ...(action === "publish"
+        ? [
+            db.prepare(
+              "DELETE FROM cms_article_slug_redirects WHERE old_slug = ?1 AND article_id = ?2"
+            ).bind(transition.publishedSlug, articleId),
+            ...(current.published_slug && current.published_slug !== transition.publishedSlug
+              ? [db.prepare(
+                  `INSERT INTO cms_article_slug_redirects (old_slug, article_id, created_at)
+                   VALUES (?1, ?2, ?3)
+                   ON CONFLICT(old_slug) DO UPDATE SET
+                     article_id = excluded.article_id,
+                     created_at = excluded.created_at
+                   WHERE cms_article_slug_redirects.article_id = excluded.article_id`
+                ).bind(current.published_slug, articleId, timestamp)]
+              : [])
+          ]
+        : []),
       ...(action === "request_changes" && openReviewCommentCount === 0 && options.note?.trim()
         ? [db.prepare(
             `INSERT INTO cms_review_comments
@@ -1806,6 +1899,9 @@ export async function transitionCmsArticle(
     if (isUniqueConstraint(error, "cms_articles.published_slug")) {
       throw slugConflict();
     }
+    if (isUniqueConstraint(error, "cms_article_slug_redirects.old_slug")) {
+      throw slugConflict();
+    }
     throw error;
   }
 
@@ -1820,6 +1916,132 @@ export async function transitionCmsArticle(
     throw revisionConflict();
   }
   return getCmsArticle(db, identity, articleId);
+}
+
+async function validateArticleLinkTargets(
+  db: D1Database,
+  sourceArticleId: string,
+  markdown: string
+): Promise<Array<{ message: string; path: Array<string | number> }>> {
+  const issues: Array<{ message: string; path: Array<string | number> }> = [];
+  const targetCache = new Map<string, ArticleLinkTargetRow | null>();
+  const headingCache = new Map<string, Set<string>>();
+
+  for (const reference of extractArticleLinkReferences(markdown)) {
+    let target = targetCache.get(reference.slug);
+    if (target === undefined) {
+      target = await db.prepare(
+        `SELECT a.id, a.slug, a.publication_status, a.published_slug,
+                current_revision.markdown AS current_markdown,
+                published_revision.markdown AS published_markdown,
+                CASE WHEN a.published_slug = ?1 OR EXISTS (
+                  SELECT 1 FROM cms_article_slug_redirects redirect
+                  WHERE redirect.article_id = a.id AND redirect.old_slug = ?1
+                ) THEN 1 ELSE 0 END AS resolves_to_published
+         FROM cms_articles a
+         JOIN cms_article_revisions current_revision ON current_revision.id = a.current_revision_id
+         LEFT JOIN cms_article_revisions published_revision ON published_revision.id = a.published_revision_id
+         WHERE a.slug = ?1 OR a.published_slug = ?1 OR EXISTS (
+           SELECT 1 FROM cms_article_slug_redirects redirect
+           WHERE redirect.article_id = a.id AND redirect.old_slug = ?1
+         )
+         ORDER BY CASE
+           WHEN a.publication_status = 'published' AND a.published_slug = ?1 THEN 0
+           WHEN a.publication_status = 'published' AND EXISTS (
+             SELECT 1 FROM cms_article_slug_redirects redirect
+             WHERE redirect.article_id = a.id AND redirect.old_slug = ?1
+           ) THEN 1
+           ELSE 2
+         END
+         LIMIT 1`
+      ).bind(reference.slug).first<ArticleLinkTargetRow>();
+      targetCache.set(reference.slug, target);
+    }
+    if (!target) {
+      issues.push({
+        message: `リンク先の記事「${reference.slug}」がCMSにありません。`,
+        path: ["markdown", reference.line]
+      });
+      continue;
+    }
+    if (!reference.fragment) continue;
+
+    const resolvesToPublished = target.id !== sourceArticleId &&
+      target.publication_status === "published" &&
+      target.resolves_to_published === 1 &&
+      Boolean(target.published_markdown);
+    const targetMarkdown = resolvesToPublished && target.published_markdown
+      ? target.published_markdown
+      : target.current_markdown;
+    const cacheKey = `${target.id}:${resolvesToPublished ? "published" : "current"}`;
+    let headings = headingCache.get(cacheKey);
+    if (!headings) {
+      headings = new Set(extractArticleHeadingSlugs(targetMarkdown));
+      headingCache.set(cacheKey, headings);
+    }
+    if (!headings.has(reference.fragment)) {
+      issues.push({
+        message: `リンク先の記事「${reference.slug}」に見出し「#${reference.fragment}」がありません。`,
+        path: ["markdown", reference.line]
+      });
+    }
+  }
+
+  return issues;
+}
+
+async function listArticleRouteSlugs(
+  db: D1Database,
+  articleId: string,
+  current: CurrentArticleRow
+): Promise<string[]> {
+  const redirects = await db.prepare(
+    "SELECT old_slug FROM cms_article_slug_redirects WHERE article_id = ?1"
+  ).bind(articleId).all<{ old_slug: string }>();
+  return [...new Set([
+    current.slug,
+    ...(current.published_slug ? [current.published_slug] : []),
+    ...redirects.results.map((row) => row.old_slug)
+  ])];
+}
+
+async function validateInboundArticleFragments(
+  db: D1Database,
+  articleId: string,
+  targetSlugs: string[],
+  nextMarkdown: string
+): Promise<Array<{ message: string; path: Array<string | number> }>> {
+  const headings = new Set(extractArticleHeadingSlugs(nextMarkdown));
+  const inbound = await findPublishedInboundArticleLinks(db, articleId, targetSlugs);
+  return inbound
+    .filter((reference) => reference.fragment && !headings.has(reference.fragment))
+    .map((reference) => ({
+      message: `「${reference.sourceSlug}」の${reference.line}行目が見出し「#${reference.fragment}」を参照しています。`,
+      path: ["publishedArticles", reference.sourceSlug, reference.line]
+    }));
+}
+
+async function findPublishedInboundArticleLinks(
+  db: D1Database,
+  articleId: string,
+  targetSlugs: string[]
+): Promise<Array<ArticleLinkReference & { sourceSlug: string }>> {
+  const targets = new Set(targetSlugs);
+  if (targets.size === 0) return [];
+  const result = await db.prepare(
+    `SELECT a.id AS article_id, a.published_slug, r.markdown
+     FROM cms_articles a
+     JOIN cms_article_revisions r ON r.id = a.published_revision_id
+     WHERE a.publication_status = 'published'
+       AND a.published_visibility IN ('public', 'unlisted')
+       AND a.id <> ?1`
+  ).bind(articleId).all<PublishedArticleLinkSourceRow>();
+
+  return result.results.flatMap((source) =>
+    extractArticleLinkReferences(source.markdown)
+      .filter((reference) => targets.has(reference.slug))
+      .map((reference) => ({ ...reference, sourceSlug: source.published_slug }))
+  );
 }
 
 export async function listCmsMembers(

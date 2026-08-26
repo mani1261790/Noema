@@ -163,6 +163,17 @@
   margin: 0;
 }
 
+.article-link-unavailable {
+  color: var(--noema-text);
+  text-decoration: none;
+}
+
+.article-link-unavailable__status {
+  color: var(--noema-muted);
+  font-size: calc(14 / 16 * 1rem);
+  white-space: nowrap;
+}
+
 .article-accordion {
   max-width: 58rem;
   margin-block: 2rem;
