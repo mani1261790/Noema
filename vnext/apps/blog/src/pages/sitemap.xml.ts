@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { topicLabels } from "@noema/content";
 import { listPublicArticleSummaries, listPublishedEditors, listPublishedSeries } from "../lib/cms-publications";
+import { serializeSitemap, type SitemapEntry } from "../lib/seo";
 
 export const GET: APIRoute = async ({ site }) => {
   const base = site ?? new URL("https://noema-learn.uk");
@@ -10,23 +11,42 @@ export const GET: APIRoute = async ({ site }) => {
     listPublishedSeries()
   ]);
   const publicTopics = new Set(articles.flatMap((article) => article.topics));
-  const paths = [
-    "/",
-    "/articles",
-    "/series",
-    "/about",
-    "/privacy",
-    "/terms",
-    ...Object.keys(topicLabels).filter((slug) => publicTopics.has(slug as keyof typeof topicLabels)).map((slug) => `/topics/${slug}`),
-    ...seriesList.map((series) => series.href),
-    ...articles.map((article) => `/articles/${article.slug}`),
-    ...editors.map((editor) => editor.href)
+  const articleLastModified = (article: (typeof articles)[number]) =>
+    [article.publishedAt, article.updatedAt].filter((date): date is string => Boolean(date)).sort().at(-1);
+  const latestArticleDate = (items: typeof articles) =>
+    items.map(articleLastModified).filter((date): date is string => Boolean(date)).sort().at(-1);
+  const latestPublicArticleDate = latestArticleDate(articles);
+  const latestSeriesDate = seriesList.map((series) => series.updatedAt).sort().at(-1);
+  const latestSiteDate = [latestPublicArticleDate, latestSeriesDate]
+    .filter((date): date is string => Boolean(date)).sort().at(-1);
+  const entries: SitemapEntry[] = [
+    { pathname: "/", lastModified: latestSiteDate },
+    { pathname: "/articles", lastModified: latestSiteDate },
+    { pathname: "/series", lastModified: latestSeriesDate },
+    { pathname: "/about" },
+    { pathname: "/privacy" },
+    { pathname: "/terms" },
+    ...Object.keys(topicLabels)
+      .filter((topicSlug) => publicTopics.has(topicSlug as keyof typeof topicLabels))
+      .map((topicSlug) => ({
+        pathname: `/topics/${topicSlug}`,
+        lastModified: latestArticleDate(articles.filter((article) =>
+          article.topics.includes(topicSlug as keyof typeof topicLabels)
+        ))
+      })),
+    ...seriesList.map((series) => ({
+      pathname: series.href,
+      lastModified: [series.updatedAt, latestArticleDate(series.items)]
+        .filter((date): date is string => Boolean(date)).sort().at(-1)
+    })),
+    ...articles.map((article) => ({
+      pathname: `/articles/${article.slug}`,
+      lastModified: articleLastModified(article)
+    })),
+    ...editors.map((editor) => ({ pathname: editor.href }))
   ];
-  const urls = paths
-    .map((path) => `  <url><loc>${new URL(path, base).toString()}</loc></url>`)
-    .join("\n");
 
-  return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`, {
+  return new Response(serializeSitemap(entries, base), {
     headers: { "content-type": "application/xml; charset=utf-8" }
   });
 };

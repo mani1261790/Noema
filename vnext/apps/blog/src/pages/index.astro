@@ -4,12 +4,33 @@ import SeriesCard from "../components/SeriesCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { sortArticlesByDate } from "../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../lib/cms-publications";
+import { canonicalUrl } from "../lib/seo";
 
 const [articles, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const recentArticles = sortArticlesByDate(articles).slice(0, 5);
+const siteUrl = canonicalUrl("/", Astro.site).toString();
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@id": `${siteUrl}#organization`,
+      "@type": "Organization",
+      name: "Noema",
+      url: siteUrl
+    },
+    {
+      "@id": `${siteUrl}#website`,
+      "@type": "WebSite",
+      name: "Noema",
+      url: siteUrl,
+      inLanguage: "ja",
+      publisher: { "@id": `${siteUrl}#organization` }
+    }
+  ]
+};
 ---
 
-<BaseLayout>
+<BaseLayout jsonLd={jsonLd}>
   <section class="home-hero" aria-labelledby="hero-heading">
     <div class="noema-container home-hero__inner">
       <div class="home-hero__copy">

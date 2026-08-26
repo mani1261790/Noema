@@ -24,6 +24,7 @@ export interface CmsPublishedArticleSummary {
   editor?: CmsPublishedEditor | null;
   publishedAt: string;
   revisionNumber: number;
+  updatedAt: string;
   visibility: Extract<CmsVisibility, "public" | "unlisted">;
 }
 
@@ -48,6 +49,7 @@ export interface CmsPublishedSeries {
   items: ArticleSummary[];
   slug: string;
   title: string;
+  updatedAt: string;
 }
 
 export interface CmsPublishedSeriesContext extends CmsPublishedSeries {
@@ -73,6 +75,7 @@ interface CmsPublishedSeriesRow extends CmsPublishedArticleRow {
   series_id: string;
   series_slug: string;
   series_title: string;
+  series_updated_at: string;
 }
 
 const publishedSummaryColumns = `r.frontmatter_json,
@@ -134,6 +137,7 @@ export function parseCmsPublishedArticleRow(
       : null,
     publishedAt: row.published_at,
     revisionNumber: row.revision_number,
+    updatedAt: row.revision_created_at,
     visibility: visibility.data,
   };
   return typeof row.markdown === "string" ? { ...summary, markdown: row.markdown } : summary;
@@ -266,7 +270,7 @@ export async function getCmsPublishedSeriesByArticleSlug(
 ): Promise<CmsPublishedSeriesContext | null> {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(articleSlug)) return null;
   const series = await db.prepare(
-    `SELECT s.id, sr.slug, sr.title, sr.description
+    `SELECT s.id, sr.slug, sr.title, sr.description, sr.created_at AS updated_at
      FROM cms_articles current_article
      JOIN cms_article_series map ON map.article_id = current_article.id
      JOIN cms_series s ON s.id = map.series_id
@@ -276,7 +280,7 @@ export async function getCmsPublishedSeriesByArticleSlug(
        AND current_article.published_slug = ?1
        AND map.revision_id = s.published_revision_id
      LIMIT 1`,
-  ).bind(articleSlug).first<{ description: string; id: string; slug: string; title: string }>();
+  ).bind(articleSlug).first<{ description: string; id: string; slug: string; title: string; updated_at: string }>();
   if (!series) return null;
 
   const result = await db.prepare(
@@ -296,7 +300,13 @@ export async function getCmsPublishedSeriesByArticleSlug(
   );
   const currentIndex = items.findIndex((item) => item.slug === articleSlug);
   if (currentIndex < 0) return null;
-  return { ...series, currentIndex, href: `/series/${series.slug}`, items };
+  return {
+    ...series,
+    currentIndex,
+    href: `/series/${series.slug}`,
+    items,
+    updatedAt: isoDate(series.updated_at, "series_revision_created_at"),
+  };
 }
 
 export async function listCmsPublishedSeries(
@@ -307,6 +317,7 @@ export async function listCmsPublishedSeries(
        sr.slug AS series_slug,
        sr.title AS series_title,
        sr.description AS series_description,
+       sr.created_at AS series_updated_at,
        ${publishedSummaryColumns}
      FROM cms_series s
      JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
@@ -332,6 +343,7 @@ export async function getCmsPublishedSeriesBySlug(
        sr.slug AS series_slug,
        sr.title AS series_title,
        sr.description AS series_description,
+       sr.created_at AS series_updated_at,
        ${publishedSummaryColumns}
      FROM cms_series s
      JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
@@ -422,6 +434,7 @@ function groupPublishedSeries(rows: CmsPublishedSeriesRow[]): CmsPublishedSeries
         items: [],
         slug: row.series_slug,
         title: row.series_title,
+        updatedAt: isoDate(row.series_updated_at, "series_revision_created_at"),
       };
       grouped.set(row.series_id, series);
     }
