@@ -29,3 +29,10 @@ test("the narrow review article toggle stays above the article without covering 
     /\.studio-workspace\.is-review-workspace \.studio-preview-toggle\[aria-pressed="true"\] \{[\s\S]*color: #fff;[\s\S]*background: var\(--color-key-900\);/u
   );
 });
+
+test("narrow review responses place comments before the Markdown editor", () => {
+  assert.match(
+    stylesheet,
+    /\.studio-workspace\.is-review-response-workspace \.studio-settings \{[\s\S]*grid-row: 1;[\s\S]*\.studio-workspace\.is-review-response-workspace \.studio-editor \{[\s\S]*grid-row: 2;/u
+  );
+});

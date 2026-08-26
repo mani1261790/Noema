@@ -35,12 +35,12 @@ export function getCmsJourneyStatus(
       : reviewStatus === "approved"
         ? "公開中・新しい版は承認済み"
         : reviewStatus === "changes_requested"
-          ? "公開中・新しい版は要修正"
+          ? "公開中・新しい版はレビュー対応中"
           : "公開中・新しい版は下書き";
     return { detail: "現在の公開版はそのまま", label, step };
   }
   if (publicationStatus === "published") return { detail: null, label: "公開中", step };
-  if (reviewStatus === "changes_requested") return { detail: "レビューコメントを確認して修正", label: "要修正", step };
+  if (reviewStatus === "changes_requested") return { detail: "レビューコメントを確認して修正", label: "レビュー対応中", step };
   return { detail: null, label: stages[step], step };
 }
 

@@ -71,8 +71,9 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain('role="search"');
     expect(html).toContain('id="studio-article-search"');
     expect(html).toContain('id="studio-article-filter"');
-    expect(html.match(/<option/g)).toHaveLength(5);
+    expect(html.match(/<option/g)).toHaveLength(6);
     expect(html).toContain("公開中（0）");
+    expect(html).toContain("レビュー対応（0）");
     expect(html).toContain("0件");
     expect(html).toContain("CMSの記事はまだありません");
     expect(html).not.toContain("studio-public-link");
@@ -149,7 +150,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain(">編集する</button>");
   });
 
-  it("groups corrections into the editor draft filter", () => {
+  it("keeps review responses separate from ordinary drafts", () => {
     const correctionArticle = {
       ...article,
       publicationStatus: "unpublished" as const,
@@ -158,11 +159,11 @@ describe("CmsArticleLibrary", () => {
     const html = renderLibrary({
       articles: [correctionArticle],
       connection: { email: "editor@example.com", kind: "ready", role: "editor" },
-      filter: "draft"
+      filter: "changes_requested"
     });
 
-    expect(html).toContain("下書き・要修正（1）");
-    expect(html).toContain("修正する");
+    expect(html).toContain("レビュー対応（1）");
+    expect(html).toContain("レビュー対応を開く");
     expect(html).not.toContain("対応待ち");
   });
 

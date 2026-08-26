@@ -4772,6 +4772,14 @@ textarea.studio-control {
     border-top: 1px solid #767676;
   }
 
+  .studio-workspace.is-review-response-workspace .studio-settings {
+    grid-row: 1;
+  }
+
+  .studio-workspace.is-review-response-workspace .studio-editor {
+    grid-row: 2;
+  }
+
   .studio-review-comments__selection {
     grid-template-columns: minmax(0, 1fr);
   }

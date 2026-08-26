@@ -61,7 +61,7 @@ export function getCmsArticleActionLabel(
   role: CmsRole
 ): string {
   if (article.reviewStatus === "changes_requested") {
-    return role === "reviewer" ? "修正内容を確認" : "修正する";
+    return role === "reviewer" ? "修正内容を確認" : "レビュー対応を開く";
   }
   if (article.reviewStatus === "in_review") {
     return role === "editor" ? "レビュー状況を確認" : "レビューする";
