@@ -13,6 +13,7 @@ export function buildArticlePreviewSeries(
   return {
     currentIndex,
     description: membership.description,
+    href: `/series/${membership.slug}`,
     items: membership.articles.map((item, index) => ({
       href: `/articles/${item.slug}/`,
       title: index === currentIndex && currentTitle ? currentTitle : item.title,

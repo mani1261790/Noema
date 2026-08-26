@@ -14,6 +14,7 @@ export interface ArticlePresentationSeriesItem {
 export interface ArticlePresentationSeries {
   currentIndex: number;
   description: string;
+  href: string;
   items: ArticlePresentationSeriesItem[];
   title: string;
 }
@@ -56,25 +57,13 @@ function renderSeriesIntro(
   series: ArticlePresentationSeries,
   resolveLinkReference?: (reference: string) => string,
 ): string {
-  const first = series.items[0];
-  const previous = series.items[series.currentIndex - 1];
-  const quickLinks = series.currentIndex > 0
-    ? `<div class="article-series__quick-links">${
-        series.currentIndex > 1 && first
-          ? `<a href="${attribute(resolveReference(first.href, resolveLinkReference))}"><small>シリーズの入口</small><strong>最初から読む</strong><span>${escapeHtml(first.title)}</span></a>`
-          : ""
-      }${
-        previous
-          ? `<a href="${attribute(resolveReference(previous.href, resolveLinkReference))}"><small>ひとつ前</small><strong>前の記事へ</strong><span>${escapeHtml(previous.title)}</span></a>`
-          : ""
-      }</div>`
-    : "";
   const items = series.items.map((item, index) => index === series.currentIndex
     ? `<li class="is-current"><span aria-current="page"><small>第${index + 1}回・現在の記事</small><strong>${escapeHtml(item.title)}</strong></span></li>`
     : `<li><a href="${attribute(resolveReference(item.href, resolveLinkReference))}"><small>第${index + 1}回</small><strong>${escapeHtml(item.title)}</strong></a></li>`
   ).join("");
 
-  return `<nav class="article-series" aria-labelledby="article-series-heading"><div class="article-series__heading"><div><p>このシリーズ</p><h2 id="article-series-heading">${escapeHtml(series.title)}</h2><span>第${series.currentIndex + 1}回 / 全${series.items.length}回</span></div><p>${escapeHtml(series.description)}</p></div>${quickLinks}<details class="article-series__contents"><summary>シリーズ全体を見る</summary><ol>${items}</ol></details></nav>`;
+  const href = attribute(resolveReference(series.href, resolveLinkReference));
+  return `<nav class="article-series" aria-labelledby="article-series-heading"><div class="article-series__heading"><div><p>このシリーズの第${series.currentIndex + 1}回 / 全${series.items.length}回</p><h2 id="article-series-heading"><a href="${href}">${escapeHtml(series.title)}</a></h2></div><p>${escapeHtml(series.description)}</p></div><details class="article-series__contents"><summary>シリーズの記事一覧</summary><ol>${items}</ol></details></nav>`;
 }
 
 function renderSeriesEnd(
@@ -89,7 +78,7 @@ function renderSeriesEnd(
     : "<span></span>";
   const nextLink = next
     ? `<a class="is-next" data-analytics-navigation="series_next" href="${attribute(resolveReference(next.href, resolveLinkReference))}"><small>次の記事</small><strong>${escapeHtml(next.title)}</strong></a>`
-    : `<a class="is-next" href="${attribute(resolveReference("/articles", resolveLinkReference))}"><small>シリーズを読み終えました</small><strong>ほかの記事を見る</strong></a>`;
+    : `<a class="is-next" href="${attribute(resolveReference(series.href, resolveLinkReference))}"><small>シリーズを読み終えました</small><strong>シリーズ一覧へ戻る</strong></a>`;
   return `<nav class="article-series-end" aria-label="${attribute(`${series.title}の前後の記事`)}"><p><span>${escapeHtml(series.title)}</span><strong>${escapeHtml(current?.title ?? "")}</strong></p><div>${previousLink}${nextLink}</div></nav>`;
 }
 
@@ -131,5 +120,5 @@ export function renderArticlePresentation(
   const seriesIntro = options.series ? renderSeriesIntro(options.series, options.resolveLinkReference) : "";
   const seriesEnd = options.series ? renderSeriesEnd(options.series, options.resolveLinkReference) : "";
 
-  return `<div class="article-presentation"><header class="article-header"><h1>${escapeHtml(frontmatter.title)}</h1><p>${escapeHtml(frontmatter.description)}</p><dl class="article-meta">${attribution}<div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 ${frontmatter.estimatedMinutes}分</dd></div>${publishedAt ? `<div><dt>公開</dt><dd><time datetime="${attribute(frontmatter.publishedAt ?? "")}">${escapeHtml(publishedAt)}</time></dd></div>` : ""}<div><dt>更新</dt><dd><time datetime="${attribute(frontmatter.updatedAt)}">${escapeHtml(updatedAt)}</time></dd></div></dl>${tags}</header>${hero}${seriesIntro}<section class="article-outcome"><h2>この記事でできるようになること</h2><p>${escapeHtml(frontmatter.outcome)}</p></section>${toc}<article class="article-body">${renderedMarkdown}</article>${sources}${seriesEnd}</div>`;
+  return `<div class="article-presentation"><header class="article-header"><h1>${escapeHtml(frontmatter.title)}</h1><p>${escapeHtml(frontmatter.description)}</p><dl class="article-meta">${attribution}<div><dt class="noema-visually-hidden">読了時間</dt><dd>読了 ${frontmatter.estimatedMinutes}分</dd></div>${publishedAt ? `<div><dt>公開</dt><dd><time datetime="${attribute(frontmatter.publishedAt ?? "")}">${escapeHtml(publishedAt)}</time></dd></div>` : ""}<div><dt>更新</dt><dd><time datetime="${attribute(frontmatter.updatedAt)}">${escapeHtml(updatedAt)}</time></dd></div></dl>${tags}</header>${hero}<section class="article-outcome"><h2>この記事でできるようになること</h2><p>${escapeHtml(frontmatter.outcome)}</p></section>${seriesIntro}${toc}<article class="article-body">${renderedMarkdown}</article>${sources}${seriesEnd}</div>`;
 }

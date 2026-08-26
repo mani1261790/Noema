@@ -102,6 +102,7 @@ describe("renderArticlePresentation", () => {
       series: {
         currentIndex: 1,
         description: "共有シリーズ",
+        href: "/series/renderer-test",
         items: [
           { href: "/articles/first/", title: "最初の記事" },
           { href: "/articles/shared-renderer/", title: "現在の記事" },
@@ -112,8 +113,9 @@ describe("renderArticlePresentation", () => {
     });
 
     expect(html).toContain('<div class="article-presentation">');
-    expect(html).toContain("シリーズ全体を見る");
-    expect(html).toContain("前の記事へ");
+    expect(html).toContain("シリーズの記事一覧");
+    expect(html).toContain('href="/series/renderer-test"');
+    expect(html.indexOf("この記事でできるようになること")).toBeLessThan(html.indexOf("このシリーズの第2回"));
     expect(html).toContain("次の記事");
     expect(html).toContain('<article class="article-body"><h2 id="本文">本文</h2>');
   });

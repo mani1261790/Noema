@@ -25,6 +25,7 @@ describe("buildArticlePreviewSeries", () => {
     expect(buildArticlePreviewSeries("article-2", "編集中タイトル", [series])).toEqual({
       currentIndex: 1,
       description: "シリーズ説明",
+      href: "/series/series",
       items: [
         { href: "/articles/first/", title: "第1回" },
         { href: "/articles/second/", title: "編集中タイトル" },

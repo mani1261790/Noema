@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   getCmsArticleLinkAvailability,
   getCmsPublishedSeriesByArticleSlug,
+  getCmsPublishedSeriesBySlug,
   getCmsPublishedEditorProfile,
   getCmsPublishedArticleRedirect,
   isCmsPublicationVisible,
+  listCmsPublishedSeries,
   parseCmsPublishedArticleRow,
   type CmsPublicationDatabase,
   type CmsPublicationStatement,
@@ -229,6 +231,7 @@ describe("published article series", () => {
     expect(result).toMatchObject({
       currentIndex: 1,
       description: "順番に学ぶシリーズです。",
+      href: "/series/learning-path",
       slug: "learning-path",
       title: "学習シリーズ",
     });
@@ -237,6 +240,75 @@ describe("published article series", () => {
       ["current", "/articles/current"],
       ["next", "/articles/next"],
     ]);
+  });
+
+  it("groups public articles into ordered public series", async () => {
+    const rows = [
+      ["series-a", "first", "2026-07-18"],
+      ["series-a", "second", "2026-07-19"],
+      ["series-b", "other", "2026-07-20"],
+    ].map(([seriesId, slug, date], index) => ({
+      series_description: `${seriesId}の説明`,
+      series_id: seriesId,
+      series_slug: seriesId,
+      series_title: `${seriesId}のタイトル`,
+      frontmatter_json: JSON.stringify({ ...validFrontmatter, slug, title: `${slug}の記事` }),
+      published_at: `${date}T01:02:03.000Z`,
+      published_slug: slug,
+      published_visibility: "public",
+      revision_created_at: `${date}T00:02:03.000Z`,
+      revision_number: index + 1,
+    }));
+    const db = {
+      prepare() {
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return null as T | null; },
+          async all<T>() { return { results: rows as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    const result = await listCmsPublishedSeries(db);
+    expect(result.map((series) => [series.slug, series.href, series.items.map((item) => item.slug)])).toEqual([
+      ["series-a", "/series/series-a", ["first", "second"]],
+      ["series-b", "/series/series-b", ["other"]],
+    ]);
+  });
+
+  it("loads a public series by canonical slug and rejects invalid slugs", async () => {
+    let calls = 0;
+    const row = {
+      series_description: "順番に学ぶシリーズです。",
+      series_id: "series-id",
+      series_slug: "learning-path",
+      series_title: "学習シリーズ",
+      frontmatter_json: JSON.stringify({ ...validFrontmatter, slug: "first" }),
+      published_at: "2026-07-18T01:02:03.000Z",
+      published_slug: "first",
+      published_visibility: "public",
+      revision_created_at: "2026-07-17T05:06:07.000Z",
+      revision_number: 1,
+    };
+    const db = {
+      prepare() {
+        calls += 1;
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return null as T | null; },
+          async all<T>() { return { results: [row] as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    await expect(getCmsPublishedSeriesBySlug(db, "learning-path")).resolves.toMatchObject({
+      href: "/series/learning-path",
+      slug: "learning-path",
+    });
+    await expect(getCmsPublishedSeriesBySlug(db, "../private")).resolves.toBeNull();
+    expect(calls).toBe(1);
   });
 
   it("does not expose series data for an invalid or non-member article", async () => {
