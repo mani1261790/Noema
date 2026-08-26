@@ -1492,22 +1492,44 @@ body.noema-public .site-search-form__input input:focus-visible {
   margin-top: 3rem;
 }
 
-.assistant-desktop,
 .assistant-dialog {
   background: var(--color-neutral-white);
   border: 1px solid var(--noema-border);
-}
-
-.assistant-dialog[hidden] {
-  display: none;
 }
 
 body.has-assistant-dialog {
   overflow: hidden;
 }
 
-.assistant-desktop {
+.assistant-trigger {
+  width: 100%;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: var(--elevation-1);
+}
+
+.assistant-trigger .noema-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.assistant-dialog {
+  position: fixed;
+  width: min(calc(100% - 3rem), 38rem);
+  max-height: calc(100dvh - 3rem);
+  margin: auto;
   padding: 1.5rem;
+  overflow-y: auto;
+  border-radius: 0.75rem;
+  box-shadow: var(--elevation-4);
+}
+
+.assistant-dialog:not([open]) {
+  display: none;
+}
+
+.assistant-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
 }
 
 .assistant-form-shell h2,
@@ -1592,7 +1614,7 @@ body.has-assistant-dialog {
   letter-spacing: 0;
 }
 
-.assistant-desktop .dads-button {
+.assistant-dialog .dads-button {
   width: 100%;
 }
 
@@ -1660,11 +1682,6 @@ body.has-assistant-dialog {
   border: 0;
   text-decoration: underline;
   cursor: pointer;
-}
-
-.assistant-mobile-trigger,
-.assistant-dialog {
-  display: none;
 }
 
 .assistant-dialog__header {
@@ -1753,11 +1770,7 @@ body.has-assistant-dialog {
     padding: 0;
   }
 
-  .assistant-desktop {
-    display: none;
-  }
-
-  .assistant-mobile-trigger {
+  .assistant-trigger {
     position: fixed;
     z-index: 50;
     display: flex;
@@ -1765,21 +1778,13 @@ body.has-assistant-dialog {
     inset-block-end: 1rem;
     width: calc(100% - 2rem);
     justify-content: center;
-    gap: 0.75rem;
     box-shadow: var(--elevation-2);
   }
 
-  .assistant-dialog:not([hidden]) {
-    position: fixed;
-    z-index: 100;
-    display: block;
-    inset: 1rem;
+  .assistant-dialog {
     width: min(calc(100% - 2rem), 38rem);
     max-height: calc(100dvh - 2rem);
-    margin: auto;
     padding: 1.25rem;
-    overflow-y: auto;
-    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
   }
 }
 
