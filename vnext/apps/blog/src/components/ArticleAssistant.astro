@@ -9,16 +9,15 @@ interface Props {
 const { preview = false, slug } = Astro.props;
 ---
 
-<aside
-  class="assistant-desktop"
-  aria-labelledby="assistant-desktop-heading"
+<button
+  class="dads-button assistant-trigger"
+  data-size="lg"
+  data-type="solid-fill"
+  type="button"
+  data-open-assistant
   data-article-preview={preview ? "true" : "false"}
   data-article-slug={slug}
 >
-  <AssistantForm idPrefix="desktop" headingId="assistant-desktop-heading" />
-</aside>
-
-<button class="dads-button assistant-mobile-trigger" data-size="lg" data-type="solid-fill" type="button" data-open-assistant>
   <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 3a8 8 0 0 0-6.5 12.7L4 21l5.3-1.5A8 8 0 1 0 12 3Zm0 1.5a6.5 6.5 0 1 1-2.2 12.6l-.2-.1-3.4 1 1-3.4-.1-.2A6.5 6.5 0 0 1 12 4.5Z" fill="currentColor" />
     <path d="M11.2 14.8h1.6v1.6h-1.6v-1.6Zm.8-7.3c1.8 0 3 1 3 2.5 0 1-.5 1.6-1.4 2.2-.7.5-.9.8-.9 1.5h-1.5c0-1.2.4-1.8 1.3-2.4.7-.5 1-.8 1-1.3 0-.7-.6-1.1-1.5-1.1-.8 0-1.5.3-2.1.9L9 8.7c.8-.8 1.8-1.2 3-1.2Z" fill="currentColor" />
@@ -26,22 +25,21 @@ const { preview = false, slug } = Astro.props;
   この記事について質問
 </button>
 
-<div class="assistant-dialog" data-assistant-dialog role="dialog" aria-modal="true" aria-labelledby="assistant-mobile-heading" tabindex="-1" hidden>
+<dialog class="assistant-dialog" data-assistant-dialog aria-labelledby="assistant-dialog-heading">
   <div class="assistant-dialog__header">
-    <h2 id="assistant-mobile-heading">この記事について質問</h2>
+    <h2 id="assistant-dialog-heading">この記事について質問</h2>
     <button type="button" class="assistant-dialog__close" data-close-assistant aria-label="質問画面を閉じる">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2" /></svg>
     </button>
   </div>
-  <AssistantForm idPrefix="mobile" hideHeading />
-</div>
+  <AssistantForm idPrefix="dialog" hideHeading />
+</dialog>
 
 <script>
-  const articleContext = document.querySelector<HTMLElement>("[data-article-slug]");
-  const articleSlug = articleContext?.dataset.articleSlug;
-  const previewArticle = articleContext?.dataset.articlePreview === "true";
-  const dialog = document.querySelector<HTMLElement>("[data-assistant-dialog]");
   const openButton = document.querySelector<HTMLButtonElement>("[data-open-assistant]");
+  const articleSlug = openButton?.dataset.articleSlug;
+  const previewArticle = openButton?.dataset.articlePreview === "true";
+  const dialog = document.querySelector<HTMLDialogElement>("[data-assistant-dialog]");
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
   const dispatchAssistantOpen = () => {
     document.dispatchEvent(new CustomEvent("noema:analytics", {
@@ -49,22 +47,32 @@ const { preview = false, slug } = Astro.props;
     }));
   };
   const openDialog = () => {
-    if (!dialog) return;
-    dialog.hidden = false;
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
     document.body.classList.add("has-assistant-dialog");
     closeButton?.focus();
     dispatchAssistantOpen();
   };
   const closeDialog = () => {
-    if (!dialog) return;
-    dialog.hidden = true;
+    if (!dialog?.open) return;
+    dialog.close();
+  };
+  const restoreAfterClose = () => {
     document.body.classList.remove("has-assistant-dialog");
     openButton?.focus();
   };
   openButton?.addEventListener("click", openDialog);
   closeButton?.addEventListener("click", closeDialog);
-  dialog?.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeDialog();
+  dialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeDialog();
+  });
+  dialog?.addEventListener("close", restoreAfterClose);
+  dialog?.addEventListener("click", (event) => {
+    const bounds = dialog.getBoundingClientRect();
+    const outsidePanel = event.clientX < bounds.left || event.clientX > bounds.right ||
+      event.clientY < bounds.top || event.clientY > bounds.bottom;
+    if (outsidePanel) closeDialog();
   });
 
   document.querySelectorAll<HTMLFormElement>("[data-assistant-form]").forEach((form) => {
@@ -79,8 +87,6 @@ const { preview = false, slug } = Astro.props;
     const history: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     if (!keyInput || !questionInput || !status || !answer || !submit) return;
-
-    form.addEventListener("focusin", dispatchAssistantOpen, { once: true });
 
     toggle?.addEventListener("click", () => {
       const visible = keyInput.type === "text";
