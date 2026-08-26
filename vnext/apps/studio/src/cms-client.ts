@@ -513,6 +513,22 @@ export async function runCmsArticleAction(
   return articleResult(result);
 }
 
+export async function deleteCmsArticle(
+  articleId: string,
+  expectedVersion: number,
+  options: CmsRequestOptions = {}
+): Promise<CmsClientResult<null>> {
+  const result = await cmsRequest(`${CMS_ARTICLES_PATH}/${encodeURIComponent(articleId)}`, {
+    body: JSON.stringify({ expectedVersion }),
+    headers: {
+      "content-type": "application/json",
+      "if-match": cmsEtag(expectedVersion)
+    },
+    method: "DELETE"
+  }, options);
+  return result.ok ? { ok: true, value: null } : result;
+}
+
 export async function fetchCmsReviewComments(
   articleId: string,
   options: CmsRequestOptions = {}

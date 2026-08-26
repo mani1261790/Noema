@@ -120,6 +120,10 @@ export const cmsUpdateArticleRequestSchema = cmsArticleContentSchema.extend({
   expectedVersion: z.number().int().nonnegative()
 });
 
+export const cmsDeleteArticleRequestSchema = z.object({
+  expectedVersion: z.number().int().nonnegative()
+}).strict();
+
 export const cmsArticleActionSchema = z.object({
   action: z.enum([
     "request_review",

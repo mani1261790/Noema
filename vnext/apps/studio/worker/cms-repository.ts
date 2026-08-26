@@ -126,6 +126,12 @@ interface PublishedArticleLinkSourceRow {
   published_slug: string;
 }
 
+interface DraftArticleLinkSourceRow {
+  article_id: string;
+  markdown: string;
+  source_slug: string;
+}
+
 interface ArticleVersionSummaryRow {
   checkpoint_count: number;
   created_at: string;
@@ -1044,6 +1050,122 @@ export async function getCmsArticle(
   ).bind(articleId).first<ArticleDetailRow>();
   if (!row) throw articleNotFound();
   return parseArticleDetail(row);
+}
+
+export async function deleteCmsDraftArticle(
+  db: D1Database,
+  identity: CmsIdentity,
+  articleId: string,
+  expectedVersion: number,
+  now = new Date(),
+  context: CmsMutationContext = {}
+): Promise<void> {
+  requirePermission(identity.role, "edit");
+  const current = await getCurrentArticleRow(db, articleId);
+  if (current.lock_version !== expectedVersion) throw revisionConflict();
+  if (
+    current.review_status !== "draft" ||
+    current.publication_status !== "unpublished" ||
+    current.published_revision_id !== null ||
+    current.published_at !== null
+  ) {
+    throw new CmsRepositoryError(
+      "invalid_transition",
+      "レビュー前で、一度も公開されていない下書きだけ削除できます。"
+    );
+  }
+
+  const series = await db.prepare(
+    `SELECT DISTINCT s.slug, s.title
+     FROM cms_series_revision_items item
+     JOIN cms_series_revisions revision ON revision.id = item.revision_id
+     JOIN cms_series s ON s.id = revision.series_id
+     WHERE item.article_id = ?1
+     ORDER BY s.title, s.slug`
+  ).bind(articleId).all<{ slug: string; title: string }>();
+  if (series.results.length > 0) {
+    throw new CmsRepositoryError(
+      "invalid_transition",
+      "シリーズ履歴に含まれている記事は削除できません。",
+      series.results.map((item) => ({
+        message: `シリーズ「${item.title}」の履歴から参照されています。`,
+        path: ["series", item.slug]
+      }))
+    );
+  }
+
+  const inbound = await findDraftArticleInboundLinks(db, articleId, current.slug);
+  if (inbound.length > 0) {
+    throw new CmsRepositoryError(
+      "invalid_transition",
+      `他の記事${new Set(inbound.map((reference) => reference.sourceSlug)).size}件から参照されているため削除できません。`,
+      inbound.map((reference) => ({
+        message: `「${reference.sourceSlug}」の${reference.line}行目から参照されています。`,
+        path: ["linkedArticles", reference.sourceSlug, reference.line]
+      }))
+    );
+  }
+
+  const detail = await getCmsArticle(db, identity, articleId);
+  const timestamp = now.toISOString();
+  const auditId = crypto.randomUUID();
+  const guard = `id = ?1
+    AND lock_version = ?2
+    AND review_status = 'draft'
+    AND publication_status = 'unpublished'
+    AND published_revision_id IS NULL
+    AND published_at IS NULL`;
+  const result = await db.batch([
+    db.prepare(
+      `INSERT INTO cms_audit_events
+        (id, article_id, actor_subject, action, metadata_json, created_at)
+       SELECT ?3, id, ?4, 'article.deleted', ?5, ?6
+       FROM cms_articles
+       WHERE ${guard}`
+    ).bind(
+      articleId,
+      expectedVersion,
+      auditId,
+      identity.subject,
+      JSON.stringify(auditMetadata({
+        articleId,
+        revisionNumber: current.current_revision_number,
+        slug: current.slug,
+        title: detail.title
+      }, context)),
+      timestamp
+    ),
+    db.prepare(`DELETE FROM cms_articles WHERE ${guard}`).bind(articleId, expectedVersion)
+  ]);
+  if ((result[1]?.meta.changes ?? 0) < 1) throw revisionConflict();
+}
+
+async function findDraftArticleInboundLinks(
+  db: D1Database,
+  articleId: string,
+  targetSlug: string
+): Promise<Array<ArticleLinkReference & { sourceSlug: string }>> {
+  const sources = await db.prepare(
+    `SELECT a.id AS article_id, a.slug AS source_slug, current_revision.markdown
+     FROM cms_articles a
+     JOIN cms_article_revisions current_revision ON current_revision.id = a.current_revision_id
+     WHERE a.id <> ?1
+     UNION ALL
+     SELECT a.id AS article_id, COALESCE(a.published_slug, a.slug) AS source_slug,
+            published_revision.markdown
+     FROM cms_articles a
+     JOIN cms_article_revisions published_revision ON published_revision.id = a.published_revision_id
+     WHERE a.id <> ?1 AND a.published_revision_id <> a.current_revision_id`
+  ).bind(articleId).all<DraftArticleLinkSourceRow>();
+  const references = new Map<string, ArticleLinkReference & { sourceSlug: string }>();
+  for (const source of sources.results) {
+    for (const reference of extractArticleLinkReferences(source.markdown)) {
+      if (reference.slug !== targetSlug) continue;
+      const key = `${source.article_id}:${reference.href}:${reference.line}`;
+      references.set(key, { ...reference, sourceSlug: source.source_slug });
+    }
+  }
+  return [...references.values()];
 }
 
 export async function listCmsReviewComments(

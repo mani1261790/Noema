@@ -3119,6 +3119,39 @@ textarea.studio-control {
   padding: 1rem;
 }
 
+.studio-article-danger-zone {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-neutral-solid-gray-420);
+}
+
+.studio-article-danger-zone h2,
+.studio-article-danger-zone p {
+  margin: 0;
+}
+
+.studio-article-danger-zone h2 {
+  font-size: calc(18 / 16 * 1rem);
+}
+
+.studio-article-danger-zone p {
+  margin-top: .375rem;
+  color: var(--color-neutral-solid-gray-700);
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.7;
+}
+
+.studio-article-delete-button {
+  --button-color: var(--color-semantic-error-1);
+  --button-hover-color: var(--color-semantic-error-2);
+  --button-active-color: var(--color-primitive-red-1000);
+  --button-outline-hover-bg-color: var(--color-primitive-red-50);
+  --button-outline-active-bg-color: var(--color-primitive-red-100);
+  justify-self: start;
+}
+
 .studio-source {
   margin: 1rem 0;
   padding: 1rem;
