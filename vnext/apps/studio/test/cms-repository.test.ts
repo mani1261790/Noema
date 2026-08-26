@@ -35,6 +35,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_article_link_references"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_article_series"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revision_items"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_series_revisions"),
@@ -697,7 +698,13 @@ describe("CMS repository", () => {
     );
     const sourceInput = validArticle("draft-source");
     sourceInput.markdown = "## 本文\n\n[準備中の記事](/articles/linked-draft)を参照します。";
-    await createCmsArticle(testEnv.CMS_DB, admin.identity, sourceInput, NOW);
+    const source = await createCmsArticle(testEnv.CMS_DB, admin.identity, sourceInput, NOW);
+    const recordedTarget = await testEnv.CMS_DB.prepare(
+      `SELECT target_article_id
+       FROM cms_article_link_references
+       WHERE source_article_id = ?1 AND source_kind = 'current'`
+    ).bind(source.id).first<string>("target_article_id");
+    expect(recordedTarget).toBe(target.id);
     await expect(deleteCmsDraftArticle(
       testEnv.CMS_DB,
       admin.identity,
@@ -708,6 +715,90 @@ describe("CMS repository", () => {
       code: "invalid_transition",
       issues: [expect.objectContaining({ path: ["linkedArticles", "draft-source", 3] })]
     });
+  });
+
+  it("lets a newly recorded link stop deletion after the initial inbound check", async () => {
+    const admin = await bootstrapAdmin();
+    const target = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("race-target"),
+      NOW
+    );
+    const source = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("race-source"),
+      NOW
+    );
+    let barrierReleased = false;
+    const racingDb = new Proxy(testEnv.CMS_DB, {
+      get(database, property) {
+        if (property === "batch") {
+          return async (statements: D1PreparedStatement[]) => {
+            if (!barrierReleased) {
+              barrierReleased = true;
+              await database.prepare(
+                `INSERT INTO cms_article_link_references (
+                  source_article_id, source_kind, target_slug, target_article_id,
+                  href, line, created_at
+                 ) VALUES (?1, 'current', ?2, ?3, ?4, 1, ?5)`
+              ).bind(
+                source.id,
+                target.slug,
+                target.id,
+                `/articles/${target.slug}`,
+                NOW.toISOString()
+              ).run();
+            }
+            return database.batch(statements);
+          };
+        }
+        const value = Reflect.get(database, property);
+        return typeof value === "function" ? value.bind(database) : value;
+      }
+    });
+
+    await expect(deleteCmsDraftArticle(
+      racingDb,
+      admin.identity,
+      target.id,
+      target.lockVersion,
+      NOW
+    )).rejects.toMatchObject({ code: "invalid_transition" });
+    expect(barrierReleased).toBe(true);
+    await expect(getCmsArticleVersion(
+      testEnv.CMS_DB,
+      admin.identity,
+      target.id,
+      target.currentRevision.id
+    )).resolves.toMatchObject({ revision: { id: target.currentRevision.id } });
+  });
+
+  it("binds a planned article link when its draft is created later", async () => {
+    const admin = await bootstrapAdmin();
+    const sourceInput = validArticle("planned-link-source");
+    sourceInput.markdown = "[後日作成する記事](/articles/planned-target)";
+    const source = await createCmsArticle(testEnv.CMS_DB, admin.identity, sourceInput, NOW);
+    const unresolved = await testEnv.CMS_DB.prepare(
+      `SELECT target_article_id
+       FROM cms_article_link_references
+       WHERE source_article_id = ?1 AND source_kind = 'current'`
+    ).bind(source.id).first<{ target_article_id: string | null }>();
+    expect(unresolved?.target_article_id).toBeNull();
+
+    const target = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("planned-target"),
+      NOW
+    );
+    const resolved = await testEnv.CMS_DB.prepare(
+      `SELECT target_article_id
+       FROM cms_article_link_references
+       WHERE source_article_id = ?1 AND source_kind = 'current'`
+    ).bind(source.id).first<string>("target_article_id");
+    expect(resolved).toBe(target.id);
   });
 
   it("keeps a draft that appears in immutable series history", async () => {

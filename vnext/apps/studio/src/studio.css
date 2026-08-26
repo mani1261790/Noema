@@ -3149,6 +3149,7 @@ textarea.studio-control {
   --button-active-color: var(--color-primitive-red-1000);
   --button-outline-hover-bg-color: var(--color-primitive-red-50);
   --button-outline-active-bg-color: var(--color-primitive-red-100);
+
   justify-self: start;
 }
 

@@ -1778,9 +1778,15 @@ export function App() {
     if (!window.confirm(
       `「${cmsArticle.title || "無題の記事"}」を完全に削除しますか？ 下書き本文と版履歴も削除され、この操作は取り消せません。Assetsの画像は削除されません。`
     )) return;
+    cmsSaveInFlight.current = true;
     setCmsOperationBusy(true);
-    const result = await deleteCmsArticleRecord(cmsArticle.id, cmsArticle.lockVersion);
-    setCmsOperationBusy(false);
+    let result: Awaited<ReturnType<typeof deleteCmsArticleRecord>>;
+    try {
+      result = await deleteCmsArticleRecord(cmsArticle.id, cmsArticle.lockVersion);
+    } finally {
+      cmsSaveInFlight.current = false;
+      setCmsOperationBusy(false);
+    }
     if (!result.ok) {
       const issueSummary = result.error.issues?.slice(0, 3).map((issue) => issue.message).join(" ");
       showNotification({
