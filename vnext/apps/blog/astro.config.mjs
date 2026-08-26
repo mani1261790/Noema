@@ -10,6 +10,9 @@ import {
 export default defineConfig({
   site: "https://noema-learn.uk",
   output: "server",
+  // Cloudflare Assets canonicalizes prerendered pages. Astro must do the
+  // same for on-demand routes such as articles, series, topics, and editors.
+  trailingSlash: "never",
   session: false,
   devToolbar: { enabled: false },
   // Keep the Cloudflare runtime active in local development so D1 bindings

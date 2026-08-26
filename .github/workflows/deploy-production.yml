@@ -196,17 +196,18 @@ jobs:
           verify_redirect() {
             local url="$1"
             local expected_location="$2"
+            local expected_status="${3:-307}"
             local attempt result status location
 
             for attempt in $(seq 1 12); do
               result="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code} %{redirect_url}' "${url}" || true)"
               status="${result%% *}"
               location="${result#* }"
-              if [[ "${status}" == "307" && "${location}" == "${expected_location}" ]]; then
+              if [[ "${status}" == "${expected_status}" && "${location}" == "${expected_location}" ]]; then
                 echo "Verified ${url}: ${status} -> ${location} (attempt ${attempt})."
                 return 0
               fi
-              echo "Waiting for ${url}: expected 307 -> ${expected_location}, received ${status:-no response} -> ${location:-no location} (attempt ${attempt}/12)." >&2
+              echo "Waiting for ${url}: expected ${expected_status} -> ${expected_location}, received ${status:-no response} -> ${location:-no location} (attempt ${attempt}/12)." >&2
               if [[ "${attempt}" -lt 12 ]]; then
                 sleep 5
               fi
@@ -258,8 +259,9 @@ jobs:
           grep -Fq 'Allow: /' /tmp/noema-robots.txt
           grep -Fq 'Sitemap: https://noema-learn.uk/sitemap.xml' /tmp/noema-robots.txt
 
-          fetch_expected https://noema-learn.mani1261790.workers.dev/articles/ 200 /tmp/noema-development-articles.html
-          fetch_expected "${production_origin}/articles/" 200 /tmp/noema-production-articles.html
+          fetch_expected https://noema-learn.mani1261790.workers.dev/articles 200 /tmp/noema-development-articles.html
+          fetch_expected "${production_origin}/articles" 200 /tmp/noema-production-articles.html
+          verify_redirect "${production_origin}/articles/" "${production_origin}/articles" 301
           node apps/blog/scripts/verify-cms-publication-parity.mjs \
             /tmp/noema-cms-publications.json \
             development=/tmp/noema-development-articles.html \
