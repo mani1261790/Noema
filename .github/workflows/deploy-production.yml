@@ -49,14 +49,6 @@ jobs:
         working-directory: vnext
         run: npm run build
 
-      - name: Detach the public gate route
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: vnext/apps/public-gate
-          wranglerVersion: "4.126.0"
-          command: deploy --config wrangler.jsonc
-
       - name: Apply CMS database migrations
         working-directory: vnext
         env:
@@ -75,7 +67,12 @@ jobs:
           command: >-
             deploy --config dist/server/wrangler.json
             --name noema-learn-production
-            --route noema-learn.uk/*
+
+      - name: Point the production route at the Blog Worker
+        working-directory: vnext
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node apps/public-gate/scripts/assign-worker-route.mjs
 
       - name: Deploy Studio Worker
         uses: cloudflare/wrangler-action@v3
