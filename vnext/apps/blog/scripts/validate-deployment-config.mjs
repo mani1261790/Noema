@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 const configUrl = new URL("../dist/server/wrangler.json", import.meta.url);
 const config = JSON.parse(await readFile(configUrl, "utf8"));
 
+if (config.assets?.html_handling !== "drop-trailing-slash") {
+  throw new Error("The Blog bundle must serve canonical HTML paths without trailing slashes.");
+}
+
 const kvBindings = config.kv_namespaces ?? [];
 if (kvBindings.length > 0) {
   throw new Error(`The Blog bundle must not provision KV bindings: ${kvBindings.map(({ binding }) => binding).join(", ")}`);
@@ -18,4 +22,4 @@ if (!r2Buckets.some(({ binding, bucket_name: bucketName }) => binding === "ARTIC
   throw new Error("The Blog bundle must use the shared noema-article-assets R2 bucket.");
 }
 
-console.log("Validated the Blog deployment bindings (shared CMS D1/R2, no KV provisioning).");
+console.log("Validated the Blog deployment (canonical HTML paths, shared CMS D1/R2, no KV provisioning).");

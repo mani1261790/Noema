@@ -193,6 +193,27 @@ jobs:
             return 1
           }
 
+          verify_redirect() {
+            local url="$1"
+            local expected_location="$2"
+            local attempt result status location
+
+            for attempt in $(seq 1 12); do
+              result="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code} %{redirect_url}' "${url}" || true)"
+              status="${result%% *}"
+              location="${result#* }"
+              if [[ "${status}" == "307" && "${location}" == "${expected_location}" ]]; then
+                echo "Verified ${url}: ${status} -> ${location} (attempt ${attempt})."
+                return 0
+              fi
+              echo "Waiting for ${url}: expected 307 -> ${expected_location}, received ${status:-no response} -> ${location:-no location} (attempt ${attempt}/12)." >&2
+              if [[ "${attempt}" -lt 12 ]]; then
+                sleep 5
+              fi
+            done
+            return 1
+          }
+
           verify_custom_domain_boundary() {
             local url="$1"
             local expected_status="$2"
@@ -252,6 +273,7 @@ jobs:
             fetch_expected "${production_origin}${article_path}" 200 /dev/null
           done < /tmp/noema-cms-publication-paths.txt
 
-          fetch_expected "${production_origin}/privacy/" 200 /dev/null
+          fetch_expected "${production_origin}/privacy" 200 /dev/null
+          verify_redirect "${production_origin}/privacy/" "${production_origin}/privacy"
           verify_custom_domain_boundary https://studio.noema-learn.uk/ 302
           verify_custom_domain_boundary https://mcp.noema-learn.uk/mcp 401

@@ -3,17 +3,30 @@ import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPublishedEditorProfile } from "../../lib/cms-publications";
+import { canonicalUrl } from "../../lib/seo";
 
 const publicId = Astro.params.publicId ?? "";
 const editor = await getPublishedEditorProfile(publicId);
 if (!editor) return new Response("Not found", { status: 404 });
 const description = `${editor.displayName}が編集したNoemaの記事を紹介します。`;
-const canonicalUrl = new URL(editor.href, Astro.site ?? "https://noema-learn.uk");
+const editorUrl = canonicalUrl(editor.href, Astro.site);
+const editorId = `${editorUrl}#editor`;
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "Person",
-  name: editor.displayName,
-  url: canonicalUrl.toString()
+  "@type": "ProfilePage",
+  mainEntity: {
+    "@id": editorId,
+    "@type": "Person",
+    name: editor.displayName,
+    description: "Noemaで公開記事の編集を担当しています。",
+    url: editorUrl.toString()
+  },
+  hasPart: editor.articles.map((article) => ({
+    "@type": "BlogPosting",
+    headline: article.title,
+    url: canonicalUrl(article.href, Astro.site).toString(),
+    author: { "@id": editorId }
+  }))
 };
 ---
 

@@ -1,4 +1,6 @@
 ---
+import { breadcrumbJsonLd, serializeJsonLd } from "../lib/seo";
+
 interface Crumb {
   label: string;
   href?: string;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 const { items } = Astro.props;
+const structuredData = serializeJsonLd(breadcrumbJsonLd(items, Astro.url.pathname, Astro.site));
 ---
 
 <nav class="dads-breadcrumb" aria-labelledby="breadcrumb-label">
@@ -31,3 +34,4 @@ const { items } = Astro.props;
     })}
   </ol>
 </nav>
+{items.length >= 2 && <script is:inline type="application/ld+json" set:html={structuredData} />}

@@ -27,6 +27,7 @@ describe("resolveChatArticle", () => {
       markdown: "## CMS本文\n\nD1のpublished revisionです。",
       publishedAt: "2026-07-18T00:00:00.000Z",
       revisionNumber: 3,
+      updatedAt: "2026-07-18T00:00:00.000Z",
       visibility: "public"
     });
 
