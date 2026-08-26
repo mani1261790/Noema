@@ -56,7 +56,7 @@ export const cmsRoleLabels = {
 export const cmsReviewStatusLabels = {
   draft: "下書き",
   in_review: "レビュー待ち",
-  changes_requested: "要修正",
+  changes_requested: "レビュー対応中",
   approved: "承認済み"
 } as const satisfies Record<CmsReviewStatus, string>;
 

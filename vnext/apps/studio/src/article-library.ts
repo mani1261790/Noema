@@ -29,7 +29,8 @@ export const cmsArticleFilterOptions: ReadonlyArray<{
 }> = [
   { label: "すべて", value: "all" },
   { label: "公開中", value: "published" },
-  { label: "下書き・要修正", value: "draft" },
+  { label: "下書き", value: "draft" },
+  { label: "レビュー対応", value: "changes_requested" },
   { label: "レビュー・承認", value: "review" },
   { label: "保管", value: "archived" }
 ];
@@ -43,7 +44,7 @@ function matchesArticleFilter(article: CmsArticleSummary, filter: CmsArticleFilt
     case "all":
       return true;
     case "draft":
-      return ["draft", "changes_requested"].includes(article.reviewStatus);
+      return article.reviewStatus === "draft";
     case "changes_requested":
       return article.reviewStatus === "changes_requested";
     case "in_review":
@@ -68,7 +69,7 @@ export function getCmsEditorialQueue(
       count: articles.filter((article) => article.reviewStatus === "changes_requested").length,
       description: "レビューコメントを確認して、本文を直す記事です。",
       filter: "changes_requested",
-      label: "修正する記事"
+      label: "レビュー対応する記事"
     }];
   }
 

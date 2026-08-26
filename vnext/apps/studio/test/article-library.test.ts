@@ -92,7 +92,7 @@ describe("filterCmsArticles", () => {
     const source = [...articles, readyToPublish, changesRequested];
 
     expect(getCmsEditorialQueue(source, "editor")).toEqual([
-      expect.objectContaining({ count: 1, filter: "changes_requested", label: "修正する記事" })
+      expect.objectContaining({ count: 1, filter: "changes_requested", label: "レビュー対応する記事" })
     ]);
     expect(getCmsEditorialQueue(source, "reviewer")).toEqual([
       expect.objectContaining({ count: 1, filter: "in_review", label: "レビューする記事" })

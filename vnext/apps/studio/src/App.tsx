@@ -117,7 +117,10 @@ import { CmsArticleSeriesEditor } from "./CmsArticleSeriesEditor";
 import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
 import { CmsReviewComments } from "./CmsReviewComments";
 import { CmsLogin } from "./CmsLogin";
-import { resolveLockedArticleSurface } from "./locked-article-surface";
+import {
+  resolveArticleOpeningSurface,
+  resolveReviewCommentFocusSurface
+} from "./locked-article-surface";
 import {
   createReviewCommentAnchorFromRenderedSelection,
   locateReviewCommentAnchor
@@ -1324,14 +1327,12 @@ export function App() {
       if (controller.signal.aborted) return;
       if (result.ok) {
         applyCmsArticle(result.value);
-        const targetLocked =
-          !cmsSessionState.session.capabilities.canEdit ||
-          ["in_review", "approved"].includes(result.value.reviewStatus);
-        if (targetLocked) {
-          const surface = resolveLockedArticleSurface(
-            cmsSessionState.session.capabilities.canPublish,
-            result.value.reviewStatus
-          );
+        const surface = resolveArticleOpeningSurface(
+          cmsSessionState.session.capabilities.canEdit,
+          cmsSessionState.session.capabilities.canPublish,
+          result.value.reviewStatus
+        );
+        if (surface) {
           setSettingsMode(surface.mode);
           setSettingsOpen(true);
           setPreviewFullscreen(surface.previewOnly);
@@ -1373,11 +1374,12 @@ export function App() {
     }
     if (articleId === cmsArticle?.id) {
       showEditor();
-      if (editorLocked) {
-        const surface = resolveLockedArticleSurface(
-          Boolean(cmsSession?.capabilities.canPublish),
-          cmsArticle.reviewStatus
-        );
+      const surface = resolveArticleOpeningSurface(
+        Boolean(cmsSession?.capabilities.canEdit),
+        Boolean(cmsSession?.capabilities.canPublish),
+        cmsArticle.reviewStatus
+      );
+      if (surface) {
         setSettingsMode(surface.mode);
         setSettingsOpen(true);
         setPreviewFullscreen(surface.previewOnly);
@@ -1418,16 +1420,12 @@ export function App() {
         preserveLocalInput: associatingRecovery
       });
       showEditor();
-      const targetLocked =
-        cmsSessionState.kind !== "ready" ||
-        !cmsSessionState.session.capabilities.canEdit ||
-        ["in_review", "approved"].includes(result.value.reviewStatus);
-      if (targetLocked) {
-        const surface = resolveLockedArticleSurface(
-          cmsSessionState.kind === "ready" &&
-          cmsSessionState.session.capabilities.canPublish,
-          result.value.reviewStatus
-        );
+      const surface = resolveArticleOpeningSurface(
+        cmsSessionState.kind === "ready" && cmsSessionState.session.capabilities.canEdit,
+        cmsSessionState.kind === "ready" && cmsSessionState.session.capabilities.canPublish,
+        result.value.reviewStatus
+      );
+      if (surface) {
         setSettingsMode(surface.mode);
         setSettingsOpen(true);
         setPreviewFullscreen(surface.previewOnly);
@@ -2183,7 +2181,11 @@ export function App() {
   const focusCmsReviewComment = (comment: CmsReviewComment) => {
     if (!comment.anchor) return;
     const location = locateReviewCommentAnchor(body, comment.anchor);
-    setPreviewFullscreen(true);
+    const focusSurface = resolveReviewCommentFocusSurface(
+      Boolean(cmsSession?.capabilities.canEdit),
+      cmsArticle?.reviewStatus ?? "draft"
+    );
+    setPreviewFullscreen(focusSurface === "preview");
     setSettingsMode("review");
     setSettingsOpen(true);
     if (!location) {
@@ -2191,6 +2193,13 @@ export function App() {
         text: "引用した文章は現在の本文から削除されています。コメント内の引用を確認してください。",
         title: "該当箇所は変更済みです",
         tone: "info"
+      });
+      return;
+    }
+    if (focusSurface === "markdown") {
+      window.requestAnimationFrame(() => {
+        bodyInput.current?.focus();
+        bodyInput.current?.setSelectionRange(location.startOffset, location.endOffset);
       });
       return;
     }
@@ -2755,6 +2764,9 @@ export function App() {
     cmsArticle?.currentRevision.createdByEmail.toLowerCase() === cmsSession.identity.email.toLowerCase()
   );
   const cmsOpenReviewCommentCount = cmsReviewComments.filter((comment) => comment.status === "open").length;
+  const cmsReviewResponseMode = Boolean(
+    cmsSession?.capabilities.canEdit && cmsArticle?.reviewStatus === "changes_requested"
+  );
   const cmsCanReview = Boolean(
     cmsSession?.capabilities.canApprove &&
     cmsArticle?.reviewStatus === "in_review" &&
@@ -2943,7 +2955,7 @@ export function App() {
               }}
               type="button"
             >
-              レビュー
+              {cmsReviewResponseMode ? `レビュー対応 (${cmsOpenReviewCommentCount})` : "レビュー"}
             </button> : cmsArticle ? <button
               aria-controls="studio-article-settings"
               aria-expanded={settingsOpen && settingsMode === "publish"}
@@ -3155,7 +3167,7 @@ export function App() {
         />
       ) : null}
       <main
-        className={`studio-workspace ${settingsOpen && settingsMode === "review" ? "is-review-workspace" : ""}`}
+        className={`studio-workspace ${settingsOpen && settingsMode === "review" ? "is-review-workspace" : ""} ${cmsReviewResponseMode && settingsOpen && settingsMode === "review" ? "is-review-response-workspace" : ""}`}
         hidden={cmsConflictResolverOpen || versionHistoryOpen}
         style={{ "--studio-side-panel-width": `${sidePanelWidth}px` } as CSSProperties}
       >
@@ -3174,7 +3186,9 @@ export function App() {
         >
           <StudioSurfaceHeader
             description={settingsMode === "review"
-              ? "送信内容を確認し、コメント・承認・差し戻しを行います。"
+              ? cmsReviewResponseMode
+                ? "未対応の指摘を確認し、Markdownを修正して再レビューを依頼します。"
+                : "送信内容を確認し、コメント・承認・差し戻しを行います。"
               : settingsMode === "publish"
                 ? "承認済みの内容と公開範囲を確認して公開します。"
                 : settingsMode === "series"
@@ -3182,7 +3196,7 @@ export function App() {
                   : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
             onClose={editorLocked ? undefined : () => setSettingsOpen(false)}
             title={settingsMode === "review"
-              ? "レビュー"
+              ? cmsReviewResponseMode ? "レビュー対応" : "レビュー"
               : settingsMode === "publish"
                 ? "公開"
                 : settingsMode === "series"
@@ -3286,13 +3300,13 @@ export function App() {
               <div className="studio-workflow-stage__heading">
                 <span>レビュー工程</span>
                 <h3 id="cms-review-stage-heading">
-                  {cmsArticle && ["draft", "changes_requested"].includes(cmsArticle.reviewStatus) && cmsReviewComments.length > 0
+                  {cmsReviewResponseMode
                     ? "指摘を見ながら本文を修正する"
                     : "内容を確認して判断する"}
                 </h3>
                 <p>
-                  {cmsArticle && ["draft", "changes_requested"].includes(cmsArticle.reviewStatus) && cmsReviewComments.length > 0
-                    ? "未対応の指摘を開くと、記事本文の該当箇所へ移動します。Markdownを修正・保存してから対応済みにしてください。"
+                  {cmsReviewResponseMode
+                    ? "未対応の指摘を開くと、Markdownの該当箇所へ移動します。修正を保存してから対応済みにしてください。"
                     : "レンダリングされた記事本文で該当箇所を選択してコメントし、未対応の指摘をまとめて差し戻します。"}
                 </p>
               </div>
@@ -3310,6 +3324,7 @@ export function App() {
                   comments={cmsReviewComments}
                   inputRef={reviewCommentInput}
                   loading={cmsReviewCommentsBusy}
+                  mode={cmsReviewResponseMode ? "response" : "review"}
                   onActiveAnchorClear={() => setCmsReviewCommentAnchor(null)}
                   onBodyChange={setCmsReviewCommentBody}
                   onCommentFocus={focusCmsReviewComment}
@@ -3317,9 +3332,9 @@ export function App() {
                   onSubmit={(event) => { event.preventDefault(); void addCmsReviewComment(); }}
                 />
               ) : null}
-              <h3 className="studio-cms__next-action">レビューの操作</h3>
+              <h3 className="studio-cms__next-action">{cmsReviewResponseMode ? "次の操作" : "レビューの操作"}</h3>
               <div className="studio-cms__actions">
-                {cmsCanRequestReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || cmsOpenReviewCommentCount > 0} onClick={() => void runCmsAction("request_review")} type="button">レビューを依頼</button> : null}
+                {cmsCanRequestReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || cmsOpenReviewCommentCount > 0} onClick={() => void runCmsAction("request_review")} type="button">{cmsReviewResponseMode ? "再レビューを依頼" : "レビューを依頼"}</button> : null}
                 {cmsCanReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">承認する</button> : null}
                 {cmsCanRequestChanges ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || cmsOpenReviewCommentCount === 0} onClick={() => void runCmsAction("request_changes")} type="button">未対応{cmsOpenReviewCommentCount}件の修正を依頼</button> : null}
                 {cmsCanWithdrawReview ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("withdraw_review")} type="button">レビューを取り下げて編集へ戻す</button> : null}
@@ -3661,7 +3676,7 @@ export function App() {
                 className="studio-preview-toggle"
                 onClick={() => {
                   if (!editorLocked) {
-                    setSettingsOpen(false);
+                    if (!cmsReviewResponseMode || settingsMode !== "review") setSettingsOpen(false);
                     setAssetTrayOpen(false);
                   }
                   setPreviewFullscreen((current) => !current);

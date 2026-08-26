@@ -14,6 +14,7 @@ interface CmsReviewCommentsProps {
   comments: CmsReviewComment[];
   inputRef: RefObject<HTMLTextAreaElement | null>;
   loading: boolean;
+  mode: "response" | "review";
   onActiveAnchorClear: () => void;
   onBodyChange: (value: string) => void;
   onCommentFocus: (comment: CmsReviewComment) => void;
@@ -31,6 +32,7 @@ export function CmsReviewComments({
   comments,
   inputRef,
   loading,
+  mode,
   onActiveAnchorClear,
   onBodyChange,
   onCommentFocus,
@@ -49,11 +51,17 @@ export function CmsReviewComments({
         <span>全{comments.length}件</span>
       </div>
       <p className="studio-review-comments__guide">
-        レンダリングされた記事本文で指摘したい箇所を選択し、コメントを追加します。
+        {mode === "response"
+          ? "未対応の指摘を開き、Markdownを修正してから対応済みにします。"
+          : "レンダリングされた記事本文で指摘したい箇所を選択し、コメントを追加します。"}
       </p>
       {loading ? <p role="status">コメントを読み込んでいます…</p> : null}
       {!loading && comments.length === 0 ? (
-        <p className="studio-review-comments__empty">コメントはまだありません。記事本文の該当箇所を選択して指摘を追加できます。</p>
+        <p className="studio-review-comments__empty">
+          {mode === "response"
+            ? "未対応の指摘はありません。再レビューを依頼できます。"
+            : "コメントはまだありません。記事本文の該当箇所を選択して指摘を追加できます。"}
+        </p>
       ) : null}
       {openComments.length > 0 ? (
         <ol aria-label="未対応のレビューコメント" className="studio-review-comments__list">
@@ -65,6 +73,7 @@ export function CmsReviewComments({
               key={comment.id}
               onFocus={onCommentFocus}
               onStatusChange={onStatusChange}
+              responseMode={mode === "response"}
             />
           ))}
         </ol>
@@ -83,6 +92,7 @@ export function CmsReviewComments({
                 key={comment.id}
                 onFocus={onCommentFocus}
                 onStatusChange={onStatusChange}
+                responseMode={mode === "response"}
               />
             ))}
           </ol>
@@ -133,13 +143,15 @@ function ReviewCommentCard({
   busy,
   comment,
   onFocus,
-  onStatusChange
+  onStatusChange,
+  responseMode
 }: {
   action: "reopen" | "resolve" | null;
   busy: boolean;
   comment: CmsReviewComment;
   onFocus: (comment: CmsReviewComment) => void;
   onStatusChange: (comment: CmsReviewComment, action: "resolve" | "reopen") => void;
+  responseMode: boolean;
 }) {
   return (
     <li className={comment.status === "resolved" ? "is-resolved" : "is-open"}>
@@ -149,7 +161,7 @@ function ReviewCommentCard({
       </div>
       {comment.anchor ? (
         <button className="studio-review-comment__quote" onClick={() => onFocus(comment)} type="button">
-          <span>本文の該当箇所を開く</span>
+          <span>{responseMode ? "Markdownの該当箇所を開く" : "本文の該当箇所を開く"}</span>
           <q>{comment.anchor.quote}</q>
         </button>
       ) : null}
@@ -171,7 +183,9 @@ function ReviewCommentCard({
           onClick={() => onStatusChange(comment, action)}
           type="button"
         >
-          {action === "resolve" ? "対応済みにする" : "再度確認する"}
+          {action === "resolve"
+            ? responseMode ? "修正を保存して対応済みにする" : "対応済みにする"
+            : "再度確認する"}
         </button>
       ) : null}
     </li>
