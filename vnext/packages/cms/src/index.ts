@@ -306,9 +306,15 @@ export interface CmsArticleSummary {
   visibility: CmsVisibility;
 }
 
+export interface CmsArticleEditor {
+  displayName: string;
+  publicId: string;
+}
+
 export interface CmsArticleRevision {
   createdAt: string;
   createdByEmail: string;
+  editor: CmsArticleEditor | null;
   frontmatter: ArticleFrontmatter;
   id: string;
   markdown: string;

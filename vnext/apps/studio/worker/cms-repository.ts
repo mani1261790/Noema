@@ -73,6 +73,8 @@ interface ArticleDetailRow extends ArticleListRow {
   current_revision_created_at: string;
   current_revision_created_by_email: string;
   current_revision_created_by_subject: string;
+  current_revision_editor_display_name: string | null;
+  current_revision_editor_public_id: string | null;
   current_revision_id: string;
   frontmatter_json: string;
   markdown: string;
@@ -122,6 +124,8 @@ interface ArticleVersionSummaryRow {
 interface ArticleVersionDetailRow {
   created_at: string;
   created_by_email: string;
+  editor_display_name: string | null;
+  editor_public_id: string | null;
   frontmatter_json: string;
   id: string;
   is_approved: number;
@@ -1303,6 +1307,8 @@ export async function getCmsArticleVersion(
        r.source_revision_id,
        r.draft_visibility AS visibility,
        COALESCE(m.email, 'unknown') AS created_by_email,
+       m.display_name AS editor_display_name,
+       m.public_id AS editor_public_id,
        CASE WHEN r.id = a.current_revision_id THEN 1 ELSE 0 END AS is_current,
        CASE WHEN r.id = a.approved_revision_id THEN 1 ELSE 0 END AS is_approved,
        CASE WHEN r.id = a.published_revision_id THEN 1 ELSE 0 END AS is_published
@@ -2036,6 +2042,8 @@ function articleDetailSelect(): string {
     r.created_at AS current_revision_created_at,
     r.created_by_subject AS current_revision_created_by_subject,
     COALESCE(rm.email, 'unknown') AS current_revision_created_by_email,
+    rm.display_name AS current_revision_editor_display_name,
+    rm.public_id AS current_revision_editor_public_id,
     r.frontmatter_json,
     r.markdown
   FROM cms_articles a
@@ -2153,6 +2161,12 @@ function parseArticleDetail(row: ArticleDetailRow): CmsArticleDetail {
     currentRevision: {
       createdAt: row.current_revision_created_at,
       createdByEmail: row.current_revision_created_by_email,
+      editor: row.current_revision_editor_display_name && row.current_revision_editor_public_id
+        ? {
+            displayName: row.current_revision_editor_display_name,
+            publicId: row.current_revision_editor_public_id
+          }
+        : null,
       frontmatter: frontmatter.data,
       id: row.current_revision_id,
       markdown: row.markdown,
@@ -2208,6 +2222,9 @@ function parseArticleVersionDetail(row: ArticleVersionDetailRow): CmsArticleVers
     revision: {
       createdAt: row.created_at,
       createdByEmail: row.created_by_email,
+      editor: row.editor_display_name && row.editor_public_id
+        ? { displayName: row.editor_display_name, publicId: row.editor_public_id }
+        : null,
       frontmatter: frontmatter.data,
       id: row.id,
       markdown: row.markdown,

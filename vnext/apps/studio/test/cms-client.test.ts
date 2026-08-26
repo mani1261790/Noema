@@ -37,6 +37,10 @@ function articleDetail(lockVersion = 4) {
     currentRevision: {
       createdAt: "2026-07-18T00:00:00.000Z",
       createdByEmail: "editor@example.com",
+      editor: {
+        displayName: "最後の編集者",
+        publicId: "0123456789abcdef0123456789abcdef"
+      },
       frontmatter,
       id: "22222222-2222-4222-8222-222222222222",
       markdown: "## CMS client",
@@ -326,7 +330,13 @@ describe("CMS client optimistic updates", () => {
     );
 
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.lockVersion).toBe(4);
+    if (result.ok) {
+      expect(result.value.lockVersion).toBe(4);
+      expect(result.value.currentRevision.editor).toEqual({
+        displayName: "最後の編集者",
+        publicId: "0123456789abcdef0123456789abcdef"
+      });
+    }
   });
 
   it("sends the editing session and restore provenance with a save", async () => {

@@ -769,12 +769,22 @@ export function App() {
     () => buildArticlePreviewSeries(cmsArticle?.id ?? null, frontmatter.title, cmsSeries),
     [cmsArticle?.id, cmsSeries, frontmatter.title]
   );
+  const previewEditor = useMemo(() => (
+    cmsArticle
+      ? cmsArticle.currentRevision.editor
+      : cmsSessionState.kind === "ready" && cmsSessionState.session.identity.displayName
+        ? {
+            displayName: cmsSessionState.session.identity.displayName,
+            publicId: cmsSessionState.session.identity.publicId
+          }
+        : null
+  ), [cmsArticle, cmsSessionState]);
   const previewHtml = useMemo(
     () => DOMPurify.sanitize(renderArticlePresentation(frontmatter, deferredBody, {
-      editor: cmsSessionState.kind === "ready" && cmsSessionState.session.identity.displayName
+      editor: previewEditor
         ? {
-            href: `/editors/${cmsSessionState.session.identity.publicId}`,
-            name: cmsSessionState.session.identity.displayName
+            href: `/editors/${previewEditor.publicId}`,
+            name: previewEditor.displayName
           }
         : null,
       markdownRenderer: markdown,
@@ -785,7 +795,7 @@ export function App() {
       ADD_ATTR: ["encoding", "target"],
       ADD_TAGS: ["annotation", "semantics"]
     }),
-    [cmsSessionState, deferredBody, frontmatter, previewSeries]
+    [deferredBody, frontmatter, previewEditor, previewSeries]
   );
   const bodyIssues = useMemo(() => validateArticleMarkdown(deferredBody), [deferredBody]);
   const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");

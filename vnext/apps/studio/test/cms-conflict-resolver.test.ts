@@ -25,6 +25,7 @@ const article: CmsArticleDetail = {
   currentRevision: {
     createdAt: "2026-08-20T01:00:00.000Z",
     createdByEmail: "editor@example.com",
+    editor: null,
     frontmatter: latestFrontmatter,
     id: "22222222-2222-4222-8222-222222222222",
     markdown: "## 共通\n\nCMSの本文\n",

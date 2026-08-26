@@ -18,6 +18,7 @@ import {
   transitionCmsArticle,
   updateCmsArticle,
   updateCmsAsset,
+  updateCmsMemberProfile,
   updateCmsReviewCommentStatus,
   upsertCmsMemberInvitation
 } from "../worker/cms-repository";
@@ -46,6 +47,75 @@ beforeEach(async () => {
 });
 
 describe("CMS repository", () => {
+  it("keeps the latest revision editor while an article is under review", async () => {
+    const admin = await bootstrapAdmin();
+    const firstEditor = await updateCmsMemberProfile(
+      testEnv.CMS_DB,
+      admin.identity,
+      "最初の編集者",
+      NOW
+    );
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      firstEditor.identity,
+      validArticle("last-editor"),
+      NOW
+    );
+
+    expect(article.currentRevision.editor).toEqual({
+      displayName: "最初の編集者",
+      publicId: firstEditor.identity.publicId
+    });
+
+    await upsertCmsMemberInvitation(
+      testEnv.CMS_DB,
+      firstEditor.identity,
+      { active: true, email: "last-editor@example.com", role: "editor" },
+      NOW
+    );
+    const invited = await resolveCmsSession(
+      testEnv.CMS_DB,
+      { email: "last-editor@example.com", subject: "last-editor-subject" },
+      "owner@example.com",
+      NOW
+    );
+    const lastEditor = await updateCmsMemberProfile(
+      testEnv.CMS_DB,
+      invited.identity,
+      "最後の編集者",
+      NOW
+    );
+    article = await updateCmsArticle(
+      testEnv.CMS_DB,
+      lastEditor.identity,
+      article.id,
+      article.lockVersion,
+      { ...validArticle("last-editor"), markdown: "## 最後の編集\n\n最新revisionです。" },
+      new Date("2026-07-18T00:01:00.000Z")
+    );
+
+    expect(article.currentRevision.editor).toEqual({
+      displayName: "最後の編集者",
+      publicId: lastEditor.identity.publicId
+    });
+
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      lastEditor.identity,
+      article.id,
+      "request_review",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:02:00.000Z")
+    );
+
+    expect(article.reviewStatus).toBe("in_review");
+    expect(article.currentRevision.editor).toEqual({
+      displayName: "最後の編集者",
+      publicId: lastEditor.identity.publicId
+    });
+  });
+
   it("tracks article references and prevents archiving an image that is in use", async () => {
     const admin = await bootstrapAdmin();
     const asset = await registerCmsAsset(

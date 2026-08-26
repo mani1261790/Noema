@@ -854,6 +854,16 @@ function parseCmsArticleDetail(value: unknown): CmsArticleDetail | null {
   const summary = parseCmsArticleSummary(value);
   if (!summary || !isRecord(value) || !isRecord(value.currentRevision)) return null;
   const revision = value.currentRevision;
+  const editor = revision.editor === null
+    ? null
+    : isRecord(revision.editor) &&
+        isString(revision.editor.displayName) &&
+        isString(revision.editor.publicId)
+      ? {
+          displayName: revision.editor.displayName,
+          publicId: revision.editor.publicId
+        }
+      : undefined;
   const frontmatter = cmsDraftFrontmatterSchema.safeParse(revision.frontmatter);
   const publishedVisibility = value.publishedVisibility === null
     ? { data: null, success: true } as const
@@ -861,6 +871,7 @@ function parseCmsArticleDetail(value: unknown): CmsArticleDetail | null {
   if (
     !frontmatter.success ||
     !publishedVisibility.success ||
+    editor === undefined ||
     !isString(revision.createdAt) ||
     !isString(revision.createdByEmail) ||
     !isString(revision.id) ||
@@ -875,6 +886,7 @@ function parseCmsArticleDetail(value: unknown): CmsArticleDetail | null {
     currentRevision: {
       createdAt: revision.createdAt,
       createdByEmail: revision.createdByEmail,
+      editor,
       frontmatter: frontmatter.data,
       id: revision.id,
       markdown: revision.markdown,
@@ -924,6 +936,16 @@ function parseCmsArticleVersionSummary(value: unknown): CmsArticleVersionSummary
 
 function parseCmsArticleVersionDetail(value: unknown): CmsArticleVersionDetail | null {
   if (!isRecord(value) || !isRecord(value.revision)) return null;
+  const editor = value.revision.editor === null
+    ? null
+    : isRecord(value.revision.editor) &&
+        isString(value.revision.editor.displayName) &&
+        isString(value.revision.editor.publicId)
+      ? {
+          displayName: value.revision.editor.displayName,
+          publicId: value.revision.editor.publicId
+        }
+      : undefined;
   const reason = cmsRevisionSaveReasonSchema.safeParse(value.reason);
   const frontmatter = cmsDraftFrontmatterSchema.safeParse(value.revision.frontmatter);
   const visibility = value.visibility === null
@@ -933,6 +955,7 @@ function parseCmsArticleVersionDetail(value: unknown): CmsArticleVersionDetail |
     !reason.success ||
     !frontmatter.success ||
     !visibility.success ||
+    editor === undefined ||
     !isBoolean(value.isApproved) ||
     !isBoolean(value.isCurrent) ||
     !isBoolean(value.isPublished) ||
@@ -951,6 +974,7 @@ function parseCmsArticleVersionDetail(value: unknown): CmsArticleVersionDetail |
     revision: {
       createdAt: value.revision.createdAt,
       createdByEmail: value.revision.createdByEmail,
+      editor,
       frontmatter: frontmatter.data,
       id: value.revision.id,
       markdown: value.revision.markdown,
