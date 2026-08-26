@@ -4,6 +4,7 @@ import {
   cmsAnalyticsRebuildRequestSchema,
   cmsArticleActionSchema,
   cmsCreateArticleRequestSchema,
+  cmsDeleteArticleRequestSchema,
   cmsDeleteSeriesRequestSchema,
   cmsMemberProfileMutationSchema,
   cmsMemberMutationSchema,
@@ -21,6 +22,7 @@ import {
   completeCmsAssetDeletions,
   createCmsArticle,
   createCmsReviewComment,
+  deleteCmsDraftArticle,
   getCmsArticleVersion,
   getCmsArticle,
   listCmsAssets,
@@ -333,7 +335,24 @@ export async function handleCmsApiRequest(
         );
         return cmsJson({ article }, 200, article.lockVersion);
       }
-      return methodNotAllowed("GET, PUT");
+      if (request.method === "DELETE") {
+        const body = await readCmsJson(request);
+        if (!body.ok) return body.response;
+        const parsed = cmsDeleteArticleRequestSchema.safeParse(body.value);
+        if (!parsed.success) return invalidRequest(parsed.error.issues);
+        const precondition = requireIfMatch(request, parsed.data.expectedVersion);
+        if (precondition) return precondition;
+        await deleteCmsDraftArticle(
+          env.CMS_DB,
+          session.identity,
+          route.id,
+          parsed.data.expectedVersion,
+          undefined,
+          { channel: "web" }
+        );
+        return new Response(null, { status: 204 });
+      }
+      return methodNotAllowed("GET, PUT, DELETE");
     }
 
     if (route.kind === "versions") {
