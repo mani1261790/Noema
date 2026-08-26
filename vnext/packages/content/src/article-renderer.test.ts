@@ -94,6 +94,19 @@ describe("article Markdown extensions", () => {
     expect(html).toContain('<span class="article-link-unavailable">次の記事</span><span class="article-link-unavailable__status">（現在は公開されていません）</span>');
     expect(html).not.toContain('href="/articles/future"');
   });
+
+  it("wraps tables in a labelled keyboard-scrollable region", () => {
+    const html = renderArticleMarkdown([
+      "| 項目 | 内容 |",
+      "| --- | --- |",
+      "| 表示 | 記事本文 |",
+    ].join("\n"));
+
+    expect(html).toContain('<div class="article-table-scroll" role="region" aria-label="記事内の表" tabindex="0"><table>');
+    expect(html).toContain("</table>\n</div>");
+    expect(html).toContain("<th>項目</th>");
+    expect(html).toContain("<td>記事本文</td>");
+  });
 });
 
 describe("renderArticlePresentation", () => {
