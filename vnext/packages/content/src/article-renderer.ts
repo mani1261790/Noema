@@ -211,6 +211,21 @@ export function createArticleMarkdownRenderer(
     return self.renderToken(tokens, index, rendererOptions);
   };
 
+  const defaultTableOpenRule = markdown.renderer.rules.table_open;
+  const defaultTableCloseRule = markdown.renderer.rules.table_close;
+  markdown.renderer.rules.table_open = (tokens, index, rendererOptions, environment, self) => {
+    const table = defaultTableOpenRule
+      ? defaultTableOpenRule(tokens, index, rendererOptions, environment, self)
+      : self.renderToken(tokens, index, rendererOptions);
+    return `<div class="article-table-scroll" role="region" aria-label="記事内の表" tabindex="0">${table}`;
+  };
+  markdown.renderer.rules.table_close = (tokens, index, rendererOptions, environment, self) => {
+    const table = defaultTableCloseRule
+      ? defaultTableCloseRule(tokens, index, rendererOptions, environment, self)
+      : self.renderToken(tokens, index, rendererOptions);
+    return `${table}</div>`;
+  };
+
   return markdown;
 }
 
