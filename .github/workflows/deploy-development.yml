@@ -110,7 +110,20 @@ jobs:
           curl --fail-with-body --silent --show-error --max-time 20 \
             --retry 12 --retry-all-errors --retry-delay 5 \
             --output /tmp/noema-development-articles.html \
-            https://noema-learn.mani1261790.workers.dev/articles/
+            https://noema-learn.mani1261790.workers.dev/articles
           node apps/blog/scripts/verify-cms-publication-parity.mjs \
             /tmp/noema-cms-publications.json \
             development=/tmp/noema-development-articles.html
+
+          for attempt in $(seq 1 12); do
+            redirect_result="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code} %{redirect_url}' https://noema-learn.mani1261790.workers.dev/articles/ || true)"
+            if [[ "${redirect_result}" == "301 https://noema-learn.mani1261790.workers.dev/articles" ]]; then
+              echo "Verified dynamic trailing-slash redirect (attempt ${attempt})."
+              break
+            fi
+            if [[ "${attempt}" == "12" ]]; then
+              echo "Expected /articles/ to redirect permanently to /articles, received ${redirect_result:-no response}." >&2
+              exit 1
+            fi
+            sleep 5
+          done
