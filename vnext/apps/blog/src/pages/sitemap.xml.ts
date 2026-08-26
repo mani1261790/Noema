@@ -1,20 +1,24 @@
 import type { APIRoute } from "astro";
 import { topicLabels } from "@noema/content";
-import { listPublicArticleSummaries, listPublishedEditors } from "../lib/cms-publications";
+import { listPublicArticleSummaries, listPublishedEditors, listPublishedSeries } from "../lib/cms-publications";
 
 export const GET: APIRoute = async ({ site }) => {
   const base = site ?? new URL("https://noema-learn.uk");
-  const [articles, editors] = await Promise.all([
+  const [articles, editors, seriesList] = await Promise.all([
     listPublicArticleSummaries(),
-    listPublishedEditors()
+    listPublishedEditors(),
+    listPublishedSeries()
   ]);
+  const publicTopics = new Set(articles.flatMap((article) => article.topics));
   const paths = [
     "/",
     "/articles",
+    "/series",
     "/about",
     "/privacy",
     "/terms",
-    ...Object.keys(topicLabels).map((slug) => `/topics/${slug}`),
+    ...Object.keys(topicLabels).filter((slug) => publicTopics.has(slug as keyof typeof topicLabels)).map((slug) => `/topics/${slug}`),
+    ...seriesList.map((series) => series.href),
     ...articles.map((article) => `/articles/${article.slug}`),
     ...editors.map((editor) => editor.href)
   ];

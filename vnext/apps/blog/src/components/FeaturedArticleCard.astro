@@ -1,6 +1,5 @@
 ---
 import { topicLabels, type ArticleSummary } from "@noema/content";
-import { getArticleApproachTone } from "../lib/articlePresentation";
 import { formatJapaneseDate } from "../lib/articles";
 import ArrowIcon from "./ArrowIcon.astro";
 
@@ -11,12 +10,10 @@ interface Props {
 const { article } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
-const size = article.approach === "experience" || article.approach === "practice" ? "large" : "compact";
-const hasImage = size === "large" && Boolean(article.heroImage);
-const approachTone = getArticleApproachTone(article);
+const hasImage = Boolean(article.heroImage);
 ---
 
-<a class:list={["featured-article-card", `featured-article-card--${size}`, hasImage && "featured-article-card--has-image", `article-approach--${approachTone}`]} href={article.href}>
+<a class:list={["featured-article-card", hasImage && "featured-article-card--has-image"]} href={article.href}>
   {hasImage && article.heroImage && (
     <div class="featured-article-card__image">
       <img src={article.heroImage.src} alt={article.heroImage.alt} width="1200" height="675" loading="lazy" />

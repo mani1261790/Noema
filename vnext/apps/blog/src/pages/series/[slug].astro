@@ -1,0 +1,61 @@
+---
+import ArticleRow from "../../components/ArticleRow.astro";
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getPublishedSeriesBySlug } from "../../lib/cms-publications";
+
+const { slug } = Astro.params;
+const series = slug ? await getPublishedSeriesBySlug(slug) : null;
+if (!series) Astro.response.status = 404;
+
+const title = series ? `${series.title} | Noema` : "シリーズが見つかりません | Noema";
+const description = series?.description ?? "指定されたシリーズは見つかりませんでした。";
+const jsonLd = series ? {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: series.title,
+  description: series.description,
+  url: new URL(series.href, Astro.site ?? "https://noema-learn.uk").toString(),
+  mainEntity: {
+    "@type": "ItemList",
+    numberOfItems: series.items.length,
+    itemListElement: series.items.map((article, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: article.title,
+      url: new URL(article.href, Astro.site ?? "https://noema-learn.uk").toString()
+    }))
+  }
+} : undefined;
+---
+
+<BaseLayout title={title} description={description} noindex={!series} jsonLd={jsonLd}>
+  <div class="noema-container series-page">
+    {series ? (
+      <>
+        <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "シリーズ", href: "/series" }, { label: series.title }]} />
+        <header class="series-page__header">
+          <p class="page-heading__eyebrow">Series</p>
+          <h1>{series.title}</h1>
+          <p>{series.description}</p>
+          <p class="series-page__count">全{series.items.length}本</p>
+        </header>
+        <ol class="series-page__articles" aria-label={`${series.title}の記事`}>
+          {series.items.map((article, index) => (
+            <li>
+              <span class="series-page__number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+              <ArticleRow article={article} headingLevel={2} />
+            </li>
+          ))}
+        </ol>
+      </>
+    ) : (
+      <div class="not-found-page">
+        <p class="not-found-page__code">404</p>
+        <h1>シリーズが見つかりません</h1>
+        <p>URLが変わったか、公開されていない可能性があります。</p>
+        <nav aria-label="次の行き先"><a class="dads-link" href="/series">シリーズ一覧へ戻る</a></nav>
+      </div>
+    )}
+  </div>
+</BaseLayout>

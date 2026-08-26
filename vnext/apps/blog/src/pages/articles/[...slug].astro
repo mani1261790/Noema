@@ -44,6 +44,7 @@ const presentationHtml = renderArticlePresentation(article.data, article.markdow
   series: series ? {
     currentIndex: series.currentIndex,
     description: series.description,
+    href: series.href,
     items: series.items,
     title: series.title
   } : null
@@ -87,11 +88,14 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
   <ArticleAnalytics slug={article.data.slug} />
   <div class="noema-container article-page">
     <div class="article-page__main">
-      <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.data.title }]} />
+      <Breadcrumbs items={series
+        ? [{ label: "ホーム", href: "/" }, { label: "シリーズ", href: "/series" }, { label: series.title, href: series.href }, { label: article.data.title }]
+        : [{ label: "ホーム", href: "/" }, { label: "記事を探す", href: "/articles" }, { label: article.data.title }]} />
       <Fragment set:html={presentationHtml} />
       <ShareArticle />
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
+        {series && <a class="dads-link" href={series.href}>{`${series.title}の一覧を見る`}</a>}
         <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
         <a class="dads-link" href="/articles">すべての記事を見る</a>
       </nav>
