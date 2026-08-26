@@ -17,7 +17,7 @@
     "test": "npm run test --workspaces --if-present",
     "check": "npm run check --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "deploy:dry-run": "npm run deploy:dry-run --workspace @noema/public-gate && npm run deploy:dry-run --workspace @noema/blog && npm run deploy:dry-run --workspace @noema/studio && npm run deploy:dry-run --workspace @noema/studio-mcp",
+    "deploy:dry-run": "npm run deploy:dry-run --workspace @noema/public-gate && npm run deploy:dry-run --workspace @noema/blog && npm run deploy:dry-run:production --workspace @noema/blog && npm run deploy:dry-run --workspace @noema/studio && npm run deploy:dry-run --workspace @noema/studio-mcp",
     "deploy:gate": "npm run deploy --workspace @noema/public-gate",
     "deploy:blog": "npm run deploy --workspace @noema/blog",
     "deploy:studio": "npm run deploy --workspace @noema/studio",
