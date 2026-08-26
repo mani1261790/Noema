@@ -10,12 +10,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, toArticleSummary } from "../../lib/articles";
 import { getArticleLinkAvailability, getPublishedArticleBySlug, getPublishedArticleRedirect, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
 import { renderArticlePresentation } from "@noema/content/article-presentation";
+import { articleJsonLd } from "../../lib/seo";
 
 const slug = Astro.params.slug ?? "";
 const article = await getPublishedArticleBySlug(slug);
 if (!article) {
   const redirectSlug = await getPublishedArticleRedirect(slug);
-  if (redirectSlug) return Astro.redirect(`/articles/${redirectSlug}/`, 301);
+  if (redirectSlug) return Astro.redirect(`/articles/${redirectSlug}`, 301);
   return Astro.rewrite("/404");
 }
 const articleLinkReferences = extractArticleLinkReferences(article.markdown);
@@ -49,27 +50,19 @@ const presentationHtml = renderArticlePresentation(article.data, article.markdow
     title: series.title
   } : null
 });
-const canonicalUrl = new URL(`/articles/${article.data.slug}/`, Astro.site ?? "https://noema-learn.uk");
-const ogImagePath = "/og/default.png";
-const ogImageUrl = new URL(ogImagePath, Astro.site ?? "https://noema-learn.uk");
 const attributedAuthors = article.editor ? [article.editor.displayName] : article.data.authors;
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Article",
-  headline: article.data.title,
-  description: article.data.description,
-  datePublished: article.data.publishedAt,
-  dateModified: article.data.updatedAt,
-  inLanguage: "ja",
-  mainEntityOfPage: canonicalUrl.toString(),
-  image: [ogImageUrl.toString()],
-  author: attributedAuthors.map((name: string) => ({
-    "@type": "Person",
+const jsonLd = articleJsonLd({
+  authors: attributedAuthors.map((name: string) => ({
     name,
-    ...(article.editor ? { url: new URL(article.editor.href, canonicalUrl).toString() } : {})
+    ...(article.editor ? { url: article.editor.href } : {})
   })),
-  publisher: { "@type": "Organization", name: "Noema", url: new URL("/", canonicalUrl).toString() }
-};
+  description: article.data.description,
+  headline: article.data.title,
+  image: article.data.heroImage?.src,
+  pathname: `/articles/${article.data.slug}`,
+  publishedAt: article.publishedAt,
+  updatedAt: article.updatedAt
+}, Astro.site);
 const topic = article.data.topics[0] ?? "technology";
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
@@ -78,10 +71,11 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
   title={`${article.data.title} | Noema`}
   description={article.data.description}
   noindex={article.visibility === "unlisted"}
-  image={ogImagePath}
+  image={article.data.heroImage?.src}
+  imageAlt={article.data.heroImage?.alt ?? article.data.title}
   pageType="article"
-  publishedAt={article.data.publishedAt}
-  updatedAt={article.data.updatedAt}
+  publishedAt={article.publishedAt}
+  updatedAt={article.updatedAt}
   authors={attributedAuthors}
   jsonLd={jsonLd}
 >
