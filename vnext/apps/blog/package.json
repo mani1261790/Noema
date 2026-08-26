@@ -21,7 +21,7 @@
     "build:preview": "NOEMA_PREVIEW_CONTENT=1 astro build",
     "preview": "astro preview",
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config dist/server/wrangler.json",
-    "deploy:dry-run:production": "npm run build && npm run validate:deployment-config && wrangler deploy --dry-run --config dist/server/wrangler.json --name noema-learn-production --domain noema-learn.uk",
+    "deploy:dry-run:production": "npm run build && npm run validate:deployment-config && wrangler deploy --dry-run --config dist/server/wrangler.json --name noema-learn-production --route 'noema-learn.uk/*'",
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
