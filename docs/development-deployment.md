@@ -1,19 +1,19 @@
-# 開発環境デプロイ
+# Cloudflareデプロイ
 
-この文書は、現行NoemaをCloudflare上で確認しながら開発するためのbranch、GitHub Actions、D1 migration、URL、rollbackの正を定めます。
+この文書は、現行NoemaをCloudflare上で確認し、本番公開するためのbranch、GitHub Actions、D1 migration、URL、rollbackの正を定めます。
 
-## デプロイ方針
+## 開発環境の方針
 
 - 自動デプロイ元は `develop` だけです。
-- `main`、feature branch、Pull Requestからはデプロイしません。
+- 開発環境は`main`、feature branch、Pull Requestからデプロイしません。
 - 手動実行も `develop` ref以外ではjobをskipします。
 - GitHub Deployments / Environmentsは使いません。branch triggerとjob条件の両方で`develop`だけに制限します。
 - 連続してmergeされた場合は、古い実行をcancelして最新の`develop`を優先します。
-- `noema-learn.uk`は公開承認まで公開ゲートで404を返します。
+- 公開後も開発ブログは独立した`noema-learn` Workerへデプロイし、本番ブログを上書きしません。
 - 記事の保存、レビュー、公開はD1 CMS内で完結し、記事公開ごとのcode deployは行いません。
 - Path filterは変更内容ではなくfile pathで判定します。`vnext/**`配下のREADME等も対象になるため、runtime codeが変わっていなくてもworkflowは起動します。
 
-GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
+開発環境のGitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 
 ## 確認URLとデータ
 
@@ -22,15 +22,15 @@ GitHub Actionsの正は `.github/workflows/deploy-development.yml` です。
 | ブログ | `noema-learn` | <https://noema-learn.mani1261790.workers.dev> |
 | Studio | `noema-studio` | <https://studio.noema-learn.uk>（Cloudflare Access保護） |
 | Studio MCP | `noema-studio-mcp` | <https://mcp.noema-learn.uk/mcp>（Access Managed OAuth保護） |
-| 公開ゲート | `noema-public-gate` | <https://noema-learn.uk>（期待値404） |
+| 本番ブログ | `noema-learn-production` | <https://noema-learn.uk> |
 | CMS database | D1 `noema-cms` | 記事、revision、role、review、公開範囲の正本 |
-| 記事画像 | R2 | accountで未有効のためupload不可 |
+| 記事画像 | R2 `noema-article-assets` | 開発ブログと本番ブログが共有する記事asset |
 
-ブログの`workers.dev` URL、StudioとStudio MCPのcustom domainには、最後に成功した`develop`のCloudflare Worker versionが表示されます。記事本文はD1から実行時に読み取るため、同じWorker versionのままでもCMSの公開操作によって内容が変わります。
+ブログの`workers.dev` URLには、最後に成功した`develop`のCloudflare Worker versionが表示されます。本番ブログは別Workerに分離され、`main`だけから更新されます。StudioとStudio MCPのcustom domainはdeploy workflowに含まれます。開発ブログと本番ブログは同じD1 `noema-cms`とR2 `noema-article-assets`を参照します。記事本文はD1から実行時に読み取るため、CMSで一般公開にした記事はcode deployなしで両方へ反映されます。
 
 Studioの`workers.dev`とpreview URLは認証の迂回経路を残さないため無効です。旧URLを開いた際の「There is nothing here yet」は閉鎖済み入口の汎用表示であり、Studioはcustom domainを使用します。
 
-ブログにはUI確認用の記事fixtureもありますが、fixtureは開発previewだけのもので、CMSの本番記事ではありません。公開ゲートは本番hostnameへのrouteだけを持ち、ブログWorkerは本番routeを持ちません。Studioからブログへの記事反映は[Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md)を参照してください。
+ブログにはUI確認用の記事fixtureもありますが、fixtureは開発previewだけのもので、CMSの本番記事ではありません。公開ゲートWorkerはrouteを持たず、本番routeは`noema-learn-production`だけが持ちます。Studioからブログへの記事反映は[Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md)を参照してください。
 
 ## 自動デプロイの流れ
 
@@ -42,7 +42,7 @@ sequenceDiagram
   participant CF as Cloudflare Workers
   Dev->>GH: code / migrationのPull Requestをdevelopへmerge
   GH->>GH: Node 24でtest / check / build
-  GH->>CF: noema-public-gateをdeploy
+  GH->>CF: routeを持たないnoema-public-gateをdeploy
   GH->>D1: 未適用のCMS migrationをapply
   D1-->>GH: migration結果
   GH->>CF: noema-learnをdeploy
@@ -51,7 +51,7 @@ sequenceDiagram
   CF-->>Dev: ブログURL、Access保護Studio、MCPで確認可能
 ```
 
-公開ゲートを最初にdeployするため、後続処理中も`noema-learn.uk`が開くことはありません。D1 migrationに失敗した場合はBlog、Studio、Studio MCPをdeployせず停止します。
+開発workflowは本番ブログWorkerを更新しません。D1 migrationに失敗した場合はBlog、Studio、Studio MCPをdeployせず停止します。
 
 Migrationは旧Workerと新Workerの両方から安全に参照できるforward-compatibleな変更にします。workflowがmigration適用後にcancelまたは失敗しても旧Workerが動くよう、列やtableの追加と利用開始を分け、削除・rename等は別のmigrationへ段階化します。
 
@@ -81,7 +81,7 @@ Cloudflare側では対象accountとzoneへ限定し、少なくとも次の操�
 - Account: D1の編集
 - Zone `noema-learn.uk`: Workers Routeの編集
 
-R2 bucketはaccountで未有効です。R2の有効化、bucket作成、billingに関わる操作はdeploy workflowへ追加せず、明示承認後に一度だけ行います。
+R2 bucket `noema-article-assets`は既存resourceとしてBlog、Studio、Studio MCPへbindします。deploy workflowはbucketの作成や削除を行いません。
 
 GitHub Environmentは作成しません。Secretはrepository levelだけに置き、GitHub Deploymentsの履歴も生成しません。
 
@@ -171,7 +171,7 @@ localhostではCloudflare Access edgeが`Cf-Access-Jwt-Assertion`を付与しな
 4. Actionsの`Deploy Noema development preview to Cloudflare`が成功するまで待つ
 5. D1 migration、公開ゲート、Blog、Studio、Studio MCPの各stepが成功したことを確認
 6. ブログの`workers.dev` URLとAccess保護されたStudio custom domainを確認
-7. `noema-learn.uk`が404、`Cache-Control: no-store`、`X-Robots-Tag: noindex`のままであることを確認
+7. `noema-learn.uk`が本番ブログとして200を返したままであることを確認
 
 ```bash
 curl -I https://noema-learn.mani1261790.workers.dev/
@@ -223,15 +223,18 @@ Workerをrollbackしても、適用済みD1 migrationやCMSの記事は戻りま
 
 ### R2 asset
 
-R2は現在未有効です。導入後もD1 schema、記事revision、R2 objectは別々にrollbackを判断します。既存revisionが参照するobjectを上書き・即時削除せず、immutable keyと参照確認を前提にします。
+D1 schema、記事revision、R2 objectは別々にrollbackを判断します。既存revisionが参照するobjectを上書き・即時削除せず、immutable keyと参照確認を前提にします。
 
-## 公開への切り替え
+## 本番リリース
 
-このworkflowは開発preview専用です。`noema-learn.uk`を公開する変更は、次をまとめた別の承認済みPull Requestで行います。
+本番は`develop -> main`のPull Requestだけからリリースします。`main`へのpushで`.github/workflows/deploy-production.yml`が起動し、次を順番に実行します。
 
-- 公開ゲートからWorker Routeを外す
-- ブログWorkerへcustom domainまたはrouteを設定する
-- production用workflowとD1運用境界を確定する
-- SEO、security、mobile、LLM assistant、CMS公開範囲の受入確認を行う
+1. Node 24でtest、check、build
+2. `noema-public-gate`から旧routeを外す
+3. remote D1 migrationを適用する
+4. `noema-learn-production`を`noema-learn.uk`のcustom domainへdeployする
+5. StudioとStudio MCPを同じ`main` commitへ揃える
+6. 開発URLと本番URLの公開記事パスが一致し、各本番記事が200で開くことを確認する
+7. 本番トップ、robots、privacy、Studio Access、MCP認証境界を確認する
 
-`develop`向けworkflowをそのまま本番公開workflowへ転用しません。
+`develop`と`main`は別のブログWorkerを使うため、開発版の自動deployは本番codeを上書きしません。一方、CMSと記事assetは共有するため、一般公開、限定URL、運営メンバー限定、保管の判定は同じ正本から行われます。本番workflowの手動実行も`main` ref以外ではjobをskipします。
