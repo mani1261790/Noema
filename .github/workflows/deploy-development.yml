@@ -55,7 +55,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/public-gate
-          wranglerVersion: "4.120.1"
+          wranglerVersion: "4.126.0"
           command: deploy --config wrangler.jsonc
 
       - name: Apply CMS database migrations
@@ -72,7 +72,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/blog
-          wranglerVersion: "4.120.1"
+          wranglerVersion: "4.126.0"
           command: deploy --config dist/server/wrangler.json
 
       - name: Deploy Studio Worker
@@ -80,7 +80,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/studio
-          wranglerVersion: "4.120.1"
+          wranglerVersion: "4.126.0"
           secrets: |
             BETTER_AUTH_SECRET
           command: deploy --config wrangler.jsonc
@@ -92,5 +92,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/studio-mcp
-          wranglerVersion: "4.120.1"
+          wranglerVersion: "4.126.0"
           command: deploy --config wrangler.jsonc
