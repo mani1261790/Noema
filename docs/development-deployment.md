@@ -238,3 +238,5 @@ D1 schema、記事revision、R2 objectは別々にrollbackを判断します。�
 7. 本番トップ、robots、privacy、Studio Access、MCP認証境界を確認する
 
 `develop`と`main`は別のブログWorkerを使うため、開発版の自動deployは本番codeを上書きしません。一方、CMSと記事assetは共有するため、一般公開、限定URL、運営メンバー限定、保管の判定は同じ正本から行われます。本番workflowの手動実行も`main` ref以外ではjobをskipします。
+
+GitHub-hosted runnerが`noema-learn.uk`のedge policyで403になる場合、本番workflowはRoute APIでapexが本番Workerを指すことを確認したうえで、本番Workerの`workers.dev` originに対してcanonical、robots、privacy、開発版との公開記事パス一致、各記事の200応答を検証します。一般回線からのapex確認は、この自動検証とは別の本番user-path確認として扱います。
