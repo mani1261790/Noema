@@ -1,0 +1,23 @@
+---
+import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import SeriesCard from "../../components/SeriesCard.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { listPublishedSeries } from "../../lib/cms-publications";
+
+const seriesList = await listPublishedSeries();
+---
+
+<BaseLayout title="シリーズから読む | Noema" description="ひとつのテーマを、順番にたどりながら学べるNoemaのシリーズ一覧です。">
+  <div class="noema-container listing-page series-index">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "シリーズ" }]} />
+    <header class="page-heading">
+      <p class="page-heading__eyebrow">Series</p>
+      <h1>シリーズから読む</h1>
+      <p>ひとつのテーマを、順番にたどりながら学べます。</p>
+    </header>
+
+    {seriesList.length > 0
+      ? <div class="series-grid">{seriesList.map((series) => <SeriesCard series={series} />)}</div>
+      : <div class="noema-empty-state"><h2>シリーズはまだありません</h2></div>}
+  </div>
+</BaseLayout>

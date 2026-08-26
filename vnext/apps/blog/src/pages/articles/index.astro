@@ -4,9 +4,11 @@ import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { sortArticlesByDate } from "../../lib/articles";
-import { listPublicArticleSummaries } from "../../lib/cms-publications";
+import { listPublicArticleSummaries, listPublishedSeries } from "../../lib/cms-publications";
 
-const articles = sortArticlesByDate(await listPublicArticleSummaries());
+const [articleResults, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
+const articles = sortArticlesByDate(articleResults);
+const articleSeries = new Map(seriesList.flatMap((series) => series.items.map((article) => [article.slug, series.slug] as const)));
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
 const suggestions = [...new Set([...articles.map((article) => article.title), ...tags])];
 ---
@@ -41,10 +43,17 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
             <circle class="dads-disclosure__icon-circle" cx="12" cy="12" r="8" fill="currentColor" />
             <path class="dads-disclosure__icon-triangle" d="M17 10H7l5 5 5-5Z" fill="white" />
           </svg>
-          テーマ・タグで絞り込む
+          シリーズ・テーマ・タグで絞り込む
         </summary>
         <div class="article-search__detail-content dads-disclosure__content">
           <div class="article-search__filters">
+            <div class="dads-form-control-label" data-size="md">
+              <label class="dads-form-control-label__label" for="article-series">シリーズ</label>
+              <select id="article-series" name="series">
+                <option value="">すべてのシリーズ</option>
+                {seriesList.map((series) => <option value={series.slug}>{series.title}</option>)}
+              </select>
+            </div>
             <div class="dads-form-control-label" data-size="md">
               <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
               <select id="article-topic" name="topic">
@@ -78,6 +87,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
         <div
           data-article-item
           data-title={`${article.title} ${article.description} ${article.tags.join(" ")}`}
+          data-series={articleSeries.get(article.slug) ?? ""}
           data-topic={article.topics.join(" ")}
           data-tags={article.tags.join("\n")}
         >
@@ -101,6 +111,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
   const form = document.querySelector<HTMLFormElement>(".article-search");
   const keyword = document.querySelector<HTMLInputElement>("#article-keyword");
   const topic = document.querySelector<HTMLSelectElement>("#article-topic");
+  const series = document.querySelector<HTMLSelectElement>("#article-series");
   const tag = document.querySelector<HTMLSelectElement>("#article-tag");
   const items = [...document.querySelectorAll<HTMLElement>("[data-article-item]")];
   const count = document.querySelector<HTMLElement>("[data-article-count]");
@@ -119,12 +130,14 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
   const applyFilters = (updateUrl = true) => {
     const query = keyword?.value.trim().toLocaleLowerCase("ja") ?? "";
     const selectedTopic = topic?.value ?? "";
+    const selectedSeries = series?.value ?? "";
     const selectedTag = tag?.value ?? "";
     const filteredItems = items.filter((item) => {
       const matchesText = !query || (item.dataset.title ?? "").toLocaleLowerCase("ja").includes(query);
       const matchesTopic = !selectedTopic || (item.dataset.topic ?? "").split(" ").includes(selectedTopic);
+      const matchesSeries = !selectedSeries || item.dataset.series === selectedSeries;
       const matchesTag = !selectedTag || (item.dataset.tags ?? "").split("\n").includes(selectedTag);
-      return matchesText && matchesTopic && matchesTag;
+      return matchesText && matchesSeries && matchesTopic && matchesTag;
     });
     const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
     currentPage = Math.min(Math.max(1, currentPage), totalPages);
@@ -140,6 +153,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
       activeFilterList.replaceChildren();
       const filters = [
         ...(query ? [`キーワード: ${keyword?.value.trim()}`] : []),
+        ...(selectedSeries && series ? [`シリーズ: ${series.options[series.selectedIndex]?.text ?? selectedSeries}`] : []),
         ...(selectedTopic && topic ? [`テーマ: ${topic.options[topic.selectedIndex]?.text ?? selectedTopic}`] : []),
         ...(selectedTag ? [`タグ: ${selectedTag}`] : [])
       ];
@@ -170,6 +184,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
     if (updateUrl) {
       const params = new URLSearchParams();
       if (keyword?.value.trim()) params.set("keyword", keyword.value.trim());
+      if (series?.value) params.set("series", series.value);
       if (topic?.value) params.set("topic", topic.value);
       if (tag?.value) params.set("tag", tag.value);
       if (currentPage > 1) params.set("page", String(currentPage));
@@ -179,9 +194,10 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
 
   const initialParams = new URLSearchParams(window.location.search);
   if (keyword) keyword.value = initialParams.get("keyword") ?? "";
+  if (series) series.value = initialParams.get("series") ?? "";
   if (topic) topic.value = initialParams.get("topic") ?? "";
   if (tag) tag.value = initialParams.get("tag") ?? "";
-  if (filterDetails && (topic?.value || tag?.value)) filterDetails.open = true;
+  if (filterDetails && (series?.value || topic?.value || tag?.value)) filterDetails.open = true;
   currentPage = Number.parseInt(initialParams.get("page") ?? "1", 10) || 1;
   applyFilters(false);
 
@@ -192,6 +208,7 @@ const suggestions = [...new Set([...articles.map((article) => article.title), ..
   });
   reset?.addEventListener("click", () => {
     if (keyword) keyword.value = "";
+    if (series) series.value = "";
     if (topic) topic.value = "";
     if (tag) tag.value = "";
     currentPage = 1;
