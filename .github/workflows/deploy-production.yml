@@ -161,17 +161,34 @@ jobs:
         run: |
           set -euo pipefail
 
-          home_status="$(curl --silent --show-error --output /tmp/noema-home.html --write-out '%{http_code}' --retry 8 --retry-all-errors --retry-delay 5 https://noema-learn.uk/)"
-          test "$home_status" = "200"
-          grep -Fq '<link rel="canonical" href="https://noema-learn.uk/"' /tmp/noema-home.html
+          fetch_expected() {
+            local url="$1"
+            local expected_status="$2"
+            local output="$3"
+            local expected_text="${4:-}"
+            local attempt status
 
-          robots_status="$(curl --silent --show-error --output /tmp/noema-robots.txt --write-out '%{http_code}' --retry 8 --retry-all-errors --retry-delay 5 https://noema-learn.uk/robots.txt)"
-          test "$robots_status" = "200"
+            for attempt in $(seq 1 12); do
+              status="$(curl --silent --show-error --max-time 20 --output "${output}" --write-out '%{http_code}' "${url}" || true)"
+              if [[ "${status}" == "${expected_status}" ]] && { [[ -z "${expected_text}" ]] || grep -Fq "${expected_text}" "${output}"; }; then
+                echo "Verified ${url}: ${status} (attempt ${attempt})."
+                return 0
+              fi
+              echo "Waiting for ${url}: expected ${expected_status}, received ${status:-no response} (attempt ${attempt}/12)." >&2
+              if [[ "${attempt}" -lt 12 ]]; then
+                sleep 5
+              fi
+            done
+            return 1
+          }
+
+          fetch_expected https://noema-learn.uk/ 200 /tmp/noema-home.html '<link rel="canonical" href="https://noema-learn.uk/"'
+          fetch_expected https://noema-learn.uk/robots.txt 200 /tmp/noema-robots.txt
           grep -Fq 'Allow: /' /tmp/noema-robots.txt
           grep -Fq 'Sitemap: https://noema-learn.uk/sitemap.xml' /tmp/noema-robots.txt
 
-          curl --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 https://noema-learn.mani1261790.workers.dev/articles/ > /tmp/noema-development-articles.html
-          curl --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 https://noema-learn.uk/articles/ > /tmp/noema-production-articles.html
+          fetch_expected https://noema-learn.mani1261790.workers.dev/articles/ 200 /tmp/noema-development-articles.html
+          fetch_expected https://noema-learn.uk/articles/ 200 /tmp/noema-production-articles.html
           { grep -oE 'href="/articles/[^"#?]+' /tmp/noema-development-articles.html || true; } | sort -u > /tmp/noema-development-article-paths.txt
           { grep -oE 'href="/articles/[^"#?]+' /tmp/noema-production-articles.html || true; } | sort -u > /tmp/noema-production-article-paths.txt
           diff -u /tmp/noema-development-article-paths.txt /tmp/noema-production-article-paths.txt
@@ -179,15 +196,9 @@ jobs:
           while IFS= read -r article_href; do
             article_path="${article_href#href=\"}"
             test -z "$article_path" && continue
-            article_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --retry 8 --retry-all-errors --retry-delay 5 "https://noema-learn.uk${article_path}")"
-            test "$article_status" = "200"
+            fetch_expected "https://noema-learn.uk${article_path}" 200 /dev/null
           done < /tmp/noema-production-article-paths.txt
 
-          privacy_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --retry 8 --retry-all-errors --retry-delay 5 https://noema-learn.uk/privacy/)"
-          test "$privacy_status" = "200"
-
-          studio_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://studio.noema-learn.uk/)"
-          test "$studio_status" = "302"
-
-          mcp_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://mcp.noema-learn.uk/mcp)"
-          test "$mcp_status" = "401"
+          fetch_expected https://noema-learn.uk/privacy/ 200 /dev/null
+          fetch_expected https://studio.noema-learn.uk/ 302 /dev/null
+          fetch_expected https://mcp.noema-learn.uk/mcp 401 /dev/null
