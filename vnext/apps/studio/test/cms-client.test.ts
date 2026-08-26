@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBlankArticle } from "../src/draft-storage";
 import {
+  deleteCmsArticle,
   fetchCmsArticles,
   fetchCmsAnalyticsSummary,
   fetchCmsArticleVersion,
@@ -96,6 +97,29 @@ describe("CMS article list client", () => {
       },
       ok: false
     });
+  });
+});
+
+describe("CMS article deletion client", () => {
+  it("sends the expected version in the body and If-Match header", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () => new Response(null, { status: 204 }));
+
+    await expect(deleteCmsArticle(
+      "11111111-1111-4111-8111-111111111111",
+      4,
+      { fetchFn }
+    )).resolves.toEqual({ ok: true, value: null });
+    expect(fetchFn).toHaveBeenCalledWith(
+      "/api/cms/articles/11111111-1111-4111-8111-111111111111",
+      expect.objectContaining({
+        body: JSON.stringify({ expectedVersion: 4 }),
+        headers: expect.objectContaining({
+          "content-type": "application/json",
+          "if-match": '"cms-v4"'
+        }),
+        method: "DELETE"
+      })
+    );
   });
 });
 

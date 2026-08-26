@@ -46,6 +46,7 @@ import {
 } from "@noema/cms";
 import {
   createCmsSeriesRecord,
+  deleteCmsArticle as deleteCmsArticleRecord,
   deleteCmsSeriesRecord,
   createCmsArticle as createCmsArticleRecord,
   createCmsReviewCommentRecord,
@@ -107,6 +108,7 @@ import {
 import { CmsAnalyticsDashboard } from "./CmsAnalyticsDashboard";
 import type { CmsArticleFilter } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
+import { canDeleteCmsDraftArticle } from "./article-deletion";
 import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
@@ -1771,6 +1773,60 @@ export function App() {
     showEditor();
   };
 
+  const deleteCurrentCmsArticle = async () => {
+    if (!cmsArticleDeletable || !cmsArticle || cmsOperationBusy || cmsSaveInFlight.current) return;
+    if (!window.confirm(
+      `「${cmsArticle.title || "無題の記事"}」を完全に削除しますか？ 下書き本文と版履歴も削除され、この操作は取り消せません。Assetsの画像は削除されません。`
+    )) return;
+    setCmsOperationBusy(true);
+    const result = await deleteCmsArticleRecord(cmsArticle.id, cmsArticle.lockVersion);
+    setCmsOperationBusy(false);
+    if (!result.ok) {
+      const issueSummary = result.error.issues?.slice(0, 3).map((issue) => issue.message).join(" ");
+      showNotification({
+        text: issueSummary ? `${result.error.message} ${issueSummary}` : result.error.message,
+        title: "記事を削除できませんでした",
+        tone: "error"
+      });
+      return;
+    }
+
+    const deletedTitle = cmsArticle.title || "無題の記事";
+    const blank = createBlankArticle();
+    clearDraft(storage);
+    forgetLastOpenedCmsArticle(storage);
+    setCmsArticles((current) => current.filter((article) => article.id !== cmsArticle.id));
+    setCmsArticle(null);
+    setEditorArticleId(null);
+    setEditorArticleRestoreState({ kind: "idle" });
+    setCmsRecoveryReference(null);
+    setCmsAssociationRequired(false);
+    setCmsAutosavePaused(false);
+    setHasRecoveryDraft(false);
+    setFrontmatter(blank);
+    setBody("");
+    setCmsVisibility("public");
+    setLastCmsFingerprint(null);
+    setCmsSaveState("local");
+    setCmsConflict(false);
+    setCmsConflictResolverOpen(false);
+    editSession.current = createCmsEditSession();
+    pendingRevisionReason.current = null;
+    setPublicationIssues([]);
+    setValidationRequested(false);
+    manuallyEditedMetadata.current.clear();
+    setSettingsOpen(false);
+    setPreviewFullscreen(false);
+    setAssetTrayOpen(false);
+    pendingViewFocus.current = "studio-article-library-heading";
+    changeStudioView("articles");
+    showNotification({
+      text: `「${deletedTitle}」の下書き本文と版履歴を削除しました。Assetsの画像は残っています。`,
+      title: "記事を削除しました",
+      tone: "info"
+    });
+  };
+
   const applyConflictResolution = async (draft: ResolvedCmsConflictDraft) => {
     if (cmsConflictLatestState.kind !== "ready") return;
     const article = cmsConflictLatestState.article;
@@ -2698,6 +2754,10 @@ export function App() {
 
   const validationVisible = validationRequested || publicationIssues.length > 0;
   const cmsSession = cmsSessionState.kind === "ready" ? cmsSessionState.session : null;
+  const cmsArticleDeletable = canDeleteCmsDraftArticle(
+    cmsArticle,
+    Boolean(cmsSession?.capabilities.canEdit)
+  );
   const recoveryArticleSummary = cmsRecoveryReference
     ? cmsArticles.find((article) => article.id === cmsRecoveryReference.id) ?? null
     : null;
@@ -3592,6 +3652,25 @@ export function App() {
                 <button className="dads-button" data-size="sm" data-type="outline" type="button" onClick={() => update("sources", [...frontmatter.sources, { title: "", url: "", checkedAt: new Date().toISOString().slice(0, 10) }])}>参考資料を追加</button>
               </div>
             </details>
+
+            {cmsArticleDeletable ? (
+              <section className="studio-article-danger-zone" aria-labelledby="studio-article-delete-heading">
+                <div>
+                  <h2 id="studio-article-delete-heading">記事を削除</h2>
+                  <p>CMSに保存された下書き本文と版履歴を削除します。Assetsの画像は削除されません。</p>
+                </div>
+                <button
+                  className="dads-button studio-article-delete-button"
+                  data-size="md"
+                  data-type="outline"
+                  disabled={cmsOperationBusy || cmsSaveState === "saving" || Boolean(cmsSaveInFlight.current)}
+                  onClick={() => void deleteCurrentCmsArticle()}
+                  type="button"
+                >
+                  この記事を削除する
+                </button>
+              </section>
+            ) : null}
           </fieldset>
 
           {validationVisible ? (

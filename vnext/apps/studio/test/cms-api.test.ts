@@ -559,6 +559,45 @@ describe("CMS HTTP API", () => {
     expect(revisionCount).toBe(2);
   });
 
+  it("deletes a draft through the article resource with optimistic locking", async () => {
+    await bootstrapAdmin();
+    const { article } = await createArticle("api-deleted-draft");
+
+    const missingPrecondition = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${article.id}`, {
+        body: JSON.stringify({ expectedVersion: article.lockVersion }),
+        headers: { "content-type": "application/json" },
+        method: "DELETE"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(missingPrecondition.status).toBe(428);
+    await expectErrorCode(missingPrecondition, "precondition_required");
+
+    const deleted = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${article.id}`, {
+        body: JSON.stringify({ expectedVersion: article.lockVersion }),
+        headers: {
+          "content-type": "application/json",
+          "if-match": `"cms-v${article.lockVersion}"`
+        },
+        method: "DELETE"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(deleted.status).toBe(204);
+
+    const missing = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${article.id}`),
+      cmsEnv(),
+      ADMIN
+    );
+    expect(missing.status).toBe(404);
+    await expectErrorCode(missing, "article_not_found");
+  });
+
   it("returns grouped version history and immutable revision details", async () => {
     await bootstrapAdmin();
     const editSessionId = "33333333-3333-4333-8333-333333333333";
