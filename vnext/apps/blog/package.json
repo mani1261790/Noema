@@ -9,6 +9,7 @@
     "generate:og": "node scripts/generate-og-images.mjs",
     "cms:migrate:local": "CI=true wrangler d1 migrations apply noema-cms --local --config ../studio/wrangler.jsonc --persist-to .wrangler/state",
     "validate:articles": "node scripts/validate-article-paths.mjs",
+    "validate:deployment-config": "node scripts/validate-deployment-config.mjs",
     "validate:content": "tsx scripts/validate-content.ts && npm run validate:articles",
     "test": "vitest run && node --test scripts/validate-article-paths.node-test.mjs",
     "predev": "npm run cms:migrate:local && npm run validate:content && npm run generate:og",
@@ -20,11 +21,11 @@
     "build:preview": "NOEMA_PREVIEW_CONTENT=1 astro build",
     "preview": "astro preview",
     "deploy:dry-run": "npm run build && wrangler deploy --dry-run --config dist/server/wrangler.json",
-    "deploy:dry-run:production": "npm run build && wrangler deploy --dry-run --config dist/server/wrangler.json --name noema-learn-production --domain noema-learn.uk",
+    "deploy:dry-run:production": "npm run build && npm run validate:deployment-config && wrangler deploy --dry-run --config dist/server/wrangler.json --name noema-learn-production --domain noema-learn.uk",
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^14.1.2",
+    "@astrojs/cloudflare": "^14.2.5",
     "@astrojs/markdown-satteri": "0.3.3",
     "@noema/cms": "0.1.0",
     "@noema/content": "0.1.0",

@@ -10,6 +10,7 @@ import {
 export default defineConfig({
   site: "https://noema-learn.uk",
   output: "server",
+  session: false,
   devToolbar: { enabled: false },
   // Keep the Cloudflare runtime active in local development so D1 bindings
   // and `cloudflare:workers` behave exactly as they do after deployment.
