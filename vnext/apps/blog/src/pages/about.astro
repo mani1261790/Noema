@@ -4,7 +4,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 export const prerender = true;
 ---
 
-<BaseLayout title="Noemaについて | Noema">
+<BaseLayout
+  title="Noemaについて | Noema"
+  description="Noemaの編集方針、記事アシスタントの使い方、運営について紹介します。"
+>
   <div class="noema-reading-container prose-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "Noemaについて" }]} />
     <h1>Noemaについて</h1>

@@ -25,7 +25,6 @@ export const GET: APIRoute = async ({ site }) => {
     { pathname: "/series", lastModified: latestSeriesDate },
     { pathname: "/about" },
     { pathname: "/privacy" },
-    { pathname: "/terms" },
     ...Object.keys(topicLabels)
       .filter((topicSlug) => publicTopics.has(topicSlug as keyof typeof topicLabels))
       .map((topicSlug) => ({
