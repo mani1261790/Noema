@@ -230,9 +230,9 @@ D1 schema、記事revision、R2 objectは別々にrollbackを判断します。�
 本番は`develop -> main`のPull Requestだけからリリースします。`main`へのpushで`.github/workflows/deploy-production.yml`が起動し、次を順番に実行します。
 
 1. Node 24でtest、check、build
-2. `noema-public-gate`から旧routeを外す
-3. remote D1 migrationを適用する
-4. 既存のCloudflare DNSを維持したまま、`noema-learn-production`を`noema-learn.uk/*`のWorker Routeへdeployする
+2. remote D1 migrationを適用する
+3. `noema-learn-production`のcodeをdeployする
+4. 既存のCloudflare DNSを維持し、Route APIで`noema-learn.uk/*`を公開ゲートから本番ブログへ原子的に移す
 5. StudioとStudio MCPを同じ`main` commitへ揃える
 6. 開発URLと本番URLの公開記事パスが一致し、各本番記事が200で開くことを確認する
 7. 本番トップ、robots、privacy、Studio Access、MCP認証境界を確認する
