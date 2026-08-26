@@ -49,14 +49,6 @@ jobs:
         working-directory: vnext
         run: npm run build
 
-      - name: Detach the public gate route
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: vnext/apps/public-gate
-          wranglerVersion: "4.126.0"
-          command: deploy --config wrangler.jsonc
-
       - name: Apply CMS database migrations
         working-directory: vnext
         env:
@@ -75,7 +67,74 @@ jobs:
           command: >-
             deploy --config dist/server/wrangler.json
             --name noema-learn-production
-            --route noema-learn.uk/*
+
+      - name: Promote production blog route
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          api="https://api.cloudflare.com/client/v4"
+          zone_name="noema-learn.uk"
+          route_pattern="noema-learn.uk/*"
+          production_worker="noema-learn-production"
+          gate_worker="noema-public-gate"
+          auth_header="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+
+          zone_response="$(curl --fail-with-body --silent --show-error \
+            --header "${auth_header}" \
+            "${api}/zones?name=${zone_name}")"
+          zone_id="$(jq --exit-status --raw-output \
+            --arg name "${zone_name}" \
+            '.result | map(select(.name == $name)) | if length == 1 then .[0].id else error("expected exactly one zone") end' \
+            <<<"${zone_response}")"
+
+          routes_response="$(curl --fail-with-body --silent --show-error \
+            --header "${auth_header}" \
+            "${api}/zones/${zone_id}/workers/routes")"
+          route_count="$(jq --raw-output \
+            --arg pattern "${route_pattern}" \
+            '[.result[] | select(.pattern == $pattern)] | length' \
+            <<<"${routes_response}")"
+          if [[ "${route_count}" -gt 1 ]]; then
+            echo "Multiple routes match ${route_pattern}; refusing to choose one." >&2
+            exit 1
+          fi
+
+          route_id="$(jq --raw-output \
+            --arg pattern "${route_pattern}" \
+            '.result[] | select(.pattern == $pattern) | .id' \
+            <<<"${routes_response}")"
+          current_worker="$(jq --raw-output \
+            --arg pattern "${route_pattern}" \
+            '.result[] | select(.pattern == $pattern) | .script // ""' \
+            <<<"${routes_response}")"
+          if [[ -n "${route_id}" && "${current_worker}" != "${gate_worker}" && "${current_worker}" != "${production_worker}" ]]; then
+            echo "${route_pattern} belongs to unexpected Worker ${current_worker}; refusing to replace it." >&2
+            exit 1
+          fi
+
+          payload="$(jq --null-input --compact-output \
+            --arg pattern "${route_pattern}" \
+            --arg script "${production_worker}" \
+            '{pattern: $pattern, script: $script}')"
+          if [[ -n "${route_id}" ]]; then
+            route_response="$(curl --fail-with-body --silent --show-error \
+              --request PUT \
+              --header "${auth_header}" \
+              --header "Content-Type: application/json" \
+              --data "${payload}" \
+              "${api}/zones/${zone_id}/workers/routes/${route_id}")"
+          else
+            route_response="$(curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "${auth_header}" \
+              --header "Content-Type: application/json" \
+              --data "${payload}" \
+              "${api}/zones/${zone_id}/workers/routes")"
+          fi
+          jq --exit-status '.success == true' <<<"${route_response}" >/dev/null
 
       - name: Deploy Studio Worker
         uses: cloudflare/wrangler-action@v3
