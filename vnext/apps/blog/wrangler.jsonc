@@ -6,6 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
+  "assets": {
+    "html_handling": "drop-trailing-slash"
+  },
   "ratelimits": [
     {
       "name": "ANALYTICS_RATE_LIMITER",
