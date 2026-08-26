@@ -4,7 +4,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 export const prerender = true;
 ---
 
-<BaseLayout title="プライバシー | Noema">
+<BaseLayout
+  title="プライバシー | Noema"
+  description="記事アシスタントで入力するOpenAI APIキーと、質問・回答の取り扱いについて説明します。"
+>
   <div class="noema-reading-container prose-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "プライバシー" }]} />
     <h1>プライバシー</h1>
