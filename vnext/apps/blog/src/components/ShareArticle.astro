@@ -1,19 +1,59 @@
 <div class="article-share">
   <h2>この記事を共有</h2>
-  <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-article-url>URLをコピー</button>
+  <div class="article-share__actions">
+    <button class="dads-button" data-size="md" data-type="outline" type="button" data-share-article hidden>記事を共有</button>
+    <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-article-url>URLをコピー</button>
+  </div>
   <p data-share-status role="status" aria-live="polite"></p>
 </div>
 
 <script>
-  const copyButton = document.querySelector<HTMLButtonElement>("[data-copy-article-url]");
-  const shareStatus = document.querySelector<HTMLElement>("[data-share-status]");
+  import { createArticleShareData, shareArticle, supportsNativeSharing } from "../lib/article-sharing";
+
+  const shareRegion = document.querySelector<HTMLElement>(".article-share");
+  const shareButton = shareRegion?.querySelector<HTMLButtonElement>("[data-share-article]");
+  const copyButton = shareRegion?.querySelector<HTMLButtonElement>("[data-copy-article-url]");
+  const shareStatus = shareRegion?.querySelector<HTMLElement>("[data-share-status]");
+  const canonicalUrl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
+  const shareData = createArticleShareData({
+    canonicalUrl,
+    fallbackUrl: window.location.href,
+    title: document.title,
+  });
+
+  const recordSuccessfulShare = () => {
+    document.dispatchEvent(new CustomEvent("noema:analytics", {
+      detail: { eventType: "share" }
+    }));
+  };
+
+  if (shareButton && supportsNativeSharing(navigator)) {
+    shareButton.hidden = false;
+    shareButton.addEventListener("click", async () => {
+      shareButton.disabled = true;
+      shareButton.setAttribute("aria-busy", "true");
+      if (shareStatus) shareStatus.textContent = "";
+
+      const outcome = await shareArticle(navigator, shareData);
+
+      shareButton.disabled = false;
+      shareButton.removeAttribute("aria-busy");
+      if (outcome === "shared") {
+        if (shareStatus) shareStatus.textContent = "共有しました。";
+        recordSuccessfulShare();
+      } else if (outcome === "failed") {
+        if (shareStatus) shareStatus.textContent = "共有できませんでした。URLをコピーして共有できます。";
+      } else if (outcome === "unavailable") {
+        shareButton.hidden = true;
+      }
+    });
+  }
+
   copyButton?.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareData.url);
       if (shareStatus) shareStatus.textContent = "URLをコピーしました。";
-      document.dispatchEvent(new CustomEvent("noema:analytics", {
-        detail: { eventType: "share" }
-      }));
+      recordSuccessfulShare();
     } catch {
       if (shareStatus) shareStatus.textContent = "URLをコピーできませんでした。アドレスバーからコピーしてください。";
     }
