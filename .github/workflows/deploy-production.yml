@@ -280,8 +280,18 @@ jobs:
           node apps/blog/scripts/verify-article-image-dimensions.mjs \
             "${production_origin}"
 
+          fetch_expected "${production_origin}/about" 200 /dev/null
           fetch_expected "${production_origin}/privacy" 200 /dev/null
-          verify_redirect "${production_origin}/privacy/" "${production_origin}/privacy"
+          fetch_expected "${production_origin}/terms" 200 /dev/null
+          verify_redirect "${production_origin}/index.html" "${production_origin}/" 301
+          verify_redirect "${production_origin}/about.html" "${production_origin}/about" 301
+          verify_redirect "${production_origin}/about/" "${production_origin}/about" 301
+          verify_redirect "${production_origin}/privacy.html" "${production_origin}/privacy" 301
+          verify_redirect "${production_origin}/privacy/" "${production_origin}/privacy" 301
+          verify_redirect "${production_origin}/terms.html" "${production_origin}/terms" 301
+          verify_redirect "${production_origin}/terms/" "${production_origin}/terms" 301
+          fetch_expected "${production_origin}/google06ce5dd8fb657230.html" 200 /dev/null
+          fetch_expected "${production_origin}/not-a-real-page.html" 404 /dev/null
           verify_custom_domain_boundary https://studio.noema-learn.uk/ 302
           verify_custom_domain_boundary https://mcp.noema-learn.uk/mcp 401
 
