@@ -7,6 +7,7 @@ import {
 } from "./verify-public-seo.mjs";
 
 const articleUrl = "https://noema-learn.uk/articles/example";
+const homepageUrl = "https://noema-learn.uk/";
 
 function articleHtml(overrides = "") {
   return `<!doctype html>
@@ -30,6 +31,11 @@ function articleHtml(overrides = "") {
   </head><body><h1>テスト記事</h1><img src="/example.png" alt="説明"></body></html>`;
 }
 
+function homepageHtml(alternateName = "noema-learn.uk") {
+  return articleHtml().replaceAll(articleUrl, homepageUrl)
+    .replace('{"@type":"BlogPosting"}', `{"@graph":[{"@type":"Organization"},{"@type":"WebSite","name":"Noema","alternateName":"${alternateName}","url":"${homepageUrl}"}]}`);
+}
+
 test("parseSitemap keeps canonical URLs with valid lastmod dates", () => {
   assert.deepEqual(parseSitemap(`<?xml version="1.0"?><urlset>
     <url><loc>https://noema-learn.uk/</loc><lastmod>2026-08-28</lastmod></url>
@@ -51,6 +57,18 @@ test("inspectSeoDocument accepts a complete article document", () => {
   const document = inspectSeoDocument(articleHtml(), articleUrl);
   assert.deepEqual(validateSeoDocument(document, articleUrl), []);
   assert.deepEqual([...document.schemaTypes].sort(), ["BlogPosting", "BreadcrumbList"]);
+});
+
+test("validateSeoDocument requires the unique site-name fallback on the homepage", () => {
+  const complete = inspectSeoDocument(homepageHtml(), homepageUrl);
+  assert.deepEqual(validateSeoDocument(complete, homepageUrl), []);
+  assert.deepEqual(complete.websites.map((website) => website.alternateName), ["noema-learn.uk"]);
+
+  const errors = validateSeoDocument(
+    inspectSeoDocument(homepageHtml("Noema Learn"), homepageUrl),
+    homepageUrl,
+  );
+  assert.ok(errors.includes("WebSite alternateName must include noema-learn.uk."));
 });
 
 test("validateSeoDocument reports indexability and presentation regressions together", () => {
