@@ -34,6 +34,10 @@ export interface CmsPublishedEditor {
   publicId: string;
 }
 
+export interface CmsPublishedEditorListing extends CmsPublishedEditor {
+  updatedAt: string;
+}
+
 export interface CmsPublishedEditorProfile extends CmsPublishedEditor {
   articles: ArticleSummary[];
 }
@@ -395,9 +399,14 @@ export async function getCmsPublishedEditorProfile(
 
 export async function listCmsPublishedEditors(
   db: CmsPublicationDatabase,
-): Promise<CmsPublishedEditor[]> {
+): Promise<CmsPublishedEditorListing[]> {
   const result = await db.prepare(
-    `SELECT DISTINCT m.display_name, m.public_id
+    `SELECT m.display_name,
+       m.public_id,
+       CASE
+         WHEN m.updated_at > MAX(r.created_at) THEN m.updated_at
+         ELSE MAX(r.created_at)
+       END AS updated_at
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      JOIN cms_members m ON m.subject = r.created_by_subject
@@ -405,12 +414,14 @@ export async function listCmsPublishedEditors(
        AND a.published_visibility = 'public'
        AND m.display_name IS NOT NULL
        AND m.public_id IS NOT NULL
+     GROUP BY m.subject, m.display_name, m.public_id, m.updated_at
      ORDER BY m.display_name COLLATE NOCASE, m.public_id`,
-  ).all<{ display_name: string; public_id: string }>();
+  ).all<{ display_name: string; public_id: string; updated_at: string }>();
   return result.results.map((editor) => ({
     displayName: editor.display_name,
     href: `/editors/${editor.public_id}`,
     publicId: editor.public_id,
+    updatedAt: isoDate(editor.updated_at, "editor_updated_at"),
   }));
 }
 
