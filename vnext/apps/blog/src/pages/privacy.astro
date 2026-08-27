@@ -1,4 +1,8 @@
 ---
+import {
+  CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
+  CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
+} from "@noema/cms";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 export const prerender = true;
@@ -6,14 +10,33 @@ export const prerender = true;
 
 <BaseLayout
   title="プライバシー | Noema"
-  description="記事アシスタントで入力するOpenAI APIキーと、質問・回答の取り扱いについて説明します。"
+  description="Noemaが記事の利用状況、記事アシスタントのAPIキーや質問をどう扱い、どの期間保存するかを説明します。"
 >
   <div class="noema-reading-container prose-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "プライバシー" }]} />
     <h1>プライバシー</h1>
+    <p class="prose-page__lead">Noemaが記録する情報と、その使い道を説明します。</p>
+    <h2>記事の利用状況</h2>
+    <p>Noemaは、記事の内容や読み進めやすさ、次の記事への導線を改善するため、記事ページで次の利用状況を記録します。</p>
+    <ul>
+      <li>表示した記事と、その時点で公開されていた版</li>
+      <li>記事を開いたこと、本文の半分や末尾まで読み進めたこと</li>
+      <li>関連記事やシリーズの次の記事への移動、共有、記事アシスタントの開始と成否</li>
+      <li>Noema内で記事を見つけた場所、外部参照元のホスト名、URLに含まれるUTMパラメータ</li>
+    </ul>
+    <p>記録には発生時刻と重複送信を見分けるためのランダムなIDを含めます。分析の記録には、氏名、メールアドレス、アカウントID、IPアドレス、ユーザーエージェント、質問や回答の本文、OpenAI APIキーを含めません。</p>
+    <p>IPアドレスは、分析イベントの過剰送信を防ぐレート制限の判定に使いますが、Noemaの分析データベースには保存しません。</p>
+    <h2>ブラウザに保存する情報</h2>
+    <p>記事分析のためにCookieやlocalStorageは使いません。記事間で流入元を引き継ぐため、UTMパラメータと外部参照元のホスト名をsessionStorageに保存し、30分を過ぎた値は利用しません。</p>
+    <h2>保存期間</h2>
+    <p>個別の分析イベントは{CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS}日間保存します。その後は、記事、公開版、日付、イベントの種類、流入元などでまとめた日別の件数だけを{CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS}日間保存します。日別の件数に読者を識別するIDは含まれません。</p>
     <h2>記事アシスタントのAPIキー</h2>
     <p>入力されたOpenAI APIキーは、質問への回答を作成するリクエスト中だけ使用します。Cookie、ブラウザストレージ、Noemaのデータベース、ログには保存しません。</p>
     <h2>質問と回答</h2>
-    <p>NoemaはMVP段階で質問履歴を永続化しません。質問、記事文脈、選択した本文、直前の会話は回答作成のためOpenAI APIへ送信されます。</p>
+    <p>質問、回答、記事本文、選択した本文、直前の会話はNoemaに保存しません。回答を作るときだけOpenAI APIへ送信します。記事分析には、アシスタントを開いたことと、回答が成功したかエラーになったかだけを記録します。</p>
+    <h2>Cloudflareの利用</h2>
+    <p>Noemaの配信、データ保存、分析、レート制限にはCloudflareのサービスを使用しています。アクセス時のIPアドレスなど、通常の通信に必要な情報はCloudflareによって処理されます。詳しくは<a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noreferrer">Cloudflareのプライバシーポリシー</a>をご覧ください。</p>
+    <h2>運営について</h2>
+    <p>Noemaの運営主体と編集方針は<a href="/about">Noemaについて</a>で紹介しています。</p>
   </div>
 </BaseLayout>
