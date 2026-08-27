@@ -121,6 +121,8 @@ export interface CmsAnalyticsRebuildResult extends CmsAnalyticsRebuildRequest {
 
 export const CMS_ANALYTICS_EVENT_CONTRACT_VERSION = 1 as const;
 export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-23" as const;
+export const CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS = 35 as const;
+export const CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS = 400 as const;
 
 export interface CmsAnalyticsMetricDefinition {
   caveat: string;

@@ -4,7 +4,14 @@ import {
   type D1Migration
 } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CmsArticleDetail, CmsMember, CmsSeries, CmsSession } from "@noema/cms";
+import {
+  CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
+  CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
+  type CmsArticleDetail,
+  type CmsMember,
+  type CmsSeries,
+  type CmsSession
+} from "@noema/cms";
 import { handleCmsApiRequest } from "../worker/cms-api";
 import { handleStudioApiRequest } from "../worker/app";
 import { cleanupCmsAnalyticsRetention } from "../worker/analytics-repository";
@@ -126,6 +133,10 @@ describe("CMS HTTP API", () => {
         landing: number;
         qualifiedReadRate: number;
       }>;
+      health: {
+        retention: { eventFactsDays: number; reportingMartDays: number };
+        status: string;
+      };
       sources: Array<{
         article50Rate: number;
         campaign: string;
@@ -173,7 +184,13 @@ describe("CMS HTTP API", () => {
     }));
     expect(body.summary.sources).toHaveLength(1);
     expect(body.summary.comparison).toMatchObject({ status: "collecting", totals: null });
-    expect((body.summary as { health?: { status: string } }).health?.status).toBe("collecting");
+    expect(body.summary.health).toMatchObject({
+      retention: {
+        eventFactsDays: CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
+        reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
+      },
+      status: "collecting"
+    });
   });
 
   it("compares KPIs only after the previous equal-length period has full coverage", async () => {

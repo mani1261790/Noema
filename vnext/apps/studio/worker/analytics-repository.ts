@@ -1,6 +1,8 @@
 import {
   CMS_ANALYTICS_EVENT_CONTRACT_VERSION,
+  CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_METRIC_CATALOG_VERSION,
+  CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
   canCms,
   type CmsAnalyticsArticleMetric,
   type CmsAnalyticsCounts,
@@ -180,7 +182,10 @@ export async function listCmsAnalyticsSummary(
     (days * 2) - 1
   ).toISOString().slice(0, 10);
   const comparisonAvailable = comparisonFrom >= rawCoverageFrom;
-  const retentionFrom = addDays(new Date(`${through}T00:00:00.000Z`), -34)
+  const retentionFrom = addDays(
+    new Date(`${through}T00:00:00.000Z`),
+    -(CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS - 1)
+  )
     .toISOString()
     .slice(0, 10);
   const reprocessableFrom = rawCoverageFrom > retentionFrom ? rawCoverageFrom : retentionFrom;
@@ -566,7 +571,10 @@ function analyticsHealth(options: {
     metricCatalogVersion: CMS_ANALYTICS_METRIC_CATALOG_VERSION,
     rawCoverageFrom: options.rawCoverageFrom,
     reprocessableFrom: options.reprocessableFrom,
-    retention: { eventFactsDays: 35, reportingMartDays: 400 },
+    retention: {
+      eventFactsDays: CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
+      reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
+    },
     sources: [
       {
         id: "noema_reader_events",
@@ -597,10 +605,16 @@ export async function cleanupCmsAnalyticsRetention(
   now = new Date()
 ): Promise<void> {
   const today = now.toISOString().slice(0, 10);
-  const eventFactsCutoff = addDays(new Date(`${today}T00:00:00.000Z`), -34)
+  const eventFactsCutoff = addDays(
+    new Date(`${today}T00:00:00.000Z`),
+    -(CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS - 1)
+  )
     .toISOString()
     .slice(0, 10);
-  const reportingCutoff = addDays(new Date(`${today}T00:00:00.000Z`), -399)
+  const reportingCutoff = addDays(
+    new Date(`${today}T00:00:00.000Z`),
+    -(CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS - 1)
+  )
     .toISOString()
     .slice(0, 10);
   await db.batch([
@@ -631,7 +645,10 @@ export async function rebuildCmsAnalyticsMart(
      WHERE state_key = 'raw_coverage_complete_from'`
   ).first<{ state_value: string }>();
   const rawCoverageFrom = coverage?.state_value;
-  const retentionFrom = addDays(new Date(`${today}T00:00:00.000Z`), -34)
+  const retentionFrom = addDays(
+    new Date(`${today}T00:00:00.000Z`),
+    -(CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS - 1)
+  )
     .toISOString()
     .slice(0, 10);
   const reprocessableFrom = rawCoverageFrom && rawCoverageFrom > retentionFrom
@@ -647,7 +664,7 @@ export async function rebuildCmsAnalyticsMart(
     range.from < reprocessableFrom ||
     range.through > today ||
     inclusiveDays < 1 ||
-    inclusiveDays > 35
+    inclusiveDays > CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS
   ) {
     throw new CmsRepositoryError(
       "invalid_analytics_rebuild_range",
