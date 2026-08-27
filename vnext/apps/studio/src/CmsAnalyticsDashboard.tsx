@@ -45,6 +45,65 @@ const navigationLabels: Record<CmsAnalyticsOnwardPath["navigationKind"], string>
   series_next: "シリーズ次"
 };
 
+const acquisitionChannelLabels: Record<
+  CmsAnalyticsSummary["acquisitionChannels"][number]["channel"],
+  string
+> = {
+  campaign: "UTM付き施策",
+  direct: "直接・不明",
+  organic_search: "自然検索",
+  referral: "その他の外部サイト"
+};
+
+export function AnalyticsAcquisition({
+  channels,
+  organicArticles
+}: {
+  channels: CmsAnalyticsSummary["acquisitionChannels"];
+  organicArticles: CmsAnalyticsSummary["organicSearchArticles"];
+}) {
+  return (
+    <section className="studio-analytics__section" aria-labelledby="studio-analytics-acquisition-heading">
+      <div className="studio-analytics__section-heading">
+        <div><p className="studio-library__eyebrow">獲得チャネル</p><h2 id="studio-analytics-acquisition-heading">検索流入が読了につながったか</h2></div>
+      </div>
+      <p>UTM（medium=organicを除く）、既知の検索エンジン、その他の外部サイト、直接・不明を分けます。検索語や読者IDは保存せず、率は読者単位の転換率ではありません。</p>
+      {channels.length === 0 ? <p>この期間の獲得チャネルデータはまだありません。</p> : (
+        <div className="studio-analytics__table-wrap">
+          <table>
+            <caption className="sr-only">獲得チャネル別の記事到達、50%到達、読了、次記事移動</caption>
+            <thead><tr><th scope="col">獲得チャネル</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">移動率</th></tr></thead>
+            <tbody>{channels.map((channel) => (
+              <tr key={channel.channel}>
+                <th scope="row">{acquisitionChannelLabels[channel.channel]}</th>
+                <td>{channel.landing}</td><td>{formatPercent(channel.article50Rate)}</td>
+                <td>{formatPercent(channel.qualifiedReadRate)}</td><td>{channel.navigationClick}</td><td>{formatPercent(channel.onwardRate)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <h3>自然検索の記事別成果</h3>
+      <p>検索エンジンから始まった匿名イベントだけを、公開revision別に集計します。</p>
+      {organicArticles.length === 0 ? <p>この期間の自然検索流入はまだありません。</p> : (
+        <div className="studio-analytics__table-wrap">
+          <table>
+            <caption className="sr-only">自然検索の記事別到達、50%到達、読了、次記事移動</caption>
+            <thead><tr><th scope="col">記事</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">移動率</th></tr></thead>
+            <tbody>{organicArticles.map((article) => (
+              <tr key={`${article.articleId}:${article.revisionNumber}`}>
+                <th scope="row"><strong>{article.title}</strong><small>{article.slug}・rev.{article.revisionNumber}</small></th>
+                <td>{article.landing}</td><td>{formatPercent(article.article50Rate)}</td>
+                <td>{formatPercent(article.qualifiedReadRate)}</td><td>{article.navigationClick}</td><td>{formatPercent(article.onwardRate)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AnalyticsOnwardPaths({
   paths,
   truncated
@@ -268,6 +327,7 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                 <div><dt>受理イベント</dt><dd>{state.summary.health.acceptedEvents}</dd></div>
                 <div><dt>重複除外</dt><dd>{state.summary.health.duplicateEvents}</dd></div>
                 <div><dt>イベント契約</dt><dd>v{state.summary.health.eventContractVersion}</dd></div>
+                <div><dt>獲得分類</dt><dd>v{state.summary.health.acquisitionChannelVersion}</dd></div>
                 <div><dt>正本保持</dt><dd>{state.summary.health.retention.eventFactsDays}日</dd></div>
                 <div><dt>集計保持</dt><dd>{state.summary.health.retention.reportingMartDays}日</dd></div>
               </dl>
@@ -355,6 +415,11 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                 </article>
               </div>
             </section>
+
+            <AnalyticsAcquisition
+              channels={state.summary.acquisitionChannels}
+              organicArticles={state.summary.organicSearchArticles}
+            />
 
             <section className="studio-analytics__section" aria-labelledby="studio-analytics-articles-heading">
               <div className="studio-analytics__section-heading">

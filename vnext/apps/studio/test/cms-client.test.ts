@@ -144,6 +144,16 @@ describe("CMS analytics client", () => {
       updatesClick: 2
     };
     const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({ summary: {
+      acquisitionChannels: [{
+        article50: 4,
+        article50Rate: 0.8,
+        articleEnd: 3,
+        channel: "organic_search",
+        landing: 5,
+        navigationClick: 2,
+        onwardRate: 2 / 3,
+        qualifiedReadRate: 0.6
+      }],
       articles: [{
         ...counts,
         articleId: "11111111-1111-4111-8111-111111111111",
@@ -187,6 +197,7 @@ describe("CMS analytics client", () => {
       }],
       health: {
         acceptedEvents: 10,
+        acquisitionChannelVersion: 1,
         checks: [{ detail: "正常です。", id: "freshness", label: "収集鮮度", status: "pass" }],
         duplicateEvents: 0,
         entryCoverageFrom: "2026-08-23",
@@ -225,6 +236,19 @@ describe("CMS analytics client", () => {
         targetTitle: "次の記事"
       }],
       onwardPathsTruncated: false,
+      organicSearchArticles: [{
+        article50: 4,
+        article50Rate: 0.8,
+        articleEnd: 3,
+        articleId: "11111111-1111-4111-8111-111111111111",
+        landing: 5,
+        navigationClick: 2,
+        onwardRate: 2 / 3,
+        qualifiedReadRate: 0.6,
+        revisionNumber: 4,
+        slug: "analytics-article",
+        title: "分析記事"
+      }],
       range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
       sources: [{
         article50: 8,
@@ -257,6 +281,12 @@ describe("CMS analytics client", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
+      expect(result.value.acquisitionChannels[0]).toMatchObject({
+        channel: "organic_search",
+        landing: 5,
+        qualifiedReadRate: 0.6
+      });
+      expect(result.value.health.acquisitionChannelVersion).toBe(1);
       expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
       expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
       expect(result.value.entries[0]).toMatchObject({ entryKind: "home", landing: 6 });
@@ -266,6 +296,11 @@ describe("CMS analytics client", () => {
         targetSlug: "next-article"
       });
       expect(result.value.onwardPathsTruncated).toBe(false);
+      expect(result.value.organicSearchArticles[0]).toMatchObject({
+        landing: 5,
+        revisionNumber: 4,
+        slug: "analytics-article"
+      });
       expect(result.value.comparison).toMatchObject({
         status: "available",
         totals: { article50Rate: 0.7, qualifiedReadRate: 0.5 }
