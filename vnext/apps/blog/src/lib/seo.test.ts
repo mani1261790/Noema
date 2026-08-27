@@ -9,6 +9,7 @@ import {
   resolveOpenGraphImageDimensions,
   serializeJsonLd,
   serializeSitemap,
+  websiteJsonLd,
 } from "./seo";
 
 describe("SEO helpers", () => {
@@ -52,6 +53,16 @@ describe("SEO helpers", () => {
     });
   });
 
+  it("provides a unique domain fallback when the preferred site name is unavailable", () => {
+    expect(websiteJsonLd()).toEqual({
+      "@id": "https://noema-learn.uk/#website",
+      "@type": "WebSite",
+      name: "Noema",
+      alternateName: "noema-learn.uk",
+      url: "https://noema-learn.uk/",
+    });
+  });
+
   it("uses canonical URLs, exact CMS timestamps, and the article image in BlogPosting data", () => {
     expect(articleJsonLd({
       authors: [{ name: "編集者", url: "/editors/example/" }],
@@ -82,6 +93,13 @@ describe("SEO helpers", () => {
         width: 1200,
       }],
       mainEntityOfPage: "https://noema-learn.uk/articles/example",
+      isPartOf: {
+        "@id": "https://noema-learn.uk/#website",
+        "@type": "WebSite",
+        alternateName: "noema-learn.uk",
+        name: "Noema",
+        url: "https://noema-learn.uk/",
+      },
       publisher: {
         logo: {
           contentUrl: "https://noema-learn.uk/images/brand/noema-logo-512.png",

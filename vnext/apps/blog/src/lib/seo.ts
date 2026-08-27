@@ -42,6 +42,8 @@ export interface CollectionPageStructuredDataInput {
 
 const fallbackSite = new URL("https://noema-learn.uk");
 const organizationLogoPath = "/images/brand/noema-logo-512.png";
+const siteName = "Noema";
+const siteAlternateName = "noema-learn.uk";
 
 export function canonicalPathname(pathname: string): string {
   if (pathname === "/") return pathname;
@@ -95,7 +97,7 @@ export function organizationJsonLd(site: URL = fallbackSite): JsonLd {
   return {
     "@id": `${siteUrl}#organization`,
     "@type": "Organization",
-    name: "Noema",
+    name: siteName,
     url: siteUrl,
     logo: {
       "@type": "ImageObject",
@@ -107,12 +109,23 @@ export function organizationJsonLd(site: URL = fallbackSite): JsonLd {
   };
 }
 
+export function websiteJsonLd(site: URL = fallbackSite): JsonLd {
+  const siteUrl = canonicalUrl("/", site).toString();
+
+  return {
+    "@id": `${siteUrl}#website`,
+    "@type": "WebSite",
+    name: siteName,
+    alternateName: siteAlternateName,
+    url: siteUrl,
+  };
+}
+
 export function articleJsonLd(
   article: ArticleStructuredDataInput,
   site: URL = fallbackSite,
 ): JsonLd {
   const articleUrl = canonicalUrl(article.pathname, site).toString();
-  const siteUrl = canonicalUrl("/", site).toString();
   const image = typeof article.image === "string"
     ? [new URL(article.image, site).toString()]
     : article.image
@@ -135,12 +148,7 @@ export function articleJsonLd(
       ...(author.url ? { url: canonicalUrl(author.url, site).toString() } : {}),
     })),
     publisher: organizationJsonLd(site),
-    isPartOf: {
-      "@id": `${siteUrl}#website`,
-      "@type": "WebSite",
-      name: "Noema",
-      url: siteUrl,
-    },
+    isPartOf: websiteJsonLd(site),
   };
 }
 
