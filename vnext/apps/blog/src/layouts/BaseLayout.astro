@@ -1,5 +1,7 @@
 ---
 import "@noema/ui/styles";
+import "@fontsource-variable/noto-sans-jp/wght.css";
+import "@fontsource-variable/noto-sans-mono/wght.css";
 import "../styles/blog.css";
 import "@noema/ui/article-styles";
 import SiteFooter from "../components/SiteFooter.astro";
@@ -79,12 +81,6 @@ const serializedJsonLd = jsonLd ? serializeJsonLd(jsonLd) : "";
     {authors.map((author) => <meta property="article:author" content={author} />)}
     {jsonLd && <script is:inline type="application/ld+json" set:html={serializedJsonLd} />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+Mono:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
     <title>{title}</title>
   </head>
   <body class="noema-public">
