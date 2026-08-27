@@ -18,10 +18,28 @@ export function formatJapaneseDate(value?: string): string {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-export function sortArticlesByDate<T extends ArticleSummary>(articles: T[]): T[] {
+export function sortArticlesByDate<T extends ArticleSummary>(articles: readonly T[]): T[] {
   return [...articles].sort((a, b) =>
     (b.publishedAt ?? b.updatedAt).localeCompare(a.publishedAt ?? a.updatedAt)
   );
+}
+
+interface ArticleSeries {
+  items: ReadonlyArray<Pick<ArticleSummary, "slug">>;
+}
+
+export function selectStandaloneArticles<T extends ArticleSummary>(
+  articles: readonly T[],
+  seriesList: readonly ArticleSeries[],
+  limit = 3,
+): T[] {
+  const seriesArticleSlugs = new Set(
+    seriesList.flatMap((series) => series.items.map((article) => article.slug))
+  );
+
+  return sortArticlesByDate(
+    articles.filter((article) => !seriesArticleSlugs.has(article.slug))
+  ).slice(0, Math.max(0, Math.floor(limit)));
 }
 
 export function findRelatedArticles<T extends ArticleSummary>(

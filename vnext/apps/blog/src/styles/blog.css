@@ -384,8 +384,15 @@ body.noema-public .site-search-form__input input:focus-visible {
   background: var(--color-neutral-white);
 }
 
+.home-start,
 .home-recent {
   padding-block: 4.5rem;
+}
+
+.home-start__lead {
+  max-width: 42rem;
+  margin: 1rem 0 2rem;
+  color: var(--color-neutral-solid-gray-700);
 }
 
 .home-topics {
@@ -451,7 +458,6 @@ body.noema-public .site-search-form__input input:focus-visible {
   line-height: 1.7;
 }
 
-.section-heading-row__eyebrow,
 .page-heading__eyebrow,
 .series-card__eyebrow {
   margin: 0 0 0.375rem;

@@ -1,14 +1,21 @@
 ---
+import ArticleRow from "../components/ArticleRow.astro";
 import RecentArticleList from "../components/RecentArticleList.astro";
 import SeriesCard from "../components/SeriesCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { sortArticlesByDate } from "../lib/articles";
+import { selectStandaloneArticles, sortArticlesByDate } from "../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../lib/cms-publications";
 import { canonicalUrl } from "../lib/seo";
 import { listActiveTopics } from "../lib/topics";
 
 const [articles, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const recentArticles = sortArticlesByDate(articles).slice(0, 5);
+const recentArticleSlugs = new Set(recentArticles.map((article) => article.slug));
+const standaloneArticles = selectStandaloneArticles(
+  articles.filter((article) => !recentArticleSlugs.has(article.slug)),
+  seriesList,
+  3,
+);
 const activeTopics = listActiveTopics(articles);
 const siteUrl = canonicalUrl("/", Astro.site).toString();
 const jsonLd = {
@@ -49,14 +56,23 @@ const jsonLd = {
     <section class="home-series" aria-labelledby="series-heading">
       <div class="noema-container">
         <div class="section-heading-row">
-          <div>
-            <p class="section-heading-row__eyebrow">Series</p>
-            <h2 id="series-heading" class="noema-section-heading">シリーズから読む</h2>
-          </div>
+          <h2 id="series-heading" class="noema-section-heading">シリーズから読む</h2>
           <a class="dads-link" href="/series">すべてのシリーズを見る</a>
         </div>
         <p class="home-series__lead">ひとつのテーマを、記事をたどりながら少しずつ深められます。</p>
         <div class="series-grid series-grid--home">{seriesList.slice(0, 4).map((series) => <SeriesCard series={series} />)}</div>
+      </div>
+    </section>
+  )}
+
+  {standaloneArticles.length > 0 && (
+    <section class="home-start" aria-labelledby="start-heading">
+      <div class="noema-container">
+        <h2 id="start-heading" class="noema-section-heading">まず、1本から読む</h2>
+        <p class="home-start__lead">シリーズをたどらず、気になった題名の記事から始められます。</p>
+        <div class="article-list home-start__articles">
+          {standaloneArticles.map((article) => <ArticleRow article={article} headingLevel={3} />)}
+        </div>
       </div>
     </section>
   )}
@@ -103,7 +119,6 @@ const jsonLd = {
 
   <section class="home-discovery" aria-labelledby="discovery-heading">
     <div class="noema-container">
-      <p class="section-heading-row__eyebrow">Discover</p>
       <h2 id="discovery-heading" class="noema-section-heading">気になる言葉から探す</h2>
       <p>タイトルや概要、テーマ、タグを横断して検索できます。</p>
       <a class="dads-link" href="/articles#search">記事を探す</a>
