@@ -3,7 +3,7 @@ import { NOEMA_PUBLIC_ORIGIN } from "@noema/content/indexnow";
 
 const ARTICLE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const DISTRIBUTION_SOURCE_PATTERN = /^[a-z0-9][a-z0-9._-]*$/u;
-const DISTRIBUTION_CAMPAIGN = "article_distribution";
+export const DISTRIBUTION_CAMPAIGN = "article_distribution";
 
 export const distributionMediumOptions = [
   { label: "ソーシャル投稿", value: "social" },

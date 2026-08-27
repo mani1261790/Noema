@@ -14,6 +14,7 @@ import {
   type CmsClientError
 } from "./cms-client";
 import { describeRateComparison } from "./analytics-period-comparison";
+import { DISTRIBUTION_CAMPAIGN, distributionMediumOptions } from "./CmsDistributionLink";
 import type { CmsLibraryConnection } from "./CmsArticleLibrary";
 
 interface CmsAnalyticsDashboardProps {
@@ -97,6 +98,95 @@ export function AnalyticsAcquisition({
                 <td>{formatPercent(article.qualifiedReadRate)}</td><td>{article.navigationClick}</td><td>{formatPercent(article.onwardRate)}</td>
               </tr>
             ))}</tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function distributionMediumLabel(medium: string): string {
+  return distributionMediumOptions.find((option) => option.value === medium)?.label ?? (medium || "—");
+}
+
+function distributionRate(numerator: number, denominator: number): number | null {
+  return denominator === 0 ? null : numerator / denominator;
+}
+
+function aggregateDistributionSources(
+  sources: CmsAnalyticsSummary["sources"]
+): CmsAnalyticsSummary["sources"] {
+  const metrics = new Map<string, CmsAnalyticsSummary["sources"][number]>();
+  for (const source of sources) {
+    if (source.campaign !== DISTRIBUTION_CAMPAIGN) continue;
+    const key = [source.source, source.medium, source.content].join("\u0000");
+    const metric = metrics.get(key) ?? {
+      ...source,
+      article50: 0,
+      article50Rate: null,
+      articleEnd: 0,
+      landing: 0,
+      navigationClick: 0,
+      referrerHost: "",
+      updatesClick: 0,
+      qualifiedReadRate: null,
+      updatesGuideRate: null
+    };
+    metric.article50 += source.article50;
+    metric.articleEnd += source.articleEnd;
+    metric.landing += source.landing;
+    metric.navigationClick += source.navigationClick;
+    metric.updatesClick += source.updatesClick;
+    metrics.set(key, metric);
+  }
+  return [...metrics.values()].map((metric) => ({
+    ...metric,
+    article50Rate: distributionRate(metric.article50, metric.landing),
+    qualifiedReadRate: distributionRate(metric.articleEnd, metric.landing),
+    updatesGuideRate: distributionRate(metric.updatesClick, metric.articleEnd)
+  })).sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
+}
+
+export function AnalyticsDistribution({
+  articles,
+  sources
+}: {
+  articles: CmsAnalyticsSummary["articles"];
+  sources: CmsAnalyticsSummary["sources"];
+}) {
+  const articleTitles = new Map<string, string>();
+  for (const article of articles) {
+    if (!articleTitles.has(article.slug)) articleTitles.set(article.slug, article.title);
+  }
+  const distributionSources = aggregateDistributionSources(sources);
+
+  return (
+    <section className="studio-analytics__section" aria-labelledby="studio-analytics-distribution-heading">
+      <div className="studio-analytics__section-heading">
+        <div><p className="studio-library__eyebrow">外部配信</p><h2 id="studio-analytics-distribution-heading">配信元ごとに、どの記事が読まれたか</h2></div>
+      </div>
+      <p>Studioで作った配信用リンクだけを、配信元・方法・記事で比較します。率は匿名イベント数の比で、読者単位の転換率ではありません。</p>
+      {distributionSources.length === 0 ? (
+        <p>この期間の配信用リンクからの到達はまだありません。公開済み記事の編集画面でリンクを作り、配信後に確認してください。</p>
+      ) : (
+        <div className="studio-analytics__table-wrap">
+          <table>
+            <caption className="sr-only">配信元、配信方法、記事ごとの到達、50%到達、読了、次記事移動、更新案内</caption>
+            <thead><tr><th scope="col">配信元</th><th scope="col">配信方法</th><th scope="col">記事</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">更新案内率</th></tr></thead>
+            <tbody>{distributionSources.map((source) => {
+              const articleTitle = articleTitles.get(source.content);
+              return (
+                <tr key={`${source.source}\u0000${source.medium}\u0000${source.content}\u0000${source.referrerHost}`}>
+                  <th scope="row">{source.source || "—"}</th>
+                  <td>{distributionMediumLabel(source.medium)}</td>
+                  <td className="studio-analytics__article-cell">
+                    {articleTitle ? <><strong>{articleTitle}</strong><small>{source.content}</small></> : (source.content || "—")}
+                  </td>
+                  <td>{source.landing}</td><td>{formatPercent(source.article50Rate)}</td>
+                  <td>{formatPercent(source.qualifiedReadRate)}</td><td>{source.navigationClick}</td><td>{formatPercent(source.updatesGuideRate)}</td>
+                </tr>
+              );
+            })}</tbody>
           </table>
         </div>
       )}
@@ -420,6 +510,11 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
             <AnalyticsAcquisition
               channels={state.summary.acquisitionChannels}
               organicArticles={state.summary.organicSearchArticles}
+            />
+
+            <AnalyticsDistribution
+              articles={state.summary.articles}
+              sources={state.summary.sources}
             />
 
             <section className="studio-analytics__section" aria-labelledby="studio-analytics-articles-heading">
