@@ -5,20 +5,29 @@ import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { sortArticlesByDate } from "../../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../../lib/cms-publications";
+import { collectionPageJsonLd } from "../../lib/seo";
 
 const [articleResults, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const articles = sortArticlesByDate(articleResults);
 const articleSeries = new Map(seriesList.flatMap((series) => series.items.map((article) => [article.slug, series.slug] as const)));
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
 const suggestions = [...new Set([...articles.map((article) => article.title), ...tags])];
+const title = "AI駆動開発・ローカルLLMの記事を探す | Noema";
+const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・概要・シリーズ・テーマ・タグから探せます。";
+const jsonLd = collectionPageJsonLd({
+  description,
+  items: articles.map((article) => ({ name: article.title, pathname: article.href })),
+  name: "記事を読む",
+  pathname: "/articles",
+}, Astro.site);
 ---
 
-<BaseLayout title="記事を読む | Noema" description="気になる言葉やテーマから、Noemaの記事を探せます。">
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <div class="noema-container listing-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "記事を読む" }]} />
     <header class="page-heading">
       <h1>記事を読む</h1>
-      <p>気になる言葉やテーマから記事を探せます。</p>
+      <p>AI駆動開発やローカルLLMなど、気になる言葉やテーマから記事を探せます。</p>
     </header>
 
     <form id="search" class="article-search" role="search">
