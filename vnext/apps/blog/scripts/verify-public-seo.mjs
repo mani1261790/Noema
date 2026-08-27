@@ -70,7 +70,9 @@ export function inspectSeoDocument(html, canonicalUrl) {
     }
   }
   const schemaTypes = new Set();
+  const websites = [];
   for (const value of jsonLd) collectSchemaTypes(value, schemaTypes);
+  for (const value of jsonLd) collectSchemaNodes(value, "WebSite", websites);
 
   return {
     canonical: canonicalLinks[0]?.attributes.href ?? "",
@@ -98,6 +100,7 @@ export function inspectSeoDocument(html, canonicalUrl) {
       image: meta.get("twitter:image") ?? "",
       title: meta.get("twitter:title") ?? "",
     },
+    websites,
   };
 }
 
@@ -144,6 +147,19 @@ export function validateSeoDocument(document, canonicalUrl) {
   if (document.jsonLdCount === 0) errors.push("JSON-LD is missing.");
   for (const schemaType of requiredSchemaTypes(pathname)) {
     if (!document.schemaTypes.has(schemaType)) errors.push(`JSON-LD type ${schemaType} is missing.`);
+  }
+  if (pathname === "/") {
+    const website = document.websites.find((candidate) => candidate.url === `${CANONICAL_ORIGIN}/`)
+      ?? document.websites[0];
+    if (website) {
+      if (website.name !== "Noema") errors.push(`WebSite name is ${website.name || "empty"}.`);
+      const alternateNames = Array.isArray(website.alternateName)
+        ? website.alternateName
+        : [website.alternateName];
+      if (!alternateNames.includes("noema-learn.uk")) {
+        errors.push("WebSite alternateName must include noema-learn.uk.");
+      }
+    }
   }
   return errors;
 }
@@ -229,6 +245,17 @@ function collectSchemaTypes(value, types) {
   if (typeof schemaType === "string") types.add(schemaType);
   if (Array.isArray(schemaType)) for (const item of schemaType) if (typeof item === "string") types.add(item);
   for (const item of Object.values(value)) collectSchemaTypes(item, types);
+}
+
+function collectSchemaNodes(value, type, nodes) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectSchemaNodes(item, type, nodes);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const schemaTypes = Array.isArray(value["@type"]) ? value["@type"] : [value["@type"]];
+  if (schemaTypes.includes(type)) nodes.push(value);
+  for (const item of Object.values(value)) collectSchemaNodes(item, type, nodes);
 }
 
 function requiredSchemaTypes(pathname) {
