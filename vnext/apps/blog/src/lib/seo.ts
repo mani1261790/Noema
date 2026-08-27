@@ -20,6 +20,16 @@ export interface ArticleStructuredDataInput {
   updatedAt: string;
 }
 
+export interface CollectionPageStructuredDataInput {
+  description: string;
+  items: ReadonlyArray<{
+    name: string;
+    pathname: string;
+  }>;
+  name: string;
+  pathname: string;
+}
+
 const fallbackSite = new URL("https://noema-learn.uk");
 const organizationLogoPath = "/images/brand/noema-logo-512.png";
 
@@ -104,6 +114,30 @@ export function articleJsonLd(
       "@type": "WebSite",
       name: "Noema",
       url: siteUrl,
+    },
+  };
+}
+
+export function collectionPageJsonLd(
+  collection: CollectionPageStructuredDataInput,
+  site: URL = fallbackSite,
+): JsonLd {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: collection.name,
+    description: collection.description,
+    url: canonicalUrl(collection.pathname, site).toString(),
+    inLanguage: "ja",
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: collection.items.length,
+      itemListElement: collection.items.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        url: canonicalUrl(item.pathname, site).toString(),
+      })),
     },
   };
 }
