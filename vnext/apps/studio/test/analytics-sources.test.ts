@@ -1,11 +1,14 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CMS_GOOGLE_SEARCH_CONSOLE_URL } from "@noema/cms";
+import {
+  CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_URL
+} from "@noema/cms";
 import { AnalyticsSources } from "../src/CmsAnalyticsDashboard";
 
 describe("AnalyticsSources", () => {
-  it("distinguishes integrated, external, and unavailable sources", () => {
+  it("distinguishes integrated and external sources with source-specific links", () => {
     const html = renderToStaticMarkup(createElement(AnalyticsSources, {
       sources: [
         {
@@ -14,25 +17,28 @@ describe("AnalyticsSources", () => {
           status: "active"
         },
         {
+          accessUrl: CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+          id: "cloudflare_web_analytics",
+          role: "Core Web Vitals",
+          status: "external"
+        },
+        {
           accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
           id: "google_search_console",
           role: "検索パフォーマンス",
           status: "external"
-        },
-        {
-          id: "cloudflare_web_analytics",
-          role: "Core Web Vitals",
-          status: "not_configured"
         }
       ]
     }));
 
     expect(html).toContain("接続中");
     expect(html).toContain("外部で確認");
-    expect(html).toContain("未接続");
+    expect(html).not.toContain("未接続");
+    expect(html).toContain(`href="${CMS_CLOUDFLARE_WEB_ANALYTICS_URL.replaceAll("&", "&amp;")}"`);
     expect(html).toContain(`href="${CMS_GOOGLE_SEARCH_CONSOLE_URL.replaceAll("&", "&amp;")}"`);
+    expect(html).toContain("Web Analyticsで確認");
     expect(html).toContain("Search Consoleで確認");
     expect(html).toContain("（新しいタブ）");
-    expect(html.match(/target="_blank"/gu)).toHaveLength(1);
+    expect(html.match(/target="_blank"/gu)).toHaveLength(2);
   });
 });

@@ -3,6 +3,7 @@ import {
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_METRIC_CATALOG_VERSION,
   CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
+  CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
   canCms,
   type CmsAnalyticsArticleMetric,
@@ -647,9 +648,10 @@ function analyticsHealth(options: {
         status: "active"
       },
       {
+        accessUrl: CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
         id: "cloudflare_web_analytics",
-        role: "実利用環境、ページ表示、Core Web Vitals",
-        status: "not_configured"
+        role: "実利用環境、ページ表示、Core Web VitalsをCloudflareで確認",
+        status: "external"
       },
       {
         accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,

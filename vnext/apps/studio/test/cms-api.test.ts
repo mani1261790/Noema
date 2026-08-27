@@ -7,6 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
+  CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
   type CmsArticleDetail,
   type CmsMember,
@@ -208,6 +209,10 @@ describe("CMS HTTP API", () => {
         reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
       },
       sources: expect.arrayContaining([expect.objectContaining({
+        accessUrl: CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+        id: "cloudflare_web_analytics",
+        status: "external"
+      }), expect.objectContaining({
         accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
         id: "google_search_console",
         status: "external"
