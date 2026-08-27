@@ -219,6 +219,7 @@ describe("Studio MCP tools", () => {
     expect(result.structuredContent).toMatchObject({
       summary: {
         articles: [{ landing: 4, revisionNumber: 2, slug: "analytics-foundation" }],
+        comparison: { status: "collecting", totals: null },
         range: { days: 7 },
         totals: { landing: 4 }
       }

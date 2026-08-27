@@ -245,6 +245,24 @@ export interface CmsAnalyticsCounts {
   share: number;
 }
 
+export interface CmsAnalyticsTotals extends CmsAnalyticsCounts {
+  article50Rate: number | null;
+  assistantSuccessRate: number | null;
+  assistantUseRate: number | null;
+  onwardRate: number | null;
+  qualifiedReadRate: number | null;
+}
+
+export interface CmsAnalyticsComparison {
+  availableOn: string;
+  range: {
+    from: string;
+    through: string;
+  };
+  status: "available" | "collecting";
+  totals: CmsAnalyticsTotals | null;
+}
+
 export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
   articleId: string;
   article50Rate: number | null;
@@ -290,6 +308,7 @@ export interface CmsAnalyticsDailyMetric {
 
 export interface CmsAnalyticsSummary {
   articles: CmsAnalyticsArticleMetric[];
+  comparison: CmsAnalyticsComparison;
   daily: CmsAnalyticsDailyMetric[];
   entries: CmsAnalyticsEntryMetric[];
   health: CmsAnalyticsHealth;
@@ -299,11 +318,5 @@ export interface CmsAnalyticsSummary {
     through: string;
   };
   sources: CmsAnalyticsSourceMetric[];
-  totals: CmsAnalyticsCounts & {
-    article50Rate: number | null;
-    assistantSuccessRate: number | null;
-    assistantUseRate: number | null;
-    onwardRate: number | null;
-    qualifiedReadRate: number | null;
-  };
+  totals: CmsAnalyticsTotals;
 }
