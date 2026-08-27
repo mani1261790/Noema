@@ -4,6 +4,7 @@ import {
   breadcrumbJsonLd,
   canonicalPathname,
   canonicalUrl,
+  collectionPageJsonLd,
   organizationJsonLd,
   serializeJsonLd,
   serializeSitemap,
@@ -78,6 +79,43 @@ describe("SEO helpers", () => {
           width: 512,
         },
       },
+    });
+  });
+
+  it("describes a collection page with an ordered list of canonical items", () => {
+    expect(collectionPageJsonLd({
+      description: "記事をテーマから探せます。",
+      items: [
+        { name: "最初の記事", pathname: "/articles/first/" },
+        { name: "次の記事", pathname: "/articles/next" },
+      ],
+      name: "記事を読む",
+      pathname: "/articles/",
+    })).toEqual({
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      description: "記事をテーマから探せます。",
+      inLanguage: "ja",
+      mainEntity: {
+        "@type": "ItemList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            name: "最初の記事",
+            position: 1,
+            url: "https://noema-learn.uk/articles/first",
+          },
+          {
+            "@type": "ListItem",
+            name: "次の記事",
+            position: 2,
+            url: "https://noema-learn.uk/articles/next",
+          },
+        ],
+        numberOfItems: 2,
+      },
+      name: "記事を読む",
+      url: "https://noema-learn.uk/articles",
     });
   });
 
