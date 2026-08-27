@@ -116,6 +116,10 @@ describe("CMS HTTP API", () => {
         onwardRate: number;
         qualifiedReadRate: number;
       }>;
+      comparison: {
+        status: string;
+        totals: null | { article50Rate: number };
+      };
       entries: Array<{
         article50Rate: number;
         entryKind: string;
@@ -168,7 +172,101 @@ describe("CMS HTTP API", () => {
       qualifiedReadRate: 0.5
     }));
     expect(body.summary.sources).toHaveLength(1);
+    expect(body.summary.comparison).toMatchObject({ status: "collecting", totals: null });
     expect((body.summary as { health?: { status: string } }).health?.status).toBe("collecting");
+  });
+
+  it("compares KPIs only after the previous equal-length period has full coverage", async () => {
+    const through = new Date("2026-08-27T12:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(through);
+    try {
+      await bootstrapAdmin();
+      const { article } = await createArticle("analytics-comparison");
+      const currentDate = through.toISOString().slice(0, 10);
+      const previousDate = new Date(through);
+      previousDate.setUTCDate(previousDate.getUTCDate() - 7);
+      const previousDateValue = previousDate.toISOString().slice(0, 10);
+      const comparisonFrom = new Date(through);
+      comparisonFrom.setUTCDate(comparisonFrom.getUTCDate() - 13);
+      const comparisonFromValue = comparisonFrom.toISOString().slice(0, 10);
+      const insert = testEnv.CMS_DB.prepare(
+        `INSERT INTO cms_analytics_daily (
+           event_date, article_id, article_slug, revision_number, event_type,
+           navigation_kind, event_count, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+      );
+      const rows = [
+        [currentDate, "landing", "", 8],
+        [currentDate, "article_50", "", 4],
+        [currentDate, "article_end", "", 2],
+        [currentDate, "navigation_click", "related", 1],
+        [currentDate, "assistant_open", "", 2],
+        [currentDate, "assistant_success", "", 1],
+        [previousDateValue, "landing", "", 4],
+        [previousDateValue, "article_50", "", 1],
+        [previousDateValue, "article_end", "", 1],
+        [previousDateValue, "navigation_click", "series_next", 1],
+        [previousDateValue, "assistant_open", "", 1]
+      ] as const;
+      await testEnv.CMS_DB.batch(rows.map(([date, eventType, navigationKind, count]) => (
+        insert.bind(
+          date,
+          article.id,
+          article.slug,
+          article.revisionNumber,
+          eventType,
+          navigationKind,
+          count,
+          `${date}T01:00:00.000Z`
+        )
+      )));
+      await testEnv.CMS_DB.prepare(
+        "UPDATE cms_analytics_pipeline_state SET state_value = ?1, updated_at = datetime('now') WHERE state_key = 'raw_coverage_complete_from'"
+      ).bind(comparisonFromValue).run();
+
+      const response = await handleCmsApiRequest(
+        cmsRequest("/api/cms/analytics/summary?days=7"),
+        cmsEnv(),
+        ADMIN
+      );
+      const body = (await response.json()) as {
+        summary: {
+          comparison: {
+            availableOn: string;
+            range: { from: string; through: string };
+            status: string;
+            totals: {
+              article50Rate: number;
+              assistantSuccessRate: number;
+              assistantUseRate: number;
+              landing: number;
+              onwardRate: number;
+              qualifiedReadRate: number;
+            };
+          };
+          totals: { article50Rate: number; landing: number };
+        };
+      };
+
+      expect(response.status).toBe(200);
+      expect(body.summary.totals).toMatchObject({ article50Rate: 0.5, landing: 8 });
+      expect(body.summary.comparison).toEqual(expect.objectContaining({
+        availableOn: currentDate,
+        range: { from: comparisonFromValue, through: previousDateValue },
+        status: "available",
+        totals: expect.objectContaining({
+          article50Rate: 0.25,
+          assistantSuccessRate: 0,
+          assistantUseRate: 0.25,
+          landing: 4,
+          onwardRate: 1,
+          qualifiedReadRate: 0.25
+        })
+      }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("rejects unsupported analytics ranges", async () => {

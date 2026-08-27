@@ -9,6 +9,7 @@ import {
   rebuildCmsAnalyticsMart,
   type CmsClientError
 } from "./cms-client";
+import { describeRateComparison } from "./analytics-period-comparison";
 import type { CmsLibraryConnection } from "./CmsArticleLibrary";
 
 interface CmsAnalyticsDashboardProps {
@@ -209,12 +210,45 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
               ) : null}
             </section>
 
-            <section className="studio-analytics__kpis" aria-label="主要指標">
-              <article><span>50%到達率</span><strong>{formatPercent(state.summary.totals.article50Rate)}</strong><small>{state.summary.totals.article50} / {state.summary.totals.landing}表示</small></article>
-              <article><span>読了率</span><strong>{formatPercent(state.summary.totals.qualifiedReadRate)}</strong><small>本文末尾到達 ÷ 記事への到達</small></article>
-              <article><span>次記事移動率</span><strong>{formatPercent(state.summary.totals.onwardRate)}</strong><small>シリーズ・関連記事クリック ÷ 読了</small></article>
-              <article><span>アシスタント利用率</span><strong>{formatPercent(state.summary.totals.assistantUseRate)}</strong><small>{state.summary.totals.assistantOpen}開始 ÷ {state.summary.totals.landing}表示</small></article>
-              <article><span>アシスタント成功率</span><strong>{formatPercent(state.summary.totals.assistantSuccessRate)}</strong><small>回答成功 ÷ 質問開始</small></article>
+            <section className="studio-analytics__kpi-summary" aria-labelledby="studio-analytics-kpis-heading">
+              <div className="studio-analytics__kpi-heading">
+                <div>
+                  <p className="studio-library__eyebrow">主要指標</p>
+                  <h2 id="studio-analytics-kpis-heading">直前の同期間と比べる</h2>
+                </div>
+                <p className={`studio-analytics__comparison-note is-${state.summary.comparison.status}`}>
+                  {state.summary.comparison.status === "available"
+                    ? `${state.summary.comparison.range.from}〜${state.summary.comparison.range.through}と比較しています。率の差はパーセントポイントです。`
+                    : `比較可能日は${state.summary.comparison.availableOn}です。計測開始前を0として扱わないため、必要な日数が揃うまで増減は表示しません。`}
+                </p>
+              </div>
+              <div className="studio-analytics__kpis">
+                <article>
+                  <span>50%到達率</span><strong>{formatPercent(state.summary.totals.article50Rate)}</strong>
+                  <small className="studio-analytics__comparison">{describeRateComparison(state.summary.totals.article50Rate, state.summary.comparison.totals?.article50Rate ?? null, days)}</small>
+                  <small>{state.summary.totals.article50} / {state.summary.totals.landing}表示</small>
+                </article>
+                <article>
+                  <span>読了率</span><strong>{formatPercent(state.summary.totals.qualifiedReadRate)}</strong>
+                  <small className="studio-analytics__comparison">{describeRateComparison(state.summary.totals.qualifiedReadRate, state.summary.comparison.totals?.qualifiedReadRate ?? null, days)}</small>
+                  <small>本文末尾到達 ÷ 記事への到達</small>
+                </article>
+                <article>
+                  <span>次記事移動率</span><strong>{formatPercent(state.summary.totals.onwardRate)}</strong>
+                  <small className="studio-analytics__comparison">{describeRateComparison(state.summary.totals.onwardRate, state.summary.comparison.totals?.onwardRate ?? null, days)}</small>
+                  <small>シリーズ・関連記事クリック ÷ 読了</small>
+                </article>
+                <article>
+                  <span>アシスタント利用率</span><strong>{formatPercent(state.summary.totals.assistantUseRate)}</strong>
+                  <small className="studio-analytics__comparison">{describeRateComparison(state.summary.totals.assistantUseRate, state.summary.comparison.totals?.assistantUseRate ?? null, days)}</small>
+                  <small>{state.summary.totals.assistantOpen}開始 ÷ {state.summary.totals.landing}表示</small>
+                </article>
+                <article>
+                  <span>アシスタント成功率</span><strong>{formatPercent(state.summary.totals.assistantSuccessRate)}</strong>
+                  <small className="studio-analytics__comparison">{describeRateComparison(state.summary.totals.assistantSuccessRate, state.summary.comparison.totals?.assistantSuccessRate ?? null, days)}</small>
+                  <small>回答成功 ÷ 質問開始</small>
+                </article>
+              </div>
             </section>
 
             <section className="studio-analytics__section" aria-labelledby="studio-analytics-articles-heading">

@@ -11,6 +11,7 @@ import {
   cmsVisibilitySchema,
   type CmsArticleAction,
   type CmsAnalyticsArticleMetric,
+  type CmsAnalyticsComparison,
   type CmsAnalyticsCounts,
   type CmsAnalyticsDailyMetric,
   type CmsAnalyticsDays,
@@ -20,6 +21,7 @@ import {
   type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
   type CmsAnalyticsSummary,
+  type CmsAnalyticsTotals,
   type CmsArticleDetail,
   type CmsArticleSummary,
   type CmsArticleVersionDetail,
@@ -1099,6 +1101,49 @@ function isNullableRate(value: unknown): value is number | null {
   );
 }
 
+function parseCmsAnalyticsTotals(value: unknown): CmsAnalyticsTotals | null {
+  const counts = parseAnalyticsCounts(value);
+  if (
+    !counts ||
+    !isRecord(value) ||
+    !isNullableRate(value.article50Rate) ||
+    !isNullableRate(value.assistantSuccessRate) ||
+    !isNullableRate(value.assistantUseRate) ||
+    !isNullableRate(value.onwardRate) ||
+    !isNullableRate(value.qualifiedReadRate)
+  ) return null;
+  return {
+    ...counts,
+    article50Rate: value.article50Rate,
+    assistantSuccessRate: value.assistantSuccessRate,
+    assistantUseRate: value.assistantUseRate,
+    onwardRate: value.onwardRate,
+    qualifiedReadRate: value.qualifiedReadRate
+  };
+}
+
+function parseCmsAnalyticsComparison(value: unknown): CmsAnalyticsComparison | null {
+  if (
+    !isRecord(value) ||
+    !isString(value.availableOn) ||
+    !isRecord(value.range) ||
+    !isString(value.range.from) ||
+    !isString(value.range.through) ||
+    !(value.status === "available" || value.status === "collecting")
+  ) return null;
+  const totals = value.totals === null ? null : parseCmsAnalyticsTotals(value.totals);
+  if (
+    (value.status === "available" && !totals) ||
+    (value.status === "collecting" && value.totals !== null)
+  ) return null;
+  return {
+    availableOn: value.availableOn,
+    range: { from: value.range.from, through: value.range.through },
+    status: value.status,
+    totals
+  };
+}
+
 function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | null {
   const counts = parseAnalyticsCounts(value);
   if (
@@ -1270,6 +1315,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   if (
     !isRecord(value) ||
     !Array.isArray(value.articles) ||
+    !isRecord(value.comparison) ||
     !Array.isArray(value.daily) ||
     !Array.isArray(value.entries) ||
     !isRecord(value.health) ||
@@ -1278,43 +1324,34 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !isRecord(value.totals)
   ) return null;
   const articles = value.articles.map(parseCmsAnalyticsArticle);
+  const comparison = parseCmsAnalyticsComparison(value.comparison);
   const daily = value.daily.map(parseCmsAnalyticsDaily);
   const entries = value.entries.map(parseCmsAnalyticsEntry);
   const sources = value.sources.map(parseCmsAnalyticsSource);
   const health = parseCmsAnalyticsHealth(value.health);
-  const counts = parseAnalyticsCounts(value.totals);
+  const totals = parseCmsAnalyticsTotals(value.totals);
   const days = value.range.days;
   if (
     !articles.every((item): item is CmsAnalyticsArticleMetric => item !== null) ||
+    !comparison ||
     !daily.every((item): item is CmsAnalyticsDailyMetric => item !== null) ||
     !entries.every((item): item is CmsAnalyticsEntryMetric => item !== null) ||
     !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
     !health ||
-    !counts ||
+    !totals ||
     !(days === 7 || days === 30 || days === 90) ||
     !isString(value.range.from) ||
-    !isString(value.range.through) ||
-    !isNullableRate(value.totals.article50Rate) ||
-    !isNullableRate(value.totals.assistantSuccessRate) ||
-    !isNullableRate(value.totals.assistantUseRate) ||
-    !isNullableRate(value.totals.onwardRate) ||
-    !isNullableRate(value.totals.qualifiedReadRate)
+    !isString(value.range.through)
   ) return null;
   return {
     articles,
+    comparison,
     daily,
     entries,
     health,
     range: { days, from: value.range.from, through: value.range.through },
     sources,
-    totals: {
-      ...counts,
-      article50Rate: value.totals.article50Rate,
-      assistantSuccessRate: value.totals.assistantSuccessRate,
-      assistantUseRate: value.totals.assistantUseRate,
-      onwardRate: value.totals.onwardRate,
-      qualifiedReadRate: value.totals.qualifiedReadRate
-    }
+    totals
   };
 }
 

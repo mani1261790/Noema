@@ -2720,11 +2720,41 @@ a {
   font-size: calc(14 / 16 * 1rem);
 }
 
+.studio-analytics__kpi-summary {
+  margin-top: 2rem;
+}
+
+.studio-analytics__kpi-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.studio-analytics__kpi-heading h2 {
+  margin: 0;
+  font-size: calc(24 / 16 * 1rem);
+}
+
+.studio-analytics__comparison-note {
+  max-width: 42rem;
+  margin: 0;
+  color: #444;
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.55;
+}
+
+.studio-analytics__comparison-note.is-collecting {
+  padding: .65rem .8rem;
+  background: #f2f2f2;
+  border-left: 4px solid #767676;
+}
+
 .studio-analytics__kpis {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
-  margin-top: 2rem;
+  margin-top: 1rem;
 }
 
 .studio-analytics__kpis article {
@@ -2752,6 +2782,13 @@ a {
 .studio-analytics__privacy {
   color: #555;
   line-height: 1.55;
+}
+
+.studio-analytics__kpis .studio-analytics__comparison {
+  padding-top: .6rem;
+  color: #1a1a1a;
+  border-top: 1px solid #d0d0d0;
+  font-weight: 700;
 }
 
 .studio-analytics__section,
@@ -4528,6 +4565,7 @@ textarea.studio-control {
 
 @media (max-width: 640px) {
   .studio-analytics__heading,
+  .studio-analytics__kpi-heading,
   .studio-analytics__section-heading {
     display: grid;
     align-items: stretch;
