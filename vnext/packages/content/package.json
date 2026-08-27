@@ -9,7 +9,8 @@
     "./article-markdown": "./src/article-markdown.ts",
     "./article-renderer": "./src/article-renderer.ts",
     "./article-presentation": "./src/article-presentation.ts",
-    "./image-metadata": "./src/image-metadata.ts"
+    "./image-metadata": "./src/image-metadata.ts",
+    "./indexnow": "./src/indexnow.ts"
   },
   "scripts": {
     "test": "vitest run"
