@@ -3,15 +3,26 @@ import { topicLabels } from "@noema/content";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { buildArticleSearchText } from "../../lib/article-search";
 import { sortArticlesByDate } from "../../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../../lib/cms-publications";
 import { collectionPageJsonLd } from "../../lib/seo";
+import { listActiveTopics } from "../../lib/topics";
 
 const [articleResults, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const articles = sortArticlesByDate(articleResults);
-const articleSeries = new Map(seriesList.flatMap((series) => series.items.map((article) => [article.slug, series.slug] as const)));
+const articleSeries = new Map(seriesList.flatMap((series) => series.items.map((article) => [article.slug, {
+  slug: series.slug,
+  title: series.title,
+}] as const)));
+const activeTopics = listActiveTopics(articles);
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
-const suggestions = [...new Set([...articles.map((article) => article.title), ...tags])];
+const suggestions = [...new Set([
+  ...articles.map((article) => article.title),
+  ...seriesList.map((series) => series.title),
+  ...activeTopics.map((topic) => topic.label),
+  ...tags,
+])];
 const title = "AI駆動開発・ローカルLLMの記事を探す | Noema";
 const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・概要・シリーズ・テーマ・タグから探せます。";
 const jsonLd = collectionPageJsonLd({
@@ -44,7 +55,7 @@ const jsonLd = collectionPageJsonLd({
         </datalist>
         <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">検索</button>
       </div>
-      <p id="article-search-support" class="article-search__support">タイトル、概要、タグから検索できます。</p>
+      <p id="article-search-support" class="article-search__support">タイトル、概要、シリーズ、テーマ、タグから検索できます。</p>
       <details class="article-search__detail dads-disclosure" data-filter-details>
         <summary class="dads-disclosure__summary">
           <svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
@@ -67,7 +78,7 @@ const jsonLd = collectionPageJsonLd({
               <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
               <select id="article-topic" name="topic">
                 <option value="">すべてのテーマ</option>
-                {Object.entries(topicLabels).map(([slug, label]) => <option value={slug}>{label}</option>)}
+                {activeTopics.map((topic) => <option value={topic.slug}>{topic.label}（{topic.articleCount}）</option>)}
               </select>
             </div>
             <div class="dads-form-control-label" data-size="md">
@@ -92,17 +103,27 @@ const jsonLd = collectionPageJsonLd({
     </div>
     <p class="article-count" data-article-count role="status" aria-live="polite" tabindex="-1">{articles.length}件の記事</p>
     <div class="article-list" data-article-list>
-      {articles.map((article) => (
-        <div
-          data-article-item
-          data-title={`${article.title} ${article.description} ${article.tags.join(" ")}`}
-          data-series={articleSeries.get(article.slug) ?? ""}
-          data-topic={article.topics.join(" ")}
-          data-tags={article.tags.join("\n")}
-        >
-          <ArticleRow article={article} />
-        </div>
-      ))}
+      {articles.map((article) => {
+        const memberSeries = articleSeries.get(article.slug);
+        return (
+          <div
+            data-article-item
+            data-search-text={buildArticleSearchText({
+              description: article.description,
+              excerpt: article.excerpt,
+              seriesTitle: memberSeries?.title,
+              tags: article.tags,
+              title: article.title,
+              topicLabels: article.topics.map((topic) => topicLabels[topic]),
+            })}
+            data-series={memberSeries?.slug ?? ""}
+            data-topic={article.topics.join(" ")}
+            data-tags={article.tags.join("\n")}
+          >
+            <ArticleRow article={article} />
+          </div>
+        );
+      })}
     </div>
     <nav class="article-pagination" data-pagination aria-label="記事一覧のページ" hidden>
       <button type="button" data-page-previous>前のページ</button>
@@ -117,6 +138,8 @@ const jsonLd = collectionPageJsonLd({
 </BaseLayout>
 
 <script>
+  import { normalizeArticleSearchText } from "../../lib/article-search";
+
   const form = document.querySelector<HTMLFormElement>(".article-search");
   const keyword = document.querySelector<HTMLInputElement>("#article-keyword");
   const topic = document.querySelector<HTMLSelectElement>("#article-topic");
@@ -137,12 +160,12 @@ const jsonLd = collectionPageJsonLd({
   let currentPage = 1;
 
   const applyFilters = (updateUrl = true) => {
-    const query = keyword?.value.trim().toLocaleLowerCase("ja") ?? "";
+    const query = normalizeArticleSearchText(keyword?.value ?? "");
     const selectedTopic = topic?.value ?? "";
     const selectedSeries = series?.value ?? "";
     const selectedTag = tag?.value ?? "";
     const filteredItems = items.filter((item) => {
-      const matchesText = !query || (item.dataset.title ?? "").toLocaleLowerCase("ja").includes(query);
+      const matchesText = !query || (item.dataset.searchText ?? "").includes(query);
       const matchesTopic = !selectedTopic || (item.dataset.topic ?? "").split(" ").includes(selectedTopic);
       const matchesSeries = !selectedSeries || item.dataset.series === selectedSeries;
       const matchesTag = !selectedTag || (item.dataset.tags ?? "").split("\n").includes(selectedTag);
