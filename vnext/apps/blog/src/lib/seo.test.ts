@@ -6,6 +6,7 @@ import {
   canonicalUrl,
   collectionPageJsonLd,
   organizationJsonLd,
+  resolveOpenGraphImageDimensions,
   serializeJsonLd,
   serializeSitemap,
 } from "./seo";
@@ -56,7 +57,11 @@ describe("SEO helpers", () => {
       authors: [{ name: "編集者", url: "/editors/example/" }],
       description: "記事の説明",
       headline: "記事タイトル",
-      image: "/media/articles/example.webp",
+      image: {
+        height: 675,
+        src: "/media/articles/example.webp",
+        width: 1200,
+      },
       pathname: "/articles/example/",
       publishedAt: "2026-08-20T01:02:03.000Z",
       updatedAt: "2026-08-26T04:05:06.000Z",
@@ -69,7 +74,13 @@ describe("SEO helpers", () => {
       }],
       dateModified: "2026-08-26T04:05:06.000Z",
       datePublished: "2026-08-20T01:02:03.000Z",
-      image: ["https://noema-learn.uk/media/articles/example.webp"],
+      image: [{
+        "@type": "ImageObject",
+        contentUrl: "https://noema-learn.uk/media/articles/example.webp",
+        height: 675,
+        url: "https://noema-learn.uk/media/articles/example.webp",
+        width: 1200,
+      }],
       mainEntityOfPage: "https://noema-learn.uk/articles/example",
       publisher: {
         logo: {
@@ -80,6 +91,40 @@ describe("SEO helpers", () => {
         },
       },
     });
+  });
+
+  it("uses known dimensions for custom Open Graph images and preserves the default image size", () => {
+    expect(resolveOpenGraphImageDimensions({ hasCustomImage: false })).toEqual({
+      height: 630,
+      width: 1200,
+    });
+    expect(resolveOpenGraphImageDimensions({
+      hasCustomImage: true,
+      height: 900,
+      width: 1600,
+    })).toEqual({ height: 900, width: 1600 });
+    expect(resolveOpenGraphImageDimensions({
+      hasCustomImage: true,
+      width: 1600,
+    })).toBeNull();
+  });
+
+  it("keeps URL-only article images compatible when dimensions are unavailable", () => {
+    const jsonLd = articleJsonLd({
+      authors: [{ name: "編集者" }],
+      description: "記事の説明",
+      headline: "記事タイトル",
+      image: {
+        src: "/media/articles/example.webp",
+      },
+      pathname: "/articles/example/",
+      publishedAt: "2026-08-20T01:02:03.000Z",
+      updatedAt: "2026-08-26T04:05:06.000Z",
+    });
+
+    expect(jsonLd.image).toEqual([
+      "https://noema-learn.uk/media/articles/example.webp",
+    ]);
   });
 
   it("describes a collection page with an ordered list of canonical items", () => {

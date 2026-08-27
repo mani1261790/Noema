@@ -4,7 +4,12 @@ import "../styles/blog.css";
 import "@noema/ui/article-styles";
 import SiteFooter from "../components/SiteFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
-import { canonicalUrl, serializeJsonLd, type JsonLd } from "../lib/seo";
+import {
+  canonicalUrl,
+  resolveOpenGraphImageDimensions,
+  serializeJsonLd,
+  type JsonLd,
+} from "../lib/seo";
 
 interface Props {
   title?: string;
@@ -12,6 +17,8 @@ interface Props {
   noindex?: boolean;
   image?: string;
   imageAlt?: string;
+  imageHeight?: number;
+  imageWidth?: number;
   pageType?: "website" | "article";
   publishedAt?: string;
   updatedAt?: string;
@@ -34,6 +41,11 @@ const {
 } = Astro.props;
 const canonical = canonicalUrl(Astro.url.pathname, Astro.site);
 const ogImage = new URL(image, Astro.site ?? "https://noema-learn.uk");
+const ogImageDimensions = resolveOpenGraphImageDimensions({
+  hasCustomImage,
+  height: Astro.props.imageHeight,
+  width: Astro.props.imageWidth,
+});
 const serializedJsonLd = jsonLd ? serializeJsonLd(jsonLd) : "";
 ---
 
@@ -55,8 +67,8 @@ const serializedJsonLd = jsonLd ? serializeJsonLd(jsonLd) : "";
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:alt" content={imageAlt} />
-    {!hasCustomImage && <meta property="og:image:width" content="1200" />}
-    {!hasCustomImage && <meta property="og:image:height" content="630" />}
+    {ogImageDimensions && <meta property="og:image:width" content={String(ogImageDimensions.width)} />}
+    {ogImageDimensions && <meta property="og:image:height" content={String(ogImageDimensions.height)} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
