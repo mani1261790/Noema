@@ -275,6 +275,9 @@ jobs:
             fetch_expected "${production_origin}${article_path}" 200 /dev/null
           done < /tmp/noema-cms-publication-paths.txt
 
+          node apps/blog/scripts/verify-article-image-dimensions.mjs \
+            "${production_origin}"
+
           fetch_expected "${production_origin}/privacy" 200 /dev/null
           verify_redirect "${production_origin}/privacy/" "${production_origin}/privacy"
           verify_custom_domain_boundary https://studio.noema-learn.uk/ 302
