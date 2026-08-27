@@ -28,6 +28,8 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 
 この画面が扱うのはNoema内の行動です。ページ閲覧の実利用環境とCore Web VitalsはCloudflare Web Analytics、検索表示回数・検索クリック・検索語句はGoogle Search Consoleで別に確認します。Studioは両方を「外部で確認」と表示し、CloudflareはNoemaのWeb Analytics siteへ、Search ConsoleはURLプレフィックスプロパティ`https://noema-learn.uk/`の検索実績・インデックス状況・サイトマップ・外部リンクへ直接移動できます。Cloudflare Web Analyticsは`noema-learn.uk`で有効にし、EU訪問者データを除外する設定を使います。外部sourceの値をNoemaのAPIやD1へ取り込んだり、外部sourceの事実をサイト内イベントから推測したりしません。
 
+Studioで作る配信用リンクは、campaignを`article_distribution`へ固定し、contentへ公開記事slugを入れます。分析画面はこのcampaignだけを外部配信の専用表へまとめ、配信元、方法、記事名、到達、50%到達、読了、次記事移動、更新案内を比較します。記事名は同じ期間の公開revision集計から表示し、対応する記事名が見つからない場合も保存済みのcontent値は隠しません。これは配信元と記事の組み合わせを判断する表示であり、読者単位のconversionではありません。
+
 外部流入とは別に、記事を開く直前のNoema内の入口を`home`、`article_index`、`series`、`topic`、`article`、`other_internal`へ分類します。外部referrerがある場合は`external`、referrerがない場合は`direct`です。これはホームや一覧の導線改善を比較するための列挙値であり、同一サイトの生URLや閲覧履歴は保存しません。外部流入のUTM・referrer hostを上書きせず、入口別の到達・50%到達・読了・次記事移動をStudioで別表として確認します。
 
 「次にどの記事へ進んだか」では、`navigation_click`を出発記事の公開revision、`series_next`または`related`の導線種別、移動先slugで集計します。個々のイベントを読者やセッションへ結合せず、選択期間内で件数の多い経路から最大200件を表示します。これにより、クリックされない関連記事の差し替えや、シリーズ順序の見直し対象を判断できます。200件を超えた場合は画面で切り捨てを明示します。
