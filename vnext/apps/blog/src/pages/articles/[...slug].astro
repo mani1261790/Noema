@@ -1,5 +1,5 @@
 ---
-import { extractArticleLinkReferences, topicLabels } from "@noema/content";
+import { extractArticleImageReferences, extractArticleLinkReferences, topicLabels } from "@noema/content";
 import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
@@ -8,7 +8,7 @@ import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { findRelatedArticles, toArticleSummary } from "../../lib/articles";
-import { getArticleLinkAvailability, getPublishedArticleBySlug, getPublishedArticleRedirect, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
+import { getArticleAssetDimensions, getArticleLinkAvailability, getPublishedArticleBySlug, getPublishedArticleRedirect, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
 import { renderArticlePresentation } from "@noema/content/article-presentation";
 import { articleJsonLd } from "../../lib/seo";
 
@@ -20,10 +20,13 @@ if (!article) {
   return Astro.rewrite("/404");
 }
 const articleLinkReferences = extractArticleLinkReferences(article.markdown);
-const [summaries, series, articleLinkAvailability] = await Promise.all([
+const articleImageReferences = extractArticleImageReferences(article.markdown);
+if (article.data.heroImage) articleImageReferences.push(article.data.heroImage.src);
+const [summaries, series, articleLinkAvailability, articleImageDimensions] = await Promise.all([
   listPublicArticleSummaries(),
   getPublishedSeriesByArticleSlug(slug),
-  getArticleLinkAvailability(articleLinkReferences.map((reference) => reference.slug), article.visibility)
+  getArticleLinkAvailability(articleLinkReferences.map((reference) => reference.slug), article.visibility),
+  getArticleAssetDimensions(articleImageReferences)
 ]);
 const unavailableArticleHrefs = new Set(
   articleLinkReferences
@@ -31,6 +34,7 @@ const unavailableArticleHrefs = new Set(
     .map((reference) => reference.href)
 );
 const markdownRenderer = createArticleMarkdownRenderer({
+  resolveImageDimensions: (reference) => articleImageDimensions.get(reference),
   resolveLinkAvailability: (href) => unavailableArticleHrefs.has(href) ? "unavailable" : "available"
 });
 const currentSummary = toArticleSummary(article.data);
@@ -42,6 +46,7 @@ const relatedArticles = findRelatedArticles(
 const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
   editor: article.editor ? { href: article.editor.href, name: article.editor.displayName } : null,
   markdownRenderer,
+  resolveImageDimensions: (reference) => articleImageDimensions.get(reference),
   series: series ? {
     currentIndex: series.currentIndex,
     description: series.description,

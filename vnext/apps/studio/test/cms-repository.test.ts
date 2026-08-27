@@ -132,8 +132,10 @@ describe("CMS repository", () => {
         byteSize: 2048,
         contentType: "image/png",
         id: "00000000-0000-4000-8000-000000000001",
+        height: 675,
         originalName: "editor.png",
-        r2Key: "articles/00000000-0000-4000-8000-000000000001.png"
+        r2Key: "articles/00000000-0000-4000-8000-000000000001.png",
+        width: 1200
       },
       NOW
     );
@@ -145,9 +147,11 @@ describe("CMS repository", () => {
     expect(referenced).toMatchObject({
       alt: "",
       id: asset.id,
+      height: 675,
       referenceCount: 1,
       status: "active",
-      tags: []
+      tags: [],
+      width: 1200
     });
     await expect(updateCmsAsset(
       testEnv.CMS_DB,

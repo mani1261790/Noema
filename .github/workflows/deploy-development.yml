@@ -127,3 +127,5 @@ jobs:
             fi
             sleep 5
           done
+          node apps/blog/scripts/verify-article-image-dimensions.mjs \
+            https://noema-learn.mani1261790.workers.dev
