@@ -5,6 +5,7 @@ import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { listPublicArticleSummaries } from "../../lib/cms-publications";
 import { collectionPageJsonLd } from "../../lib/seo";
+import { topicListingResponse } from "../../lib/topics";
 
 const { slug } = Astro.params;
 const topic = articleTopicSchema.safeParse(slug);
@@ -13,16 +14,20 @@ const label = topicLabels[topic.data];
 const description = topicDescriptions[topic.data];
 const allArticles = await listPublicArticleSummaries();
 const articles = allArticles.filter((article) => article.topics.includes(topic.data));
+const listingResponse = topicListingResponse(articles.length);
+Astro.response.status = listingResponse.status;
 const pathname = `/topics/${topic.data}`;
-const jsonLd = collectionPageJsonLd({
-  description,
-  items: articles.map((article) => ({ name: article.title, pathname: article.href })),
-  name: `${label}の記事`,
-  pathname,
-}, Astro.site);
+const jsonLd = listingResponse.status === 200
+  ? collectionPageJsonLd({
+      description,
+      items: articles.map((article) => ({ name: article.title, pathname: article.href })),
+      name: `${label}の記事`,
+      pathname,
+    }, Astro.site)
+  : undefined;
 ---
 
-<BaseLayout title={`${label}の記事 | Noema`} description={description} jsonLd={jsonLd}>
+<BaseLayout title={`${label}の記事 | Noema`} description={description} noindex={listingResponse.noindex} jsonLd={jsonLd}>
   <div class="noema-container listing-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "テーマから探す", href: "/#topic-heading" }, { label }]} />
     <header class="page-heading">

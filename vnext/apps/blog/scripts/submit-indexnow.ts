@@ -6,6 +6,18 @@ import {
   submitNoemaIndexNow
 } from "@noema/content/indexnow";
 
+// Redirect targets are intentionally absent from the sitemap, so submit their
+// former URL shapes separately until search results have rediscovered the 301s.
+export const legacyRedirectPaths = [
+  "/index.html",
+  "/about.html",
+  "/about/",
+  "/privacy.html",
+  "/privacy/",
+  "/terms.html",
+  "/terms/"
+] as const;
+
 function decodeXmlText(value: string): string {
   return value
     .replaceAll("&amp;", "&")
@@ -19,6 +31,13 @@ export function extractSitemapUrls(xml: string): string[] {
   return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/giu)]
     .map((match) => decodeXmlText(match[1] ?? "").trim())
     .filter(Boolean);
+}
+
+export function deploymentIndexNowUrls(xml: string): string[] {
+  return [...new Set([
+    ...extractSitemapUrls(xml),
+    ...legacyRedirectPaths.map((pathname) => new URL(pathname, NOEMA_PUBLIC_ORIGIN).toString())
+  ])];
 }
 
 export async function verifyPublishedIndexNowKey(
@@ -39,7 +58,7 @@ export async function submitPublicSitemap(
   const sitemapUrl = new URL("/sitemap.xml", sitemapOrigin);
   const sitemapResponse = await fetcher(sitemapUrl);
   if (!sitemapResponse.ok) throw new Error(`sitemap_unavailable:${sitemapResponse.status}`);
-  const urls = [...new Set(extractSitemapUrls(await sitemapResponse.text()))];
+  const urls = deploymentIndexNowUrls(await sitemapResponse.text());
   if (urls.length === 0) throw new RangeError("indexnow_urls_required");
 
   let status: 200 | 202 = 200;

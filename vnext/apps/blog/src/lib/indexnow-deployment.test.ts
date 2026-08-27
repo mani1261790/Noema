@@ -4,7 +4,9 @@ import {
   NOEMA_INDEXNOW_KEY_PATH
 } from "@noema/content/indexnow";
 import {
+  deploymentIndexNowUrls,
   extractSitemapUrls,
+  legacyRedirectPaths,
   submitPublicSitemap,
   verifyPublishedIndexNowKey
 } from "../../scripts/submit-indexnow";
@@ -18,6 +20,16 @@ describe("IndexNow deployment helper", () => {
       </urlset>`)).toEqual([
         "https://noema-learn.uk/",
         "https://noema-learn.uk/articles/?a=1&b=2"
+    ]);
+  });
+
+  it("notifies legacy public URLs so crawlers revisit their canonical redirects", () => {
+    const urls = deploymentIndexNowUrls(`<?xml version="1.0"?>
+      <urlset><url><loc>https://noema-learn.uk/</loc></url></urlset>`);
+
+    expect(urls).toEqual([
+      "https://noema-learn.uk/",
+      ...legacyRedirectPaths.map((pathname) => `https://noema-learn.uk${pathname}`)
     ]);
   });
 
@@ -43,7 +55,10 @@ describe("IndexNow deployment helper", () => {
       .mockResolvedValueOnce(new Response(null, { status: 200 }))
       .mockResolvedValueOnce(new Response(null, { status: 202 }));
 
-    await expect(submitPublicSitemap(fetcher)).resolves.toEqual({ status: 202, urlCount: 10_001 });
+    await expect(submitPublicSitemap(fetcher)).resolves.toEqual({
+      status: 202,
+      urlCount: 10_001 + legacyRedirectPaths.length
+    });
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(fetcher.mock.calls[0]?.[0]).toEqual(new URL("https://noema-learn.uk/sitemap.xml"));
     expect(fetcher.mock.calls.some(([input]) => String(input).endsWith(NOEMA_INDEXNOW_KEY_PATH)))
@@ -56,7 +71,10 @@ describe("IndexNow deployment helper", () => {
       NOEMA_INDEXNOW_ENDPOINT,
       NOEMA_INDEXNOW_ENDPOINT
     ]);
-    expect(submissions.map(({ payload }) => payload.urlList.length)).toEqual([10_000, 1]);
+    expect(submissions.map(({ payload }) => payload.urlList.length)).toEqual([
+      10_000,
+      1 + legacyRedirectPaths.length
+    ]);
   });
 
   it("can retrieve canonical sitemap URLs through the production Worker origin", async () => {
@@ -70,12 +88,15 @@ describe("IndexNow deployment helper", () => {
     await expect(submitPublicSitemap(
       fetcher,
       "https://noema-learn-production.mani1261790.workers.dev"
-    )).resolves.toEqual({ status: 202, urlCount: 1 });
+    )).resolves.toEqual({ status: 202, urlCount: 1 + legacyRedirectPaths.length });
     expect(fetcher.mock.calls[0]?.[0]).toEqual(
       new URL("https://noema-learn-production.mani1261790.workers.dev/sitemap.xml")
     );
     expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toMatchObject({
-      urlList: ["https://noema-learn.uk/articles/example/"]
+      urlList: [
+        "https://noema-learn.uk/articles/example/",
+        ...legacyRedirectPaths.map((pathname) => `https://noema-learn.uk${pathname}`)
+      ]
     });
   });
 });
