@@ -188,6 +188,17 @@ describe("CMS analytics client", () => {
         sources: [{ id: "noema_reader_events", role: "記事内行動", status: "active" }],
         status: "healthy"
       },
+      onwardPaths: [{
+        clickCount: 2,
+        navigationKind: "related",
+        sourceArticleId: "11111111-1111-4111-8111-111111111111",
+        sourceRevisionNumber: 4,
+        sourceSlug: "analytics-article",
+        sourceTitle: "分析記事",
+        targetSlug: "next-article",
+        targetTitle: "次の記事"
+      }],
+      onwardPathsTruncated: false,
       range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
       sources: [{
         article50: 8,
@@ -219,6 +230,12 @@ describe("CMS analytics client", () => {
       expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
       expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
       expect(result.value.entries[0]).toMatchObject({ entryKind: "home", landing: 6 });
+      expect(result.value.onwardPaths[0]).toMatchObject({
+        clickCount: 2,
+        navigationKind: "related",
+        targetSlug: "next-article"
+      });
+      expect(result.value.onwardPathsTruncated).toBe(false);
       expect(result.value.comparison).toMatchObject({
         status: "available",
         totals: { article50Rate: 0.7, qualifiedReadRate: 0.5 }

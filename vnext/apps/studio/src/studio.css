@@ -2849,14 +2849,22 @@ a {
 }
 
 .studio-analytics tbody th strong,
-.studio-analytics tbody th small {
+.studio-analytics tbody th small,
+.studio-analytics__article-cell strong,
+.studio-analytics__article-cell small {
   display: block;
 }
 
-.studio-analytics tbody th small {
+.studio-analytics tbody th small,
+.studio-analytics__article-cell small {
   margin-top: .25rem;
   color: #555;
   font-weight: 400;
+}
+
+.studio-analytics__article-cell {
+  min-width: 15rem;
+  text-align: left !important;
 }
 
 .studio-analytics__daily > summary {

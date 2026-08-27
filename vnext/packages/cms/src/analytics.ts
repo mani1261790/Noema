@@ -277,6 +277,17 @@ export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
   title: string;
 }
 
+export interface CmsAnalyticsOnwardPath {
+  clickCount: number;
+  navigationKind: CmsAnalyticsNavigationKind;
+  sourceArticleId: string;
+  sourceRevisionNumber: number;
+  sourceSlug: string;
+  sourceTitle: string;
+  targetSlug: string;
+  targetTitle: string;
+}
+
 export interface CmsAnalyticsSourceMetric {
   article50: number;
   article50Rate: number | null;
@@ -314,6 +325,8 @@ export interface CmsAnalyticsSummary {
   daily: CmsAnalyticsDailyMetric[];
   entries: CmsAnalyticsEntryMetric[];
   health: CmsAnalyticsHealth;
+  onwardPaths: CmsAnalyticsOnwardPath[];
+  onwardPathsTruncated: boolean;
   range: {
     days: CmsAnalyticsDays;
     from: string;

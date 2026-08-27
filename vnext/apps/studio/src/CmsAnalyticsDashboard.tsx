@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   cmsAnalyticsMetricCatalog,
   type CmsAnalyticsDays,
+  type CmsAnalyticsOnwardPath,
   type CmsAnalyticsSummary
 } from "@noema/cms";
 import {
@@ -34,6 +35,45 @@ function sourceLabel(source: CmsAnalyticsSummary["sources"][number]): string {
   if (source.source) return [source.source, source.medium].filter(Boolean).join(" / ");
   if (source.referrerHost) return source.referrerHost;
   return "直接・不明";
+}
+
+const navigationLabels: Record<CmsAnalyticsOnwardPath["navigationKind"], string> = {
+  related: "関連記事",
+  series_next: "シリーズ次"
+};
+
+export function AnalyticsOnwardPaths({
+  paths,
+  truncated
+}: {
+  paths: CmsAnalyticsOnwardPath[];
+  truncated: boolean;
+}) {
+  return (
+    <section className="studio-analytics__section" aria-labelledby="studio-analytics-onward-heading">
+      <div className="studio-analytics__section-heading">
+        <div><p className="studio-library__eyebrow">記事間の経路</p><h2 id="studio-analytics-onward-heading">次にどの記事へ進んだか</h2></div>
+      </div>
+      <p>読者やセッションを結合せず、シリーズ次記事と関連記事のクリックを出発revision・移動先ごとに集計します。</p>
+      {truncated ? <p role="status">経路が多いため、クリック数の多い上位200件を表示しています。</p> : null}
+      {paths.length === 0 ? <p>この期間の次記事移動はまだありません。</p> : (
+        <div className="studio-analytics__table-wrap">
+          <table>
+            <caption className="sr-only">出発記事、導線、移動先記事ごとのクリック数</caption>
+            <thead><tr><th scope="col">出発記事</th><th scope="col">導線</th><th scope="col">移動先</th><th scope="col">クリック</th></tr></thead>
+            <tbody>{paths.map((path) => (
+              <tr key={`${path.sourceArticleId}:${path.sourceRevisionNumber}:${path.navigationKind}:${path.targetSlug}`}>
+                <th scope="row"><strong>{path.sourceTitle}</strong><small>{path.sourceSlug}・rev.{path.sourceRevisionNumber}</small></th>
+                <td>{navigationLabels[path.navigationKind]}</td>
+                <td className="studio-analytics__article-cell"><strong>{path.targetTitle}</strong><small>{path.targetSlug}</small></td>
+                <td>{path.clickCount}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
 }
 
 const healthLabels = {
@@ -274,6 +314,11 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                 </div>
               )}
             </section>
+
+            <AnalyticsOnwardPaths
+              paths={state.summary.onwardPaths}
+              truncated={state.summary.onwardPathsTruncated}
+            />
 
             <section className="studio-analytics__section" aria-labelledby="studio-analytics-sources-heading">
               <div className="studio-analytics__section-heading"><div><p className="studio-library__eyebrow">流入別</p><h2 id="studio-analytics-sources-heading">どの入口が読了につながったか</h2></div></div>

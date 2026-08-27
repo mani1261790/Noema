@@ -1,5 +1,6 @@
 import {
   cmsAnalyticsEntryKindSchema,
+  cmsAnalyticsNavigationKindSchema,
   cmsDraftFrontmatterSchema,
   cmsAssetStatusSchema,
   cmsPublicationStatusSchema,
@@ -17,6 +18,7 @@ import {
   type CmsAnalyticsDays,
   type CmsAnalyticsEntryMetric,
   type CmsAnalyticsHealth,
+  type CmsAnalyticsOnwardPath,
   type CmsAnalyticsQualityCheck,
   type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
@@ -1228,6 +1230,33 @@ function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null 
   };
 }
 
+function parseCmsAnalyticsOnwardPath(value: unknown): CmsAnalyticsOnwardPath | null {
+  if (!isRecord(value)) return null;
+  const navigationKind = cmsAnalyticsNavigationKindSchema.safeParse(value.navigationKind);
+  if (
+    !isNonnegativeInteger(value.clickCount) ||
+    value.clickCount === 0 ||
+    !navigationKind.success ||
+    !isString(value.sourceArticleId) ||
+    !isNonnegativeInteger(value.sourceRevisionNumber) ||
+    value.sourceRevisionNumber === 0 ||
+    !isString(value.sourceSlug) ||
+    !isString(value.sourceTitle) ||
+    !isString(value.targetSlug) ||
+    !isString(value.targetTitle)
+  ) return null;
+  return {
+    clickCount: value.clickCount,
+    navigationKind: navigationKind.data,
+    sourceArticleId: value.sourceArticleId,
+    sourceRevisionNumber: value.sourceRevisionNumber,
+    sourceSlug: value.sourceSlug,
+    sourceTitle: value.sourceTitle,
+    targetSlug: value.targetSlug,
+    targetTitle: value.targetTitle
+  };
+}
+
 function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null {
   if (
     !isRecord(value) ||
@@ -1319,6 +1348,8 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !Array.isArray(value.daily) ||
     !Array.isArray(value.entries) ||
     !isRecord(value.health) ||
+    !Array.isArray(value.onwardPaths) ||
+    !isBoolean(value.onwardPathsTruncated) ||
     !isRecord(value.range) ||
     !Array.isArray(value.sources) ||
     !isRecord(value.totals)
@@ -1329,6 +1360,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   const entries = value.entries.map(parseCmsAnalyticsEntry);
   const sources = value.sources.map(parseCmsAnalyticsSource);
   const health = parseCmsAnalyticsHealth(value.health);
+  const onwardPaths = value.onwardPaths.map(parseCmsAnalyticsOnwardPath);
   const totals = parseCmsAnalyticsTotals(value.totals);
   const days = value.range.days;
   if (
@@ -1336,6 +1368,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !comparison ||
     !daily.every((item): item is CmsAnalyticsDailyMetric => item !== null) ||
     !entries.every((item): item is CmsAnalyticsEntryMetric => item !== null) ||
+    !onwardPaths.every((item): item is CmsAnalyticsOnwardPath => item !== null) ||
     !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
     !health ||
     !totals ||
@@ -1349,6 +1382,8 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     daily,
     entries,
     health,
+    onwardPaths,
+    onwardPathsTruncated: value.onwardPathsTruncated,
     range: { days, from: value.range.from, through: value.range.through },
     sources,
     totals
