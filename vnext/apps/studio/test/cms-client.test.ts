@@ -150,6 +150,19 @@ describe("CMS analytics client", () => {
         slug: "analytics-article",
         title: "分析記事"
       }],
+      comparison: {
+        availableOn: "2026-08-23",
+        range: { from: "2026-06-25", through: "2026-07-24" },
+        status: "available",
+        totals: {
+          ...counts,
+          article50Rate: 0.7,
+          assistantSuccessRate: 0.5,
+          assistantUseRate: 0.2,
+          onwardRate: 0.4,
+          qualifiedReadRate: 0.5
+        }
+      },
       daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3 }],
       entries: [{
         article50: 5,
@@ -206,6 +219,10 @@ describe("CMS analytics client", () => {
       expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
       expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
       expect(result.value.entries[0]).toMatchObject({ entryKind: "home", landing: 6 });
+      expect(result.value.comparison).toMatchObject({
+        status: "available",
+        totals: { article50Rate: 0.7, qualifiedReadRate: 0.5 }
+      });
       expect(result.value.health).toMatchObject({
         metricCatalogVersion: "2026-09-01",
         retention: { eventFactsDays: 45, reportingMartDays: 500 }

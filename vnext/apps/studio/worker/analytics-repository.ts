@@ -13,6 +13,7 @@ import {
   type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
   type CmsAnalyticsSummary,
+  type CmsAnalyticsTotals,
   type CmsIdentity
 } from "@noema/cms";
 import { CmsRepositoryError } from "./cms-repository";
@@ -106,6 +107,17 @@ function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
 }
 
+function totalsWithRates(counts: CmsAnalyticsCounts): CmsAnalyticsTotals {
+  return {
+    ...counts,
+    article50Rate: ratio(counts.article50, counts.landing),
+    assistantSuccessRate: ratio(counts.assistantSuccess, counts.assistantOpen),
+    assistantUseRate: ratio(counts.assistantOpen, counts.landing),
+    onwardRate: ratio(counts.navigationClick, counts.articleEnd),
+    qualifiedReadRate: ratio(counts.articleEnd, counts.landing)
+  };
+}
+
 function articleTitle(frontmatterJson: string | null, slug: string): string {
   if (!frontmatterJson) return slug;
   try {
@@ -142,6 +154,12 @@ export async function listCmsAnalyticsSummary(
   const from = addDays(new Date(`${through}T00:00:00.000Z`), -(days - 1))
     .toISOString()
     .slice(0, 10);
+  const comparisonThrough = addDays(new Date(`${from}T00:00:00.000Z`), -1)
+    .toISOString()
+    .slice(0, 10);
+  const comparisonFrom = addDays(new Date(`${comparisonThrough}T00:00:00.000Z`), -(days - 1))
+    .toISOString()
+    .slice(0, 10);
 
   const [coverage, entryCoverage] = await Promise.all([
     db.prepare(
@@ -157,13 +175,18 @@ export async function listCmsAnalyticsSummary(
   ]);
   const rawCoverageFrom = coverage?.state_value ?? through;
   const entryCoverageFrom = entryCoverage?.state_value ?? through;
+  const comparisonAvailableOn = addDays(
+    new Date(`${rawCoverageFrom}T00:00:00.000Z`),
+    (days * 2) - 1
+  ).toISOString().slice(0, 10);
+  const comparisonAvailable = comparisonFrom >= rawCoverageFrom;
   const retentionFrom = addDays(new Date(`${through}T00:00:00.000Z`), -34)
     .toISOString()
     .slice(0, 10);
   const reprocessableFrom = rawCoverageFrom > retentionFrom ? rawCoverageFrom : retentionFrom;
   const reconciliationFrom = reprocessableFrom > from ? reprocessableFrom : from;
 
-  const [articleResult, sourceResult, entryResult, dailyResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
+  const [articleResult, sourceResult, entryResult, dailyResult, comparisonResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
     db.prepare(
       `SELECT
          d.article_id,
@@ -212,6 +235,12 @@ export async function listCmsAnalyticsSummary(
        GROUP BY event_date, event_type
        ORDER BY event_date ASC`
     ).bind(from, through).all<DailyEventRow>(),
+    db.prepare(
+      `SELECT '' AS event_date, event_type, navigation_kind, SUM(event_count) AS event_count
+       FROM cms_analytics_daily
+       WHERE event_date BETWEEN ?1 AND ?2
+       GROUP BY event_type, navigation_kind`
+    ).bind(comparisonFrom, comparisonThrough).all<DailyEventRow & { navigation_kind: string }>(),
     db.prepare(
       `SELECT
          COALESCE(SUM(accepted_event_count), 0) AS accepted_event_count,
@@ -368,6 +397,12 @@ export async function listCmsAnalyticsSummary(
     }
     return counts;
   }, emptyCounts());
+  const comparisonCounts = emptyCounts();
+  if (comparisonAvailable) {
+    for (const row of comparisonResult.results) {
+      addEvent(comparisonCounts, row.event_type, row.event_count, row.navigation_kind);
+    }
+  }
 
   const health = analyticsHealth({
     acceptedEvents: ingestionHealth?.accepted_event_count ?? 0,
@@ -388,19 +423,18 @@ export async function listCmsAnalyticsSummary(
 
   return {
     articles,
+    comparison: {
+      availableOn: comparisonAvailableOn,
+      range: { from: comparisonFrom, through: comparisonThrough },
+      status: comparisonAvailable ? "available" : "collecting",
+      totals: comparisonAvailable ? totalsWithRates(comparisonCounts) : null
+    },
     daily: [...dailyByDate.values()],
     entries,
     health,
     range: { days, from, through },
     sources,
-    totals: {
-      ...totals,
-      article50Rate: ratio(totals.article50, totals.landing),
-      assistantSuccessRate: ratio(totals.assistantSuccess, totals.assistantOpen),
-      assistantUseRate: ratio(totals.assistantOpen, totals.landing),
-      onwardRate: ratio(totals.navigationClick, totals.articleEnd),
-      qualifiedReadRate: ratio(totals.articleEnd, totals.landing)
-    }
+    totals: totalsWithRates(totals)
   };
 }
 
