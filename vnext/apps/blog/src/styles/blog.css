@@ -1133,6 +1133,22 @@ body.noema-public .site-search-form__input input:focus-visible {
   line-height: 1.7;
 }
 
+.article-lead:has(.article-hero-image) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+  align-items: center;
+  gap: clamp(1.5rem, 4cqi, 3rem);
+  margin-block: 2rem 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--noema-border);
+}
+
+.article-lead:has(.article-hero-image) .article-header {
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
 .article-header__tags a {
   color: var(--color-key-1000);
   text-decoration: underline;
@@ -1360,11 +1376,22 @@ body.noema-public .site-search-form__input input:focus-visible {
   margin: 2rem 0 3rem;
 }
 
+.article-lead .article-hero-image {
+  max-width: none;
+  margin: 0;
+}
+
 .article-hero-image img,
 .article-body img {
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+.article-lead .article-hero-image img {
+  width: 100%;
+  height: 18rem;
+  object-fit: contain;
 }
 
 .article-body img {
@@ -1886,9 +1913,11 @@ body.noema-public .site-search-form__input input:focus-visible {
     position: fixed;
     z-index: 50;
     display: flex;
-    inset-inline: 1rem;
+    inset-inline: auto 1rem;
+    inset-block-start: auto;
     inset-block-end: 1rem;
-    width: calc(100% - 2rem);
+    width: auto;
+    max-width: calc(100% - 2rem);
     justify-content: center;
     box-shadow: var(--elevation-2);
     pointer-events: auto;
@@ -2095,5 +2124,23 @@ body.noema-public .site-search-form__input input:focus-visible {
   .site-search-panel,
   .site-menu-panel {
     transition: none;
+  }
+}
+
+@container noema-article (max-width: 48rem) {
+  .article-lead:has(.article-hero-image) {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-block: 1.5rem 2rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .article-lead .article-hero-image {
+    width: min(100%, 26rem);
+    margin-inline: auto;
+  }
+
+  .article-lead .article-hero-image img {
+    height: 8rem;
   }
 }
