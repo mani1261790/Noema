@@ -1,9 +1,13 @@
 import type { ArticleSummary } from "@noema/content";
 import { describe, expect, it } from "vitest";
 
-import { selectStandaloneArticles } from "./articles";
+import { findRelatedArticles, selectStandaloneArticles } from "./articles";
 
-function article(slug: string, publishedAt: string): ArticleSummary {
+function article(
+  slug: string,
+  publishedAt: string,
+  overrides: Partial<ArticleSummary> = {},
+): ArticleSummary {
   return {
     approach: "development",
     authors: ["Noema編集部"],
@@ -17,6 +21,7 @@ function article(slug: string, publishedAt: string): ArticleSummary {
     title: slug,
     topics: ["development-environment"],
     updatedAt: publishedAt,
+    ...overrides,
   };
 }
 
@@ -62,5 +67,66 @@ describe("selectStandaloneArticles", () => {
     selectStandaloneArticles(articles, []);
 
     expect(articles.map(({ slug }) => slug)).toEqual(["oldest", "newest"]);
+  });
+});
+
+describe("findRelatedArticles", () => {
+  it("does not recommend an article based only on one broad topic", () => {
+    const current = article("current", "2026-08-20", {
+      tags: ["監視"],
+    });
+    const broadTopicOnly = article("broad-topic-only", "2026-08-22", {
+      tags: ["ローカルLLM"],
+    });
+
+    expect(findRelatedArticles(current, [broadTopicOnly])).toEqual([]);
+  });
+
+  it("recommends articles with a shared tag", () => {
+    const current = article("current", "2026-08-20", {
+      tags: ["Git", "初学者"],
+    });
+    const sharedTag = article("shared-tag", "2026-08-21", {
+      tags: ["Git", "用語集"],
+    });
+    const broadTopicOnly = article("broad-topic-only", "2026-08-22", {
+      tags: ["ローカルLLM"],
+    });
+
+    expect(findRelatedArticles(current, [broadTopicOnly, sharedTag])).toEqual([sharedTag]);
+  });
+
+  it("recommends articles that share multiple topics", () => {
+    const current = article("current", "2026-08-20", {
+      tags: [],
+      topics: ["development-environment", "data-models"],
+    });
+    const sharedTopics = article("shared-topics", "2026-08-21", {
+      tags: [],
+      topics: ["development-environment", "data-models"],
+    });
+    const singleTopic = article("single-topic", "2026-08-22", {
+      tags: [],
+      topics: ["development-environment"],
+    });
+
+    expect(findRelatedArticles(current, [singleTopic, sharedTopics])).toEqual([sharedTopics]);
+  });
+
+  it("keeps stronger relationships ahead of newer weaker matches", () => {
+    const current = article("current", "2026-08-20", {
+      tags: ["Git", "GitHub"],
+    });
+    const newerSingleTag = article("newer-single-tag", "2026-08-22", {
+      tags: ["Git"],
+    });
+    const olderTwoTags = article("older-two-tags", "2026-08-21", {
+      tags: ["Git", "GitHub"],
+    });
+
+    expect(findRelatedArticles(current, [newerSingleTag, olderTwoTags])).toEqual([
+      olderTwoTags,
+      newerSingleTag,
+    ]);
   });
 });
