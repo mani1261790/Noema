@@ -97,6 +97,7 @@ function emptyCounts(): CmsAnalyticsCounts {
     relatedClick: 0,
     seriesNext: 0,
     share: 0,
+    updatesAction: 0,
     updatesClick: 0
   };
 }
@@ -111,6 +112,7 @@ function addEvent(
   if (eventType === "article_50") counts.article50 += eventCount;
   if (eventType === "article_end") counts.articleEnd += eventCount;
   if (eventType === "updates_click") counts.updatesClick += eventCount;
+  if (eventType === "updates_action") counts.updatesAction += eventCount;
   if (eventType === "share") counts.share += eventCount;
   if (eventType === "assistant_open") counts.assistantOpen += eventCount;
   if (eventType === "assistant_success") counts.assistantSuccess += eventCount;
@@ -134,6 +136,7 @@ function totalsWithRates(counts: CmsAnalyticsCounts): CmsAnalyticsTotals {
     assistantUseRate: ratio(counts.assistantOpen, counts.landing),
     onwardRate: ratio(counts.navigationClick, counts.articleEnd),
     qualifiedReadRate: ratio(counts.articleEnd, counts.landing),
+    updatesActionRate: ratio(counts.updatesAction, counts.updatesClick),
     updatesGuideRate: ratio(counts.updatesClick, counts.articleEnd)
   };
 }
@@ -357,6 +360,7 @@ export async function listCmsAnalyticsSummary(
       revisionNumber: row.revision_number,
       slug: row.article_slug,
       title: articleTitle(row.frontmatter_json, row.article_slug),
+      updatesActionRate: null,
       updatesGuideRate: null
     };
     addEvent(metric, row.event_type, row.event_count, row.navigation_kind);
@@ -369,6 +373,7 @@ export async function listCmsAnalyticsSummary(
     assistantUseRate: ratio(metric.assistantOpen, metric.landing),
     onwardRate: ratio(metric.navigationClick, metric.articleEnd),
     qualifiedReadRate: ratio(metric.articleEnd, metric.landing),
+    updatesActionRate: ratio(metric.updatesAction, metric.updatesClick),
     updatesGuideRate: ratio(metric.updatesClick, metric.articleEnd)
   })).sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
@@ -465,7 +470,7 @@ export async function listCmsAnalyticsSummary(
   const dailyByDate = new Map<string, CmsAnalyticsDailyMetric>();
   for (let index = 0; index < days; index += 1) {
     const date = addDays(new Date(`${from}T00:00:00.000Z`), index).toISOString().slice(0, 10);
-    dailyByDate.set(date, { articleEnd: 0, date, landing: 0, navigationClick: 0, updatesClick: 0 });
+    dailyByDate.set(date, { articleEnd: 0, date, landing: 0, navigationClick: 0, updatesAction: 0, updatesClick: 0 });
   }
   for (const row of dailyResult.results) {
     const metric = dailyByDate.get(row.event_date);
@@ -474,6 +479,7 @@ export async function listCmsAnalyticsSummary(
     if (row.event_type === "article_end") metric.articleEnd += row.event_count;
     if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
     if (row.event_type === "updates_click") metric.updatesClick += row.event_count;
+    if (row.event_type === "updates_action") metric.updatesAction += row.event_count;
   }
 
   const totals = articles.reduce<CmsAnalyticsCounts>((counts, article) => {
@@ -541,7 +547,7 @@ function analyticsHealth(options: {
   const generatedAt = options.generatedAt.toISOString();
   const reportingEvents = options.totals.landing + options.totals.article50 +
     options.totals.articleEnd + options.totals.navigationClick + options.totals.share +
-    options.totals.updatesClick + options.totals.assistantOpen +
+    options.totals.updatesClick + options.totals.updatesAction + options.totals.assistantOpen +
     options.totals.assistantSuccess + options.totals.assistantError;
   if (!options.latestEventReceivedAt) {
     checks.push({
@@ -625,6 +631,7 @@ function analyticsHealth(options: {
     options.totals.articleEnd > options.totals.landing,
     options.totals.navigationClick > options.totals.articleEnd,
     options.totals.updatesClick > options.totals.articleEnd,
+    options.totals.updatesAction > options.totals.updatesClick,
     options.totals.assistantSuccess > options.totals.assistantOpen
   ].some(Boolean);
   checks.push({
@@ -662,7 +669,7 @@ function analyticsHealth(options: {
     sources: [
       {
         id: "noema_reader_events",
-        role: "記事内の読了、回遊、更新案内、共有、アシスタント利用",
+        role: "記事内の読了、回遊、更新案内、RSS行動、共有、アシスタント利用",
         status: "active"
       },
       {

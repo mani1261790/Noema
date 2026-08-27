@@ -128,6 +128,11 @@ describe("CMS contracts", () => {
     expect(cmsAnalyticsEventRequestSchema.safeParse({
       ...envelope,
       articleSlug: "local-ai-on-mac",
+      eventType: "updates_action"
+    }).success).toBe(true);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
       eventType: "updates_click",
       navigationKind: "related",
       targetSlug: "quantization-basics"
@@ -154,6 +159,13 @@ describe("CMS contracts", () => {
     }));
     expect(cmsAnalyticsMetricCatalog.find((metric) => metric.id === "updates_guide_rate")?.caveat)
       .toContain("RSS購読の完了");
+    expect(cmsAnalyticsMetricCatalog).toContainEqual(expect.objectContaining({
+      denominator: "updates_click",
+      id: "updates_action_rate",
+      numerator: "updates_action"
+    }));
+    expect(cmsAnalyticsMetricCatalog.find((metric) => metric.id === "updates_action_rate")?.caveat)
+      .toContain("購読完了");
   });
 
   it("rejects impossible analytics rebuild calendar dates", () => {

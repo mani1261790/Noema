@@ -101,6 +101,7 @@ describe("CMS HTTP API", () => {
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "x", "social", "launch", "diagram", "", "", "", 2, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "x", "social", "launch", "diagram", "", "related", "next-article", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "updates_click", "x", "social", "launch", "diagram", "", "", "", 1, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "updates_action", "", "", "", "", "", "", "", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_open", "", "", "", "", "", "", "", 2, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_success", "", "", "", "", "", "", "", 1, timestamp),
       insert.bind(future, article.id, article.slug, article.revisionNumber, "landing", "", "", "", "", "", "", "", 100, `${future}T00:00:00.000Z`),
@@ -126,6 +127,7 @@ describe("CMS HTTP API", () => {
         assistantUseRate: number;
         onwardRate: number;
         qualifiedReadRate: number;
+        updatesActionRate: number;
         updatesGuideRate: number;
       }>;
       comparison: {
@@ -166,6 +168,7 @@ describe("CMS HTTP API", () => {
         landing: number;
         onwardRate: number;
         qualifiedReadRate: number;
+        updatesActionRate: number;
         updatesGuideRate: number;
       };
     } };
@@ -179,6 +182,7 @@ describe("CMS HTTP API", () => {
       landing: 4,
       onwardRate: 0.5,
       qualifiedReadRate: 0.5,
+      updatesActionRate: 1,
       updatesGuideRate: 0.5
     });
     expect(body.summary.articles[0]).toMatchObject({
@@ -187,6 +191,7 @@ describe("CMS HTTP API", () => {
       assistantUseRate: 0.5,
       onwardRate: 0.5,
       qualifiedReadRate: 0.5,
+      updatesActionRate: 1,
       updatesGuideRate: 0.5
     });
     expect(body.summary.entries).toContainEqual(expect.objectContaining({
