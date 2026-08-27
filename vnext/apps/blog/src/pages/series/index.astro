@@ -3,11 +3,20 @@ import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import SeriesCard from "../../components/SeriesCard.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { listPublishedSeries } from "../../lib/cms-publications";
+import { collectionPageJsonLd } from "../../lib/seo";
 
 const seriesList = await listPublishedSeries();
+const title = "シリーズから読む | Noema";
+const description = "ひとつのテーマを、順番にたどりながら学べるNoemaのシリーズ一覧です。";
+const jsonLd = collectionPageJsonLd({
+  description,
+  items: seriesList.map((series) => ({ name: series.title, pathname: series.href })),
+  name: "シリーズから読む",
+  pathname: "/series",
+}, Astro.site);
 ---
 
-<BaseLayout title="シリーズから読む | Noema" description="ひとつのテーマを、順番にたどりながら学べるNoemaのシリーズ一覧です。">
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <div class="noema-container listing-page series-index">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "シリーズ" }]} />
     <header class="page-heading">
@@ -17,7 +26,7 @@ const seriesList = await listPublishedSeries();
     </header>
 
     {seriesList.length > 0
-      ? <div class="series-grid">{seriesList.map((series) => <SeriesCard series={series} />)}</div>
+      ? <div class="series-grid">{seriesList.map((series) => <SeriesCard series={series} headingLevel={2} />)}</div>
       : <div class="noema-empty-state"><h2>シリーズはまだありません</h2></div>}
   </div>
 </BaseLayout>
