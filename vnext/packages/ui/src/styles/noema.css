@@ -42,6 +42,8 @@ html {
   background: var(--noema-background);
   color: var(--noema-text);
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
