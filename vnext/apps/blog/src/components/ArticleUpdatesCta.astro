@@ -1,8 +1,17 @@
+---
+interface Props {
+  slug?: string;
+}
+
+const { slug } = Astro.props as Props;
+const updatesHref = slug ? `/updates#from=${encodeURIComponent(slug)}` : "/updates";
+---
+
 <aside class="article-updates" aria-labelledby="article-updates-heading">
   <p class="article-updates__eyebrow">新着記事</p>
   <h2 id="article-updates-heading">Noemaの更新を受け取る</h2>
   <p>RSSを使うと、新しい記事を自分のフィードリーダーで確認できます。登録やメールアドレスは必要ありません。</p>
-  <a class="dads-button" data-size="md" data-type="outline" data-analytics-updates href="/updates">
+  <a class="dads-button" data-size="md" data-type="outline" data-analytics-updates href={updatesHref}>
     RSSの使い方を見る
   </a>
 </aside>

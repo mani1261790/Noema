@@ -140,6 +140,7 @@ describe("CMS analytics client", () => {
       relatedClick: 2,
       seriesNext: 1,
       share: 1,
+      updatesAction: 1,
       updatesClick: 2
     };
     const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({ summary: {
@@ -154,6 +155,7 @@ describe("CMS analytics client", () => {
         revisionNumber: 4,
         slug: "analytics-article",
         title: "分析記事",
+        updatesActionRate: 0.5,
         updatesGuideRate: 1 / 3
       }],
       comparison: {
@@ -167,10 +169,11 @@ describe("CMS analytics client", () => {
           assistantUseRate: 0.2,
           onwardRate: 0.4,
           qualifiedReadRate: 0.5,
+          updatesActionRate: 0.5,
           updatesGuideRate: 0.25
         }
       },
-      daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3, updatesClick: 2 }],
+      daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3, updatesAction: 1, updatesClick: 2 }],
       entries: [{
         article50: 5,
         article50Rate: 5 / 6,
@@ -245,6 +248,7 @@ describe("CMS analytics client", () => {
         assistantUseRate: 0.3,
         onwardRate: 0.5,
         qualifiedReadRate: 0.6,
+        updatesActionRate: 0.5,
         updatesGuideRate: 1 / 3
       }
     } }));
