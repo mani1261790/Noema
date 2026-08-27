@@ -17,6 +17,8 @@ const standaloneArticles = selectStandaloneArticles(
   3,
 );
 const activeTopics = listActiveTopics(articles);
+const title = "AIでできることと、その仕組みを学ぶ | Noema";
+const description = "コーディングエージェントやローカルLLMなど、AIでできることと、その仕組みを、初めての人にもわかる具体例から解説する技術メディアです。";
 const siteUrl = canonicalUrl("/", Astro.site).toString();
 const jsonLd = {
   "@context": "https://schema.org",
@@ -31,6 +33,7 @@ const jsonLd = {
       "@id": `${siteUrl}#website`,
       "@type": "WebSite",
       name: "Noema",
+      description,
       url: siteUrl,
       inLanguage: "ja",
       publisher: { "@id": `${siteUrl}#organization` }
@@ -39,7 +42,7 @@ const jsonLd = {
 };
 ---
 
-<BaseLayout jsonLd={jsonLd}>
+<BaseLayout title={title} description={description} jsonLd={jsonLd}>
   <section class="home-hero" aria-labelledby="hero-heading">
     <div class="noema-container home-hero__inner">
       <div class="home-hero__copy">
