@@ -6,6 +6,7 @@ import {
   type CmsAnalyticsCounts,
   type CmsAnalyticsDailyMetric,
   type CmsAnalyticsDays,
+  type CmsAnalyticsEntryMetric,
   type CmsAnalyticsHealth,
   type CmsAnalyticsQualityCheck,
   type CmsAnalyticsRebuildRequest,
@@ -42,6 +43,12 @@ interface DailyEventRow {
   event_type: string;
 }
 
+interface EntryEventRow {
+  entry_kind: CmsAnalyticsEntryMetric["entryKind"];
+  event_count: number;
+  event_type: string;
+}
+
 interface IngestionHealthRow {
   accepted_event_count: number;
   duplicate_event_count: number;
@@ -49,6 +56,7 @@ interface IngestionHealthRow {
 }
 
 interface ReconciliationRow {
+  entry_mart_event_count: number;
   mart_event_count: number;
   raw_event_count: number;
 }
@@ -135,19 +143,27 @@ export async function listCmsAnalyticsSummary(
     .toISOString()
     .slice(0, 10);
 
-  const coverage = await db.prepare(
-    `SELECT state_value
-     FROM cms_analytics_pipeline_state
-     WHERE state_key = 'raw_coverage_complete_from'`
-  ).first<{ state_value: string }>();
+  const [coverage, entryCoverage] = await Promise.all([
+    db.prepare(
+      `SELECT state_value
+       FROM cms_analytics_pipeline_state
+       WHERE state_key = 'raw_coverage_complete_from'`
+    ).first<{ state_value: string }>(),
+    db.prepare(
+      `SELECT state_value
+       FROM cms_analytics_pipeline_state
+       WHERE state_key = 'entry_coverage_complete_from'`
+    ).first<{ state_value: string }>()
+  ]);
   const rawCoverageFrom = coverage?.state_value ?? through;
+  const entryCoverageFrom = entryCoverage?.state_value ?? through;
   const retentionFrom = addDays(new Date(`${through}T00:00:00.000Z`), -34)
     .toISOString()
     .slice(0, 10);
   const reprocessableFrom = rawCoverageFrom > retentionFrom ? rawCoverageFrom : retentionFrom;
   const reconciliationFrom = reprocessableFrom > from ? reprocessableFrom : from;
 
-  const [articleResult, sourceResult, dailyResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
+  const [articleResult, sourceResult, entryResult, dailyResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
     db.prepare(
       `SELECT
          d.article_id,
@@ -184,6 +200,12 @@ export async function listCmsAnalyticsSummary(
        GROUP BY source, medium, campaign, content, referrer_host, event_type`
     ).bind(from, through).all<SourceEventRow>(),
     db.prepare(
+      `SELECT entry_kind, event_type, SUM(event_count) AS event_count
+       FROM cms_analytics_entry_daily
+       WHERE event_date BETWEEN ?1 AND ?2
+       GROUP BY entry_kind, event_type`
+    ).bind(from, through).all<EntryEventRow>(),
+    db.prepare(
       `SELECT event_date, event_type, SUM(event_count) AS event_count
        FROM cms_analytics_daily
        WHERE event_date BETWEEN ?1 AND ?2
@@ -208,7 +230,10 @@ export async function listCmsAnalyticsSummary(
             WHERE event_date BETWEEN ?1 AND ?2) AS raw_event_count,
            (SELECT COALESCE(SUM(event_count), 0)
             FROM cms_analytics_daily
-            WHERE event_date BETWEEN ?1 AND ?2) AS mart_event_count`
+            WHERE event_date BETWEEN ?1 AND ?2) AS mart_event_count,
+           (SELECT COALESCE(SUM(event_count), 0)
+            FROM cms_analytics_entry_daily
+            WHERE event_date BETWEEN ?1 AND ?2) AS entry_mart_event_count`
       ).bind(reconciliationFrom, through).first<ReconciliationRow>()
       : Promise.resolve(null),
     db.prepare(
@@ -293,6 +318,37 @@ export async function listCmsAnalyticsSummary(
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
+  const entryMetrics = new Map<CmsAnalyticsEntryMetric["entryKind"], CmsAnalyticsEntryMetric>();
+  for (const row of entryResult.results) {
+    const metric = entryMetrics.get(row.entry_kind) ?? {
+      article50: 0,
+      article50Rate: null,
+      articleEnd: 0,
+      entryKind: row.entry_kind,
+      landing: 0,
+      navigationClick: 0,
+      qualifiedReadRate: null
+    };
+    if (row.event_type === "landing") metric.landing += row.event_count;
+    if (row.event_type === "article_50") metric.article50 += row.event_count;
+    if (row.event_type === "article_end") metric.articleEnd += row.event_count;
+    if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
+    entryMetrics.set(row.entry_kind, metric);
+  }
+  const entries = [...entryMetrics.values()]
+    .filter((metric) => (
+      metric.landing > 0 ||
+      metric.article50 > 0 ||
+      metric.articleEnd > 0 ||
+      metric.navigationClick > 0
+    ))
+    .map((metric) => ({
+      ...metric,
+      article50Rate: ratio(metric.article50, metric.landing),
+      qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+    }))
+    .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
+
   const dailyByDate = new Map<string, CmsAnalyticsDailyMetric>();
   for (let index = 0; index < days; index += 1) {
     const date = addDays(new Date(`${from}T00:00:00.000Z`), index).toISOString().slice(0, 10);
@@ -316,6 +372,7 @@ export async function listCmsAnalyticsSummary(
   const health = analyticsHealth({
     acceptedEvents: ingestionHealth?.accepted_event_count ?? 0,
     duplicateEvents: ingestionHealth?.duplicate_event_count ?? 0,
+    entryCoverageFrom,
     generatedAt: now,
     factQuality: factQuality ?? {
       clock_skew_count: 0,
@@ -332,6 +389,7 @@ export async function listCmsAnalyticsSummary(
   return {
     articles,
     daily: [...dailyByDate.values()],
+    entries,
     health,
     range: { days, from, through },
     sources,
@@ -349,6 +407,7 @@ export async function listCmsAnalyticsSummary(
 function analyticsHealth(options: {
   acceptedEvents: number;
   duplicateEvents: number;
+  entryCoverageFrom: string;
   factQuality: FactQualityRow;
   generatedAt: Date;
   latestEventReceivedAt: string | null;
@@ -422,17 +481,21 @@ function analyticsHealth(options: {
       : options.factQuality.orphan_revision_count === 0 ? "pass" : "warn"
   });
 
+  const martsReconcile = options.reconciliation
+    ? options.reconciliation.raw_event_count === options.reconciliation.mart_event_count &&
+      options.reconciliation.raw_event_count === options.reconciliation.entry_mart_event_count
+    : false;
   checks.push({
     detail: options.reconciliation
-      ? options.reconciliation.raw_event_count === options.reconciliation.mart_event_count
-        ? `再処理可能期間の${options.reconciliation.raw_event_count}件が日次マートと一致しています。`
-        : `イベント正本${options.reconciliation.raw_event_count}件に対し、日次マートは${options.reconciliation.mart_event_count}件です。再集計が必要です。`
+      ? martsReconcile
+        ? `再処理可能期間の${options.reconciliation.raw_event_count}件が日次・入口マートと一致しています。`
+        : `イベント正本${options.reconciliation.raw_event_count}件に対し、日次マート${options.reconciliation.mart_event_count}件、入口マート${options.reconciliation.entry_mart_event_count}件です。再集計が必要です。`
       : `${options.rawCoverageFrom}から完全なイベント正本を収集中です。`,
     id: "mart_reconciliation",
     label: "正本・マート整合",
     status: !options.reconciliation
       ? "not_evaluated"
-      : options.reconciliation.raw_event_count === options.reconciliation.mart_event_count ? "pass" : "warn"
+      : martsReconcile ? "pass" : "warn"
   });
 
   const inconsistent = [
@@ -462,6 +525,7 @@ function analyticsHealth(options: {
     acceptedEvents: options.acceptedEvents,
     checks,
     duplicateEvents: options.duplicateEvents,
+    entryCoverageFrom: options.entryCoverageFrom,
     eventContractVersion: CMS_ANALYTICS_EVENT_CONTRACT_VERSION,
     generatedAt,
     latestEventReceivedAt: options.latestEventReceivedAt,
@@ -509,6 +573,8 @@ export async function cleanupCmsAnalyticsRetention(
     db.prepare("DELETE FROM cms_analytics_events WHERE event_date < ?1")
       .bind(eventFactsCutoff),
     db.prepare("DELETE FROM cms_analytics_daily WHERE event_date < ?1")
+      .bind(reportingCutoff),
+    db.prepare("DELETE FROM cms_analytics_entry_daily WHERE event_date < ?1")
       .bind(reportingCutoff),
     db.prepare("DELETE FROM cms_analytics_ingestion_daily WHERE event_date < ?1")
       .bind(reportingCutoff)
@@ -614,6 +680,39 @@ export async function rebuildCmsAnalyticsMart(
          referrer_host,
          navigation_kind,
          target_slug`
+    ).bind(range.from, range.through),
+    db.prepare(
+      `DELETE FROM cms_analytics_entry_daily
+       WHERE event_date BETWEEN ?1 AND ?2`
+    ).bind(range.from, range.through),
+    db.prepare(
+      `INSERT INTO cms_analytics_entry_daily (
+         event_date,
+         article_id,
+         article_slug,
+         revision_number,
+         event_type,
+         entry_kind,
+         event_count,
+         updated_at
+       )
+       SELECT
+         event_date,
+         article_id,
+         MAX(article_slug),
+         revision_number,
+         event_type,
+         entry_kind,
+         COUNT(*),
+         MAX(received_at)
+       FROM cms_analytics_events
+       WHERE event_date BETWEEN ?1 AND ?2
+       GROUP BY
+         event_date,
+         article_id,
+         revision_number,
+         event_type,
+         entry_kind`
     ).bind(range.from, range.through),
     db.prepare(
       `INSERT INTO cms_analytics_pipeline_runs (

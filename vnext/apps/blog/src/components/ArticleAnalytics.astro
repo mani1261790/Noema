@@ -9,6 +9,8 @@ const { slug } = Astro.props;
 <span data-article-analytics data-analytics-slug={slug} hidden></span>
 
 <script>
+  import { classifyArticleEntry } from "../lib/analytics-entry";
+
   type AnalyticsEventType =
     | "landing"
     | "article_50"
@@ -105,6 +107,7 @@ const { slug } = Astro.props;
   }
 
   const attribution = resolveAttribution();
+  const entryKind = classifyArticleEntry(document.referrer, window.location.origin);
 
   function sendEvent(
     eventType: AnalyticsEventType,
@@ -117,6 +120,7 @@ const { slug } = Astro.props;
     const payload = JSON.stringify({
       articleSlug,
       attribution,
+      entryKind,
       eventId: crypto.randomUUID(),
       eventType,
       occurredAt: new Date().toISOString(),

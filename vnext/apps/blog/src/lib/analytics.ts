@@ -67,7 +67,7 @@ export type RecordAnalyticsOutcome = "recorded" | "duplicate" | "unknown_article
  * Blobs:
  *   1 event type, 2 article slug, 3 revision number, 4 source, 5 medium,
  *   6 campaign, 7 content, 8 referrer host, 9 navigation kind,
- *   10 target slug
+ *   10 target slug, 11 entry kind
  * Doubles:
  *   1 count (always 1)
  * Index:
@@ -97,6 +97,7 @@ export async function recordCmsAnalyticsEvent(
   const referrerHost = attribution.referrerHost ?? "";
   const navigationKind = event.navigationKind ?? "";
   const targetSlug = event.targetSlug ?? "";
+  const entryKind = event.entryKind ?? "unknown";
   const receivedAt = (options.now ?? new Date()).toISOString();
   // Reporting uses trusted server receipt time. Client time is retained only
   // for clock-quality diagnostics and never changes the reporting partition.
@@ -119,8 +120,9 @@ export async function recordCmsAnalyticsEvent(
        content,
        referrer_host,
        navigation_kind,
-       target_slug
-     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`
+       target_slug,
+       entry_kind
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`
   ).bind(
     event.eventId,
     event.schemaVersion,
@@ -137,7 +139,8 @@ export async function recordCmsAnalyticsEvent(
     content,
     referrerHost,
     navigationKind,
-    targetSlug
+    targetSlug,
+    entryKind
   ).run();
 
   const changes = result && typeof result === "object" && "meta" in result &&
@@ -170,7 +173,8 @@ export async function recordCmsAnalyticsEvent(
         content,
         referrerHost,
         navigationKind,
-        targetSlug
+        targetSlug,
+        entryKind
       ],
       doubles: [1],
       indexes: [article.id]

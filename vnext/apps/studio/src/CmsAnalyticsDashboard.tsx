@@ -54,6 +54,18 @@ const sourceNames = {
   noema_reader_events: "Noema読者イベント"
 } as const;
 
+const entryLabels: Record<CmsAnalyticsSummary["entries"][number]["entryKind"], string> = {
+  article: "別の記事",
+  article_index: "記事一覧・検索",
+  direct: "直接",
+  external: "外部サイト",
+  home: "ホーム",
+  other_internal: "その他のNoema内",
+  series: "シリーズ",
+  topic: "テーマ",
+  unknown: "未分類（計測開始前）"
+};
+
 export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps) {
   const [days, setDays] = useState<CmsAnalyticsDays>(30);
   const [retry, setRetry] = useState(0);
@@ -173,7 +185,7 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                 ))}
               </div>
               <p className="studio-analytics__health-note">
-                完全coverageは{state.summary.health.rawCoverageFrom}から。現在再処理できるのは{state.summary.health.reprocessableFrom}以降。最終判定 {state.summary.health.generatedAt}
+                完全coverageは{state.summary.health.rawCoverageFrom}から、入口別coverageは{state.summary.health.entryCoverageFrom}から。現在再処理できるのは{state.summary.health.reprocessableFrom}以降。最終判定 {state.summary.health.generatedAt}
               </p>
               {connection.role === "admin" && state.summary.health.checks.some((check) => (
                 check.id === "mart_reconciliation" && check.status === "warn"
@@ -240,6 +252,28 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                       <tr key={`${source.source}\u0000${source.medium}\u0000${source.campaign}\u0000${source.content}\u0000${source.referrerHost}`}>
                         <th scope="row">{sourceLabel(source)}</th><td>{source.campaign || "—"}</td><td>{source.content || "—"}</td>
                         <td>{source.landing}</td><td>{formatPercent(source.article50Rate)}</td><td>{formatPercent(source.qualifiedReadRate)}</td><td>{source.navigationClick}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="studio-analytics__section" aria-labelledby="studio-analytics-entries-heading">
+              <div className="studio-analytics__section-heading">
+                <div><p className="studio-library__eyebrow">サイト内の入口</p><h2 id="studio-analytics-entries-heading">どのページから記事へ入ったか</h2></div>
+              </div>
+              <p>外部流入のUTMとは分けて、ホーム、記事一覧、シリーズ、テーマ、別の記事からの到達を確認します。</p>
+              {state.summary.entries.length === 0 ? <p>入口別の読者行動はまだありません。</p> : (
+                <div className="studio-analytics__table-wrap">
+                  <table>
+                    <caption className="sr-only">サイト内の入口別の記事到達、50%到達、読了、次記事移動</caption>
+                    <thead><tr><th scope="col">入口</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th></tr></thead>
+                    <tbody>{state.summary.entries.map((entry) => (
+                      <tr key={entry.entryKind}>
+                        <th scope="row">{entryLabels[entry.entryKind]}</th>
+                        <td>{entry.landing}</td><td>{formatPercent(entry.article50Rate)}</td>
+                        <td>{formatPercent(entry.qualifiedReadRate)}</td><td>{entry.navigationClick}</td>
                       </tr>
                     ))}</tbody>
                   </table>

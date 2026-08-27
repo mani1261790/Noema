@@ -16,6 +16,17 @@ export const cmsAnalyticsNavigationKindSchema = z.enum([
   "related"
 ]);
 
+export const cmsAnalyticsEntryKindSchema = z.enum([
+  "direct",
+  "external",
+  "home",
+  "article_index",
+  "series",
+  "topic",
+  "article",
+  "other_internal"
+]);
+
 const analyticsIdentifierSchema = z.string()
   .trim()
   .toLowerCase()
@@ -51,6 +62,7 @@ export const cmsAnalyticsAttributionSchema = z.object({
 export const cmsAnalyticsEventRequestSchema = z.object({
   articleSlug: articleSlugSchema,
   attribution: cmsAnalyticsAttributionSchema.optional(),
+  entryKind: cmsAnalyticsEntryKindSchema.optional(),
   eventId: z.uuid(),
   eventType: cmsAnalyticsEventTypeSchema,
   navigationKind: cmsAnalyticsNavigationKindSchema.optional(),
@@ -95,6 +107,7 @@ export const cmsAnalyticsRebuildRequestSchema = z.object({
 }).strict();
 
 export type CmsAnalyticsEventType = z.infer<typeof cmsAnalyticsEventTypeSchema>;
+export type CmsAnalyticsEntryKind = z.infer<typeof cmsAnalyticsEntryKindSchema>;
 export type CmsAnalyticsNavigationKind = z.infer<typeof cmsAnalyticsNavigationKindSchema>;
 export type CmsAnalyticsEventRequest = z.infer<typeof cmsAnalyticsEventRequestSchema>;
 export type CmsAnalyticsDays = z.infer<typeof cmsAnalyticsDaysSchema>;
@@ -200,6 +213,7 @@ export interface CmsAnalyticsHealth {
   acceptedEvents: number;
   checks: CmsAnalyticsQualityCheck[];
   duplicateEvents: number;
+  entryCoverageFrom: string;
   eventContractVersion: typeof CMS_ANALYTICS_EVENT_CONTRACT_VERSION;
   generatedAt: string;
   latestEventReceivedAt: string | null;
@@ -257,6 +271,16 @@ export interface CmsAnalyticsSourceMetric {
   source: string;
 }
 
+export interface CmsAnalyticsEntryMetric {
+  article50: number;
+  article50Rate: number | null;
+  articleEnd: number;
+  entryKind: CmsAnalyticsEntryKind | "unknown";
+  landing: number;
+  navigationClick: number;
+  qualifiedReadRate: number | null;
+}
+
 export interface CmsAnalyticsDailyMetric {
   articleEnd: number;
   date: string;
@@ -267,6 +291,7 @@ export interface CmsAnalyticsDailyMetric {
 export interface CmsAnalyticsSummary {
   articles: CmsAnalyticsArticleMetric[];
   daily: CmsAnalyticsDailyMetric[];
+  entries: CmsAnalyticsEntryMetric[];
   health: CmsAnalyticsHealth;
   range: {
     days: CmsAnalyticsDays;
