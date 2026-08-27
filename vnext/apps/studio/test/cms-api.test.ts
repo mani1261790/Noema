@@ -25,6 +25,7 @@ beforeEach(async () => {
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_entry_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_ingestion_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_pipeline_runs"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),
@@ -74,6 +75,12 @@ describe("CMS HTTP API", () => {
          navigation_kind, target_slug, event_count, updated_at
        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
     );
+    const entryInsert = testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_entry_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         entry_kind, event_count, updated_at
+       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+    );
     await testEnv.CMS_DB.batch([
       insert.bind(expired, article.id, article.slug, article.revisionNumber, "landing", "old", "", "", "", "", "", "", 99, `${expired}T00:00:00.000Z`),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "x", "social", "launch", "diagram", "", "", "", 4, timestamp),
@@ -82,7 +89,11 @@ describe("CMS HTTP API", () => {
       insert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "x", "social", "launch", "diagram", "", "related", "next-article", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_open", "", "", "", "", "", "", "", 2, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_success", "", "", "", "", "", "", "", 1, timestamp),
-      insert.bind(future, article.id, article.slug, article.revisionNumber, "landing", "", "", "", "", "", "", "", 100, `${future}T00:00:00.000Z`)
+      insert.bind(future, article.id, article.slug, article.revisionNumber, "landing", "", "", "", "", "", "", "", 100, `${future}T00:00:00.000Z`),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "home", 4, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "home", 3, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "home", 2, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "home", 1, timestamp)
     ]);
     const retained = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_analytics_daily WHERE event_date = ?1"
@@ -99,6 +110,12 @@ describe("CMS HTTP API", () => {
         assistantSuccessRate: number;
         assistantUseRate: number;
         onwardRate: number;
+        qualifiedReadRate: number;
+      }>;
+      entries: Array<{
+        article50Rate: number;
+        entryKind: string;
+        landing: number;
         qualifiedReadRate: number;
       }>;
       sources: Array<{
@@ -134,6 +151,12 @@ describe("CMS HTTP API", () => {
       onwardRate: 0.5,
       qualifiedReadRate: 0.5
     });
+    expect(body.summary.entries).toContainEqual(expect.objectContaining({
+      article50Rate: 0.75,
+      entryKind: "home",
+      landing: 4,
+      qualifiedReadRate: 0.5
+    }));
     expect(body.summary.sources).toContainEqual(expect.objectContaining({
       article50Rate: 0.75,
       campaign: "launch",
@@ -175,9 +198,16 @@ describe("CMS HTTP API", () => {
       "SELECT event_count FROM cms_analytics_daily WHERE event_date = ?1 AND article_id = ?2"
     ).bind(date, article.id).first<{ event_count: number }>();
     expect(projected?.event_count).toBe(1);
+    const projectedEntry = await testEnv.CMS_DB.prepare(
+      "SELECT event_count FROM cms_analytics_entry_daily WHERE event_date = ?1 AND article_id = ?2"
+    ).bind(date, article.id).first<{ event_count: number }>();
+    expect(projectedEntry?.event_count).toBe(1);
 
     await testEnv.CMS_DB.prepare(
       "UPDATE cms_analytics_daily SET event_count = 9 WHERE event_date = ?1 AND article_id = ?2"
+    ).bind(date, article.id).run();
+    await testEnv.CMS_DB.prepare(
+      "UPDATE cms_analytics_entry_daily SET event_count = 8 WHERE event_date = ?1 AND article_id = ?2"
     ).bind(date, article.id).run();
     const response = await handleCmsApiRequest(
       cmsRequest("/api/cms/analytics/rebuild", {
@@ -195,10 +225,14 @@ describe("CMS HTTP API", () => {
     const repaired = await testEnv.CMS_DB.prepare(
       "SELECT event_count FROM cms_analytics_daily WHERE event_date = ?1 AND article_id = ?2"
     ).bind(date, article.id).first<{ event_count: number }>();
+    const repairedEntry = await testEnv.CMS_DB.prepare(
+      "SELECT event_count FROM cms_analytics_entry_daily WHERE event_date = ?1 AND article_id = ?2"
+    ).bind(date, article.id).first<{ event_count: number }>();
     const runs = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_analytics_pipeline_runs"
     ).first<{ count: number }>();
     expect(repaired?.event_count).toBe(1);
+    expect(repairedEntry?.event_count).toBe(1);
     expect(runs?.count).toBe(1);
 
     const summaryResponse = await handleCmsApiRequest(
@@ -237,6 +271,12 @@ describe("CMS HTTP API", () => {
        ) VALUES (?1, 'expired-report', 'expired-report', 1, 'landing', 1, ?2)`
     ).bind(expiredReportDate, `${expiredReportDate}T00:00:00.000Z`).run();
     await testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_entry_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         entry_kind, event_count, updated_at
+       ) VALUES (?1, 'expired-entry', 'expired-entry', 1, 'landing', 'direct', 1, ?2)`
+    ).bind(expiredReportDate, `${expiredReportDate}T00:00:00.000Z`).run();
+    await testEnv.CMS_DB.prepare(
       `INSERT INTO cms_analytics_ingestion_daily (
          event_date, accepted_event_count, duplicate_event_count, updated_at
        ) VALUES (?1, 1, 0, ?2)`
@@ -253,8 +293,12 @@ describe("CMS HTTP API", () => {
     const ingestion = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_analytics_ingestion_daily"
     ).first<{ count: number }>();
+    const entries = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_analytics_entry_daily"
+    ).first<{ count: number }>();
     expect(facts?.count).toBe(0);
     expect(daily?.count).toBe(1);
+    expect(entries?.count).toBe(1);
     expect(ingestion?.count).toBe(1);
   });
 

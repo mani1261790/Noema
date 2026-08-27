@@ -83,6 +83,7 @@ beforeEach(async () => {
   await testEnv.CMS_DB.batch([
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_events"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_daily"),
+    testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_entry_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_ingestion_daily"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_analytics_pipeline_runs"),
     testEnv.CMS_DB.prepare("DELETE FROM cms_review_comments"),

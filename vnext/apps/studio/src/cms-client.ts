@@ -1,4 +1,5 @@
 import {
+  cmsAnalyticsEntryKindSchema,
   cmsDraftFrontmatterSchema,
   cmsAssetStatusSchema,
   cmsPublicationStatusSchema,
@@ -13,6 +14,7 @@ import {
   type CmsAnalyticsCounts,
   type CmsAnalyticsDailyMetric,
   type CmsAnalyticsDays,
+  type CmsAnalyticsEntryMetric,
   type CmsAnalyticsHealth,
   type CmsAnalyticsQualityCheck,
   type CmsAnalyticsRebuildResult,
@@ -1156,6 +1158,31 @@ function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | nul
   };
 }
 
+function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null {
+  if (!isRecord(value)) return null;
+  const parsedEntryKind = value.entryKind === "unknown"
+    ? { data: "unknown" as const, success: true as const }
+    : cmsAnalyticsEntryKindSchema.safeParse(value.entryKind);
+  if (
+    !parsedEntryKind.success ||
+    !isNonnegativeInteger(value.article50) ||
+    !isNullableRate(value.article50Rate) ||
+    !isNonnegativeInteger(value.articleEnd) ||
+    !isNonnegativeInteger(value.landing) ||
+    !isNonnegativeInteger(value.navigationClick) ||
+    !isNullableRate(value.qualifiedReadRate)
+  ) return null;
+  return {
+    article50: value.article50,
+    article50Rate: value.article50Rate,
+    articleEnd: value.articleEnd,
+    entryKind: parsedEntryKind.data,
+    landing: value.landing,
+    navigationClick: value.navigationClick,
+    qualifiedReadRate: value.qualifiedReadRate
+  };
+}
+
 function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null {
   if (
     !isRecord(value) ||
@@ -1194,6 +1221,7 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
     !isNonnegativeInteger(value.acceptedEvents) ||
     !Array.isArray(value.checks) ||
     !isNonnegativeInteger(value.duplicateEvents) ||
+    !isString(value.entryCoverageFrom) ||
     value.eventContractVersion !== 1 ||
     !isString(value.generatedAt) ||
     !(value.latestEventReceivedAt === null || isString(value.latestEventReceivedAt)) ||
@@ -1222,6 +1250,7 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
     acceptedEvents: value.acceptedEvents,
     checks,
     duplicateEvents: value.duplicateEvents,
+    entryCoverageFrom: value.entryCoverageFrom,
     eventContractVersion: 1,
     generatedAt: value.generatedAt,
     latestEventReceivedAt: value.latestEventReceivedAt,
@@ -1242,6 +1271,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !isRecord(value) ||
     !Array.isArray(value.articles) ||
     !Array.isArray(value.daily) ||
+    !Array.isArray(value.entries) ||
     !isRecord(value.health) ||
     !isRecord(value.range) ||
     !Array.isArray(value.sources) ||
@@ -1249,6 +1279,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   ) return null;
   const articles = value.articles.map(parseCmsAnalyticsArticle);
   const daily = value.daily.map(parseCmsAnalyticsDaily);
+  const entries = value.entries.map(parseCmsAnalyticsEntry);
   const sources = value.sources.map(parseCmsAnalyticsSource);
   const health = parseCmsAnalyticsHealth(value.health);
   const counts = parseAnalyticsCounts(value.totals);
@@ -1256,6 +1287,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   if (
     !articles.every((item): item is CmsAnalyticsArticleMetric => item !== null) ||
     !daily.every((item): item is CmsAnalyticsDailyMetric => item !== null) ||
+    !entries.every((item): item is CmsAnalyticsEntryMetric => item !== null) ||
     !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
     !health ||
     !counts ||
@@ -1271,6 +1303,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   return {
     articles,
     daily,
+    entries,
     health,
     range: { days, from: value.range.from, through: value.range.through },
     sources,
