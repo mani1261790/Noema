@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { CMS_GOOGLE_SEARCH_CONSOLE_URL } from "@noema/cms";
 import { createBlankArticle } from "../src/draft-storage";
 import {
   deleteCmsArticle,
@@ -185,7 +186,15 @@ describe("CMS analytics client", () => {
         rawCoverageFrom: "2026-08-23",
         reprocessableFrom: "2026-08-23",
         retention: { eventFactsDays: 45, reportingMartDays: 500 },
-        sources: [{ id: "noema_reader_events", role: "記事内行動", status: "active" }],
+        sources: [
+          { id: "noema_reader_events", role: "記事内行動", status: "active" },
+          {
+            accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
+            id: "google_search_console",
+            role: "検索パフォーマンス",
+            status: "external"
+          }
+        ],
         status: "healthy"
       },
       onwardPaths: [{
@@ -242,7 +251,12 @@ describe("CMS analytics client", () => {
       });
       expect(result.value.health).toMatchObject({
         metricCatalogVersion: "2026-09-01",
-        retention: { eventFactsDays: 45, reportingMartDays: 500 }
+        retention: { eventFactsDays: 45, reportingMartDays: 500 },
+        sources: expect.arrayContaining([expect.objectContaining({
+          accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
+          id: "google_search_console",
+          status: "external"
+        })])
       });
     }
     expect(fetchFn).toHaveBeenCalledWith(

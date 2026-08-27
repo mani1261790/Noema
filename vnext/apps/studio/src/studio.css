@@ -2708,6 +2708,17 @@ a {
   line-height: 1.5;
 }
 
+.studio-analytics__source-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-top: .25rem;
+  color: var(--color-key-900);
+  font-size: calc(14 / 16 * 1rem);
+  font-weight: 700;
+  text-underline-offset: .2em;
+}
+
 .studio-analytics__repair {
   display: flex;
   align-items: center;

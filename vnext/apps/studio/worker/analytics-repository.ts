@@ -3,6 +3,7 @@ import {
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_METRIC_CATALOG_VERSION,
   CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
+  CMS_GOOGLE_SEARCH_CONSOLE_URL,
   canCms,
   type CmsAnalyticsArticleMetric,
   type CmsAnalyticsCounts,
@@ -651,9 +652,10 @@ function analyticsHealth(options: {
         status: "not_configured"
       },
       {
+        accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
         id: "google_search_console",
-        role: "検索表示、検索クリック、検索語句",
-        status: "not_configured"
+        role: "検索表示、検索クリック、検索語句をSearch Consoleで確認",
+        status: "external"
       }
     ],
     status

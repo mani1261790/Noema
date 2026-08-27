@@ -95,6 +95,42 @@ const sourceNames = {
   noema_reader_events: "Noema読者イベント"
 } as const;
 
+const sourceStatusLabels = {
+  active: "接続中",
+  external: "外部で確認",
+  not_configured: "未接続"
+} as const;
+
+export function AnalyticsSources({
+  sources
+}: {
+  sources: CmsAnalyticsSummary["health"]["sources"];
+}) {
+  return (
+    <div className="studio-analytics__lineage" aria-label="分析sourceの接続状態">
+      {sources.map((source) => (
+        <article key={source.id}>
+          <div>
+            <strong>{sourceNames[source.id]}</strong>
+            <span>{sourceStatusLabels[source.status]}</span>
+          </div>
+          <p>{source.role}</p>
+          {source.status === "external" && source.accessUrl ? (
+            <a
+              className="studio-analytics__source-link"
+              href={source.accessUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Search Consoleで確認<span className="sr-only">（新しいタブ）</span>
+            </a>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
 const entryLabels: Record<CmsAnalyticsSummary["entries"][number]["entryKind"], string> = {
   article: "別の記事",
   article_index: "記事一覧・検索",
@@ -214,17 +250,7 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                   </li>
                 ))}
               </ul>
-              <div className="studio-analytics__lineage" aria-label="分析sourceの接続状態">
-                {state.summary.health.sources.map((source) => (
-                  <article key={source.id}>
-                    <div>
-                      <strong>{sourceNames[source.id]}</strong>
-                      <span>{source.status === "active" ? "接続中" : "未接続"}</span>
-                    </div>
-                    <p>{source.role}</p>
-                  </article>
-                ))}
-              </div>
+              <AnalyticsSources sources={state.summary.health.sources} />
               <p className="studio-analytics__health-note">
                 完全coverageは{state.summary.health.rawCoverageFrom}から、入口別coverageは{state.summary.health.entryCoverageFrom}から。現在再処理できるのは{state.summary.health.reprocessableFrom}以降。最終判定 {state.summary.health.generatedAt}
               </p>
