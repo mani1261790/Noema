@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { listActiveTopics } from "./topics";
+import { listActiveTopics, topicListingResponse } from "./topics";
 
 describe("listActiveTopics", () => {
   it("lists only topics represented by public articles in schema order", () => {
@@ -28,5 +28,15 @@ describe("listActiveTopics", () => {
 
   it("returns no navigation targets when there are no public articles", () => {
     expect(listActiveTopics([])).toEqual([]);
+  });
+});
+
+describe("topicListingResponse", () => {
+  it("keeps populated topic pages indexable", () => {
+    expect(topicListingResponse(1)).toEqual({ noindex: false, status: 200 });
+  });
+
+  it("reports empty topic pages as noindex 404s instead of thin indexable pages", () => {
+    expect(topicListingResponse(0)).toEqual({ noindex: true, status: 404 });
   });
 });

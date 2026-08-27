@@ -13,6 +13,17 @@ export type ActiveTopic = {
   articleCount: number;
 };
 
+export type TopicListingResponse = {
+  noindex: boolean;
+  status: 200 | 404;
+};
+
+export function topicListingResponse(articleCount: number): TopicListingResponse {
+  return articleCount > 0
+    ? { noindex: false, status: 200 }
+    : { noindex: true, status: 404 };
+}
+
 export function listActiveTopics(
   articles: Array<Pick<ArticleSummary, "topics">>
 ): ActiveTopic[] {
