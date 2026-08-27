@@ -1,0 +1,38 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { CMS_GOOGLE_SEARCH_CONSOLE_URL } from "@noema/cms";
+import { AnalyticsSources } from "../src/CmsAnalyticsDashboard";
+
+describe("AnalyticsSources", () => {
+  it("distinguishes integrated, external, and unavailable sources", () => {
+    const html = renderToStaticMarkup(createElement(AnalyticsSources, {
+      sources: [
+        {
+          id: "noema_reader_events",
+          role: "記事内行動",
+          status: "active"
+        },
+        {
+          accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
+          id: "google_search_console",
+          role: "検索パフォーマンス",
+          status: "external"
+        },
+        {
+          id: "cloudflare_web_analytics",
+          role: "Core Web Vitals",
+          status: "not_configured"
+        }
+      ]
+    }));
+
+    expect(html).toContain("接続中");
+    expect(html).toContain("外部で確認");
+    expect(html).toContain("未接続");
+    expect(html).toContain(`href="${CMS_GOOGLE_SEARCH_CONSOLE_URL.replaceAll("&", "&amp;")}"`);
+    expect(html).toContain("Search Consoleで確認");
+    expect(html).toContain("（新しいタブ）");
+    expect(html.match(/target="_blank"/gu)).toHaveLength(1);
+  });
+});

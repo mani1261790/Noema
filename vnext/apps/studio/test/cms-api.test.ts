@@ -7,6 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
+  CMS_GOOGLE_SEARCH_CONSOLE_URL,
   type CmsArticleDetail,
   type CmsMember,
   type CmsSeries,
@@ -135,6 +136,7 @@ describe("CMS HTTP API", () => {
       }>;
       health: {
         retention: { eventFactsDays: number; reportingMartDays: number };
+        sources: Array<{ accessUrl?: string; id: string; status: string }>;
         status: string;
       };
       onwardPaths: Array<{
@@ -205,6 +207,11 @@ describe("CMS HTTP API", () => {
         eventFactsDays: CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
         reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
       },
+      sources: expect.arrayContaining([expect.objectContaining({
+        accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
+        id: "google_search_console",
+        status: "external"
+      })]),
       status: "collecting"
     });
   });

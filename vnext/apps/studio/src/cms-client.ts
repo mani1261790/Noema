@@ -1,4 +1,5 @@
 import {
+  CMS_GOOGLE_SEARCH_CONSOLE_URL,
   cmsAnalyticsEntryKindSchema,
   cmsAnalyticsNavigationKindSchema,
   cmsDraftFrontmatterSchema,
@@ -1316,9 +1317,22 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
       !isRecord(source) ||
       !(source.id === "noema_reader_events" || source.id === "cloudflare_web_analytics" || source.id === "google_search_console") ||
       !isString(source.role) ||
-      !(source.status === "active" || source.status === "not_configured")
+      !(source.status === "active" || source.status === "external" || source.status === "not_configured")
     ) return null;
-    sources.push({ id: source.id, role: source.role, status: source.status });
+    const accessUrl = isString(source.accessUrl) ? source.accessUrl : undefined;
+    if (
+      (source.status === "external" && (
+        source.id !== "google_search_console" ||
+        accessUrl !== CMS_GOOGLE_SEARCH_CONSOLE_URL
+      )) ||
+      (source.status !== "external" && source.accessUrl !== undefined)
+    ) return null;
+    sources.push({
+      ...(accessUrl ? { accessUrl } : {}),
+      id: source.id,
+      role: source.role,
+      status: source.status
+    });
   }
   return {
     acceptedEvents: value.acceptedEvents,
