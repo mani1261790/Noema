@@ -15,6 +15,7 @@
 | Studioへメンバーを追加する | [メンバーを招待する](./studio-blog-connectivity.md#メンバーを招待する) |
 | MCP clientからStudio CMSを編集する | [Studio MCP接続・運用ガイド](./studio-mcp.md) |
 | 記事の読了・回遊・アシスタント利用を分析する | [読者行動分析基盤](./reader-analytics.md) |
+| 公開発見性の次施策と根拠を確認する | [2026-08-27 公開発見性レポート](./growth/2026-08-27/report.html) |
 | 公開範囲や公開後の修正方法を確認する | [Studio・CMS・ブログ接続ガイド](./studio-blog-connectivity.md#公開範囲) |
 | codeやD1 schemaをCloudflareへ反映する | [開発環境デプロイ](./development-deployment.md#自動デプロイの流れ) |
 | CMSのrole、状態遷移、API境界を実装する | [CMS contract](../vnext/packages/cms/README.md) |
