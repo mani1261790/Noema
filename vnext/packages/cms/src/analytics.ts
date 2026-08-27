@@ -123,6 +123,8 @@ export const CMS_ANALYTICS_EVENT_CONTRACT_VERSION = 1 as const;
 export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-23" as const;
 export const CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS = 35 as const;
 export const CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS = 400 as const;
+export const CMS_CLOUDFLARE_WEB_ANALYTICS_URL =
+  "https://dash.cloudflare.com/2ea670c2a6ff28e248ef084adf095e8b/web-analytics/overview?siteTag~in=5f20b6bdc0224ec3ba4604aadb43376a&excludeBots=Yes" as const;
 export const CMS_GOOGLE_SEARCH_CONSOLE_URL =
   "https://search.google.com/search-console/performance/search-analytics?resource_id=https%3A%2F%2Fnoema-learn.uk%2F" as const;
 

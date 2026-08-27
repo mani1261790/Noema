@@ -101,6 +101,14 @@ const sourceStatusLabels = {
   not_configured: "未接続"
 } as const;
 
+const sourceAccessLabels: Partial<Record<
+  CmsAnalyticsSummary["health"]["sources"][number]["id"],
+  string
+>> = {
+  cloudflare_web_analytics: "Web Analyticsで確認",
+  google_search_console: "Search Consoleで確認"
+};
+
 export function AnalyticsSources({
   sources
 }: {
@@ -108,25 +116,28 @@ export function AnalyticsSources({
 }) {
   return (
     <div className="studio-analytics__lineage" aria-label="分析sourceの接続状態">
-      {sources.map((source) => (
-        <article key={source.id}>
-          <div>
-            <strong>{sourceNames[source.id]}</strong>
-            <span>{sourceStatusLabels[source.status]}</span>
-          </div>
-          <p>{source.role}</p>
-          {source.status === "external" && source.accessUrl ? (
-            <a
-              className="studio-analytics__source-link"
-              href={source.accessUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Search Consoleで確認<span className="sr-only">（新しいタブ）</span>
-            </a>
-          ) : null}
-        </article>
-      ))}
+      {sources.map((source) => {
+        const accessLabel = sourceAccessLabels[source.id];
+        return (
+          <article key={source.id}>
+            <div>
+              <strong>{sourceNames[source.id]}</strong>
+              <span>{sourceStatusLabels[source.status]}</span>
+            </div>
+            <p>{source.role}</p>
+            {source.status === "external" && source.accessUrl && accessLabel ? (
+              <a
+                className="studio-analytics__source-link"
+                href={source.accessUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {accessLabel}<span className="sr-only">（新しいタブ）</span>
+              </a>
+            ) : null}
+          </article>
+        );
+      })}
     </div>
   );
 }
