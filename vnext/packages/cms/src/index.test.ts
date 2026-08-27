@@ -104,6 +104,7 @@ describe("CMS contracts", () => {
         referrerHost: "example.com",
         source: "x"
       },
+      entryKind: "home",
       eventType: "article_end"
     }).success).toBe(true);
     expect(cmsAnalyticsEventRequestSchema.safeParse({
@@ -122,6 +123,12 @@ describe("CMS contracts", () => {
       ...envelope,
       articleSlug: "local-ai-on-mac",
       attribution: { campaign: "質問本文を保存しない" },
+      eventType: "landing"
+    }).success).toBe(false);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
+      entryKind: "/private/campaign/path",
       eventType: "landing"
     }).success).toBe(false);
   });

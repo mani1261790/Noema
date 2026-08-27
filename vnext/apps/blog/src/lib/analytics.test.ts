@@ -62,6 +62,7 @@ describe("reader analytics", () => {
         referrerHost: "example.com",
         source: "x"
       },
+      entryKind: "article",
       eventType: "navigation_click",
       navigationKind: "related",
       targetSlug: "quantization-basics"
@@ -85,7 +86,8 @@ describe("reader analytics", () => {
       "memory_chart",
       "example.com",
       "related",
-      "quantization-basics"
+      "quantization-basics",
+      "article"
     ]);
     expect(writeDataPoint).toHaveBeenCalledWith({
       blobs: [
@@ -98,7 +100,8 @@ describe("reader analytics", () => {
         "memory_chart",
         "example.com",
         "related",
-        "quantization-basics"
+        "quantization-basics",
+        "article"
       ],
       doubles: [1],
       indexes: ["article-id"]

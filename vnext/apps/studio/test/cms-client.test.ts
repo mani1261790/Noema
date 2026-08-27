@@ -151,10 +151,20 @@ describe("CMS analytics client", () => {
         title: "分析記事"
       }],
       daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3 }],
+      entries: [{
+        article50: 5,
+        article50Rate: 5 / 6,
+        articleEnd: 4,
+        entryKind: "home",
+        landing: 6,
+        navigationClick: 2,
+        qualifiedReadRate: 4 / 6
+      }],
       health: {
         acceptedEvents: 10,
         checks: [{ detail: "正常です。", id: "freshness", label: "収集鮮度", status: "pass" }],
         duplicateEvents: 0,
+        entryCoverageFrom: "2026-08-23",
         eventContractVersion: 1,
         generatedAt: "2026-08-23T01:00:00.000Z",
         latestEventReceivedAt: "2026-08-23T00:59:00.000Z",
@@ -195,6 +205,7 @@ describe("CMS analytics client", () => {
     if (result.ok) {
       expect(result.value.articles[0]).toMatchObject({ revisionNumber: 4, landing: 10 });
       expect(result.value.sources[0]).toMatchObject({ campaign: "launch", source: "x" });
+      expect(result.value.entries[0]).toMatchObject({ entryKind: "home", landing: 6 });
       expect(result.value.health).toMatchObject({
         metricCatalogVersion: "2026-09-01",
         retention: { eventFactsDays: 45, reportingMartDays: 500 }
