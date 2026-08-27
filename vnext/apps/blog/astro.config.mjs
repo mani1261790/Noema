@@ -1,11 +1,15 @@
 import cloudflare from "@astrojs/cloudflare";
 import { satteri } from "@astrojs/markdown-satteri";
 import { defineConfig } from "astro/config";
+import { fileURLToPath } from "node:url";
 import {
   articleMarkdownFeatures,
   hardenArticleHtml,
   hardenArticleMarkdown
 } from "./src/lib/safe-markdown";
+import { staticPageRevisionsPlugin } from "./scripts/static-page-revisions.mjs";
+
+const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 export default defineConfig({
   site: "https://noema-learn.uk",
@@ -34,6 +38,7 @@ export default defineConfig({
     }
   },
   vite: {
+    plugins: [staticPageRevisionsPlugin({ repositoryRoot })],
     server: {
       fs: {
         allow: ["../.."]
