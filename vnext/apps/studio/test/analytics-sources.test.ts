@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_INDEX_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_LINKS_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_SITEMAPS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL
 } from "@noema/cms";
 import { AnalyticsSources } from "../src/CmsAnalyticsDashboard";
@@ -36,9 +39,15 @@ describe("AnalyticsSources", () => {
     expect(html).not.toContain("未接続");
     expect(html).toContain(`href="${CMS_CLOUDFLARE_WEB_ANALYTICS_URL.replaceAll("&", "&amp;")}"`);
     expect(html).toContain(`href="${CMS_GOOGLE_SEARCH_CONSOLE_URL.replaceAll("&", "&amp;")}"`);
+    expect(html).toContain(`href="${CMS_GOOGLE_SEARCH_CONSOLE_INDEX_URL.replaceAll("&", "&amp;")}"`);
+    expect(html).toContain(`href="${CMS_GOOGLE_SEARCH_CONSOLE_SITEMAPS_URL.replaceAll("&", "&amp;")}"`);
+    expect(html).toContain(`href="${CMS_GOOGLE_SEARCH_CONSOLE_LINKS_URL.replaceAll("&", "&amp;")}"`);
     expect(html).toContain("Web Analyticsで確認");
-    expect(html).toContain("Search Consoleで確認");
+    expect(html).toContain("検索実績");
+    expect(html).toContain("インデックス状況");
+    expect(html).toContain("サイトマップ");
+    expect(html).toContain("外部リンク");
     expect(html).toContain("（新しいタブ）");
-    expect(html.match(/target="_blank"/gu)).toHaveLength(2);
+    expect(html.match(/target="_blank"/gu)).toHaveLength(5);
   });
 });
