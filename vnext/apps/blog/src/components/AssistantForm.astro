@@ -11,6 +11,13 @@ const { idPrefix, headingId, hideHeading = false } = Astro.props;
 <div class="assistant-form-shell">
   {!hideHeading && <h2 id={headingId}>この記事について質問</h2>}
   <form data-assistant-form>
+    <div class="assistant-selection" data-assistant-selection hidden>
+      <div class="assistant-selection__header">
+        <p>選択した本文</p>
+        <button type="button" data-clear-selection>選択を解除</button>
+      </div>
+      <blockquote data-selected-text></blockquote>
+    </div>
     <div class="assistant-field">
       <label for={`${idPrefix}-api-key`}>OpenAI APIキー</label>
       <div class="assistant-key-field">
@@ -29,7 +36,7 @@ const { idPrefix, headingId, hideHeading = false } = Astro.props;
       <textarea id={`${idPrefix}-question`} data-question rows="5" maxlength="1000" placeholder="この記事の内容について質問してください"></textarea>
     </div>
     <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">質問する</button>
-    <p class="assistant-privacy">APIキー、質問、記事本文は回答をつくるためOpenAIへ送信され、Noemaには保存されません。</p>
+    <p class="assistant-privacy">APIキー、質問、記事本文、選択した本文は回答をつくるためOpenAIへ送信され、Noemaには保存されません。</p>
     <p class="assistant-status" data-assistant-status role="status" aria-live="polite"></p>
     <div class="assistant-answer" data-assistant-answer aria-live="polite"></div>
     <button class="assistant-clear" type="button" data-clear-conversation>会話を消去</button>
