@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canCms,
+  classifyCmsAnalyticsAcquisitionChannel,
   cmsAnalyticsMetricCatalog,
   cmsAnalyticsEventRequestSchema,
   cmsAnalyticsRebuildRequestSchema,
@@ -149,6 +150,26 @@ describe("CMS contracts", () => {
       entryKind: "/private/campaign/path",
       eventType: "landing"
     }).success).toBe(false);
+  });
+
+  it("classifies acquisition without storing search terms or reader identifiers", () => {
+    expect(classifyCmsAnalyticsAcquisitionChannel({ referrerHost: "www.google.co.jp" }))
+      .toBe("organic_search");
+    expect(classifyCmsAnalyticsAcquisitionChannel({ referrerHost: "search.brave.com" }))
+      .toBe("organic_search");
+    expect(classifyCmsAnalyticsAcquisitionChannel({
+      medium: "organic",
+      referrerHost: "example.com",
+      source: "google"
+    })).toBe("organic_search");
+    expect(classifyCmsAnalyticsAcquisitionChannel({
+      medium: "cpc",
+      referrerHost: "www.google.com",
+      source: "google"
+    })).toBe("campaign");
+    expect(classifyCmsAnalyticsAcquisitionChannel({ referrerHost: "example.com" }))
+      .toBe("referral");
+    expect(classifyCmsAnalyticsAcquisitionChannel({})).toBe("direct");
   });
 
   it("defines update-guide clicks without claiming an RSS subscription", () => {

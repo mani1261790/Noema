@@ -29,6 +29,13 @@ export const cmsAnalyticsEntryKindSchema = z.enum([
   "other_internal"
 ]);
 
+export const cmsAnalyticsAcquisitionChannelSchema = z.enum([
+  "direct",
+  "organic_search",
+  "campaign",
+  "referral"
+]);
+
 const analyticsIdentifierSchema = z.string()
   .trim()
   .toLowerCase()
@@ -111,9 +118,46 @@ export const cmsAnalyticsRebuildRequestSchema = z.object({
 export type CmsAnalyticsEventType = z.infer<typeof cmsAnalyticsEventTypeSchema>;
 export type CmsAnalyticsEntryKind = z.infer<typeof cmsAnalyticsEntryKindSchema>;
 export type CmsAnalyticsNavigationKind = z.infer<typeof cmsAnalyticsNavigationKindSchema>;
+export type CmsAnalyticsAcquisitionChannel = z.infer<typeof cmsAnalyticsAcquisitionChannelSchema>;
+export type CmsAnalyticsAttribution = z.infer<typeof cmsAnalyticsAttributionSchema>;
 export type CmsAnalyticsEventRequest = z.infer<typeof cmsAnalyticsEventRequestSchema>;
 export type CmsAnalyticsDays = z.infer<typeof cmsAnalyticsDaysSchema>;
 export type CmsAnalyticsRebuildRequest = z.infer<typeof cmsAnalyticsRebuildRequestSchema>;
+
+const searchEngineHosts = new Set([
+  "baidu.com",
+  "bing.com",
+  "duckduckgo.com",
+  "ecosia.org",
+  "search.brave.com",
+  "search.naver.com",
+  "search.yahoo.co.jp",
+  "yandex.com",
+  "yandex.ru"
+]);
+
+function isSearchEngineReferrerHost(value: string): boolean {
+  const host = value.trim().toLowerCase().replace(/^www\./u, "");
+  return /^google\.[a-z]{2,3}(?:\.[a-z]{2})?$/u.test(host) || searchEngineHosts.has(host);
+}
+
+/**
+ * Derives a bounded acquisition channel from already-stored attribution.
+ * Explicit UTM tagging wins over the referrer, except medium=organic.
+ */
+export function classifyCmsAnalyticsAcquisitionChannel(
+  attribution: CmsAnalyticsAttribution
+): CmsAnalyticsAcquisitionChannel {
+  const source = attribution.source?.trim().toLowerCase() ?? "";
+  const medium = attribution.medium?.trim().toLowerCase() ?? "";
+  const campaign = attribution.campaign?.trim().toLowerCase() ?? "";
+  const content = attribution.content?.trim().toLowerCase() ?? "";
+  const referrerHost = attribution.referrerHost?.trim().toLowerCase() ?? "";
+  const hasCampaignAttribution = Boolean(source || medium || campaign || content);
+  if (hasCampaignAttribution) return medium === "organic" ? "organic_search" : "campaign";
+  if (isSearchEngineReferrerHost(referrerHost)) return "organic_search";
+  return referrerHost ? "referral" : "direct";
+}
 
 export interface CmsAnalyticsRebuildResult extends CmsAnalyticsRebuildRequest {
   completedAt: string;
@@ -122,6 +166,7 @@ export interface CmsAnalyticsRebuildResult extends CmsAnalyticsRebuildRequest {
 }
 
 export const CMS_ANALYTICS_EVENT_CONTRACT_VERSION = 1 as const;
+export const CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION = 1 as const;
 export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-28" as const;
 export const CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS = 35 as const;
 export const CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS = 400 as const;
@@ -249,6 +294,7 @@ export interface CmsAnalyticsQualityCheck {
 
 export interface CmsAnalyticsHealth {
   acceptedEvents: number;
+  acquisitionChannelVersion: typeof CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION;
   checks: CmsAnalyticsQualityCheck[];
   duplicateEvents: number;
   entryCoverageFrom: string;
@@ -347,6 +393,24 @@ export interface CmsAnalyticsSourceMetric {
   updatesGuideRate: number | null;
 }
 
+export interface CmsAnalyticsAcquisitionMetric {
+  article50: number;
+  article50Rate: number | null;
+  articleEnd: number;
+  channel: CmsAnalyticsAcquisitionChannel;
+  landing: number;
+  navigationClick: number;
+  onwardRate: number | null;
+  qualifiedReadRate: number | null;
+}
+
+export interface CmsAnalyticsOrganicArticleMetric extends Omit<CmsAnalyticsAcquisitionMetric, "channel"> {
+  articleId: string;
+  revisionNumber: number;
+  slug: string;
+  title: string;
+}
+
 export interface CmsAnalyticsEntryMetric {
   article50: number;
   article50Rate: number | null;
@@ -369,6 +433,7 @@ export interface CmsAnalyticsDailyMetric {
 }
 
 export interface CmsAnalyticsSummary {
+  acquisitionChannels: CmsAnalyticsAcquisitionMetric[];
   articles: CmsAnalyticsArticleMetric[];
   comparison: CmsAnalyticsComparison;
   daily: CmsAnalyticsDailyMetric[];
@@ -376,6 +441,7 @@ export interface CmsAnalyticsSummary {
   health: CmsAnalyticsHealth;
   onwardPaths: CmsAnalyticsOnwardPath[];
   onwardPathsTruncated: boolean;
+  organicSearchArticles: CmsAnalyticsOrganicArticleMetric[];
   range: {
     days: CmsAnalyticsDays;
     from: string;
