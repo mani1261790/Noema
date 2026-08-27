@@ -56,6 +56,9 @@ const presentationHtml = renderArticlePresentation(article.data, article.markdow
   } : null
 });
 const attributedAuthors = article.editor ? [article.editor.displayName] : article.data.authors;
+const heroImageDimensions = article.data.heroImage
+  ? articleImageDimensions.get(article.data.heroImage.src)
+  : undefined;
 const jsonLd = articleJsonLd({
   authors: attributedAuthors.map((name: string) => ({
     name,
@@ -63,7 +66,10 @@ const jsonLd = articleJsonLd({
   })),
   description: article.data.description,
   headline: article.data.title,
-  image: article.data.heroImage?.src,
+  image: article.data.heroImage ? {
+    src: article.data.heroImage.src,
+    ...heroImageDimensions,
+  } : undefined,
   pathname: `/articles/${article.data.slug}`,
   publishedAt: article.publishedAt,
   updatedAt: article.updatedAt
@@ -78,6 +84,8 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
   noindex={article.visibility === "unlisted"}
   image={article.data.heroImage?.src}
   imageAlt={article.data.heroImage?.alt ?? article.data.title}
+  imageHeight={heroImageDimensions?.height}
+  imageWidth={heroImageDimensions?.width}
   pageType="article"
   publishedAt={article.publishedAt}
   updatedAt={article.updatedAt}
