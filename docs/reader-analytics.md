@@ -29,7 +29,7 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 | `article_end` | 本文末尾まで表示したとき |
 | `navigation_click` | シリーズ次記事または関連記事を選んだとき |
 | `share` | 共有URLのclipboard保存に成功したとき |
-| `assistant_open` | 「この記事について質問」ボタンから質問パネルを開いたとき |
+| `assistant_open` | 「この記事について質問」ボタンまたは本文選択後の「AIに質問」から質問パネルを開いたとき |
 | `assistant_success` | アシスタント回答の表示に成功したとき |
 | `assistant_error` | アシスタント回答に失敗したとき |
 
@@ -77,7 +77,7 @@ Studioと`studio_get_analytics_summary`は、分析値と同時に次の運用�
 
 Noema内のlineageは`公開記事 -> 同一origin API -> cms_analytics_events -> cms_analytics_daily -> Studio/MCP`です。Cloudflare Web AnalyticsとGoogle Search Consoleは別の正本を持つ外部sourceです。接続していない段階でNoemaの行動イベントから検索表示、検索クリック、Core Web Vitalsを推定しません。
 
-質問本文、回答本文、会話履歴、APIキー、メールアドレス、IPアドレス、User-Agent、永続的な利用者IDは分析データへ保存しません。IPアドレスは乱用防止のためCloudflare edgeのRate Limitingキーとして一時利用しますが、D1、Analytics Engine、アプリケーションログには保存しません。UTMのsource・medium・campaign・contentは小文字英数字と`.`、`_`、`-`だけに制限します。キャンペーン名へ個人情報を入れてはいけません。
+質問本文、選択した本文、回答本文、会話履歴、APIキー、メールアドレス、IPアドレス、User-Agent、永続的な利用者IDは分析データへ保存しません。IPアドレスは乱用防止のためCloudflare edgeのRate Limitingキーとして一時利用しますが、D1、Analytics Engine、アプリケーションログには保存しません。UTMのsource・medium・campaign・contentは小文字英数字と`.`、`_`、`-`だけに制限します。キャンペーン名へ個人情報を入れてはいけません。
 
 ## 運用上の注意
 

@@ -126,6 +126,7 @@ describe("renderArticlePresentation", () => {
     });
 
     expect(html).toContain('<div class="article-presentation">');
+    expect(html).toContain('<div class="article-lead"><header class="article-header">');
     expect(html).toContain("シリーズの記事一覧");
     expect(html).toContain('href="/series/renderer-test"');
     expect(html.indexOf("この記事でできるようになること")).toBeLessThan(html.indexOf("このシリーズの第2回"));
@@ -151,5 +152,16 @@ describe("renderArticlePresentation", () => {
 
     expect(html).toContain("<dt>編集者</dt><dd>Noema編集部</dd>");
     expect(html).not.toContain("<dt>執筆</dt>");
+  });
+
+  it("groups an optional hero image with the article header", () => {
+    const html = renderArticlePresentation({
+      ...frontmatter,
+      heroImage: { src: "/images/lead.svg", alt: "記事の要点を示す図" },
+    }, "## 本文\n\n説明です。");
+
+    expect(html).toContain('<div class="article-lead"><header class="article-header">');
+    expect(html).toContain('<figure class="article-hero-image"><img src="/images/lead.svg" alt="記事の要点を示す図"></figure></div>');
+    expect(html.indexOf("article-hero-image")).toBeLessThan(html.indexOf("article-outcome"));
   });
 });

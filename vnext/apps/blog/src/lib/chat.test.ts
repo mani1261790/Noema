@@ -1,7 +1,7 @@
 import { previewArticles, previewArticleMarkdown } from "@noema/content";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getPublishedArticleBySlug } from "./cms-publications";
-import { resolveChatArticle } from "../pages/api/chat";
+import { buildReaderInput, normalizeSelectedText, resolveChatArticle } from "../pages/api/chat";
 
 vi.mock("./cms-publications", () => ({
   getPublishedArticleBySlug: vi.fn()
@@ -58,5 +58,19 @@ describe("resolveChatArticle", () => {
       article: collidingPreviewArticle,
       markdown: previewArticleMarkdown
     });
+  });
+});
+
+describe("selected article context", () => {
+  it("normalizes whitespace and limits selected text", () => {
+    expect(normalizeSelectedText("  選択した\n  本文  ")).toBe("選択した 本文");
+    expect(normalizeSelectedText("あ".repeat(1002))).toHaveLength(1000);
+    expect(normalizeSelectedText({ text: "本文" })).toBe("");
+  });
+
+  it("keeps the selected passage distinct from the question and conversation", () => {
+    expect(buildReaderInput("読者: 前の質問", "この箇所", "どういう意味？")).toBe(
+      "読者: 前の質問\n\n読者が選択した本文:\nこの箇所\n\n読者の質問: どういう意味？"
+    );
   });
 });
