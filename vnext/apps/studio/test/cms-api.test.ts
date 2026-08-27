@@ -232,7 +232,7 @@ describe("CMS HTTP API", () => {
     expect(body.summary.comparison).toMatchObject({ status: "collecting", totals: null });
     expect(body.summary.health).toMatchObject({
       acquisitionChannelVersion: 1,
-      entryCoverageFrom: date,
+      entryCoverageFrom: future,
       retention: {
         eventFactsDays: CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
         reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
