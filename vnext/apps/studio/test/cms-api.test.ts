@@ -109,7 +109,10 @@ describe("CMS HTTP API", () => {
       entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "home", 3, timestamp),
       entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "home", 2, timestamp),
       entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "home", 1, timestamp),
-      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "updates_click", "home", 1, timestamp)
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "updates_click", "home", 1, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "article_search", 2, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "article_search", 1, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "article_search", 1, timestamp)
     ]);
     const retained = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_analytics_daily WHERE event_date = ?1"
@@ -143,6 +146,7 @@ describe("CMS HTTP API", () => {
       }>;
       health: {
         acquisitionChannelVersion: number;
+        entryCoverageFrom: string;
         retention: { eventFactsDays: number; reportingMartDays: number };
         sources: Array<{ accessUrl?: string; id: string; status: string }>;
         status: string;
@@ -202,6 +206,13 @@ describe("CMS HTTP API", () => {
       qualifiedReadRate: 0.5,
       updatesGuideRate: 0.5
     }));
+    expect(body.summary.entries).toContainEqual(expect.objectContaining({
+      article50Rate: 0.5,
+      entryKind: "article_search",
+      landing: 2,
+      qualifiedReadRate: 0.5,
+      updatesGuideRate: 0
+    }));
     expect(body.summary.onwardPaths).toEqual([expect.objectContaining({
       clickCount: 1,
       navigationKind: "related",
@@ -221,6 +232,7 @@ describe("CMS HTTP API", () => {
     expect(body.summary.comparison).toMatchObject({ status: "collecting", totals: null });
     expect(body.summary.health).toMatchObject({
       acquisitionChannelVersion: 1,
+      entryCoverageFrom: date,
       retention: {
         eventFactsDays: CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
         reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS

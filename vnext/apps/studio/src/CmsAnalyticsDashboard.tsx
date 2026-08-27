@@ -221,7 +221,8 @@ export function AnalyticsSources({
 
 const entryLabels: Record<CmsAnalyticsSummary["entries"][number]["entryKind"], string> = {
   article: "別の記事",
-  article_index: "記事一覧・検索",
+  article_index: "記事一覧",
+  article_search: "記事検索・絞り込み",
   direct: "直接",
   external: "外部サイト",
   home: "ホーム",
@@ -472,7 +473,7 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
               <div className="studio-analytics__section-heading">
                 <div><p className="studio-library__eyebrow">サイト内の入口</p><h2 id="studio-analytics-entries-heading">どのページから記事へ入ったか</h2></div>
               </div>
-              <p>外部流入のUTMとは分けて、ホーム、記事一覧、シリーズ、テーマ、別の記事からの到達を確認します。</p>
+              <p>外部流入のUTMとは分けて、ホーム、記事一覧、検索・絞り込み、シリーズ、テーマ、別の記事からの到達を確認します。検索語や絞り込み値は保存しません。</p>
               {state.summary.entries.length === 0 ? <p>入口別の読者行動はまだありません。</p> : (
                 <div className="studio-analytics__table-wrap">
                   <table>
