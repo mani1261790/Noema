@@ -21,6 +21,7 @@ export interface ArticleStructuredDataInput {
 }
 
 const fallbackSite = new URL("https://noema-learn.uk");
+const organizationLogoPath = "/images/brand/noema-logo-512.png";
 
 export function canonicalPathname(pathname: string): string {
   if (pathname === "/") return pathname;
@@ -56,6 +57,25 @@ export function breadcrumbJsonLd(
   };
 }
 
+export function organizationJsonLd(site: URL = fallbackSite): JsonLd {
+  const siteUrl = canonicalUrl("/", site).toString();
+  const logoUrl = new URL(organizationLogoPath, site).toString();
+
+  return {
+    "@id": `${siteUrl}#organization`,
+    "@type": "Organization",
+    name: "Noema",
+    url: siteUrl,
+    logo: {
+      "@type": "ImageObject",
+      url: logoUrl,
+      contentUrl: logoUrl,
+      width: 512,
+      height: 512,
+    },
+  };
+}
+
 export function articleJsonLd(
   article: ArticleStructuredDataInput,
   site: URL = fallbackSite,
@@ -78,12 +98,7 @@ export function articleJsonLd(
       name: author.name,
       ...(author.url ? { url: canonicalUrl(author.url, site).toString() } : {}),
     })),
-    publisher: {
-      "@id": `${siteUrl}#organization`,
-      "@type": "Organization",
-      name: "Noema",
-      url: siteUrl,
-    },
+    publisher: organizationJsonLd(site),
     isPartOf: {
       "@id": `${siteUrl}#website`,
       "@type": "WebSite",

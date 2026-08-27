@@ -4,6 +4,7 @@ import {
   breadcrumbJsonLd,
   canonicalPathname,
   canonicalUrl,
+  organizationJsonLd,
   serializeJsonLd,
   serializeSitemap,
 } from "./seo";
@@ -33,6 +34,22 @@ describe("SEO helpers", () => {
     });
   });
 
+  it("identifies the preferred crawlable organization logo", () => {
+    expect(organizationJsonLd()).toEqual({
+      "@id": "https://noema-learn.uk/#organization",
+      "@type": "Organization",
+      name: "Noema",
+      url: "https://noema-learn.uk/",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://noema-learn.uk/images/brand/noema-logo-512.png",
+        contentUrl: "https://noema-learn.uk/images/brand/noema-logo-512.png",
+        width: 512,
+        height: 512,
+      },
+    });
+  });
+
   it("uses canonical URLs, exact CMS timestamps, and the article image in BlogPosting data", () => {
     expect(articleJsonLd({
       authors: [{ name: "編集者", url: "/editors/example/" }],
@@ -53,6 +70,14 @@ describe("SEO helpers", () => {
       datePublished: "2026-08-20T01:02:03.000Z",
       image: ["https://noema-learn.uk/media/articles/example.webp"],
       mainEntityOfPage: "https://noema-learn.uk/articles/example",
+      publisher: {
+        logo: {
+          contentUrl: "https://noema-learn.uk/images/brand/noema-logo-512.png",
+          height: 512,
+          url: "https://noema-learn.uk/images/brand/noema-logo-512.png",
+          width: 512,
+        },
+      },
     });
   });
 

@@ -5,7 +5,7 @@ import SeriesCard from "../components/SeriesCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { selectStandaloneArticles, sortArticlesByDate } from "../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../lib/cms-publications";
-import { canonicalUrl } from "../lib/seo";
+import { canonicalUrl, organizationJsonLd } from "../lib/seo";
 import { listActiveTopics } from "../lib/topics";
 
 const [articles, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
@@ -23,12 +23,7 @@ const siteUrl = canonicalUrl("/", Astro.site).toString();
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
-    {
-      "@id": `${siteUrl}#organization`,
-      "@type": "Organization",
-      name: "Noema",
-      url: siteUrl
-    },
+    organizationJsonLd(Astro.site),
     {
       "@id": `${siteUrl}#website`,
       "@type": "WebSite",
