@@ -131,6 +131,7 @@ const searchEngineHosts = new Set([
   "ecosia.org",
   "search.brave.com",
   "search.naver.com",
+  "search.yahoo.com",
   "search.yahoo.co.jp",
   "yandex.com",
   "yandex.ru"

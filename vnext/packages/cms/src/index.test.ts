@@ -157,6 +157,8 @@ describe("CMS contracts", () => {
       .toBe("organic_search");
     expect(classifyCmsAnalyticsAcquisitionChannel({ referrerHost: "search.brave.com" }))
       .toBe("organic_search");
+    expect(classifyCmsAnalyticsAcquisitionChannel({ referrerHost: "search.yahoo.com" }))
+      .toBe("organic_search");
     expect(classifyCmsAnalyticsAcquisitionChannel({
       medium: "organic",
       referrerHost: "example.com",
