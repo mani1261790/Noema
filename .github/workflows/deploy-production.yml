@@ -288,4 +288,6 @@ jobs:
       - name: Notify IndexNow of the current public sitemap
         continue-on-error: true
         working-directory: vnext
+        env:
+          NOEMA_INDEXNOW_SITEMAP_ORIGIN: https://noema-learn-production.mani1261790.workers.dev
         run: npm run notify:indexnow --workspace @noema/blog
