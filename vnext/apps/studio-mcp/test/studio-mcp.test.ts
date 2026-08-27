@@ -247,6 +247,7 @@ describe("Studio MCP tools", () => {
       })
     ]);
     const asset = assetFrom(uploaded.structuredContent);
+    expect(asset).toMatchObject({ height: 1, width: 1 });
     expect(assetFrom(replayedUpload.structuredContent).id).toBe(asset.id);
     expect(uploaded.structuredContent).toMatchObject({
       markdown: `![${uploadArguments.alt}](${asset.markdownUrl})`
@@ -414,7 +415,7 @@ describe("Studio MCP tools", () => {
         arguments: {
           alt: "末尾にパディングがあるJPEG",
           contentType: "image/jpeg",
-          dataBase64: "/9j/2wAA/9kAAA==",
+          dataBase64: "/9j/wAAHCAABAAH/2QAA",
           fileName: "padded.jpg",
           requestId: "00000000-0000-4000-8000-000000000037"
         }
@@ -424,7 +425,7 @@ describe("Studio MCP tools", () => {
         arguments: {
           alt: "末尾にパディングがあるGIF",
           contentType: "image/gif",
-          dataBase64: "R0lGODlhAAAAAAAAADsAAA==",
+          dataBase64: "R0lGODlhAQABAAAAADsAAA==",
           fileName: "padded.gif",
           requestId: "00000000-0000-4000-8000-000000000038"
         }
@@ -1719,30 +1720,38 @@ async function connectClient(session: CmsSession = SESSION) {
 }
 
 function assetFrom(value: unknown): {
+  height: number | null;
   id: string;
   markdownUrl: string;
   r2Key: string;
   updatedAt: string;
+  width: number | null;
 } {
   const asset = (value as { asset?: unknown } | undefined)?.asset;
   if (!asset || typeof asset !== "object") throw new Error("Missing asset result.");
   const result = asset as {
+    height?: unknown;
     id?: unknown;
     markdownUrl?: unknown;
     updatedAt?: unknown;
+    width?: unknown;
   };
   if (
+    !(result.height === null || typeof result.height === "number") ||
     typeof result.id !== "string" ||
     typeof result.markdownUrl !== "string" ||
-    typeof result.updatedAt !== "string"
+    typeof result.updatedAt !== "string" ||
+    !(result.width === null || typeof result.width === "number")
   ) throw new Error("Invalid asset result.");
   const match = result.markdownUrl.match(/^\/media\/(articles\/.+)$/u);
   if (!match?.[1]) throw new Error("Missing asset R2 key.");
   return {
+    height: result.height,
     id: result.id,
     markdownUrl: result.markdownUrl,
     r2Key: match[1],
-    updatedAt: result.updatedAt
+    updatedAt: result.updatedAt,
+    width: result.width
   };
 }
 

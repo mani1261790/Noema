@@ -8,7 +8,8 @@
     "./article-extensions": "./src/article-extensions.ts",
     "./article-markdown": "./src/article-markdown.ts",
     "./article-renderer": "./src/article-renderer.ts",
-    "./article-presentation": "./src/article-presentation.ts"
+    "./article-presentation": "./src/article-presentation.ts",
+    "./image-metadata": "./src/image-metadata.ts"
   },
   "scripts": {
     "test": "vitest run"

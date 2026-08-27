@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractArticleLinkReferences, validateArticleMarkdown } from "./article-markdown";
+import { extractArticleImageReferences, extractArticleLinkReferences, validateArticleMarkdown } from "./article-markdown";
 import { renderArticlePresentation } from "./article-presentation";
 import {
   createArticleMarkdownRenderer,
@@ -79,6 +79,19 @@ describe("article Markdown extensions", () => {
     ].join("\n"))).toEqual([
       { fragment: "概要", href: "/articles/future#%E6%A6%82%E8%A6%81", line: 3, slug: "future" },
     ]);
+  });
+
+  it("extracts image references and emits known intrinsic dimensions", () => {
+    const source = "![図](/media/articles/00000000-0000-4000-8000-000000000000.png)";
+    expect(extractArticleImageReferences(source)).toEqual([
+      "/media/articles/00000000-0000-4000-8000-000000000000.png",
+    ]);
+    const renderer = createArticleMarkdownRenderer({
+      resolveImageDimensions: () => ({ height: 675, width: 1200 }),
+    });
+    expect(renderer.render(source)).toContain(
+      'src="/media/articles/00000000-0000-4000-8000-000000000000.png" alt="図" width="1200" height="675"',
+    );
   });
 
   it("renders an unavailable article reference as explanatory text instead of a link", () => {
@@ -163,5 +176,16 @@ describe("renderArticlePresentation", () => {
     expect(html).toContain('<div class="article-lead"><header class="article-header">');
     expect(html).toContain('<figure class="article-hero-image"><img src="/images/lead.svg" alt="記事の要点を示す図"></figure></div>');
     expect(html.indexOf("article-hero-image")).toBeLessThan(html.indexOf("article-outcome"));
+  });
+
+  it("emits known intrinsic dimensions for the hero image", () => {
+    const html = renderArticlePresentation({
+      ...frontmatter,
+      heroImage: { src: "/media/articles/00000000-0000-4000-8000-000000000000.png", alt: "記事の図" },
+    }, "## 本文\n\n説明です。", {
+      resolveImageDimensions: () => ({ height: 675, width: 1200 }),
+    });
+
+    expect(html).toContain('alt="記事の図" width="1200" height="675"');
   });
 });

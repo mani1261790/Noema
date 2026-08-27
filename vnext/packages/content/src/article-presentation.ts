@@ -5,6 +5,7 @@ import {
   renderArticleMarkdownWith,
 } from "@noema/content/article-renderer";
 import type { ArticleFrontmatter } from "@noema/content";
+import type { ImageDimensions } from "@noema/content/image-metadata";
 
 export interface ArticlePresentationSeriesItem {
   href: string;
@@ -22,6 +23,7 @@ export interface ArticlePresentationSeries {
 export interface ArticlePresentationOptions {
   editor?: { href: string; name: string } | null;
   markdownRenderer?: MarkdownIt;
+  resolveImageDimensions?: (reference: string) => ImageDimensions | null | undefined;
   resolveImageReference?: (reference: string) => string;
   resolveLinkReference?: (reference: string) => string;
   series?: ArticlePresentationSeries | null;
@@ -102,8 +104,14 @@ export function renderArticlePresentation(
   const attribution = options.editor
     ? `<div><dt>編集者</dt><dd><a href="${attribute(resolveReference(options.editor.href, options.resolveLinkReference))}">${escapeHtml(options.editor.name)}</a></dd></div>`
     : `<div><dt>編集者</dt><dd>${escapeHtml(frontmatter.authors.join("、"))}</dd></div>`;
+  const heroDimensions = frontmatter.heroImage
+    ? options.resolveImageDimensions?.(frontmatter.heroImage.src)
+    : null;
+  const heroDimensionAttributes = heroDimensions
+    ? ` width="${heroDimensions.width}" height="${heroDimensions.height}"`
+    : "";
   const hero = frontmatter.heroImage
-    ? `<figure class="article-hero-image"><img src="${attribute(resolveReference(frontmatter.heroImage.src, options.resolveImageReference))}" alt="${attribute(frontmatter.heroImage.alt)}"></figure>`
+    ? `<figure class="article-hero-image"><img src="${attribute(resolveReference(frontmatter.heroImage.src, options.resolveImageReference))}" alt="${attribute(frontmatter.heroImage.alt)}"${heroDimensionAttributes}></figure>`
     : "";
   const toc = headings.length > 0
     ? `<nav class="dads-toc article-toc article-toc--desktop" data-border="solid" aria-label="この記事の内容"><h2 class="dads-toc__heading">この記事の内容</h2><ol class="dads-list article-toc__list">${headings.map((item) => `<li><a class="dads-link" href="#${attribute(item.slug)}">${escapeHtml(item.text)}</a></li>`).join("")}</ol></nav><details class="dads-disclosure article-toc article-toc--mobile"><summary class="dads-disclosure__summary article-toc__summary"><span>この記事の内容</span><svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="dads-disclosure__icon-circle" cx="12" cy="12" r="10" fill="currentColor"></circle><path class="dads-disclosure__icon-triangle" d="m8 10 4 5 4-5H8Z" fill="white"></path></svg></summary><nav class="dads-disclosure__content" aria-label="記事内目次"><ol class="dads-list article-toc__list">${headings.map((item) => `<li><a class="dads-link" href="#${attribute(item.slug)}">${escapeHtml(item.text)}</a></li>`).join("")}</ol></nav></details>`

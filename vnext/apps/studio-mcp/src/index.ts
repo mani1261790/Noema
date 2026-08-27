@@ -22,6 +22,11 @@ import {
   type CmsSession
 } from "@noema/cms";
 import { renderArticlePresentation } from "@noema/content/article-presentation";
+import {
+  readImageMetadata,
+  type ImageDimensions,
+  type SupportedImageContentType
+} from "@noema/content/image-metadata";
 import { articleMarkdownGuidance } from "@noema/content";
 import { z } from "zod";
 import {
@@ -722,7 +727,7 @@ export function createStudioMcpServer(
     },
     async ({ alt, contentType, dataBase64, fileName, requestId, tags }) =>
       executeTool(async () => {
-        const bytes = decodeImage(dataBase64, contentType);
+        const { bytes, dimensions } = decodeImage(dataBase64, contentType);
         const inputSha256 = await assetUploadChecksum({
           alt,
           bytes,
@@ -752,11 +757,13 @@ export function createStudioMcpServer(
               alt,
               byteSize: bytes.byteLength,
               contentType,
+              height: dimensions.height,
               id: assetId,
               inputSha256,
               originalName: fileName,
               r2Key,
-              tags
+              tags,
+              width: dimensions.width
             },
             requestId,
             client
@@ -1286,51 +1293,21 @@ function toolSuccess(result: Record<string, unknown>) {
 function decodeImage(
   dataBase64: string,
   contentType: (typeof SUPPORTED_IMAGE_TYPES)[number]
-): Uint8Array {
+): { bytes: Uint8Array; dimensions: ImageDimensions } {
   const decoded = Buffer.from(dataBase64, "base64");
+  const metadata = readImageMetadata(decoded, contentType as SupportedImageContentType);
   if (
     decoded.byteLength === 0 ||
     decoded.byteLength > MAX_ASSET_BYTES ||
     decoded.toString("base64") !== dataBase64 ||
-    !matchesImageSignature(decoded, contentType)
+    !metadata
   ) {
     throw new CmsRepositoryError(
       "invalid_asset",
       "画像データ、形式、または8MBの容量制限を確認してください。"
     );
   }
-  return decoded;
-}
-
-function matchesImageSignature(
-  bytes: Uint8Array,
-  contentType: (typeof SUPPORTED_IMAGE_TYPES)[number]
-): boolean {
-  switch (contentType) {
-    case "image/gif":
-      return bytes.byteLength >= 14 &&
-        ["GIF87a", "GIF89a"].includes(String.fromCharCode(...bytes.subarray(0, 6))) &&
-        bytes.lastIndexOf(0x3b) >= 13;
-    case "image/jpeg":
-      return bytes.byteLength >= 4 &&
-        bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff &&
-        hasJpegEndMarker(bytes);
-    case "image/png":
-      return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) &&
-        endsWith(bytes, [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
-    case "image/webp":
-      return bytes.byteLength >= 12 &&
-        startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
-        startsWith(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50]) &&
-        readLittleEndianUint32(bytes, 4) === bytes.byteLength - 8;
-  }
-}
-
-function hasJpegEndMarker(bytes: Uint8Array): boolean {
-  for (let index = bytes.byteLength - 2; index >= 2; index -= 1) {
-    if (bytes[index] === 0xff && bytes[index + 1] === 0xd9) return true;
-  }
-  return false;
+  return { bytes: decoded, dimensions: metadata };
 }
 
 async function discardAsset(bucket: R2Bucket, r2Key: string): Promise<void> {
@@ -1343,27 +1320,6 @@ async function discardAsset(bucket: R2Bucket, r2Key: string): Promise<void> {
       r2Key
     });
   }
-}
-
-function endsWith(bytes: Uint8Array, signature: number[]): boolean {
-  return bytes.byteLength >= signature.length &&
-    signature.every((value, index) =>
-      bytes[bytes.byteLength - signature.length + index] === value
-    );
-}
-
-function readLittleEndianUint32(bytes: Uint8Array, offset: number): number {
-  return (
-    (bytes[offset] ?? 0) |
-    ((bytes[offset + 1] ?? 0) << 8) |
-    ((bytes[offset + 2] ?? 0) << 16) |
-    ((bytes[offset + 3] ?? 0) << 24)
-  ) >>> 0;
-}
-
-function startsWith(bytes: Uint8Array, signature: number[]): boolean {
-  return bytes.byteLength >= signature.length &&
-    signature.every((value, index) => bytes[index] === value);
 }
 
 async function assetUploadChecksum(input: {

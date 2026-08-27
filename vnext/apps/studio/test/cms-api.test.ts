@@ -12,6 +12,10 @@ import { cleanupCmsAnalyticsRetention } from "../worker/analytics-repository";
 const testEnv = env as Env & { CMS_TEST_MIGRATIONS: D1Migration[] };
 const ORIGIN = "https://studio.example.com";
 const ADMIN = { email: "owner@example.com", subject: "owner-subject" };
+const ONE_PIXEL_PNG = Uint8Array.from(
+  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="),
+  (character) => character.charCodeAt(0),
+);
 
 beforeAll(async () => {
   await applyD1Migrations(testEnv.CMS_DB, testEnv.CMS_TEST_MIGRATIONS);
@@ -941,7 +945,7 @@ describe("CMS HTTP API", () => {
   it("stores supported images privately and serves them to authenticated Studio previews", async () => {
     await bootstrapAdmin();
     const form = new FormData();
-    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "diagram.png", {
+    form.set("file", new File([ONE_PIXEL_PNG], "diagram.png", {
       type: "image/png"
     }));
     const upload = await handleCmsApiRequest(
@@ -950,10 +954,11 @@ describe("CMS HTTP API", () => {
       ADMIN
     );
     const uploaded = (await upload.json()) as {
-      asset: { markdownUrl: string; previewUrl: string };
+      asset: { height: number; markdownUrl: string; previewUrl: string; width: number };
     };
 
     expect(upload.status).toBe(201);
+    expect(uploaded.asset).toMatchObject({ height: 1, width: 1 });
     expect(uploaded.asset.markdownUrl).toMatch(/^\/media\/articles\/[0-9a-f-]{36}\.png$/);
     expect(uploaded.asset.previewUrl).toMatch(/^\/api\/cms\/assets\/articles\/[0-9a-f-]{36}\.png$/);
 
@@ -965,13 +970,13 @@ describe("CMS HTTP API", () => {
     expect(preview.status).toBe(200);
     expect(preview.headers.get("cache-control")).toBe("private, no-store");
     expect(preview.headers.get("content-type")).toBe("image/png");
-    expect(new Uint8Array(await preview.arrayBuffer())).toEqual(new Uint8Array([137, 80, 78, 71]));
+    expect(new Uint8Array(await preview.arrayBuffer())).toEqual(ONE_PIXEL_PNG);
   });
 
   it("lists uploaded images and updates reusable alt text and tags", async () => {
     await bootstrapAdmin();
     const form = new FormData();
-    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "library.png", {
+    form.set("file", new File([ONE_PIXEL_PNG], "library.png", {
       type: "image/png"
     }));
     const upload = await handleCmsApiRequest(
@@ -1001,17 +1006,19 @@ describe("CMS HTTP API", () => {
     expect(body.assets).toHaveLength(1);
     expect(body.assets[0]).toMatchObject({
       alt: "記事ライブラリの画面",
+      height: 1,
       originalName: "library.png",
       referenceCount: 0,
       status: "active",
-      tags: ["Studio", "UI"]
+      tags: ["Studio", "UI"],
+      width: 1
     });
   });
 
   it("deletes an unused image from D1 and R2", async () => {
     await bootstrapAdmin();
     const form = new FormData();
-    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "obsolete.png", {
+    form.set("file", new File([ONE_PIXEL_PNG], "obsolete.png", {
       type: "image/png"
     }));
     const upload = await handleCmsApiRequest(
@@ -1040,7 +1047,7 @@ describe("CMS HTTP API", () => {
   it("refuses to delete an image that is still used by an article", async () => {
     await bootstrapAdmin();
     const form = new FormData();
-    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "in-use.png", {
+    form.set("file", new File([ONE_PIXEL_PNG], "in-use.png", {
       type: "image/png"
     }));
     const upload = await handleCmsApiRequest(
@@ -1082,6 +1089,22 @@ describe("CMS HTTP API", () => {
     await bootstrapAdmin();
     const form = new FormData();
     form.set("file", new File(["<svg></svg>"], "unsafe.svg", { type: "image/svg+xml" }));
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
+      cmsEnv(),
+      ADMIN
+    );
+
+    expect(response.status).toBe(415);
+    await expectErrorCode(response, "unsupported_asset_type");
+  });
+
+  it("rejects a truncated file that only declares an image MIME type", async () => {
+    await bootstrapAdmin();
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([137, 80, 78, 71])], "truncated.png", {
+      type: "image/png"
+    }));
     const response = await handleCmsApiRequest(
       cmsRequest("/api/cms/assets", { body: form, method: "POST" }),
       cmsEnv(),

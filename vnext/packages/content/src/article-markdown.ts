@@ -251,6 +251,18 @@ export function extractArticleLinkReferences(source: string): ArticleLinkReferen
   return references;
 }
 
+export function extractArticleImageReferences(source: string): string[] {
+  const references: string[] = [];
+  for (const token of parser.parse(source, {})) {
+    for (const child of token.children ?? []) {
+      if (child.type !== "image") continue;
+      const source = child.attrGet("src");
+      if (source !== null) references.push(source);
+    }
+  }
+  return references;
+}
+
 export function validateArticleMarkdown(
   source: string,
   options: ValidateArticleMarkdownOptions = {},
