@@ -14,10 +14,20 @@ export interface ArticleStructuredDataInput {
   authors: ReadonlyArray<{ name: string; url?: string }>;
   description: string;
   headline: string;
-  image?: string;
+  image?: string | {
+    height?: number;
+    src: string;
+    width?: number;
+  };
   pathname: string;
   publishedAt: string;
   updatedAt: string;
+}
+
+export interface OpenGraphImageDimensionsInput {
+  hasCustomImage: boolean;
+  height?: number;
+  width?: number;
 }
 
 export interface CollectionPageStructuredDataInput {
@@ -48,6 +58,17 @@ export function canonicalUrl(pathname: string, site: URL = fallbackSite): URL {
 
 export function serializeJsonLd(value: JsonLd): string {
   return JSON.stringify(value).replaceAll("<", "\\u003c");
+}
+
+export function resolveOpenGraphImageDimensions(
+  input: OpenGraphImageDimensionsInput,
+): { height: number; width: number } | null {
+  if (!input.hasCustomImage) return { height: 630, width: 1200 };
+  if (
+    !Number.isInteger(input.width) || !Number.isInteger(input.height) ||
+    (input.width ?? 0) <= 0 || (input.height ?? 0) <= 0
+  ) return null;
+  return { height: input.height as number, width: input.width as number };
 }
 
 export function breadcrumbJsonLd(
@@ -92,6 +113,11 @@ export function articleJsonLd(
 ): JsonLd {
   const articleUrl = canonicalUrl(article.pathname, site).toString();
   const siteUrl = canonicalUrl("/", site).toString();
+  const image = typeof article.image === "string"
+    ? [new URL(article.image, site).toString()]
+    : article.image
+      ? [articleImageJsonLd(article.image, site)]
+      : undefined;
 
   return {
     "@context": "https://schema.org",
@@ -102,7 +128,7 @@ export function articleJsonLd(
     dateModified: article.updatedAt,
     inLanguage: "ja",
     mainEntityOfPage: articleUrl,
-    ...(article.image ? { image: [new URL(article.image, site).toString()] } : {}),
+    ...(image ? { image } : {}),
     author: article.authors.map((author) => ({
       "@type": "Person",
       name: author.name,
@@ -115,6 +141,24 @@ export function articleJsonLd(
       name: "Noema",
       url: siteUrl,
     },
+  };
+}
+
+function articleImageJsonLd(
+  image: Exclude<ArticleStructuredDataInput["image"], string | undefined>,
+  site: URL,
+): JsonLd | string {
+  const url = new URL(image.src, site).toString();
+  if (
+    !Number.isInteger(image.width) || !Number.isInteger(image.height) ||
+    (image.width ?? 0) <= 0 || (image.height ?? 0) <= 0
+  ) return url;
+  return {
+    "@type": "ImageObject",
+    contentUrl: url,
+    height: image.height,
+    url,
+    width: image.width,
   };
 }
 
