@@ -52,13 +52,21 @@ export function findRelatedArticles<T extends ArticleSummary>(
 
   return candidates
     .filter((candidate) => candidate.slug !== current.slug)
-    .map((candidate) => ({
-      candidate,
-      score:
-        candidate.topics.filter((topic) => currentTopics.has(topic)).length * 4 +
-        candidate.tags.filter((tag) => currentTags.has(tag)).length * 2 +
-        (candidate.approach !== current.approach ? 1 : 0)
-    }))
+    .map((candidate) => {
+      const sharedTopicCount = candidate.topics.filter((topic) => currentTopics.has(topic)).length;
+      const sharedTagCount = candidate.tags.filter((tag) => currentTags.has(tag)).length;
+      // One topic is a broad shelf; a shared tag or two shared topics indicate a useful next read.
+      const hasMeaningfulRelationship = sharedTagCount > 0 || sharedTopicCount > 1;
+
+      return {
+        candidate,
+        score: hasMeaningfulRelationship
+          ? sharedTopicCount * 4 +
+            sharedTagCount * 2 +
+            (candidate.approach !== current.approach ? 1 : 0)
+          : 0
+      };
+    })
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || (b.candidate.publishedAt ?? "").localeCompare(a.candidate.publishedAt ?? ""))
     .slice(0, limit)
