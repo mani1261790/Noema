@@ -281,6 +281,7 @@ jobs:
 
           node apps/blog/scripts/verify-article-image-dimensions.mjs \
             "${production_origin}"
+          npm run verify:public-seo --workspace @noema/blog -- "${production_origin}"
 
           fetch_expected "${production_origin}/about" 200 /dev/null
           fetch_expected "${production_origin}/privacy" 200 /dev/null

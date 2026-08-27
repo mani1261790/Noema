@@ -9,6 +9,7 @@
     "generate:og": "node scripts/generate-og-images.mjs",
     "notify:indexnow": "tsx scripts/submit-indexnow.ts",
     "verify:indexnow-key": "tsx scripts/submit-indexnow.ts --verify-key-only",
+    "verify:public-seo": "node scripts/verify-public-seo.mjs",
     "cms:migrate:local": "CI=true wrangler d1 migrations apply noema-cms --local --config ../studio/wrangler.jsonc --persist-to .wrangler/state",
     "validate:articles": "node scripts/validate-article-paths.mjs",
     "validate:deployment-config": "node scripts/validate-deployment-config.mjs",
