@@ -17,6 +17,8 @@ const { preview = false, slug } = Astro.props;
   data-open-assistant
   data-article-preview={preview ? "true" : "false"}
   data-article-slug={slug}
+  aria-controls="article-assistant-panel"
+  aria-expanded="false"
 >
   <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 3a8 8 0 0 0-6.5 12.7L4 21l5.3-1.5A8 8 0 1 0 12 3Zm0 1.5a6.5 6.5 0 1 1-2.2 12.6l-.2-.1-3.4 1 1-3.4-.1-.2A6.5 6.5 0 0 1 12 4.5Z" fill="currentColor" />
@@ -25,54 +27,64 @@ const { preview = false, slug } = Astro.props;
   この記事について質問
 </button>
 
-<dialog class="assistant-dialog" data-assistant-dialog aria-labelledby="assistant-dialog-heading">
-  <div class="assistant-dialog__header">
-    <h2 id="assistant-dialog-heading">この記事について質問</h2>
-    <button type="button" class="assistant-dialog__close" data-close-assistant aria-label="質問画面を閉じる">
+<aside
+  id="article-assistant-panel"
+  class="assistant-panel"
+  data-assistant-panel
+  aria-labelledby="assistant-panel-heading"
+  aria-hidden="true"
+  inert
+>
+  <div class="assistant-panel__header">
+    <h2 id="assistant-panel-heading">この記事について質問</h2>
+    <button type="button" class="assistant-panel__close" data-close-assistant aria-label="質問パネルを閉じる">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2" /></svg>
     </button>
   </div>
-  <AssistantForm idPrefix="dialog" hideHeading />
-</dialog>
+  <AssistantForm idPrefix="panel" hideHeading />
+</aside>
 
 <script>
   const openButton = document.querySelector<HTMLButtonElement>("[data-open-assistant]");
   const articleSlug = openButton?.dataset.articleSlug;
   const previewArticle = openButton?.dataset.articlePreview === "true";
-  const dialog = document.querySelector<HTMLDialogElement>("[data-assistant-dialog]");
+  const articlePage = openButton?.closest(".article-page") as HTMLElement | null | undefined;
+  const panel = document.querySelector<HTMLElement>("[data-assistant-panel]");
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
   const dispatchAssistantOpen = () => {
     document.dispatchEvent(new CustomEvent("noema:analytics", {
       detail: { eventType: "assistant_open" }
     }));
   };
-  const openDialog = () => {
-    if (!dialog || dialog.open) return;
-    dialog.showModal();
-    document.body.classList.add("has-assistant-dialog");
-    closeButton?.focus();
+  const isPanelOpen = () => articlePage?.dataset.assistantOpen === "true";
+  const openPanel = () => {
+    if (!articlePage || !panel || isPanelOpen()) return;
+    articlePage.dataset.assistantOpen = "true";
+    panel.removeAttribute("inert");
+    panel.setAttribute("aria-hidden", "false");
+    openButton?.setAttribute("aria-expanded", "true");
+    document.body.classList.add("has-assistant-panel");
+    requestAnimationFrame(() => closeButton?.focus());
     dispatchAssistantOpen();
   };
-  const closeDialog = () => {
-    if (!dialog?.open) return;
-    dialog.close();
+  const closePanel = () => {
+    if (!articlePage || !panel || !isPanelOpen()) return;
+    articlePage.dataset.assistantOpen = "false";
+    panel.setAttribute("inert", "");
+    panel.setAttribute("aria-hidden", "true");
+    openButton?.setAttribute("aria-expanded", "false");
+    document.body.classList.remove("has-assistant-panel");
+    requestAnimationFrame(() => openButton?.focus());
   };
-  const restoreAfterClose = () => {
-    document.body.classList.remove("has-assistant-dialog");
-    openButton?.focus();
-  };
-  openButton?.addEventListener("click", openDialog);
-  closeButton?.addEventListener("click", closeDialog);
-  dialog?.addEventListener("cancel", (event) => {
-    event.preventDefault();
-    closeDialog();
+  openButton?.addEventListener("click", openPanel);
+  closeButton?.addEventListener("click", closePanel);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isPanelOpen()) closePanel();
   });
-  dialog?.addEventListener("close", restoreAfterClose);
-  dialog?.addEventListener("click", (event) => {
-    const bounds = dialog.getBoundingClientRect();
-    const outsidePanel = event.clientX < bounds.left || event.clientX > bounds.right ||
-      event.clientY < bounds.top || event.clientY > bounds.bottom;
-    if (outsidePanel) closeDialog();
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!isPanelOpen() || !(target instanceof Node)) return;
+    if (!panel?.contains(target) && !openButton?.contains(target)) closePanel();
   });
 
   document.querySelectorAll<HTMLFormElement>("[data-assistant-form]").forEach((form) => {
