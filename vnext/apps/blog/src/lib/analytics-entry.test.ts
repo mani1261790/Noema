@@ -12,6 +12,11 @@ describe("article analytics entry classification", () => {
     ["https://noema-learn.uk/?from=header", "home"],
     ["https://noema-learn.uk/articles", "article_index"],
     ["https://noema-learn.uk/articles/", "article_index"],
+    ["https://noema-learn.uk/articles?page=2#search", "article_index"],
+    ["https://noema-learn.uk/articles?keyword=Codex#search", "article_search"],
+    ["https://noema-learn.uk/articles?series=local-llm#search", "article_search"],
+    ["https://noema-learn.uk/articles?topic=dialogue-ai#search", "article_search"],
+    ["https://noema-learn.uk/articles?tag=RAG#search", "article_search"],
     ["https://noema-learn.uk/series/start-ai-development", "series"],
     ["https://noema-learn.uk/topics/development-environment", "topic"],
     ["https://noema-learn.uk/articles/what-is-git-and-github", "article"],
@@ -22,5 +27,14 @@ describe("article analytics entry classification", () => {
 
   it("does not treat a lookalike hostname as an internal entry", () => {
     expect(classifyArticleEntry("https://noema-learn.uk.example.com/", origin)).toBe("external");
+  });
+
+  it("does not classify an empty filter or an unrelated parameter as search", () => {
+    expect(classifyArticleEntry(`${origin}/articles?keyword=%20%20`, origin)).toBe("article_index");
+    expect(classifyArticleEntry(`${origin}/articles?utm_source=x`, origin)).toBe("article_index");
+  });
+
+  it("classifies a populated repeated filter without retaining its value", () => {
+    expect(classifyArticleEntry(`${origin}/articles?keyword=&keyword=Codex`, origin)).toBe("article_search");
   });
 });

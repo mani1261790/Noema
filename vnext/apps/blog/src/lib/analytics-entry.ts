@@ -3,6 +3,7 @@ import type { CmsAnalyticsEntryKind } from "@noema/cms";
 const ARTICLE_PATH = /^\/articles\/[a-z0-9]+(?:-[a-z0-9]+)*\/?$/u;
 const SERIES_PATH = /^\/series(?:\/|$)/u;
 const TOPIC_PATH = /^\/topics(?:\/|$)/u;
+const ARTICLE_SEARCH_PARAMETERS = ["keyword", "series", "topic", "tag"] as const;
 
 /**
  * Reduce the referrer to a small, non-identifying discovery surface.
@@ -18,7 +19,13 @@ export function classifyArticleEntry(
     if (url.origin !== currentOrigin) return "external";
     const path = url.pathname;
     if (path === "/" || path === "") return "home";
-    if (path === "/articles" || path === "/articles/") return "article_index";
+    if (path === "/articles" || path === "/articles/") {
+      return ARTICLE_SEARCH_PARAMETERS.some((parameter) => (
+        url.searchParams.getAll(parameter).some((value) => value.trim())
+      ))
+        ? "article_search"
+        : "article_index";
+    }
     if (SERIES_PATH.test(path)) return "series";
     if (TOPIC_PATH.test(path)) return "topic";
     if (ARTICLE_PATH.test(path)) return "article";

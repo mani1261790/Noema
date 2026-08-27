@@ -23,6 +23,7 @@ export const cmsAnalyticsEntryKindSchema = z.enum([
   "external",
   "home",
   "article_index",
+  "article_search",
   "series",
   "topic",
   "article",
