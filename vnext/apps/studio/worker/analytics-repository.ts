@@ -10,6 +10,8 @@ import {
   type CmsAnalyticsDays,
   type CmsAnalyticsEntryMetric,
   type CmsAnalyticsHealth,
+  type CmsAnalyticsNavigationKind,
+  type CmsAnalyticsOnwardPath,
   type CmsAnalyticsQualityCheck,
   type CmsAnalyticsRebuildRequest,
   type CmsAnalyticsRebuildResult,
@@ -50,6 +52,17 @@ interface EntryEventRow {
   entry_kind: CmsAnalyticsEntryMetric["entryKind"];
   event_count: number;
   event_type: string;
+}
+
+interface OnwardPathRow {
+  click_count: number;
+  frontmatter_json: string | null;
+  navigation_kind: CmsAnalyticsNavigationKind;
+  source_article_id: string;
+  source_revision_number: number;
+  source_slug: string;
+  target_frontmatter_json: string | null;
+  target_slug: string;
 }
 
 interface IngestionHealthRow {
@@ -143,6 +156,8 @@ function addDays(date: Date, amount: number): Date {
   return next;
 }
 
+const ONWARD_PATH_LIMIT = 200;
+
 export async function listCmsAnalyticsSummary(
   db: D1Database,
   identity: CmsIdentity,
@@ -191,7 +206,7 @@ export async function listCmsAnalyticsSummary(
   const reprocessableFrom = rawCoverageFrom > retentionFrom ? rawCoverageFrom : retentionFrom;
   const reconciliationFrom = reprocessableFrom > from ? reprocessableFrom : from;
 
-  const [articleResult, sourceResult, entryResult, dailyResult, comparisonResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
+  const [articleResult, sourceResult, entryResult, onwardPathResult, dailyResult, comparisonResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
     db.prepare(
       `SELECT
          d.article_id,
@@ -233,6 +248,40 @@ export async function listCmsAnalyticsSummary(
        WHERE event_date BETWEEN ?1 AND ?2
        GROUP BY entry_kind, event_type`
     ).bind(from, through).all<EntryEventRow>(),
+    db.prepare(
+      `SELECT
+         d.article_id AS source_article_id,
+         d.article_slug AS source_slug,
+         d.revision_number AS source_revision_number,
+         d.navigation_kind,
+         d.target_slug,
+         SUM(d.event_count) AS click_count,
+         source_revision.frontmatter_json,
+         target_revision.frontmatter_json AS target_frontmatter_json
+       FROM cms_analytics_daily d
+       LEFT JOIN cms_article_revisions source_revision
+         ON source_revision.article_id = d.article_id
+        AND source_revision.revision_number = d.revision_number
+       LEFT JOIN cms_articles target_article
+         ON target_article.published_slug = d.target_slug COLLATE NOCASE
+       LEFT JOIN cms_article_revisions target_revision
+         ON target_revision.article_id = target_article.id
+        AND target_revision.revision_number = target_article.published_revision_number
+       WHERE d.event_date BETWEEN ?1 AND ?2
+         AND d.event_type = 'navigation_click'
+         AND d.navigation_kind IN ('series_next', 'related')
+         AND d.target_slug <> ''
+       GROUP BY
+         d.article_id,
+         d.article_slug,
+         d.revision_number,
+         d.navigation_kind,
+         d.target_slug,
+         source_revision.frontmatter_json,
+         target_revision.frontmatter_json
+       ORDER BY click_count DESC, source_slug ASC, navigation_kind ASC, target_slug ASC
+       LIMIT ?3`
+    ).bind(from, through, ONWARD_PATH_LIMIT + 1).all<OnwardPathRow>(),
     db.prepare(
       `SELECT event_date, event_type, SUM(event_count) AS event_count
        FROM cms_analytics_daily
@@ -383,6 +432,19 @@ export async function listCmsAnalyticsSummary(
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
+  const onwardPaths = onwardPathResult.results
+    .slice(0, ONWARD_PATH_LIMIT)
+    .map<CmsAnalyticsOnwardPath>((row) => ({
+      clickCount: row.click_count,
+      navigationKind: row.navigation_kind,
+      sourceArticleId: row.source_article_id,
+      sourceRevisionNumber: row.source_revision_number,
+      sourceSlug: row.source_slug,
+      sourceTitle: articleTitle(row.frontmatter_json, row.source_slug),
+      targetSlug: row.target_slug,
+      targetTitle: articleTitle(row.target_frontmatter_json, row.target_slug)
+    }));
+
   const dailyByDate = new Map<string, CmsAnalyticsDailyMetric>();
   for (let index = 0; index < days; index += 1) {
     const date = addDays(new Date(`${from}T00:00:00.000Z`), index).toISOString().slice(0, 10);
@@ -437,6 +499,8 @@ export async function listCmsAnalyticsSummary(
     daily: [...dailyByDate.values()],
     entries,
     health,
+    onwardPaths,
+    onwardPathsTruncated: onwardPathResult.results.length > ONWARD_PATH_LIMIT,
     range: { days, from, through },
     sources,
     totals: totalsWithRates(totals)

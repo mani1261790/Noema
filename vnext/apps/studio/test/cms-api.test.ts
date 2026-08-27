@@ -137,6 +137,14 @@ describe("CMS HTTP API", () => {
         retention: { eventFactsDays: number; reportingMartDays: number };
         status: string;
       };
+      onwardPaths: Array<{
+        clickCount: number;
+        navigationKind: string;
+        sourceRevisionNumber: number;
+        sourceSlug: string;
+        targetSlug: string;
+      }>;
+      onwardPathsTruncated: boolean;
       sources: Array<{
         article50Rate: number;
         campaign: string;
@@ -176,6 +184,14 @@ describe("CMS HTTP API", () => {
       landing: 4,
       qualifiedReadRate: 0.5
     }));
+    expect(body.summary.onwardPaths).toEqual([expect.objectContaining({
+      clickCount: 1,
+      navigationKind: "related",
+      sourceRevisionNumber: article.revisionNumber,
+      sourceSlug: "analytics-article",
+      targetSlug: "next-article"
+    })]);
+    expect(body.summary.onwardPathsTruncated).toBe(false);
     expect(body.summary.sources).toContainEqual(expect.objectContaining({
       article50Rate: 0.75,
       campaign: "launch",
@@ -191,6 +207,45 @@ describe("CMS HTTP API", () => {
       },
       status: "collecting"
     });
+  });
+
+  it("bounds onward paths and reports when lower-volume paths are omitted", async () => {
+    await bootstrapAdmin();
+    const { article } = await createArticle("many-onward-paths");
+    const date = new Date().toISOString().slice(0, 10);
+    const timestamp = `${date}T00:00:00.000Z`;
+    await testEnv.CMS_DB.prepare(
+      `WITH RECURSIVE path(number) AS (
+         SELECT 1
+         UNION ALL
+         SELECT number + 1 FROM path WHERE number < 201
+       )
+       INSERT INTO cms_analytics_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         navigation_kind, target_slug, event_count, updated_at
+       )
+       SELECT ?1, ?2, ?3, ?4, 'navigation_click', 'related',
+         'target-' || number, number, ?5
+       FROM path`
+    ).bind(date, article.id, article.slug, article.revisionNumber, timestamp).run();
+
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/summary?days=7"),
+      cmsEnv(),
+      ADMIN
+    );
+    const body = (await response.json()) as {
+      summary: {
+        onwardPaths: Array<{ clickCount: number; targetSlug: string }>;
+        onwardPathsTruncated: boolean;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.summary.onwardPaths).toHaveLength(200);
+    expect(body.summary.onwardPaths[0]).toMatchObject({ clickCount: 201, targetSlug: "target-201" });
+    expect(body.summary.onwardPaths.at(-1)).toMatchObject({ clickCount: 2, targetSlug: "target-2" });
+    expect(body.summary.onwardPathsTruncated).toBe(true);
   });
 
   it("compares KPIs only after the previous equal-length period has full coverage", async () => {
