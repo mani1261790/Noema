@@ -6,13 +6,15 @@ Noemaの分析基盤は、PVを増やすための追跡ではなく、記事が�
 
 Studioの主ナビゲーションから「分析」を開き、7日・30日・90日を切り替えます。CMSの`view`権限が必要です。同じ集計はStudio MCPの読み取り専用ツール`studio_get_analytics_summary`からも取得できます。
 
-主要指標は次の5つです。定義の正本は`@noema/cms`の`cmsAnalyticsMetricCatalog`です。画面、API、運用資料で分子・分母を独自に再定義しません。
+主要指標は次の7つです。定義の正本は`@noema/cms`の`cmsAnalyticsMetricCatalog`です。画面、API、運用資料で分子・分母を独自に再定義しません。
 
 | 指標ID | 計算 | 粒度 | 判断できること |
 | --- | --- | --- | --- |
 | `article_50_rate` | `article_50 / landing` | 公開記事revision | 流入時の約束と記事前半の構成を見直す |
 | `qualified_read_rate` | `article_end / landing` | 公開記事revision | 記事の長さ、構成、説明の途切れを見直す |
 | `onward_rate` | `navigation_click / article_end` | 公開記事revision | シリーズ導線と記事末尾CTAを見直す |
+| `updates_guide_rate` | `updates_click / article_end` | 公開記事revision | 記事末の更新導線の発見性と説明を見直す |
+| `updates_action_rate` | `updates_action / updates_click` | 公開記事revision | 更新案内ページの説明とRSS追加手順を見直す |
 | `assistant_use_rate` | `assistant_open / landing` | 公開記事revision | アシスタントの発見性と必要性を見直す |
 | `assistant_success_rate` | `assistant_success / assistant_open` | 公開記事revision | アシスタント実行経路の失敗を調べる |
 
@@ -38,12 +40,16 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 | `article_50` | 本文の50%位置まで表示したとき |
 | `article_end` | 本文末尾まで表示したとき |
 | `navigation_click` | シリーズ次記事または関連記事を選んだとき |
+| `updates_click` | 記事末から更新案内ページへ移動したとき |
+| `updates_action` | 元記事を示すURL fragment付きの更新案内ページで、RSS URLのコピーに成功するかフィードリンクを選んだ最初の1回 |
 | `share` | 共有URLのclipboard保存に成功したとき |
 | `assistant_open` | 「この記事について質問」ボタンまたは本文選択後の「AIに質問」から質問パネルを開いたとき |
 | `assistant_success` | アシスタント回答の表示に成功したとき |
 | `assistant_error` | アシスタント回答に失敗したとき |
 
-同じページ表示では、同じ種類と対象のイベントを1回だけ送ります。各イベントにはそのページ表示の固定された入口分類を添えます。サーバーはクライアントのrevision指定を受け取らず、受信時点でそのslugに紐づく公開revisionをD1から解決します。
+同じページ表示では、同じ種類と対象のイベントを1回だけ送ります。記事ページのイベントにはそのページ表示の固定された入口分類を添えます。`updates_action`はURL fragmentの元記事slugだけを送り、流入元や読者を識別する値は添えません。サーバーはクライアントのrevision指定を受け取らず、受信時点でそのslugに紐づく公開revisionをD1から解決します。
+
+`updates_action_rate`は集計上の段階差を見るための代理指標です。`updates_click`と`updates_action`は読者やセッション単位に結合しないため、同じ人の連続行動を表す率ではありません。再読み込み、bot、欠測、期間境界により100%を超えることがあります。RSS購読の完了や、その後も読み続けたことはNoemaでは把握しません。
 
 イベント契約v1には、イベントごとに独立したUUIDの`eventId`、`schemaVersion: 1`、クライアント上の`occurredAt`を含めます。`eventId`は再送の重複排除だけに使い、別イベントや別ページを結合できる読者ID・セッションIDではありません。集計日は端末時計ではなく、サーバーの`receivedAt`から決めます。
 

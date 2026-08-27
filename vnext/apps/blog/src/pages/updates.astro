@@ -19,10 +19,10 @@ const feedUrl = new URL("/rss.xml", Astro.site ?? "https://noema-learn.uk").toSt
     <section class="updates-feed" aria-labelledby="updates-feed-heading">
       <h2 id="updates-feed-heading">フィードを追加する</h2>
       <p>次のURLを、お使いのフィードリーダーに追加してください。</p>
-      <p class="updates-feed__url"><a class="dads-link" href="/rss.xml" data-feed-url>{feedUrl}</a></p>
+      <p class="updates-feed__url"><a class="dads-link" href="/rss.xml" data-feed-url data-feed-action>{feedUrl}</a></p>
       <div class="updates-feed__actions">
         <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-feed-url hidden>URLをコピー</button>
-        <a class="dads-button" data-size="md" data-type="outline" href="/rss.xml">フィードを開く</a>
+        <a class="dads-button" data-size="md" data-type="outline" href="/rss.xml" data-feed-action>フィードを開く</a>
       </div>
       <p class="updates-feed__status" data-feed-status role="status" aria-live="polite"></p>
     </section>
@@ -47,15 +47,25 @@ const feedUrl = new URL("/rss.xml", Astro.site ?? "https://noema-learn.uk").toSt
 </BaseLayout>
 
 <script>
+  import { createUpdatesActionTracker } from "../lib/updates-analytics";
+
   const copyButton = document.querySelector<HTMLButtonElement>("[data-copy-feed-url]");
   const feedLink = document.querySelector<HTMLAnchorElement>("[data-feed-url]");
   const status = document.querySelector<HTMLElement>("[data-feed-status]");
+  const trackUpdatesAction = createUpdatesActionTracker(new URL(window.location.href));
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-feed-action]").forEach((link) => {
+    link.addEventListener("click", () => {
+      void trackUpdatesAction?.();
+    });
+  });
 
   if (copyButton && feedLink && navigator.clipboard) {
     copyButton.hidden = false;
     copyButton.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(feedLink.href);
+        void trackUpdatesAction?.();
         if (status) status.textContent = "RSS URLをコピーしました。";
       } catch {
         if (status) status.textContent = "コピーできませんでした。表示されているURLを選んでコピーしてください。";

@@ -101,7 +101,7 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
         : [{ label: "ホーム", href: "/" }, { label: "記事を探す", href: "/articles" }, { label: article.data.title }]} />
       <Fragment set:html={presentationHtml} />
       <ShareArticle />
-      <ArticleUpdatesCta />
+      <ArticleUpdatesCta slug={article.data.slug} />
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         {series && <a class="dads-link" href={series.href}>{`${series.title}の一覧を見る`}</a>}
