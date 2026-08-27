@@ -16,6 +16,7 @@ import {
   cmsUpdateArticleRequestSchema,
   type CmsIdentity
 } from "@noema/cms";
+import { readImageMetadata, type SupportedImageContentType } from "@noema/content/image-metadata";
 import { listCmsAnalyticsSummary, rebuildCmsAnalyticsMart } from "./analytics-repository";
 import {
   CmsRepositoryError,
@@ -484,24 +485,32 @@ async function uploadCmsAsset(
   if (file.size === 0 || file.size > MAX_CMS_ASSET_BYTES) {
     return cmsError(413, "asset_too_large", "画像は8MB以下にしてください。");
   }
-  const extension = imageTypes.get(file.type.toLowerCase());
+  const contentType = file.type.toLowerCase() as SupportedImageContentType;
+  const extension = imageTypes.get(contentType);
   if (!extension) {
     return cmsError(415, "unsupported_asset_type", "PNG、JPEG、WebP、GIFの画像を選択してください。");
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const dimensions = readImageMetadata(bytes, contentType);
+  if (!dimensions) {
+    return cmsError(415, "unsupported_asset_type", "画像データとファイル形式を確認してください。");
   }
 
   const id = crypto.randomUUID();
   const key = `articles/${id}.${extension}`;
-  await bucket.put(key, file.stream(), {
-    httpMetadata: { contentType: file.type.toLowerCase() },
+  await bucket.put(key, bytes, {
+    httpMetadata: { contentType },
     customMetadata: { originalName: file.name.slice(0, 200) }
   });
   try {
     const asset = await registerCmsAsset(db, identity, {
       byteSize: file.size,
-      contentType: file.type.toLowerCase(),
+      contentType,
+      height: dimensions.height,
       id,
       originalName: file.name,
-      r2Key: key
+      r2Key: key,
+      width: dimensions.width
     });
     return cmsJson({ asset }, 201);
   } catch (error) {

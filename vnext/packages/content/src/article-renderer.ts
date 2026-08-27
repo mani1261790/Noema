@@ -10,6 +10,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import katex from "katex";
 import MarkdownIt from "markdown-it";
 import { installArticleMarkdownExtensions } from "@noema/content/article-extensions";
+import type { ImageDimensions } from "@noema/content/image-metadata";
 
 function isSafeRendererUrl(value: string, kind: "image" | "link"): boolean {
   try {
@@ -35,6 +36,7 @@ hljs.registerAliases(["js", "jsx", "ts", "tsx"], { languageName: "typescript" })
 
 export interface ArticleMarkdownRendererOptions {
   externalLinksInNewTab?: boolean;
+  resolveImageDimensions?: (reference: string) => ImageDimensions | null | undefined;
   resolveLinkAvailability?: (reference: string) => "available" | "unavailable";
   resolveImageReference?: (reference: string) => string;
   resolveLinkReference?: (reference: string) => string;
@@ -159,6 +161,11 @@ export function createArticleMarkdownRenderer(
     const token = tokens[index];
     const source = token.attrGet("src") ?? "";
     if (!isSafeRendererUrl(source, "image")) return markdown.utils.escapeHtml(token.content);
+    const dimensions = options.resolveImageDimensions?.(source);
+    if (dimensions) {
+      token.attrSet("width", String(dimensions.width));
+      token.attrSet("height", String(dimensions.height));
+    }
     if (options.resolveImageReference) token.attrSet("src", options.resolveImageReference(source));
     return defaultImageRule
       ? defaultImageRule(tokens, index, rendererOptions, environment, self)

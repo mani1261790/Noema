@@ -433,7 +433,9 @@ export async function registerCmsAsset(
     originalName: string;
     r2Key: string;
     alt?: string;
+    height?: number;
     tags?: string[];
+    width?: number;
   },
   now = new Date()
 ): Promise<CmsAsset> {
@@ -445,7 +447,7 @@ export async function registerCmsAsset(
       id, r2_key, original_name, content_type, byte_size, width, height,
       alt, tags_json, status, created_by_subject, updated_by_subject,
       created_at, updated_at
-    ) VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, ?6, ?7, 'active', ?8, ?8, ?9, ?9)
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'active', ?10, ?10, ?11, ?11)
     ON CONFLICT(r2_key) DO NOTHING`
   ).bind(
     input.id,
@@ -453,6 +455,8 @@ export async function registerCmsAsset(
     input.originalName.slice(0, 200),
     input.contentType,
     input.byteSize,
+    input.width ?? null,
+    input.height ?? null,
     metadata.alt,
     JSON.stringify(metadata.tags),
     identity.subject,
@@ -507,7 +511,9 @@ export async function registerIdempotentCmsAssetUpload(
     inputSha256: string;
     originalName: string;
     r2Key: string;
+    height: number;
     tags: string[];
+    width: number;
   },
   requestId: string,
   client: string | undefined,
@@ -534,13 +540,15 @@ export async function registerIdempotentCmsAssetUpload(
           id, r2_key, original_name, content_type, byte_size, width, height,
           alt, tags_json, status, created_by_subject, updated_by_subject,
           created_at, updated_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, ?6, ?7, 'active', ?8, ?8, ?9, ?9)`
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'active', ?10, ?10, ?11, ?11)`
       ).bind(
         input.id,
         input.r2Key,
         input.originalName.slice(0, 200),
         input.contentType,
         input.byteSize,
+        input.width,
+        input.height,
         metadata.alt,
         JSON.stringify(metadata.tags),
         identity.subject,

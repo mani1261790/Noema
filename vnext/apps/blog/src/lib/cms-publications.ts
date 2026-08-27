@@ -10,6 +10,7 @@ import {
   listCmsPublishedSeries,
   listCmsPublishedEditors,
 } from "./cms-publication-repository";
+import { getCmsArticleAssetDimensions } from "./cms-publication-assets";
 
 export function listPublicArticleSummaries() {
   return listCmsPublicArticleSummaries(env.CMS_DB);
@@ -28,6 +29,10 @@ export function getArticleLinkAvailability(
   sourceVisibility: "public" | "unlisted",
 ) {
   return getCmsArticleLinkAvailability(env.CMS_DB, slugs, sourceVisibility);
+}
+
+export function getArticleAssetDimensions(references: Iterable<string>) {
+  return getCmsArticleAssetDimensions(env.CMS_DB, references);
 }
 
 export function getPublishedSeriesByArticleSlug(slug: string) {
