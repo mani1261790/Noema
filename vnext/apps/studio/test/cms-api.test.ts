@@ -306,6 +306,56 @@ describe("CMS HTTP API", () => {
     expect(ingestion?.count).toBe(1);
   });
 
+  it("schedules public discovery notification after publication changes", async () => {
+    await bootstrapAdmin();
+    const { article: created } = await createArticle("indexnow-article");
+    const inReviewResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/actions`, {
+        body: JSON.stringify({ action: "request_review", expectedVersion: created.lockVersion }),
+        headers: { "content-type": "application/json", "if-match": `"cms-v${created.lockVersion}"` },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const inReview = ((await inReviewResponse.json()) as { article: CmsArticleDetail }).article;
+    const approvedResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/actions`, {
+        body: JSON.stringify({ action: "approve", expectedVersion: inReview.lockVersion }),
+        headers: { "content-type": "application/json", "if-match": `"cms-v${inReview.lockVersion}"` },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN
+    );
+    const approved = ((await approvedResponse.json()) as { article: CmsArticleDetail }).article;
+    const scheduleIndexNowNotification = vi.fn();
+    const publishedResponse = await handleCmsApiRequest(
+      cmsRequest(`/api/cms/articles/${created.id}/actions`, {
+        body: JSON.stringify({
+          action: "publish",
+          expectedVersion: approved.lockVersion,
+          visibility: "public"
+        }),
+        headers: { "content-type": "application/json", "if-match": `"cms-v${approved.lockVersion}"` },
+        method: "POST"
+      }),
+      cmsEnv(),
+      ADMIN,
+      { scheduleIndexNowNotification }
+    );
+
+    expect(publishedResponse.status).toBe(200);
+    expect(scheduleIndexNowNotification).toHaveBeenCalledOnce();
+    expect(scheduleIndexNowNotification).toHaveBeenCalledWith([
+      "https://noema-learn.uk/",
+      "https://noema-learn.uk/articles/",
+      "https://noema-learn.uk/sitemap.xml",
+      "https://noema-learn.uk/articles/indexnow-article/",
+      "https://noema-learn.uk/topics/development-environment/"
+    ]);
+  });
+
   it("stores anchored review comments and records the resolution revision", async () => {
     await bootstrapAdmin();
     const { article: created } = await createArticle("anchored-review-api");

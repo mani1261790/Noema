@@ -258,6 +258,8 @@ jobs:
           fetch_expected "${production_origin}/robots.txt" 200 /tmp/noema-robots.txt
           grep -Fq 'Allow: /' /tmp/noema-robots.txt
           grep -Fq 'Sitemap: https://noema-learn.uk/sitemap.xml' /tmp/noema-robots.txt
+          NOEMA_INDEXNOW_KEY_ORIGIN="${production_origin}" \
+            npm run verify:indexnow-key --workspace @noema/blog
 
           fetch_expected https://noema-learn.mani1261790.workers.dev/articles 200 /tmp/noema-development-articles.html
           fetch_expected "${production_origin}/articles" 200 /tmp/noema-production-articles.html
@@ -282,3 +284,8 @@ jobs:
           verify_redirect "${production_origin}/privacy/" "${production_origin}/privacy"
           verify_custom_domain_boundary https://studio.noema-learn.uk/ 302
           verify_custom_domain_boundary https://mcp.noema-learn.uk/mcp 401
+
+      - name: Notify IndexNow of the current public sitemap
+        continue-on-error: true
+        working-directory: vnext
+        run: npm run notify:indexnow --workspace @noema/blog

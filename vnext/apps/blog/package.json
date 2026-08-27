@@ -7,6 +7,8 @@
     "types": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --strict-vars=false",
     "check:worker": "tsc --project tsconfig.worker.json",
     "generate:og": "node scripts/generate-og-images.mjs",
+    "notify:indexnow": "tsx scripts/submit-indexnow.ts",
+    "verify:indexnow-key": "tsx scripts/submit-indexnow.ts --verify-key-only",
     "cms:migrate:local": "CI=true wrangler d1 migrations apply noema-cms --local --config ../studio/wrangler.jsonc --persist-to .wrangler/state",
     "validate:articles": "node scripts/validate-article-paths.mjs",
     "validate:deployment-config": "node scripts/validate-deployment-config.mjs",

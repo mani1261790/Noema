@@ -18,6 +18,7 @@ import {
   resolveNoemaIdentity,
   type StudioAuthEnvironment
 } from "./studio-auth";
+import { logNoemaIndexNowFailure, notifyNoemaIndexNow } from "./indexnow";
 
 type StudioApiEnvironment = AccessEnvironment & Partial<Pick<
   Env,
@@ -31,6 +32,7 @@ type AccessTokenVerifier = (
 ) => Promise<AccessIdentity>;
 
 export interface StudioApiDependencies {
+  backgroundTask?: (task: Promise<unknown>) => void;
   verifyAccessToken?: AccessTokenVerifier;
 }
 
@@ -109,7 +111,8 @@ export async function handleStudioApiRequest(
             CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
             CMS_DB: env.CMS_DB
           },
-          identity
+          identity,
+          cmsApiDependencies(dependencies)
         );
       }
     } catch {
@@ -126,19 +129,33 @@ export async function handleStudioApiRequest(
       CMS_BOOTSTRAP_ADMIN_EMAIL: env.CMS_BOOTSTRAP_ADMIN_EMAIL,
       CMS_DB: env.CMS_DB
     },
-    authentication.identity
+    authentication.identity,
+    cmsApiDependencies(dependencies)
   );
 }
 
 export async function handleStudioRequest(
   request: Request,
-  env: StudioEnvironment
+  env: StudioEnvironment,
+  executionContext?: ExecutionContext
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === "/api" || pathname.startsWith("/api/")) {
-    return handleStudioApiRequest(request, env);
+    return handleStudioApiRequest(request, env, executionContext
+      ? { backgroundTask: (task) => executionContext.waitUntil(task) }
+      : {});
   }
   return env.ASSETS.fetch(request);
+}
+
+function cmsApiDependencies(dependencies: StudioApiDependencies) {
+  return {
+    scheduleIndexNowNotification: dependencies.backgroundTask
+      ? (urls: readonly string[]) => dependencies.backgroundTask?.(
+        notifyNoemaIndexNow(urls).catch(logNoemaIndexNowFailure)
+      )
+      : undefined
+  };
 }
 
 async function authenticateAccess(
