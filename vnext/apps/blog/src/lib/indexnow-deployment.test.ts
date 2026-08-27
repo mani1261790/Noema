@@ -58,4 +58,24 @@ describe("IndexNow deployment helper", () => {
     ]);
     expect(submissions.map(({ payload }) => payload.urlList.length)).toEqual([10_000, 1]);
   });
+
+  it("can retrieve canonical sitemap URLs through the production Worker origin", async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(
+        "<urlset><url><loc>https://noema-learn.uk/articles/example/</loc></url></urlset>",
+        { status: 200 }
+      ))
+      .mockResolvedValueOnce(new Response(null, { status: 202 }));
+
+    await expect(submitPublicSitemap(
+      fetcher,
+      "https://noema-learn-production.mani1261790.workers.dev"
+    )).resolves.toEqual({ status: 202, urlCount: 1 });
+    expect(fetcher.mock.calls[0]?.[0]).toEqual(
+      new URL("https://noema-learn-production.mani1261790.workers.dev/sitemap.xml")
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toMatchObject({
+      urlList: ["https://noema-learn.uk/articles/example/"]
+    });
+  });
 });

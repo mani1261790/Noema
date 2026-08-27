@@ -33,9 +33,10 @@ export async function verifyPublishedIndexNowKey(
 }
 
 export async function submitPublicSitemap(
-  fetcher: typeof fetch = fetch
+  fetcher: typeof fetch = fetch,
+  sitemapOrigin = NOEMA_PUBLIC_ORIGIN
 ): Promise<{ status: 200 | 202; urlCount: number }> {
-  const sitemapUrl = new URL("/sitemap.xml", NOEMA_PUBLIC_ORIGIN);
+  const sitemapUrl = new URL("/sitemap.xml", sitemapOrigin);
   const sitemapResponse = await fetcher(sitemapUrl);
   if (!sitemapResponse.ok) throw new Error(`sitemap_unavailable:${sitemapResponse.status}`);
   const urls = [...new Set(extractSitemapUrls(await sitemapResponse.text()))];
@@ -56,7 +57,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     await verifyPublishedIndexNowKey(process.env.NOEMA_INDEXNOW_KEY_ORIGIN ?? NOEMA_PUBLIC_ORIGIN);
     console.info("Verified the published IndexNow key.");
   } else {
-    const result = await submitPublicSitemap();
+    const result = await submitPublicSitemap(
+      fetch,
+      process.env.NOEMA_INDEXNOW_SITEMAP_ORIGIN ?? NOEMA_PUBLIC_ORIGIN
+    );
     console.info(`IndexNow accepted ${result.urlCount} public URL(s) with status ${result.status}.`);
   }
 }
