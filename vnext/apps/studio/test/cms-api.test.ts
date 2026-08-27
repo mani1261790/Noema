@@ -142,6 +142,7 @@ describe("CMS HTTP API", () => {
         updatesGuideRate: number;
       }>;
       health: {
+        acquisitionChannelVersion: number;
         retention: { eventFactsDays: number; reportingMartDays: number };
         sources: Array<{ accessUrl?: string; id: string; status: string }>;
         status: string;
@@ -219,6 +220,7 @@ describe("CMS HTTP API", () => {
     expect(body.summary.sources).toHaveLength(1);
     expect(body.summary.comparison).toMatchObject({ status: "collecting", totals: null });
     expect(body.summary.health).toMatchObject({
+      acquisitionChannelVersion: 1,
       retention: {
         eventFactsDays: CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
         reportingMartDays: CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS
@@ -234,6 +236,73 @@ describe("CMS HTTP API", () => {
       })]),
       status: "collecting"
     });
+  });
+
+  it("derives organic-search outcomes from existing bounded attribution", async () => {
+    await bootstrapAdmin();
+    const { article } = await createArticle("organic-search-article");
+    const date = new Date().toISOString().slice(0, 10);
+    const timestamp = `${date}T00:00:00.000Z`;
+    const insert = testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         source, medium, campaign, content, referrer_host,
+         navigation_kind, target_slug, event_count, updated_at
+       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', '', ?8, ?9, ?10, ?11, ?12)`
+    );
+    await testEnv.CMS_DB.batch([
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "", "", "www.google.co.jp", "", "", 5, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "", "", "www.google.co.jp", "", "", 4, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "", "", "www.google.co.jp", "", "", 3, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "", "", "www.google.co.jp", "related", "next-article", 2, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "google", "cpc", "www.google.com", "", "", 2, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "google", "cpc", "www.google.com", "", "", 1, timestamp)
+    ]);
+
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/summary?days=30"),
+      cmsEnv(),
+      ADMIN
+    );
+    const body = (await response.json()) as { summary: {
+      acquisitionChannels: Array<{
+        article50Rate: number | null;
+        channel: string;
+        landing: number;
+        onwardRate: number | null;
+        qualifiedReadRate: number | null;
+      }>;
+      organicSearchArticles: Array<{
+        landing: number;
+        navigationClick: number;
+        qualifiedReadRate: number | null;
+        revisionNumber: number;
+        slug: string;
+      }>;
+    } };
+
+    expect(response.status).toBe(200);
+    expect(body.summary.acquisitionChannels).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        article50Rate: 0.8,
+        channel: "organic_search",
+        landing: 5,
+        onwardRate: 2 / 3,
+        qualifiedReadRate: 0.6
+      }),
+      expect.objectContaining({
+        channel: "campaign",
+        landing: 2,
+        qualifiedReadRate: 0.5
+      })
+    ]));
+    expect(body.summary.organicSearchArticles).toEqual([expect.objectContaining({
+      landing: 5,
+      navigationClick: 2,
+      qualifiedReadRate: 0.6,
+      revisionNumber: article.revisionNumber,
+      slug: "organic-search-article"
+    })]);
   });
 
   it("bounds onward paths and reports when lower-volume paths are omitted", async () => {

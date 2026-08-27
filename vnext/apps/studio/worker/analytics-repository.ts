@@ -1,4 +1,5 @@
 import {
+  CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION,
   CMS_ANALYTICS_EVENT_CONTRACT_VERSION,
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_METRIC_CATALOG_VERSION,
@@ -6,6 +7,8 @@ import {
   CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
   canCms,
+  classifyCmsAnalyticsAcquisitionChannel,
+  type CmsAnalyticsAcquisitionMetric,
   type CmsAnalyticsArticleMetric,
   type CmsAnalyticsCounts,
   type CmsAnalyticsDailyMetric,
@@ -14,6 +17,7 @@ import {
   type CmsAnalyticsHealth,
   type CmsAnalyticsNavigationKind,
   type CmsAnalyticsOnwardPath,
+  type CmsAnalyticsOrganicArticleMetric,
   type CmsAnalyticsQualityCheck,
   type CmsAnalyticsRebuildRequest,
   type CmsAnalyticsRebuildResult,
@@ -42,6 +46,13 @@ interface SourceEventRow {
   medium: string;
   referrer_host: string;
   source: string;
+}
+
+interface AcquisitionArticleEventRow extends SourceEventRow {
+  article_id: string;
+  article_slug: string;
+  frontmatter_json: string | null;
+  revision_number: number;
 }
 
 interface DailyEventRow {
@@ -122,6 +133,30 @@ function addEvent(
     if (navigationKind === "related") counts.relatedClick += eventCount;
     if (navigationKind === "series_next") counts.seriesNext += eventCount;
   }
+}
+
+interface AcquisitionCounts {
+  article50: number;
+  articleEnd: number;
+  landing: number;
+  navigationClick: number;
+}
+
+function emptyAcquisitionCounts(): AcquisitionCounts {
+  return { article50: 0, articleEnd: 0, landing: 0, navigationClick: 0 };
+}
+
+function addAcquisitionEvent(
+  counts: AcquisitionCounts,
+  eventType: string,
+  eventCount: number
+): boolean {
+  if (eventType === "landing") counts.landing += eventCount;
+  else if (eventType === "article_50") counts.article50 += eventCount;
+  else if (eventType === "article_end") counts.articleEnd += eventCount;
+  else if (eventType === "navigation_click") counts.navigationClick += eventCount;
+  else return false;
+  return true;
 }
 
 function ratio(numerator: number, denominator: number): number | null {
@@ -214,7 +249,7 @@ export async function listCmsAnalyticsSummary(
   const reprocessableFrom = rawCoverageFrom > retentionFrom ? rawCoverageFrom : retentionFrom;
   const reconciliationFrom = reprocessableFrom > from ? reprocessableFrom : from;
 
-  const [articleResult, sourceResult, entryResult, onwardPathResult, dailyResult, comparisonResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
+  const [articleResult, sourceResult, acquisitionArticleResult, entryResult, onwardPathResult, dailyResult, comparisonResult, ingestionHealth, reconciliation, factQuality] = await Promise.all([
     db.prepare(
       `SELECT
          d.article_id,
@@ -250,6 +285,37 @@ export async function listCmsAnalyticsSummary(
        WHERE event_date BETWEEN ?1 AND ?2
        GROUP BY source, medium, campaign, content, referrer_host, event_type`
     ).bind(from, through).all<SourceEventRow>(),
+    db.prepare(
+      `SELECT
+         d.article_id,
+         d.article_slug,
+         d.revision_number,
+         d.source,
+         d.medium,
+         d.campaign,
+         d.content,
+         d.referrer_host,
+         d.event_type,
+         SUM(d.event_count) AS event_count,
+         r.frontmatter_json
+       FROM cms_analytics_daily d
+       LEFT JOIN cms_article_revisions r
+         ON r.article_id = d.article_id
+        AND r.revision_number = d.revision_number
+       WHERE d.event_date BETWEEN ?1 AND ?2
+         AND d.event_type IN ('landing', 'article_50', 'article_end', 'navigation_click')
+       GROUP BY
+         d.article_id,
+         d.article_slug,
+         d.revision_number,
+         d.source,
+         d.medium,
+         d.campaign,
+         d.content,
+         d.referrer_host,
+         d.event_type,
+         r.frontmatter_json`
+    ).bind(from, through).all<AcquisitionArticleEventRow>(),
     db.prepare(
       `SELECT entry_kind, event_type, SUM(event_count) AS event_count
        FROM cms_analytics_entry_daily
@@ -418,6 +484,61 @@ export async function listCmsAnalyticsSummary(
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
+  const acquisitionChannelMetrics = new Map<
+    CmsAnalyticsAcquisitionMetric["channel"],
+    CmsAnalyticsAcquisitionMetric
+  >();
+  const organicArticleMetrics = new Map<string, CmsAnalyticsOrganicArticleMetric>();
+  for (const row of acquisitionArticleResult.results) {
+    const channel = classifyCmsAnalyticsAcquisitionChannel({
+      campaign: row.campaign || undefined,
+      content: row.content || undefined,
+      medium: row.medium || undefined,
+      referrerHost: row.referrer_host || undefined,
+      source: row.source || undefined
+    });
+    const channelMetric = acquisitionChannelMetrics.get(channel) ?? {
+      ...emptyAcquisitionCounts(),
+      article50Rate: null,
+      channel,
+      onwardRate: null,
+      qualifiedReadRate: null
+    };
+    addAcquisitionEvent(channelMetric, row.event_type, row.event_count);
+    acquisitionChannelMetrics.set(channel, channelMetric);
+
+    if (channel !== "organic_search") continue;
+    const key = `${row.article_id}:${row.revision_number}`;
+    const articleMetric = organicArticleMetrics.get(key) ?? {
+      ...emptyAcquisitionCounts(),
+      article50Rate: null,
+      articleId: row.article_id,
+      onwardRate: null,
+      qualifiedReadRate: null,
+      revisionNumber: row.revision_number,
+      slug: row.article_slug,
+      title: articleTitle(row.frontmatter_json, row.article_slug)
+    };
+    addAcquisitionEvent(articleMetric, row.event_type, row.event_count);
+    organicArticleMetrics.set(key, articleMetric);
+  }
+  const acquisitionChannels = [...acquisitionChannelMetrics.values()]
+    .map((metric) => ({
+      ...metric,
+      article50Rate: ratio(metric.article50, metric.landing),
+      onwardRate: ratio(metric.navigationClick, metric.articleEnd),
+      qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+    }))
+    .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
+  const organicSearchArticles = [...organicArticleMetrics.values()]
+    .map((metric) => ({
+      ...metric,
+      article50Rate: ratio(metric.article50, metric.landing),
+      onwardRate: ratio(metric.navigationClick, metric.articleEnd),
+      qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+    }))
+    .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
+
   const entryMetrics = new Map<CmsAnalyticsEntryMetric["entryKind"], CmsAnalyticsEntryMetric>();
   for (const row of entryResult.results) {
     const metric = entryMetrics.get(row.entry_kind) ?? {
@@ -513,6 +634,7 @@ export async function listCmsAnalyticsSummary(
   });
 
   return {
+    acquisitionChannels,
     articles,
     comparison: {
       availableOn: comparisonAvailableOn,
@@ -525,6 +647,7 @@ export async function listCmsAnalyticsSummary(
     health,
     onwardPaths,
     onwardPathsTruncated: onwardPathResult.results.length > ONWARD_PATH_LIMIT,
+    organicSearchArticles,
     range: { days, from, through },
     sources,
     totals: totalsWithRates(totals)
@@ -653,6 +776,7 @@ function analyticsHealth(options: {
 
   return {
     acceptedEvents: options.acceptedEvents,
+    acquisitionChannelVersion: CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION,
     checks,
     duplicateEvents: options.duplicateEvents,
     entryCoverageFrom: options.entryCoverageFrom,

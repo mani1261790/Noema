@@ -1,6 +1,8 @@
 import {
+  CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION,
   CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
+  cmsAnalyticsAcquisitionChannelSchema,
   cmsAnalyticsEntryKindSchema,
   cmsAnalyticsNavigationKindSchema,
   cmsDraftFrontmatterSchema,
@@ -13,6 +15,7 @@ import {
   cmsReviewCommentStatusSchema,
   cmsVisibilitySchema,
   type CmsArticleAction,
+  type CmsAnalyticsAcquisitionMetric,
   type CmsAnalyticsArticleMetric,
   type CmsAnalyticsComparison,
   type CmsAnalyticsCounts,
@@ -21,6 +24,7 @@ import {
   type CmsAnalyticsEntryMetric,
   type CmsAnalyticsHealth,
   type CmsAnalyticsOnwardPath,
+  type CmsAnalyticsOrganicArticleMetric,
   type CmsAnalyticsQualityCheck,
   type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
@@ -1225,6 +1229,62 @@ function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | nul
   };
 }
 
+function parseCmsAnalyticsAcquisitionMetric(value: unknown): CmsAnalyticsAcquisitionMetric | null {
+  if (!isRecord(value)) return null;
+  const channel = cmsAnalyticsAcquisitionChannelSchema.safeParse(value.channel);
+  if (
+    !channel.success ||
+    !isNonnegativeInteger(value.article50) ||
+    !isNullableRate(value.article50Rate) ||
+    !isNonnegativeInteger(value.articleEnd) ||
+    !isNonnegativeInteger(value.landing) ||
+    !isNonnegativeInteger(value.navigationClick) ||
+    !isNullableRate(value.onwardRate) ||
+    !isNullableRate(value.qualifiedReadRate)
+  ) return null;
+  return {
+    article50: value.article50,
+    article50Rate: value.article50Rate,
+    articleEnd: value.articleEnd,
+    channel: channel.data,
+    landing: value.landing,
+    navigationClick: value.navigationClick,
+    onwardRate: value.onwardRate,
+    qualifiedReadRate: value.qualifiedReadRate
+  };
+}
+
+function parseCmsAnalyticsOrganicArticle(value: unknown): CmsAnalyticsOrganicArticleMetric | null {
+  if (
+    !isRecord(value) ||
+    !isNonnegativeInteger(value.article50) ||
+    !isNullableRate(value.article50Rate) ||
+    !isNonnegativeInteger(value.articleEnd) ||
+    !isString(value.articleId) ||
+    !isNonnegativeInteger(value.landing) ||
+    !isNonnegativeInteger(value.navigationClick) ||
+    !isNullableRate(value.onwardRate) ||
+    !isNullableRate(value.qualifiedReadRate) ||
+    !isNonnegativeInteger(value.revisionNumber) ||
+    value.revisionNumber === 0 ||
+    !isString(value.slug) ||
+    !isString(value.title)
+  ) return null;
+  return {
+    article50: value.article50,
+    article50Rate: value.article50Rate,
+    articleEnd: value.articleEnd,
+    articleId: value.articleId,
+    landing: value.landing,
+    navigationClick: value.navigationClick,
+    onwardRate: value.onwardRate,
+    qualifiedReadRate: value.qualifiedReadRate,
+    revisionNumber: value.revisionNumber,
+    slug: value.slug,
+    title: value.title
+  };
+}
+
 function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null {
   if (!isRecord(value)) return null;
   const parsedEntryKind = value.entryKind === "unknown"
@@ -1321,6 +1381,7 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
   if (
     !isRecord(value) ||
     !isNonnegativeInteger(value.acceptedEvents) ||
+    value.acquisitionChannelVersion !== CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION ||
     !Array.isArray(value.checks) ||
     !isNonnegativeInteger(value.duplicateEvents) ||
     !isString(value.entryCoverageFrom) ||
@@ -1368,6 +1429,7 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
   }
   return {
     acceptedEvents: value.acceptedEvents,
+    acquisitionChannelVersion: CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION,
     checks,
     duplicateEvents: value.duplicateEvents,
     entryCoverageFrom: value.entryCoverageFrom,
@@ -1389,6 +1451,7 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
 function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   if (
     !isRecord(value) ||
+    !Array.isArray(value.acquisitionChannels) ||
     !Array.isArray(value.articles) ||
     !isRecord(value.comparison) ||
     !Array.isArray(value.daily) ||
@@ -1397,9 +1460,11 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !Array.isArray(value.onwardPaths) ||
     !isBoolean(value.onwardPathsTruncated) ||
     !isRecord(value.range) ||
+    !Array.isArray(value.organicSearchArticles) ||
     !Array.isArray(value.sources) ||
     !isRecord(value.totals)
   ) return null;
+  const acquisitionChannels = value.acquisitionChannels.map(parseCmsAnalyticsAcquisitionMetric);
   const articles = value.articles.map(parseCmsAnalyticsArticle);
   const comparison = parseCmsAnalyticsComparison(value.comparison);
   const daily = value.daily.map(parseCmsAnalyticsDaily);
@@ -1407,14 +1472,17 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   const sources = value.sources.map(parseCmsAnalyticsSource);
   const health = parseCmsAnalyticsHealth(value.health);
   const onwardPaths = value.onwardPaths.map(parseCmsAnalyticsOnwardPath);
+  const organicSearchArticles = value.organicSearchArticles.map(parseCmsAnalyticsOrganicArticle);
   const totals = parseCmsAnalyticsTotals(value.totals);
   const days = value.range.days;
   if (
+    !acquisitionChannels.every((item): item is CmsAnalyticsAcquisitionMetric => item !== null) ||
     !articles.every((item): item is CmsAnalyticsArticleMetric => item !== null) ||
     !comparison ||
     !daily.every((item): item is CmsAnalyticsDailyMetric => item !== null) ||
     !entries.every((item): item is CmsAnalyticsEntryMetric => item !== null) ||
     !onwardPaths.every((item): item is CmsAnalyticsOnwardPath => item !== null) ||
+    !organicSearchArticles.every((item): item is CmsAnalyticsOrganicArticleMetric => item !== null) ||
     !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
     !health ||
     !totals ||
@@ -1423,6 +1491,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !isString(value.range.through)
   ) return null;
   return {
+    acquisitionChannels,
     articles,
     comparison,
     daily,
@@ -1430,6 +1499,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     health,
     onwardPaths,
     onwardPathsTruncated: value.onwardPathsTruncated,
+    organicSearchArticles,
     range: { days, from: value.range.from, through: value.range.through },
     sources,
     totals
