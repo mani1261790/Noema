@@ -8,7 +8,7 @@ import {
 
 const shareData: ArticleShareData = {
   title: "AIエージェント入門",
-  url: "https://noema-learn.uk/articles/ai-agent",
+  url: "https://noema-learn.uk/articles/ai-agent?utm_source=noema_reader&utm_medium=share&utm_campaign=article_share&utm_content=native",
 };
 
 describe("article sharing", () => {
@@ -16,15 +16,19 @@ describe("article sharing", () => {
     expect(createArticleShareData({
       canonicalUrl: "https://noema-learn.uk/articles/ai-agent",
       fallbackUrl: "https://noema-learn.uk/articles/ai-agent?utm_source=test",
+      method: "native",
       title: "AIエージェント入門 | Noema",
     })).toEqual(shareData);
   });
 
-  it("falls back to the current URL when a canonical URL is unavailable", () => {
+  it("falls back to the current path without carrying incoming attribution forward", () => {
     expect(createArticleShareData({
-      fallbackUrl: "https://noema-learn.uk/preview/article",
+      fallbackUrl: "https://noema-learn.uk/preview/article?utm_source=incoming#section",
+      method: "copy",
       title: "記事プレビュー",
-    }).url).toBe("https://noema-learn.uk/preview/article");
+    }).url).toBe(
+      "https://noema-learn.uk/preview/article?utm_source=noema_reader&utm_medium=share&utm_campaign=article_share&utm_content=copy",
+    );
   });
 
   it("reports native share availability", () => {

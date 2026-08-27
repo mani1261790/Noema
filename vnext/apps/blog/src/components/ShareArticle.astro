@@ -15,10 +15,18 @@
   const copyButton = shareRegion?.querySelector<HTMLButtonElement>("[data-copy-article-url]");
   const shareStatus = shareRegion?.querySelector<HTMLElement>("[data-share-status]");
   const canonicalUrl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
-  const shareData = createArticleShareData({
+  const shareDataInput = {
     canonicalUrl,
     fallbackUrl: window.location.href,
     title: document.title,
+  };
+  const nativeShareData = createArticleShareData({
+    ...shareDataInput,
+    method: "native",
+  });
+  const copiedShareData = createArticleShareData({
+    ...shareDataInput,
+    method: "copy",
   });
 
   const recordSuccessfulShare = () => {
@@ -34,7 +42,7 @@
       shareButton.setAttribute("aria-busy", "true");
       if (shareStatus) shareStatus.textContent = "";
 
-      const outcome = await shareArticle(navigator, shareData);
+      const outcome = await shareArticle(navigator, nativeShareData);
 
       shareButton.disabled = false;
       shareButton.removeAttribute("aria-busy");
@@ -51,7 +59,7 @@
 
   copyButton?.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(shareData.url);
+      await navigator.clipboard.writeText(copiedShareData.url);
       if (shareStatus) shareStatus.textContent = "URLをコピーしました。";
       recordSuccessfulShare();
     } catch {
