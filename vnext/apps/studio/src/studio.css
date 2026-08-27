@@ -2719,6 +2719,17 @@ a {
   text-underline-offset: .2em;
 }
 
+.studio-analytics__source-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 .875rem;
+  margin-top: .25rem;
+}
+
+.studio-analytics__source-links .studio-analytics__source-link {
+  margin-top: 0;
+}
+
 .studio-analytics__repair {
   display: flex;
   align-items: center;

@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import {
+  CMS_GOOGLE_SEARCH_CONSOLE_INDEX_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_LINKS_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_SITEMAPS_URL,
   cmsAnalyticsMetricCatalog,
   type CmsAnalyticsDays,
   type CmsAnalyticsOnwardPath,
@@ -101,13 +104,23 @@ const sourceStatusLabels = {
   not_configured: "未接続"
 } as const;
 
-const sourceAccessLabels: Partial<Record<
-  CmsAnalyticsSummary["health"]["sources"][number]["id"],
-  string
->> = {
-  cloudflare_web_analytics: "Web Analyticsで確認",
-  google_search_console: "Search Consoleで確認"
-};
+function sourceAccessLinks(
+  source: CmsAnalyticsSummary["health"]["sources"][number]
+): ReadonlyArray<{ label: string; url: string }> {
+  if (source.status !== "external" || !source.accessUrl) return [];
+  if (source.id === "cloudflare_web_analytics") {
+    return [{ label: "Web Analyticsで確認", url: source.accessUrl }];
+  }
+  if (source.id === "google_search_console") {
+    return [
+      { label: "検索実績", url: source.accessUrl },
+      { label: "インデックス状況", url: CMS_GOOGLE_SEARCH_CONSOLE_INDEX_URL },
+      { label: "サイトマップ", url: CMS_GOOGLE_SEARCH_CONSOLE_SITEMAPS_URL },
+      { label: "外部リンク", url: CMS_GOOGLE_SEARCH_CONSOLE_LINKS_URL }
+    ];
+  }
+  return [];
+}
 
 export function AnalyticsSources({
   sources
@@ -117,7 +130,7 @@ export function AnalyticsSources({
   return (
     <div className="studio-analytics__lineage" aria-label="分析sourceの接続状態">
       {sources.map((source) => {
-        const accessLabel = sourceAccessLabels[source.id];
+        const accessLinks = sourceAccessLinks(source);
         return (
           <article key={source.id}>
             <div>
@@ -125,15 +138,20 @@ export function AnalyticsSources({
               <span>{sourceStatusLabels[source.status]}</span>
             </div>
             <p>{source.role}</p>
-            {source.status === "external" && source.accessUrl && accessLabel ? (
-              <a
-                className="studio-analytics__source-link"
-                href={source.accessUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {accessLabel}<span className="sr-only">（新しいタブ）</span>
-              </a>
+            {accessLinks.length > 0 ? (
+              <div className="studio-analytics__source-links">
+                {accessLinks.map((link) => (
+                  <a
+                    className="studio-analytics__source-link"
+                    href={link.url}
+                    key={link.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {link.label}<span className="sr-only">（新しいタブ）</span>
+                  </a>
+                ))}
+              </div>
             ) : null}
           </article>
         );

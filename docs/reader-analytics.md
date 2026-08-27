@@ -26,7 +26,7 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 
 比較対象の全日が正本coverage開始日以降に入るまでは、前期間の値と増減を返しません。計測開始前の欠測を0件として扱うと、実際には比較できない増加を作ってしまうためです。APIとStudio MCPは`comparison.status: "collecting"`、`comparison.totals: null`、比較可能になる`availableOn`を返し、Studioも同じ日まで増減を表示しません。分母が0で率を計算できない場合も、0%との差には置き換えません。
 
-この画面が扱うのはNoema内の行動です。ページ閲覧の実利用環境とCore Web VitalsはCloudflare Web Analytics、検索表示回数・検索クリック・検索語句はGoogle Search Consoleで別に確認します。Studioは両方を「外部で確認」と表示し、それぞれNoemaのWeb Analytics siteとURLプレフィックスプロパティ`https://noema-learn.uk/`の検索パフォーマンスへ直接移動できます。Cloudflare Web Analyticsは`noema-learn.uk`で有効にし、EU訪問者データを除外する設定を使います。外部sourceの値をNoemaのAPIやD1へ取り込んだり、外部sourceの事実をサイト内イベントから推測したりしません。
+この画面が扱うのはNoema内の行動です。ページ閲覧の実利用環境とCore Web VitalsはCloudflare Web Analytics、検索表示回数・検索クリック・検索語句はGoogle Search Consoleで別に確認します。Studioは両方を「外部で確認」と表示し、CloudflareはNoemaのWeb Analytics siteへ、Search ConsoleはURLプレフィックスプロパティ`https://noema-learn.uk/`の検索実績・インデックス状況・サイトマップ・外部リンクへ直接移動できます。Cloudflare Web Analyticsは`noema-learn.uk`で有効にし、EU訪問者データを除外する設定を使います。外部sourceの値をNoemaのAPIやD1へ取り込んだり、外部sourceの事実をサイト内イベントから推測したりしません。
 
 外部流入とは別に、記事を開く直前のNoema内の入口を`home`、`article_index`、`series`、`topic`、`article`、`other_internal`へ分類します。外部referrerがある場合は`external`、referrerがない場合は`direct`です。これはホームや一覧の導線改善を比較するための列挙値であり、同一サイトの生URLや閲覧履歴は保存しません。外部流入のUTM・referrer hostを上書きせず、入口別の到達・50%到達・読了・次記事移動をStudioで別表として確認します。
 

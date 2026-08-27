@@ -681,7 +681,7 @@ function analyticsHealth(options: {
       {
         accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
         id: "google_search_console",
-        role: "検索表示、検索クリック、検索語句をSearch Consoleで確認",
+        role: "検索実績、インデックス状況、サイトマップ、外部リンクをSearch Consoleで確認",
         status: "external"
       }
     ],
