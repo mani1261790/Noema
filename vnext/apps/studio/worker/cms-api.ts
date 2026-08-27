@@ -17,6 +17,7 @@ import {
   type CmsIdentity
 } from "@noema/cms";
 import { readImageMetadata, type SupportedImageContentType } from "@noema/content/image-metadata";
+import { noemaIndexNowUrlsForPublicationChange } from "@noema/content/indexnow";
 import { listCmsAnalyticsSummary, rebuildCmsAnalyticsMart } from "./analytics-repository";
 import {
   CmsRepositoryError,
@@ -71,10 +72,15 @@ export interface CmsApiEnvironment {
   CMS_DB: D1Database;
 }
 
+export interface CmsApiDependencies {
+  scheduleIndexNowNotification?: (urls: readonly string[]) => void;
+}
+
 export async function handleCmsApiRequest(
   request: Request,
   env: CmsApiEnvironment,
-  accessIdentity: AccessIdentity
+  accessIdentity: AccessIdentity,
+  dependencies: CmsApiDependencies = {}
 ): Promise<Response> {
   try {
     const session = await resolveCmsSession(
@@ -443,6 +449,9 @@ export async function handleCmsApiRequest(
     if (!parsed.success) return invalidRequest(parsed.error.issues);
     const precondition = requireIfMatch(request, parsed.data.expectedVersion);
     if (precondition) return precondition;
+    const before = parsed.data.action === "publish" || parsed.data.action === "archive"
+      ? await getCmsArticle(env.CMS_DB, session.identity, route.id)
+      : null;
     const article = await transitionCmsArticle(
       env.CMS_DB,
       session.identity,
@@ -451,6 +460,23 @@ export async function handleCmsApiRequest(
       parsed.data.expectedVersion,
       { note: parsed.data.note, visibility: parsed.data.visibility }
     );
+    if (before) {
+      const urls = noemaIndexNowUrlsForPublicationChange(
+        {
+          publicationStatus: before.publicationStatus,
+          publishedSlug: before.publishedSlug,
+          publishedVisibility: before.publishedVisibility,
+          topics: before.currentRevision.frontmatter.topics
+        },
+        {
+          publicationStatus: article.publicationStatus,
+          publishedSlug: article.publishedSlug,
+          publishedVisibility: article.publishedVisibility,
+          topics: article.currentRevision.frontmatter.topics
+        }
+      );
+      if (urls.length > 0) dependencies.scheduleIndexNowNotification?.(urls);
+    }
     return cmsJson({ article }, 200, article.lockVersion);
   } catch (error) {
     return cmsRepositoryError(error);

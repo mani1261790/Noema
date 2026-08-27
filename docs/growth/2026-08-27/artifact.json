@@ -1,0 +1,327 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Noema 公開発見性の判断レポート — 2026-08-27",
+    "description": "次の成長施策を、公開クロールと限定的な検索観測から判断したレポートです。",
+    "blocks": [
+      {
+        "id": "report-title",
+        "type": "markdown",
+        "layout": "full",
+        "body": "# Noema 公開発見性の判断レポート — 2026-08-27"
+      },
+      {
+        "id": "executive-summary",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Executive Summary\n\nNoemaの公開面には、検索エンジンの巡回を妨げる明確な技術欠陥は見つかりませんでした。一方、限定した公開検索では記事ページを観測できませんでした。次の施策は記事数の追加ではなく、公開・更新・取り下げを参加検索エンジンへ即時通知するIndexNowの自動化です。これはGoogle Search Consoleの代替ではなく、認証済みデータが得られるまでの可逆的な発見性改善です。"
+      },
+      {
+        "id": "public-surface-metrics",
+        "type": "metric-strip",
+        "layout": "full",
+        "cardIds": ["sitemap-card", "article-card", "blocker-card"]
+      },
+      {
+        "id": "public-surface-chart-block",
+        "type": "chart",
+        "layout": "full",
+        "chartId": "public-surface-chart"
+      },
+      {
+        "id": "public-surface-finding",
+        "type": "markdown",
+        "layout": "full",
+        "sourceId": "public-summary-query",
+        "body": "## 公開面は、まず検索エンジンへ渡せる状態にある\n\nライブsitemapの全URLを再取得し、HTTP応答、redirect、title、description、canonical、noindex、H1、記事の構造化データを確認しました。対象27 URLのうち記事は16ページで、判定対象の阻害要因は0件でした。記事の本文量は可視文字数で5,551〜11,699文字あり、薄いページを先に増量すべきという結果でもありません。"
+      },
+      {
+        "id": "search-observation",
+        "type": "markdown",
+        "layout": "full",
+        "sourceId": "public-search-observation",
+        "body": "## 限定検索では、記事がまだ見つからない\n\nsite指定4件と記事タイトル完全一致4件の計8検索を観測しましたが、Noemaの記事結果は0件でした。これは検索エンジン全体のindex件数ではなく、時刻・地域・検索基盤で変わる方向性のあるサンプルです。ただし、公開面が健全なのに記事結果を観測できない現状では、次の小さな投資先をクロール通知へ置く根拠になります。"
+      },
+      {
+        "id": "evidence-table-block",
+        "type": "table",
+        "layout": "full",
+        "tableId": "decision-evidence-table"
+      },
+      {
+        "id": "recommendation",
+        "type": "markdown",
+        "layout": "full",
+        "sourceId": "indexnow-protocol",
+        "body": "## 次に実装すること\n\nIndexNowのkey fileを公開し、Studioで公開記事が公開・更新・取り下げになった直後に、記事URL、記事一覧、該当テーマ、ホーム、sitemapを背景通知します。IndexNowは最大10,000 URLのbatch投稿と200／202応答を定義しており、key fileでhost所有を確認します。外部通知の失敗は記事公開を失敗させず、エラーだけを記録します。初回本番反映後はsitemapの27 URLを一度まとめて送信します。"
+      },
+      {
+        "id": "caveats",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Caveats\n\n読者行動分析とGoogle Search Consoleは認証が必要で、この実行では取得できませんでした。そのため流入数、click率、読了率、記事別の需要、施策による増分は未確認です。IndexNowの200／202は受領またはkey確認待ちを意味し、index登録や順位上昇を保証しません。Google向けには既存sitemapとSearch Consoleで、別途index coverageと検索queryを確認する必要があります。"
+      },
+      {
+        "id": "next-questions",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## 次の判断条件\n\n1. Search Consoleで16記事のindex状況、impression、queryを確認する。\n2. Studioの30日reader analyticsで、入口別の50%到達率・読了率・次記事移動率を確認する。\n3. 取得できた母数が判断可能になってから、内容の追加、title調整、外部配信の優先順位を決める。"
+      }
+    ],
+    "cards": [
+      {
+        "id": "sitemap-card",
+        "dataset": "public-summary",
+        "description": "2026-08-27にlive sitemapから取得したURL数。",
+        "sourceId": "public-summary-query",
+        "metrics": [
+          { "field": "sitemap_urls", "label": "公開URL", "format": "number" }
+        ]
+      },
+      {
+        "id": "article-card",
+        "dataset": "public-summary",
+        "description": "sitemapに含まれる個別記事URL数。",
+        "sourceId": "public-summary-query",
+        "metrics": [
+          { "field": "article_pages", "label": "記事", "format": "number" }
+        ]
+      },
+      {
+        "id": "blocker-card",
+        "dataset": "public-summary",
+        "description": "HTTP、metadata、canonical、noindex、H1、記事schemaの検査で見つかった件数。",
+        "sourceId": "public-summary-query",
+        "metrics": [
+          { "field": "technical_blockers", "label": "検出件数", "format": "number" }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "public-surface-chart",
+        "dataset": "public-surface",
+        "title": "公開URLの構成",
+        "subtitle": "記事が16 URLを占め、シリーズとテーマのhubが発見経路を補います。",
+        "type": "bar",
+        "sourceId": "public-surface-query",
+        "encodings": {
+          "x": { "field": "surface", "type": "nominal", "title": "公開面" },
+          "y": { "field": "url_count", "type": "quantitative", "title": "URL数" }
+        },
+        "showLegend": false,
+        "valueLabels": true
+      }
+    ],
+    "tables": [
+      {
+        "id": "decision-evidence-table",
+        "dataset": "decision-evidence",
+        "title": "判断に使った証拠と限界",
+        "description": "観測範囲と、そこから言えることを分離しています。",
+        "sourceId": "decision-evidence-query",
+        "columns": [
+          { "field": "evidence", "label": "証拠" },
+          { "field": "observed", "label": "観測" },
+          { "field": "decision_use", "label": "判断への使い方" },
+          { "field": "limitation", "label": "限界" }
+        ],
+        "defaultSort": { "field": "evidence", "direction": "asc" }
+      }
+    ],
+    "sources": [
+      {
+        "id": "noema-public-crawl",
+        "label": "Noema live sitemap and public pages",
+        "href": "https://noema-learn.uk/sitemap.xml",
+        "retrievedAt": "2026-08-27T14:05:00+09:00",
+        "description": "Live sitemap and every declared public page, fetched with a public crawler."
+      },
+      {
+        "id": "public-summary-query",
+        "label": "Public discovery summary query",
+        "path": "discovery-analysis.ipynb",
+        "query": {
+          "sql": "SELECT sitemap_urls, article_pages, technical_blockers, shortest_article_visible_characters, longest_article_visible_characters FROM public_summary WHERE observed_at = '2026-08-27'",
+          "description": "Select the public crawl headline metrics for the observed date.",
+          "engine": "SQLite",
+          "id": "noema-public-summary-2026-08-27",
+          "executed_at": "2026-08-27T14:42:00+09:00",
+          "language": "sql",
+          "tables_used": ["public_summary"],
+          "filters": ["observed_at = 2026-08-27"],
+          "metric_definitions": {
+            "sitemap_urls": "Count of loc entries in the live sitemap.",
+            "article_pages": "Count of individual article URLs in the live sitemap.",
+            "technical_blockers": "Count of sitemap pages failing the HTTP, redirect, metadata, canonical, noindex, H1, or article-schema checks."
+          }
+        }
+      },
+      {
+        "id": "public-surface-query",
+        "label": "Public surface inventory query",
+        "path": "discovery-analysis.ipynb",
+        "query": {
+          "sql": "SELECT surface, url_count FROM public_surface ORDER BY url_count DESC, surface ASC",
+          "description": "Count live sitemap URLs by public surface.",
+          "engine": "SQLite",
+          "id": "noema-public-surface-2026-08-27",
+          "executed_at": "2026-08-27T14:42:00+09:00",
+          "language": "sql",
+          "tables_used": ["public_surface"],
+          "filters": ["All loc entries from the 2026-08-27 live sitemap"],
+          "metric_definitions": {
+            "url_count": "Count of live sitemap URLs assigned to each mutually exclusive surface."
+          }
+        }
+      },
+      {
+        "id": "decision-evidence-query",
+        "label": "Decision evidence query",
+        "path": "discovery-analysis.ipynb",
+        "query": {
+          "sql": "SELECT evidence, observed, decision_use, limitation FROM decision_evidence ORDER BY evidence ASC",
+          "description": "List the reviewed evidence, decision use, and limitation in a fixed audit order.",
+          "engine": "SQLite",
+          "id": "noema-decision-evidence-2026-08-27",
+          "executed_at": "2026-08-27T14:42:00+09:00",
+          "language": "sql",
+          "tables_used": ["decision_evidence"],
+          "filters": ["Three reviewed evidence classes: public crawl, public search, authenticated behavior data"]
+        }
+      },
+      {
+        "id": "public-search-observation",
+        "label": "Bounded public search observation",
+        "href": "https://www.bing.com/search?q=site%3Anoema-learn.uk",
+        "retrievedAt": "2026-08-27T14:12:00+09:00",
+        "description": "Four site queries and four exact-title queries. Directional sample only."
+      },
+      {
+        "id": "indexnow-protocol",
+        "label": "IndexNow protocol documentation",
+        "href": "https://www.indexnow.org/documentation",
+        "retrievedAt": "2026-08-27T14:20:00+09:00",
+        "description": "Official batch submission, key verification, and response-code contract."
+      },
+      {
+        "id": "decision-analysis",
+        "label": "Noema public discovery analysis notebook",
+        "path": "discovery-analysis.ipynb",
+        "retrievedAt": "2026-08-27T14:30:00+09:00",
+        "description": "Executed notebook combining the live public crawl with the bounded public-search observation."
+      },
+      {
+        "id": "google-sitemap-guidance",
+        "label": "Google Search Central sitemap guidance",
+        "href": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap",
+        "retrievedAt": "2026-08-27T14:20:00+09:00",
+        "description": "Official Google guidance for sitemap discovery."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "status": "partial",
+    "generatedAt": "2026-08-27T14:30:00+09:00",
+    "datasets": {
+      "public-summary": [
+        {
+          "sitemap_urls": 27,
+          "article_pages": 16,
+          "technical_blockers": 0,
+          "shortest_article_visible_characters": 5551,
+          "longest_article_visible_characters": 11699
+        }
+      ],
+      "public-surface": [
+        { "surface": "記事", "url_count": 16 },
+        { "surface": "シリーズ", "url_count": 2 },
+        { "surface": "テーマ", "url_count": 3 },
+        { "surface": "その他", "url_count": 6 }
+      ],
+      "decision-evidence": [
+        {
+          "evidence": "Live public crawl",
+          "observed": "27 sitemap URL, 16 articles, 0 blockers",
+          "decision_use": "Technical remediation is not the next bottleneck.",
+          "limitation": "Public HTTP and markup only."
+        },
+        {
+          "evidence": "Public search sample",
+          "observed": "0 Noema article results in 8 queries",
+          "decision_use": "Prioritize discovery notification before more content volume.",
+          "limitation": "Not exhaustive index coverage."
+        },
+        {
+          "evidence": "Authenticated behavior data",
+          "observed": "Unavailable",
+          "decision_use": "Do not rank article topics or claim traffic uplift yet.",
+          "limitation": "Studio and Search Console sign-in required."
+        }
+      ]
+    },
+    "accessIssues": [
+      {
+        "id": "authenticated-growth-data-unavailable",
+        "message": "Authenticated Studio reader analytics and Google Search Console data were unavailable. Traffic, query, conversion, and uplift claims are not evaluated."
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "noema-public-crawl",
+      "label": "Noema live sitemap and public pages",
+      "href": "https://noema-learn.uk/sitemap.xml"
+    },
+    {
+      "id": "public-summary-query",
+      "label": "Public discovery summary query",
+      "path": "discovery-analysis.ipynb",
+      "query": {
+        "sql": "SELECT sitemap_urls, article_pages, technical_blockers, shortest_article_visible_characters, longest_article_visible_characters FROM public_summary WHERE observed_at = '2026-08-27'",
+        "engine": "SQLite"
+      }
+    },
+    {
+      "id": "public-surface-query",
+      "label": "Public surface inventory query",
+      "path": "discovery-analysis.ipynb",
+      "query": {
+        "sql": "SELECT surface, url_count FROM public_surface ORDER BY url_count DESC, surface ASC",
+        "engine": "SQLite"
+      }
+    },
+    {
+      "id": "decision-evidence-query",
+      "label": "Decision evidence query",
+      "path": "discovery-analysis.ipynb",
+      "query": {
+        "sql": "SELECT evidence, observed, decision_use, limitation FROM decision_evidence ORDER BY evidence ASC",
+        "engine": "SQLite"
+      }
+    },
+    {
+      "id": "public-search-observation",
+      "label": "Bounded public search observation",
+      "href": "https://www.bing.com/search?q=site%3Anoema-learn.uk"
+    },
+    {
+      "id": "indexnow-protocol",
+      "label": "IndexNow protocol documentation",
+      "href": "https://www.indexnow.org/documentation"
+    },
+    {
+      "id": "decision-analysis",
+      "label": "Noema public discovery analysis notebook",
+      "path": "discovery-analysis.ipynb"
+    },
+    {
+      "id": "google-sitemap-guidance",
+      "label": "Google Search Central sitemap guidance",
+      "href": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "observedAt": "2026-08-27T14:12:00+09:00",
+  "method": "Public web search only. These observations are directional and are not a Search Console index-coverage export.",
+  "queries": [
+    {
+      "query": "site:noema-learn.uk Noema AI 駆動開発",
+      "noemaArticleResultObserved": false,
+      "note": "The Noema home, terms, and privacy pages were observed; no article page was returned."
+    },
+    {
+      "query": "site:noema-learn.uk/articles Noema コーディングエージェント",
+      "noemaArticleResultObserved": false
+    },
+    {
+      "query": "site:noema-learn.uk/articles Noema MCP",
+      "noemaArticleResultObserved": false
+    },
+    {
+      "query": "site:noema-learn.uk/articles Noema コンテキストエンジニアリング",
+      "noemaArticleResultObserved": false
+    },
+    {
+      "query": "\"AI駆動開発で困らないためのデータベース入門\"",
+      "noemaArticleResultObserved": false
+    },
+    {
+      "query": "\"AI駆動開発で困らないためのエラー調査\"",
+      "noemaArticleResultObserved": false
+    },
+    {
+      "query": "\"ローカルLLMを自分のPCで動かす\" Noema",
+      "noemaArticleResultObserved": false
+    },
+    {
+      "query": "\"GitとGitHubとは何か、なぜ使うのか\" Noema",
+      "noemaArticleResultObserved": false
+    }
+  ],
+  "limitations": [
+    "Search result sampling is not exhaustive and may vary by engine, location, and time.",
+    "A missing observed result does not prove that Google or every participating engine has not indexed the URL.",
+    "Authenticated Search Console performance and URL-inspection data were unavailable in this run."
+  ]
+}
