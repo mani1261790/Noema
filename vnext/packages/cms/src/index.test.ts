@@ -112,6 +112,19 @@ describe("CMS contracts", () => {
     expect(cmsAnalyticsEventRequestSchema.safeParse({
       ...envelope,
       articleSlug: "local-ai-on-mac",
+      entryKind: "article_search",
+      eventType: "landing"
+    }).success).toBe(true);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
+      entryKind: "article_search",
+      eventType: "landing",
+      keyword: "Codex"
+    }).success).toBe(false);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
       eventType: "navigation_click",
       navigationKind: "related",
       targetSlug: "quantization-basics"
