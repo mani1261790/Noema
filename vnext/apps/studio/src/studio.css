@@ -2154,6 +2154,98 @@ a {
   justify-self: start;
 }
 
+.studio-distribution-link {
+  display: grid;
+  gap: .75rem;
+  min-width: 0;
+  padding: .875rem;
+  background: #f7f7f7;
+  border: 1px solid #949494;
+}
+
+.studio-distribution-link h3,
+.studio-distribution-link p {
+  margin: 0;
+}
+
+.studio-distribution-link h3 {
+  margin-bottom: .25rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.studio-distribution-link p,
+.studio-distribution-link label,
+.studio-distribution-link input,
+.studio-distribution-link select {
+  font-size: calc(14 / 16 * 1rem);
+  line-height: 1.5;
+}
+
+.studio-distribution-link__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, .7fr);
+  gap: .75rem;
+}
+
+.studio-distribution-link label,
+.studio-distribution-link__result {
+  display: grid;
+  min-width: 0;
+  gap: .35rem;
+  font-weight: 700;
+}
+
+.studio-distribution-link input,
+.studio-distribution-link select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: .5rem .625rem;
+  color: #1a1a1a;
+  background: #fff;
+  border: 1px solid #767676;
+  border-radius: 0;
+}
+
+.studio-distribution-link__result input {
+  color: #333;
+  background: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: calc(12 / 16 * 1rem);
+}
+
+.studio-distribution-link > .dads-button {
+  justify-self: start;
+}
+
+.studio-distribution-link #studio-distribution-source-support {
+  color: #555;
+  font-size: calc(13 / 16 * 1rem);
+}
+
+.studio-distribution-link #studio-distribution-source-support.is-error {
+  color: #b4001e;
+}
+
+.studio-distribution-link .studio-distribution-link__privacy {
+  color: #555;
+  font-size: calc(13 / 16 * 1rem);
+}
+
+.studio-distribution-link__status {
+  min-height: 1.5em;
+  color: #003e73;
+  font-weight: 700;
+}
+
+@media (max-width: 48rem) {
+  .studio-distribution-link__fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .studio-cms__visibility {
   display: grid;
   gap: .5rem;

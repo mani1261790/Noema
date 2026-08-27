@@ -106,6 +106,7 @@ import {
   type CmsLibraryConnection
 } from "./CmsArticleLibrary";
 import { CmsAnalyticsDashboard } from "./CmsAnalyticsDashboard";
+import { CmsDistributionLink } from "./CmsDistributionLink";
 import type { CmsArticleFilter } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
 import { canDeleteCmsDraftArticle } from "./article-deletion";
@@ -3351,16 +3352,19 @@ export function App() {
               </p>
             ) : null}
             {cmsArticle?.publicationStatus === "published" && cmsArticle.publishedSlug ? (
-              <a
-                className="dads-button studio-cms__public-link"
-                data-size="sm"
-                data-type="outline"
-                href={`${publicSiteUrl.replace(/\/$/, "")}/articles/${encodeURIComponent(cmsArticle.publishedSlug)}/`}
-                rel="noreferrer"
-                target="_blank"
-              >
-                公開中の記事を見る <Icon name="external" />
-              </a>
+              <>
+                <a
+                  className="dads-button studio-cms__public-link"
+                  data-size="sm"
+                  data-type="outline"
+                  href={`${publicSiteUrl.replace(/\/$/, "")}/articles/${encodeURIComponent(cmsArticle.publishedSlug)}/`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  公開中の記事を見る <Icon name="external" />
+                </a>
+                <CmsDistributionLink articleSlug={cmsArticle.publishedSlug} />
+              </>
             ) : null}
             {settingsMode === "review" ? <section className="studio-workflow-stage" aria-labelledby="cms-review-stage-heading">
               <div className="studio-workflow-stage__heading">
