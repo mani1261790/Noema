@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { CMS_GOOGLE_SEARCH_CONSOLE_URL } from "@noema/cms";
+import {
+  CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+  CMS_GOOGLE_SEARCH_CONSOLE_URL
+} from "@noema/cms";
 import { createBlankArticle } from "../src/draft-storage";
 import {
   deleteCmsArticle,
@@ -189,6 +192,12 @@ describe("CMS analytics client", () => {
         sources: [
           { id: "noema_reader_events", role: "記事内行動", status: "active" },
           {
+            accessUrl: CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+            id: "cloudflare_web_analytics",
+            role: "Core Web Vitals",
+            status: "external"
+          },
+          {
             accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
             id: "google_search_console",
             role: "検索パフォーマンス",
@@ -253,6 +262,10 @@ describe("CMS analytics client", () => {
         metricCatalogVersion: "2026-09-01",
         retention: { eventFactsDays: 45, reportingMartDays: 500 },
         sources: expect.arrayContaining([expect.objectContaining({
+          accessUrl: CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
+          id: "cloudflare_web_analytics",
+          status: "external"
+        }), expect.objectContaining({
           accessUrl: CMS_GOOGLE_SEARCH_CONSOLE_URL,
           id: "google_search_console",
           status: "external"

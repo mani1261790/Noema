@@ -1,4 +1,5 @@
 import {
+  CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
   cmsAnalyticsEntryKindSchema,
   cmsAnalyticsNavigationKindSchema,
@@ -1320,10 +1321,15 @@ function parseCmsAnalyticsHealth(value: unknown): CmsAnalyticsHealth | null {
       !(source.status === "active" || source.status === "external" || source.status === "not_configured")
     ) return null;
     const accessUrl = isString(source.accessUrl) ? source.accessUrl : undefined;
+    const expectedExternalAccessUrl = source.id === "cloudflare_web_analytics"
+      ? CMS_CLOUDFLARE_WEB_ANALYTICS_URL
+      : source.id === "google_search_console"
+        ? CMS_GOOGLE_SEARCH_CONSOLE_URL
+        : undefined;
     if (
       (source.status === "external" && (
-        source.id !== "google_search_console" ||
-        accessUrl !== CMS_GOOGLE_SEARCH_CONSOLE_URL
+        expectedExternalAccessUrl === undefined ||
+        accessUrl !== expectedExternalAccessUrl
       )) ||
       (source.status !== "external" && source.accessUrl !== undefined)
     ) return null;
