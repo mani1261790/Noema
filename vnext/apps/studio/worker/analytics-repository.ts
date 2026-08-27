@@ -96,7 +96,8 @@ function emptyCounts(): CmsAnalyticsCounts {
     navigationClick: 0,
     relatedClick: 0,
     seriesNext: 0,
-    share: 0
+    share: 0,
+    updatesClick: 0
   };
 }
 
@@ -109,6 +110,7 @@ function addEvent(
   if (eventType === "landing") counts.landing += eventCount;
   if (eventType === "article_50") counts.article50 += eventCount;
   if (eventType === "article_end") counts.articleEnd += eventCount;
+  if (eventType === "updates_click") counts.updatesClick += eventCount;
   if (eventType === "share") counts.share += eventCount;
   if (eventType === "assistant_open") counts.assistantOpen += eventCount;
   if (eventType === "assistant_success") counts.assistantSuccess += eventCount;
@@ -131,7 +133,8 @@ function totalsWithRates(counts: CmsAnalyticsCounts): CmsAnalyticsTotals {
     assistantSuccessRate: ratio(counts.assistantSuccess, counts.assistantOpen),
     assistantUseRate: ratio(counts.assistantOpen, counts.landing),
     onwardRate: ratio(counts.navigationClick, counts.articleEnd),
-    qualifiedReadRate: ratio(counts.articleEnd, counts.landing)
+    qualifiedReadRate: ratio(counts.articleEnd, counts.landing),
+    updatesGuideRate: ratio(counts.updatesClick, counts.articleEnd)
   };
 }
 
@@ -353,7 +356,8 @@ export async function listCmsAnalyticsSummary(
       qualifiedReadRate: null,
       revisionNumber: row.revision_number,
       slug: row.article_slug,
-      title: articleTitle(row.frontmatter_json, row.article_slug)
+      title: articleTitle(row.frontmatter_json, row.article_slug),
+      updatesGuideRate: null
     };
     addEvent(metric, row.event_type, row.event_count, row.navigation_kind);
     articleMetrics.set(key, metric);
@@ -364,7 +368,8 @@ export async function listCmsAnalyticsSummary(
     assistantSuccessRate: ratio(metric.assistantSuccess, metric.assistantOpen),
     assistantUseRate: ratio(metric.assistantOpen, metric.landing),
     onwardRate: ratio(metric.navigationClick, metric.articleEnd),
-    qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+    qualifiedReadRate: ratio(metric.articleEnd, metric.landing),
+    updatesGuideRate: ratio(metric.updatesClick, metric.articleEnd)
   })).sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
   const sourceMetrics = new Map<string, CmsAnalyticsSourceMetric>();
@@ -381,12 +386,15 @@ export async function listCmsAnalyticsSummary(
       navigationClick: 0,
       qualifiedReadRate: null,
       referrerHost: row.referrer_host,
-      source: row.source
+      source: row.source,
+      updatesClick: 0,
+      updatesGuideRate: null
     };
     if (row.event_type === "landing") metric.landing += row.event_count;
     if (row.event_type === "article_50") metric.article50 += row.event_count;
     if (row.event_type === "article_end") metric.articleEnd += row.event_count;
     if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
+    if (row.event_type === "updates_click") metric.updatesClick += row.event_count;
     sourceMetrics.set(key, metric);
   }
   const sources = [...sourceMetrics.values()]
@@ -394,12 +402,14 @@ export async function listCmsAnalyticsSummary(
       metric.landing > 0 ||
       metric.article50 > 0 ||
       metric.articleEnd > 0 ||
-      metric.navigationClick > 0
+      metric.navigationClick > 0 ||
+      metric.updatesClick > 0
     ))
     .map((metric) => ({
       ...metric,
       article50Rate: ratio(metric.article50, metric.landing),
-      qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+      qualifiedReadRate: ratio(metric.articleEnd, metric.landing),
+      updatesGuideRate: ratio(metric.updatesClick, metric.articleEnd)
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
@@ -412,12 +422,15 @@ export async function listCmsAnalyticsSummary(
       entryKind: row.entry_kind,
       landing: 0,
       navigationClick: 0,
-      qualifiedReadRate: null
+      qualifiedReadRate: null,
+      updatesClick: 0,
+      updatesGuideRate: null
     };
     if (row.event_type === "landing") metric.landing += row.event_count;
     if (row.event_type === "article_50") metric.article50 += row.event_count;
     if (row.event_type === "article_end") metric.articleEnd += row.event_count;
     if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
+    if (row.event_type === "updates_click") metric.updatesClick += row.event_count;
     entryMetrics.set(row.entry_kind, metric);
   }
   const entries = [...entryMetrics.values()]
@@ -425,12 +438,14 @@ export async function listCmsAnalyticsSummary(
       metric.landing > 0 ||
       metric.article50 > 0 ||
       metric.articleEnd > 0 ||
-      metric.navigationClick > 0
+      metric.navigationClick > 0 ||
+      metric.updatesClick > 0
     ))
     .map((metric) => ({
       ...metric,
       article50Rate: ratio(metric.article50, metric.landing),
-      qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+      qualifiedReadRate: ratio(metric.articleEnd, metric.landing),
+      updatesGuideRate: ratio(metric.updatesClick, metric.articleEnd)
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
 
@@ -450,7 +465,7 @@ export async function listCmsAnalyticsSummary(
   const dailyByDate = new Map<string, CmsAnalyticsDailyMetric>();
   for (let index = 0; index < days; index += 1) {
     const date = addDays(new Date(`${from}T00:00:00.000Z`), index).toISOString().slice(0, 10);
-    dailyByDate.set(date, { articleEnd: 0, date, landing: 0, navigationClick: 0 });
+    dailyByDate.set(date, { articleEnd: 0, date, landing: 0, navigationClick: 0, updatesClick: 0 });
   }
   for (const row of dailyResult.results) {
     const metric = dailyByDate.get(row.event_date);
@@ -458,6 +473,7 @@ export async function listCmsAnalyticsSummary(
     if (row.event_type === "landing") metric.landing += row.event_count;
     if (row.event_type === "article_end") metric.articleEnd += row.event_count;
     if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
+    if (row.event_type === "updates_click") metric.updatesClick += row.event_count;
   }
 
   const totals = articles.reduce<CmsAnalyticsCounts>((counts, article) => {
@@ -525,7 +541,8 @@ function analyticsHealth(options: {
   const generatedAt = options.generatedAt.toISOString();
   const reportingEvents = options.totals.landing + options.totals.article50 +
     options.totals.articleEnd + options.totals.navigationClick + options.totals.share +
-    options.totals.assistantOpen + options.totals.assistantSuccess + options.totals.assistantError;
+    options.totals.updatesClick + options.totals.assistantOpen +
+    options.totals.assistantSuccess + options.totals.assistantError;
   if (!options.latestEventReceivedAt) {
     checks.push({
       detail: options.acceptedEvents === 0
@@ -607,6 +624,7 @@ function analyticsHealth(options: {
     options.totals.article50 > options.totals.landing,
     options.totals.articleEnd > options.totals.landing,
     options.totals.navigationClick > options.totals.articleEnd,
+    options.totals.updatesClick > options.totals.articleEnd,
     options.totals.assistantSuccess > options.totals.assistantOpen
   ].some(Boolean);
   checks.push({
@@ -644,7 +662,7 @@ function analyticsHealth(options: {
     sources: [
       {
         id: "noema_reader_events",
-        role: "記事内の読了、回遊、共有、アシスタント利用",
+        role: "記事内の読了、回遊、更新案内、共有、アシスタント利用",
         status: "active"
       },
       {

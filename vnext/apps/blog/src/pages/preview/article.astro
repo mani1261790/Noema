@@ -2,6 +2,7 @@
 import { previewArticles, previewArticleMarkdown, topicLabels } from "@noema/content";
 import { renderArticlePresentation } from "@noema/content/article-presentation";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
+import ArticleUpdatesCta from "../../components/ArticleUpdatesCta.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import RelatedArticles from "../../components/RelatedArticles.astro";
 import ShareArticle from "../../components/ShareArticle.astro";
@@ -30,6 +31,7 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
       <Fragment set:html={presentationHtml} />
       <ShareArticle />
+      <ArticleUpdatesCta />
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
