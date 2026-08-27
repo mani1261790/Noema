@@ -498,7 +498,7 @@ body.noema-public .site-search-form__input input:focus-visible {
   box-shadow: var(--elevation-1);
 }
 
-.series-card h3 {
+.series-card__title {
   margin: 0;
   color: var(--color-key-1000);
   font-size: calc(22 / 16 * 1rem);
@@ -508,7 +508,7 @@ body.noema-public .site-search-form__input input:focus-visible {
   text-underline-offset: 0.3rem;
 }
 
-.series-card:hover h3 {
+.series-card:hover .series-card__title {
   text-decoration-thickness: 3px;
 }
 

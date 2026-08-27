@@ -4,6 +4,7 @@ import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { listPublicArticleSummaries } from "../../lib/cms-publications";
+import { collectionPageJsonLd } from "../../lib/seo";
 
 const { slug } = Astro.params;
 const topic = articleTopicSchema.safeParse(slug);
@@ -12,9 +13,16 @@ const label = topicLabels[topic.data];
 const description = topicDescriptions[topic.data];
 const allArticles = await listPublicArticleSummaries();
 const articles = allArticles.filter((article) => article.topics.includes(topic.data));
+const pathname = `/topics/${topic.data}`;
+const jsonLd = collectionPageJsonLd({
+  description,
+  items: articles.map((article) => ({ name: article.title, pathname: article.href })),
+  name: `${label}の記事`,
+  pathname,
+}, Astro.site);
 ---
 
-<BaseLayout title={`${label}の記事 | Noema`} description={description}>
+<BaseLayout title={`${label}の記事 | Noema`} description={description} jsonLd={jsonLd}>
   <div class="noema-container listing-page">
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "テーマから探す", href: "/#topic-heading" }, { label }]} />
     <header class="page-heading">
