@@ -1,0 +1,65 @@
+---
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+export const prerender = true;
+
+const feedUrl = new URL("/rss.xml", Astro.site ?? "https://noema-learn.uk").toString();
+---
+
+<BaseLayout
+  title="Noemaの更新を受け取る | Noema"
+  description="Noemaの新着記事をRSSで受け取る方法を説明します。登録やメールアドレスは必要ありません。"
+>
+  <div class="noema-reading-container prose-page updates-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "更新を受け取る" }]} />
+    <h1>Noemaの更新を受け取る</h1>
+    <p class="prose-page__lead">RSSを使うと、Noemaの新しい記事をフィードリーダーでまとめて確認できます。登録やメールアドレスは必要ありません。</p>
+
+    <section class="updates-feed" aria-labelledby="updates-feed-heading">
+      <h2 id="updates-feed-heading">フィードを追加する</h2>
+      <p>次のURLを、お使いのフィードリーダーに追加してください。</p>
+      <p class="updates-feed__url"><a class="dads-link" href="/rss.xml" data-feed-url>{feedUrl}</a></p>
+      <div class="updates-feed__actions">
+        <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-feed-url hidden>URLをコピー</button>
+        <a class="dads-button" data-size="md" data-type="outline" href="/rss.xml">フィードを開く</a>
+      </div>
+      <p class="updates-feed__status" data-feed-status role="status" aria-live="polite"></p>
+    </section>
+
+    <h2>フィードリーダーで読む手順</h2>
+    <ol>
+      <li>使っているフィードリーダーで、フィードやサイトを追加する画面を開きます。</li>
+      <li>上のRSS URLを貼り付けて追加します。</li>
+      <li>新しい記事が公開されると、フィードリーダーの一覧に表示されます。</li>
+    </ol>
+
+    <h2>RSSで届くもの</h2>
+    <p>公開された記事のタイトル、概要、公開日、記事へのリンクを配信します。記事の本文はNoemaのサイトで読めます。</p>
+
+    <h2>知っておいてほしいこと</h2>
+    <ul>
+      <li>RSSの確認間隔や通知の有無は、フィードリーダーによって異なります。</li>
+      <li>Noemaは、誰がフィードを登録したか、継続して読んでいるかを把握しません。</li>
+      <li>RSS URLは公開情報です。アカウントや個別の認証情報は含みません。</li>
+    </ul>
+  </div>
+</BaseLayout>
+
+<script>
+  const copyButton = document.querySelector<HTMLButtonElement>("[data-copy-feed-url]");
+  const feedLink = document.querySelector<HTMLAnchorElement>("[data-feed-url]");
+  const status = document.querySelector<HTMLElement>("[data-feed-status]");
+
+  if (copyButton && feedLink && navigator.clipboard) {
+    copyButton.hidden = false;
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(feedLink.href);
+        if (status) status.textContent = "RSS URLをコピーしました。";
+      } catch {
+        if (status) status.textContent = "コピーできませんでした。表示されているURLを選んでコピーしてください。";
+      }
+    });
+  }
+</script>

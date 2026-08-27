@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canCms,
+  cmsAnalyticsMetricCatalog,
   cmsAnalyticsEventRequestSchema,
   cmsAnalyticsRebuildRequestSchema,
   cmsArticleActionSchema,
@@ -122,6 +123,18 @@ describe("CMS contracts", () => {
     expect(cmsAnalyticsEventRequestSchema.safeParse({
       ...envelope,
       articleSlug: "local-ai-on-mac",
+      eventType: "updates_click"
+    }).success).toBe(true);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
+      eventType: "updates_click",
+      navigationKind: "related",
+      targetSlug: "quantization-basics"
+    }).success).toBe(false);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
       attribution: { campaign: "質問本文を保存しない" },
       eventType: "landing"
     }).success).toBe(false);
@@ -131,6 +144,16 @@ describe("CMS contracts", () => {
       entryKind: "/private/campaign/path",
       eventType: "landing"
     }).success).toBe(false);
+  });
+
+  it("defines update-guide clicks without claiming an RSS subscription", () => {
+    expect(cmsAnalyticsMetricCatalog).toContainEqual(expect.objectContaining({
+      denominator: "article_end",
+      id: "updates_guide_rate",
+      numerator: "updates_click"
+    }));
+    expect(cmsAnalyticsMetricCatalog.find((metric) => metric.id === "updates_guide_rate")?.caveat)
+      .toContain("RSS購読の完了");
   });
 
   it("rejects impossible analytics rebuild calendar dates", () => {
