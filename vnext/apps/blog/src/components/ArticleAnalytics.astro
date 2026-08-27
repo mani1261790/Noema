@@ -16,6 +16,7 @@ const { slug } = Astro.props;
     | "article_50"
     | "article_end"
     | "navigation_click"
+    | "updates_click"
     | "share"
     | "assistant_open"
     | "assistant_success"
@@ -171,6 +172,10 @@ const { slug } = Astro.props;
     const anchor = event.target instanceof Element
       ? event.target.closest<HTMLAnchorElement>("a")
       : null;
+    if (anchor?.closest("[data-analytics-updates]")) {
+      sendEvent("updates_click");
+      return;
+    }
     const target = anchor?.closest<HTMLElement>("[data-analytics-navigation]");
     const navigationKind = target?.dataset.analyticsNavigation;
     if (!anchor || (navigationKind !== "related" && navigationKind !== "series_next")) return;

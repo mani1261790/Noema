@@ -100,13 +100,15 @@ describe("CMS HTTP API", () => {
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "x", "social", "launch", "diagram", "", "", "", 3, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "x", "social", "launch", "diagram", "", "", "", 2, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "x", "social", "launch", "diagram", "", "related", "next-article", 1, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "updates_click", "x", "social", "launch", "diagram", "", "", "", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_open", "", "", "", "", "", "", "", 2, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_success", "", "", "", "", "", "", "", 1, timestamp),
       insert.bind(future, article.id, article.slug, article.revisionNumber, "landing", "", "", "", "", "", "", "", 100, `${future}T00:00:00.000Z`),
       entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "landing", "home", 4, timestamp),
       entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "home", 3, timestamp),
       entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "home", 2, timestamp),
-      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "home", 1, timestamp)
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "home", 1, timestamp),
+      entryInsert.bind(date, article.id, article.slug, article.revisionNumber, "updates_click", "home", 1, timestamp)
     ]);
     const retained = await testEnv.CMS_DB.prepare(
       "SELECT COUNT(*) AS count FROM cms_analytics_daily WHERE event_date = ?1"
@@ -124,6 +126,7 @@ describe("CMS HTTP API", () => {
         assistantUseRate: number;
         onwardRate: number;
         qualifiedReadRate: number;
+        updatesGuideRate: number;
       }>;
       comparison: {
         status: string;
@@ -134,6 +137,7 @@ describe("CMS HTTP API", () => {
         entryKind: string;
         landing: number;
         qualifiedReadRate: number;
+        updatesGuideRate: number;
       }>;
       health: {
         retention: { eventFactsDays: number; reportingMartDays: number };
@@ -153,6 +157,7 @@ describe("CMS HTTP API", () => {
         campaign: string;
         landing: number;
         qualifiedReadRate: number;
+        updatesGuideRate: number;
       }>;
       totals: {
         article50Rate: number;
@@ -161,6 +166,7 @@ describe("CMS HTTP API", () => {
         landing: number;
         onwardRate: number;
         qualifiedReadRate: number;
+        updatesGuideRate: number;
       };
     } };
 
@@ -172,20 +178,23 @@ describe("CMS HTTP API", () => {
       assistantUseRate: 0.5,
       landing: 4,
       onwardRate: 0.5,
-      qualifiedReadRate: 0.5
+      qualifiedReadRate: 0.5,
+      updatesGuideRate: 0.5
     });
     expect(body.summary.articles[0]).toMatchObject({
       article50Rate: 0.75,
       assistantSuccessRate: 0.5,
       assistantUseRate: 0.5,
       onwardRate: 0.5,
-      qualifiedReadRate: 0.5
+      qualifiedReadRate: 0.5,
+      updatesGuideRate: 0.5
     });
     expect(body.summary.entries).toContainEqual(expect.objectContaining({
       article50Rate: 0.75,
       entryKind: "home",
       landing: 4,
-      qualifiedReadRate: 0.5
+      qualifiedReadRate: 0.5,
+      updatesGuideRate: 0.5
     }));
     expect(body.summary.onwardPaths).toEqual([expect.objectContaining({
       clickCount: 1,
@@ -199,7 +208,8 @@ describe("CMS HTTP API", () => {
       article50Rate: 0.75,
       campaign: "launch",
       landing: 4,
-      qualifiedReadRate: 0.5
+      qualifiedReadRate: 0.5,
+      updatesGuideRate: 0.5
     }));
     expect(body.summary.sources).toHaveLength(1);
     expect(body.summary.comparison).toMatchObject({ status: "collecting", totals: null });

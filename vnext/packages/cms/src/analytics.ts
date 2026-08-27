@@ -5,6 +5,7 @@ export const cmsAnalyticsEventTypeSchema = z.enum([
   "article_50",
   "article_end",
   "navigation_click",
+  "updates_click",
   "share",
   "assistant_open",
   "assistant_success",
@@ -120,7 +121,7 @@ export interface CmsAnalyticsRebuildResult extends CmsAnalyticsRebuildRequest {
 }
 
 export const CMS_ANALYTICS_EVENT_CONTRACT_VERSION = 1 as const;
-export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-23" as const;
+export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-27" as const;
 export const CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS = 35 as const;
 export const CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS = 400 as const;
 export const CMS_CLOUDFLARE_WEB_ANALYTICS_URL =
@@ -133,7 +134,7 @@ export interface CmsAnalyticsMetricDefinition {
   decision: string;
   denominator: CmsAnalyticsEventType;
   grain: "article_revision";
-  id: "article_50_rate" | "qualified_read_rate" | "onward_rate" | "assistant_use_rate" | "assistant_success_rate";
+  id: "article_50_rate" | "qualified_read_rate" | "onward_rate" | "updates_guide_rate" | "assistant_use_rate" | "assistant_success_rate";
   label: string;
   numerator: CmsAnalyticsEventType;
   owner: "editorial";
@@ -175,6 +176,18 @@ export const cmsAnalyticsMetricCatalog = [
     id: "onward_rate",
     label: "次記事移動率",
     numerator: "navigation_click",
+    owner: "editorial",
+    source: "cms_analytics_daily",
+    version: 1
+  },
+  {
+    caveat: "更新案内ページへのクリックであり、RSS購読の完了や継続利用を直接測るものではありません。",
+    decision: "記事末の更新導線の発見性と説明を見直す判断に使います。",
+    denominator: "article_end",
+    grain: "article_revision",
+    id: "updates_guide_rate",
+    label: "更新案内クリック率",
+    numerator: "updates_click",
     owner: "editorial",
     source: "cms_analytics_daily",
     version: 1
@@ -250,6 +263,7 @@ export interface CmsAnalyticsCounts {
   relatedClick: number;
   seriesNext: number;
   share: number;
+  updatesClick: number;
 }
 
 export interface CmsAnalyticsTotals extends CmsAnalyticsCounts {
@@ -258,6 +272,7 @@ export interface CmsAnalyticsTotals extends CmsAnalyticsCounts {
   assistantUseRate: number | null;
   onwardRate: number | null;
   qualifiedReadRate: number | null;
+  updatesGuideRate: number | null;
 }
 
 export interface CmsAnalyticsComparison {
@@ -280,6 +295,7 @@ export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
   revisionNumber: number;
   slug: string;
   title: string;
+  updatesGuideRate: number | null;
 }
 
 export interface CmsAnalyticsOnwardPath {
@@ -305,6 +321,8 @@ export interface CmsAnalyticsSourceMetric {
   qualifiedReadRate: number | null;
   referrerHost: string;
   source: string;
+  updatesClick: number;
+  updatesGuideRate: number | null;
 }
 
 export interface CmsAnalyticsEntryMetric {
@@ -315,6 +333,8 @@ export interface CmsAnalyticsEntryMetric {
   landing: number;
   navigationClick: number;
   qualifiedReadRate: number | null;
+  updatesClick: number;
+  updatesGuideRate: number | null;
 }
 
 export interface CmsAnalyticsDailyMetric {
@@ -322,6 +342,7 @@ export interface CmsAnalyticsDailyMetric {
   date: string;
   landing: number;
   navigationClick: number;
+  updatesClick: number;
 }
 
 export interface CmsAnalyticsSummary {

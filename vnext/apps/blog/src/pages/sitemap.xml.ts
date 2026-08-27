@@ -23,6 +23,7 @@ export const GET: APIRoute = async ({ site }) => {
     { pathname: "/", lastModified: latestSiteDate },
     { pathname: "/articles", lastModified: latestSiteDate },
     { pathname: "/series", lastModified: latestSeriesDate },
+    { pathname: "/updates" },
     { pathname: "/about" },
     { pathname: "/privacy" },
     ...Object.keys(topicLabels)

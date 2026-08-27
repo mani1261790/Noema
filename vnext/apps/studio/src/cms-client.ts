@@ -1069,7 +1069,8 @@ function parseAnalyticsCounts(value: unknown): CmsAnalyticsCounts | null {
     navigationClick,
     relatedClick,
     seriesNext,
-    share
+    share,
+    updatesClick
   } = value;
   if (
     !isNonnegativeInteger(article50) ||
@@ -1081,7 +1082,8 @@ function parseAnalyticsCounts(value: unknown): CmsAnalyticsCounts | null {
     !isNonnegativeInteger(navigationClick) ||
     !isNonnegativeInteger(relatedClick) ||
     !isNonnegativeInteger(seriesNext) ||
-    !isNonnegativeInteger(share)
+    !isNonnegativeInteger(share) ||
+    !isNonnegativeInteger(updatesClick)
   ) return null;
   return {
     article50,
@@ -1093,7 +1095,8 @@ function parseAnalyticsCounts(value: unknown): CmsAnalyticsCounts | null {
     navigationClick,
     relatedClick,
     seriesNext,
-    share
+    share,
+    updatesClick
   };
 }
 
@@ -1114,7 +1117,8 @@ function parseCmsAnalyticsTotals(value: unknown): CmsAnalyticsTotals | null {
     !isNullableRate(value.assistantSuccessRate) ||
     !isNullableRate(value.assistantUseRate) ||
     !isNullableRate(value.onwardRate) ||
-    !isNullableRate(value.qualifiedReadRate)
+    !isNullableRate(value.qualifiedReadRate) ||
+    !isNullableRate(value.updatesGuideRate)
   ) return null;
   return {
     ...counts,
@@ -1122,7 +1126,8 @@ function parseCmsAnalyticsTotals(value: unknown): CmsAnalyticsTotals | null {
     assistantSuccessRate: value.assistantSuccessRate,
     assistantUseRate: value.assistantUseRate,
     onwardRate: value.onwardRate,
-    qualifiedReadRate: value.qualifiedReadRate
+    qualifiedReadRate: value.qualifiedReadRate,
+    updatesGuideRate: value.updatesGuideRate
   };
 }
 
@@ -1161,7 +1166,8 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
     !isNullableRate(value.qualifiedReadRate) ||
     !isNonnegativeInteger(value.revisionNumber) ||
     !isString(value.slug) ||
-    !isString(value.title)
+    !isString(value.title) ||
+    !isNullableRate(value.updatesGuideRate)
   ) return null;
   return {
     ...counts,
@@ -1173,7 +1179,8 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
     qualifiedReadRate: value.qualifiedReadRate,
     revisionNumber: value.revisionNumber,
     slug: value.slug,
-    title: value.title
+    title: value.title,
+    updatesGuideRate: value.updatesGuideRate
   };
 }
 
@@ -1190,7 +1197,9 @@ function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | nul
     !isNonnegativeInteger(value.navigationClick) ||
     !isNullableRate(value.qualifiedReadRate) ||
     !isString(value.referrerHost) ||
-    !isString(value.source)
+    !isString(value.source) ||
+    !isNonnegativeInteger(value.updatesClick) ||
+    !isNullableRate(value.updatesGuideRate)
   ) return null;
   return {
     article50: value.article50,
@@ -1203,7 +1212,9 @@ function parseCmsAnalyticsSource(value: unknown): CmsAnalyticsSourceMetric | nul
     navigationClick: value.navigationClick,
     qualifiedReadRate: value.qualifiedReadRate,
     referrerHost: value.referrerHost,
-    source: value.source
+    source: value.source,
+    updatesClick: value.updatesClick,
+    updatesGuideRate: value.updatesGuideRate
   };
 }
 
@@ -1219,7 +1230,9 @@ function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null 
     !isNonnegativeInteger(value.articleEnd) ||
     !isNonnegativeInteger(value.landing) ||
     !isNonnegativeInteger(value.navigationClick) ||
-    !isNullableRate(value.qualifiedReadRate)
+    !isNullableRate(value.qualifiedReadRate) ||
+    !isNonnegativeInteger(value.updatesClick) ||
+    !isNullableRate(value.updatesGuideRate)
   ) return null;
   return {
     article50: value.article50,
@@ -1228,7 +1241,9 @@ function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null 
     entryKind: parsedEntryKind.data,
     landing: value.landing,
     navigationClick: value.navigationClick,
-    qualifiedReadRate: value.qualifiedReadRate
+    qualifiedReadRate: value.qualifiedReadRate,
+    updatesClick: value.updatesClick,
+    updatesGuideRate: value.updatesGuideRate
   };
 }
 
@@ -1265,13 +1280,15 @@ function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null 
     !isNonnegativeInteger(value.articleEnd) ||
     !isString(value.date) ||
     !isNonnegativeInteger(value.landing) ||
-    !isNonnegativeInteger(value.navigationClick)
+    !isNonnegativeInteger(value.navigationClick) ||
+    !isNonnegativeInteger(value.updatesClick)
   ) return null;
   return {
     articleEnd: value.articleEnd,
     date: value.date,
     landing: value.landing,
-    navigationClick: value.navigationClick
+    navigationClick: value.navigationClick,
+    updatesClick: value.updatesClick
   };
 }
 

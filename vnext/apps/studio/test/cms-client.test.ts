@@ -139,7 +139,8 @@ describe("CMS analytics client", () => {
       navigationClick: 3,
       relatedClick: 2,
       seriesNext: 1,
-      share: 1
+      share: 1,
+      updatesClick: 2
     };
     const fetchFn = vi.fn<typeof fetch>(async () => jsonResponse({ summary: {
       articles: [{
@@ -152,7 +153,8 @@ describe("CMS analytics client", () => {
         qualifiedReadRate: 0.6,
         revisionNumber: 4,
         slug: "analytics-article",
-        title: "分析記事"
+        title: "分析記事",
+        updatesGuideRate: 1 / 3
       }],
       comparison: {
         availableOn: "2026-08-23",
@@ -164,10 +166,11 @@ describe("CMS analytics client", () => {
           assistantSuccessRate: 0.5,
           assistantUseRate: 0.2,
           onwardRate: 0.4,
-          qualifiedReadRate: 0.5
+          qualifiedReadRate: 0.5,
+          updatesGuideRate: 0.25
         }
       },
-      daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3 }],
+      daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3, updatesClick: 2 }],
       entries: [{
         article50: 5,
         article50Rate: 5 / 6,
@@ -175,7 +178,9 @@ describe("CMS analytics client", () => {
         entryKind: "home",
         landing: 6,
         navigationClick: 2,
-        qualifiedReadRate: 4 / 6
+        qualifiedReadRate: 4 / 6,
+        updatesClick: 1,
+        updatesGuideRate: 1 / 4
       }],
       health: {
         acceptedEvents: 10,
@@ -229,7 +234,9 @@ describe("CMS analytics client", () => {
         navigationClick: 3,
         qualifiedReadRate: 0.6,
         referrerHost: "",
-        source: "x"
+        source: "x",
+        updatesClick: 2,
+        updatesGuideRate: 1 / 3
       }],
       totals: {
         ...counts,
@@ -237,7 +244,8 @@ describe("CMS analytics client", () => {
         assistantSuccessRate: 2 / 3,
         assistantUseRate: 0.3,
         onwardRate: 0.5,
-        qualifiedReadRate: 0.6
+        qualifiedReadRate: 0.6,
+        updatesGuideRate: 1 / 3
       }
     } }));
 
