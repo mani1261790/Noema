@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   allowCmsAnalyticsEvent,
   analyticsRateLimitKey,
+  isCanonicalCmsAnalyticsOrigin,
   recordCmsAnalyticsEvent,
   type CmsAnalyticsDatabase
 } from "./analytics";
@@ -12,6 +13,16 @@ describe("reader analytics", () => {
     occurredAt: "2026-08-23T01:02:02.000Z",
     schemaVersion: 1 as const
   };
+
+  it.each([
+    ["https://noema-learn.uk/api/analytics/events", true],
+    ["http://noema-learn.uk/api/analytics/events", false],
+    ["https://www.noema-learn.uk/api/analytics/events", false],
+    ["https://noema-learn.mani1261790.workers.dev/api/analytics/events", false],
+    ["https://noema-learn-production.mani1261790.workers.dev/api/analytics/events", false]
+  ] as const)("limits canonical reader analytics for %s", (requestUrl, expected) => {
+    expect(isCanonicalCmsAnalyticsOrigin(new URL(requestUrl))).toBe(expected);
+  });
 
   it("uses the Cloudflare client address only as an ephemeral rate-limit key", () => {
     expect(analyticsRateLimitKey(new Request("https://noema.example/articles/test", {

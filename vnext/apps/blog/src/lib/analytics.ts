@@ -1,4 +1,5 @@
 import type { CmsAnalyticsEventRequest } from "@noema/cms";
+import { NOEMA_PUBLIC_ORIGIN } from "@noema/content/indexnow";
 
 export interface CmsAnalyticsStatement {
   bind(...values: unknown[]): CmsAnalyticsStatement;
@@ -20,6 +21,11 @@ export interface CmsAnalyticsDataset {
 
 export interface CmsAnalyticsRateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
+/** Preview and workers.dev traffic must never enter the canonical reader dataset. */
+export function isCanonicalCmsAnalyticsOrigin(url: URL): boolean {
+  return url.origin === NOEMA_PUBLIC_ORIGIN;
 }
 
 export function analyticsRateLimitKey(request: Request): string {
