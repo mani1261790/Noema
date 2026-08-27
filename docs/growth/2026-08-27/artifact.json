@@ -4,7 +4,7 @@
     "version": 1,
     "surface": "report",
     "title": "Noema 公開発見性の判断レポート — 2026-08-27",
-    "description": "次の成長施策を、公開クロールと限定的な検索観測から判断したレポートです。",
+    "description": "公開発見性の整備状況と、次に判断可能にする読者回遊を整理したレポートです。",
     "blocks": [
       {
         "id": "report-title",
@@ -16,7 +16,7 @@
         "id": "executive-summary",
         "type": "markdown",
         "layout": "full",
-        "body": "## Executive Summary\n\nNoemaの公開面には、検索エンジンの巡回を妨げる明確な技術欠陥は見つかりませんでした。一方、限定した公開検索では記事ページを観測できませんでした。次の施策は記事数の追加ではなく、公開・更新・取り下げを参加検索エンジンへ即時通知するIndexNowの自動化です。これはGoogle Search Consoleの代替ではなく、認証済みデータが得られるまでの可逆的な発見性改善です。"
+        "body": "## Executive Summary\n\n- **公開面の技術的な阻害要因は見つかっていません。** 27 URLを確認し、記事16ページを含む公開面は検索エンジンへ渡せる状態でした。\n- **発見通知は本番稼働まで完了しました。** IndexNowのkey確認と27 URLの初回通知が成功し、公開・更新・取り下げ後の通知も自動化されています。\n- **次の投資先は、読者がどの記事へ進んだかを判断できる状態です。** 既存の匿名イベントに保存済みだった出発revision・導線・移動先をStudioへ表示し、関連記事やシリーズ順序の見直しに使えるようにします。実際の流入、回遊率、改善幅は認証済みデータで別途評価します。"
       },
       {
         "id": "public-surface-metrics",
@@ -51,23 +51,30 @@
         "tableId": "decision-evidence-table"
       },
       {
+        "id": "indexnow-production-update",
+        "type": "markdown",
+        "layout": "full",
+        "sourceId": "indexnow-production-run",
+        "body": "## 発見通知は、本番稼働まで完了した\n\n本番デプロイはIndexNow keyを確認し、公開sitemapの27 URLをstatus 200で受理されるところまで完了しました。Studioの公開・更新・取り下げ処理も同じ通知経路を使うため、発見性改善は手作業の初回送信ではなく、記事ライフサイクルへ組み込まれています。受理はindex登録や順位上昇の保証ではないため、Google Search Consoleの認証済み結果は引き続き別に確認します。"
+      },
+      {
         "id": "recommendation",
         "type": "markdown",
         "layout": "full",
-        "sourceId": "indexnow-protocol",
-        "body": "## 次に実装すること\n\nIndexNowのkey fileを公開し、Studioで公開記事が公開・更新・取り下げになった直後に、記事URL、記事一覧、該当テーマ、ホーム、sitemapを背景通知します。IndexNowは最大10,000 URLのbatch投稿と200／202応答を定義しており、key fileでhost所有を確認します。外部通知の失敗は記事公開を失敗させず、エラーだけを記録します。初回本番反映後はsitemapの27 URLを一度まとめて送信します。"
+        "sourceId": "reader-analytics-contract",
+        "body": "## 次記事導線を、改善可能な単位で見る\n\nNoemaは次記事クリックを、出発記事の公開revision、シリーズ次記事または関連記事、移動先slugとともに保存しています。しかし従来のStudioは導線別の合計だけを表示し、移動先を判断に使えていませんでした。今回、既存の日次集計から経路別クリックを取り出し、件数順で最大200経路をStudioとMCPへ返します。新しい読者IDやセッションIDは追加しません。\n\nこの追加自体は回遊率の改善を意味しません。認証後に、クリックが集中する経路、表示されても選ばれない候補、シリーズと関連記事の違いを確認し、記事配置を変える判断へつなげます。"
       },
       {
         "id": "caveats",
         "type": "markdown",
         "layout": "full",
-        "body": "## Caveats\n\n読者行動分析とGoogle Search Consoleは認証が必要で、この実行では取得できませんでした。そのため流入数、click率、読了率、記事別の需要、施策による増分は未確認です。IndexNowの200／202は受領またはkey確認待ちを意味し、index登録や順位上昇を保証しません。Google向けには既存sitemapとSearch Consoleで、別途index coverageと検索queryを確認する必要があります。"
+        "body": "## Caveats\n\n読者行動分析とGoogle Search Consoleは認証が必要で、この実行では取得できませんでした。そのため流入数、click率、読了率、記事別の需要、施策による増分は未確認です。次記事経路は既存イベントの集計機能と表示を検証したもので、実際の読者行動の良し悪しを示す結果ではありません。IndexNowの200は受理を意味しますが、index登録や順位上昇を保証しません。Google向けには既存sitemapとSearch Consoleで、別途index coverageと検索queryを確認する必要があります。"
       },
       {
         "id": "next-questions",
         "type": "markdown",
         "layout": "full",
-        "body": "## 次の判断条件\n\n1. Search Consoleで16記事のindex状況、impression、queryを確認する。\n2. Studioの30日reader analyticsで、入口別の50%到達率・読了率・次記事移動率を確認する。\n3. 取得できた母数が判断可能になってから、内容の追加、title調整、外部配信の優先順位を決める。"
+        "body": "## 次の判断条件\n\n1. Search Consoleで16記事のindex状況、impression、queryを確認する。\n2. Studioの30日reader analyticsで、入口別の50%到達率・読了率・次記事移動率と、出発記事から移動先までの経路を確認する。\n3. 取得できた母数が判断可能になってから、関連記事の差し替え、シリーズ順序、内容追加、title調整、外部配信の優先順位を決める。"
       }
     ],
     "cards": [
@@ -207,6 +214,20 @@
         "description": "Official batch submission, key verification, and response-code contract."
       },
       {
+        "id": "indexnow-production-run",
+        "label": "Noema production deployment and IndexNow notification",
+        "href": "https://github.com/mani1261790/Noema/actions/runs/33060211780",
+        "retrievedAt": "2026-08-27T19:11:28+09:00",
+        "description": "Production deployment log confirming key verification and acceptance of 27 public URLs with status 200."
+      },
+      {
+        "id": "reader-analytics-contract",
+        "label": "Noema reader analytics contract",
+        "path": "docs/reader-analytics.md",
+        "retrievedAt": "2026-08-27T19:11:28+09:00",
+        "description": "Current event, privacy, retention, onward-path aggregation, and decision-use contract. No authenticated behavior counts were available, so no quantitative chart was added."
+      },
+      {
         "id": "decision-analysis",
         "label": "Noema public discovery analysis notebook",
         "path": "discovery-analysis.ipynb",
@@ -225,7 +246,7 @@
   "snapshot": {
     "version": 1,
     "status": "partial",
-    "generatedAt": "2026-08-27T14:30:00+09:00",
+    "generatedAt": "2026-08-27T19:11:28+09:00",
     "datasets": {
       "public-summary": [
         {
@@ -312,6 +333,16 @@
       "id": "indexnow-protocol",
       "label": "IndexNow protocol documentation",
       "href": "https://www.indexnow.org/documentation"
+    },
+    {
+      "id": "indexnow-production-run",
+      "label": "Noema production deployment and IndexNow notification",
+      "href": "https://github.com/mani1261790/Noema/actions/runs/33060211780"
+    },
+    {
+      "id": "reader-analytics-contract",
+      "label": "Noema reader analytics contract",
+      "path": "docs/reader-analytics.md"
     },
     {
       "id": "decision-analysis",
