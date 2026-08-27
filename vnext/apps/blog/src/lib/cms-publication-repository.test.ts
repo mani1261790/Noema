@@ -7,6 +7,7 @@ import {
   getCmsPublishedEditorProfile,
   getCmsPublishedArticleRedirect,
   isCmsPublicationVisible,
+  listCmsPublishedEditors,
   listCmsPublishedSeries,
   parseCmsPublishedArticleRow,
   type CmsPublicationDatabase,
@@ -159,6 +160,33 @@ describe("published article redirects", () => {
 });
 
 describe("published editor profiles", () => {
+  it("uses the latest profile or public article revision for editor sitemap freshness", async () => {
+    const db = {
+      prepare(query: string) {
+        expect(query).toContain("m.updated_at > MAX(r.created_at)");
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return null as T | null; },
+          async all<T>() {
+            return { results: [{
+              display_name: "山田 編集",
+              public_id: "0123456789abcdef0123456789abcdef",
+              updated_at: "2026-08-28T01:02:03.000Z",
+            }] as T[] };
+          },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+
+    await expect(listCmsPublishedEditors(db)).resolves.toEqual([{
+      displayName: "山田 編集",
+      href: "/editors/0123456789abcdef0123456789abcdef",
+      publicId: "0123456789abcdef0123456789abcdef",
+      updatedAt: "2026-08-28",
+    }]);
+  });
+
   it("lists only public articles saved by the selected editor", async () => {
     const row = {
       editor_display_name: "山田 編集",
