@@ -1,3 +1,9 @@
+:root {
+  --font-family-sans:
+    "Noto Sans JP Variable", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-mono: "Noto Sans Mono Variable", monospace;
+}
+
 .site-header {
   position: sticky;
   z-index: 40;
