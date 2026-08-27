@@ -3,6 +3,7 @@ import { cmsAnalyticsEventRequestSchema } from "@noema/cms";
 import { env } from "cloudflare:workers";
 import {
   allowCmsAnalyticsEvent,
+  isCanonicalCmsAnalyticsOrigin,
   recordCmsAnalyticsEvent
 } from "../../../lib/analytics";
 
@@ -49,6 +50,15 @@ export const POST: APIRoute = async ({ request, url }) => {
   const fetchSite = request.headers.get("sec-fetch-site");
   if ((origin && origin !== url.origin) || (fetchSite && fetchSite !== "same-origin")) {
     return json({ error: "same_origin_required" }, 403);
+  }
+  if (!isCanonicalCmsAnalyticsOrigin(url)) {
+    return new Response(null, {
+      headers: {
+        "cache-control": "no-store",
+        "x-noema-analytics-disposition": "ignored-noncanonical-origin"
+      },
+      status: 204
+    });
   }
   if (request.headers.get("content-type")?.split(";", 1)[0]?.trim() !== "application/json") {
     return json({ error: "json_required" }, 415);
