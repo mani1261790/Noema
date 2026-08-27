@@ -32,15 +32,23 @@ export async function verifyPublishedIndexNowKey(
   }
 }
 
-export async function submitPublicSitemap(): Promise<{ status: number; urlCount: number }> {
-  await verifyPublishedIndexNowKey();
-
+export async function submitPublicSitemap(
+  fetcher: typeof fetch = fetch
+): Promise<{ status: 200 | 202; urlCount: number }> {
   const sitemapUrl = new URL("/sitemap.xml", NOEMA_PUBLIC_ORIGIN);
-  const sitemapResponse = await fetch(sitemapUrl);
+  const sitemapResponse = await fetcher(sitemapUrl);
   if (!sitemapResponse.ok) throw new Error(`sitemap_unavailable:${sitemapResponse.status}`);
-  const urls = extractSitemapUrls(await sitemapResponse.text());
-  const result = await submitNoemaIndexNow(urls);
-  return result;
+  const urls = [...new Set(extractSitemapUrls(await sitemapResponse.text()))];
+  if (urls.length === 0) throw new RangeError("indexnow_urls_required");
+
+  let status: 200 | 202 = 200;
+  let urlCount = 0;
+  for (let offset = 0; offset < urls.length; offset += 10_000) {
+    const result = await submitNoemaIndexNow(urls.slice(offset, offset + 10_000), fetcher);
+    if (result.status === 202) status = 202;
+    urlCount += result.urlCount;
+  }
+  return { status, urlCount };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
