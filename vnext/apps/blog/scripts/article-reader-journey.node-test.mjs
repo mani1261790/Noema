@@ -43,9 +43,16 @@ test("opens a fixed chat panel only from a text-selection chip", async () => {
   assert.match(styles, /\.assistant-panel \{[\s\S]*?position: fixed;[\s\S]*?inset-block: calc\(5rem \+ 1px\) 0;[\s\S]*?box-shadow: none;/);
   assert.match(styles, /\.assistant-selection \{[\s\S]*?border: 0;/);
   assert.doesNotMatch(styles, /\.assistant-selection \{[\s\S]*?border-inline-start/);
-  assert.match(form, /data-question rows="1"/);
-  assert.match(form, /class="assistant-send" type="submit" aria-label="質問を送信"/);
+  assert.match(form, /data-question data-mode="api-key" rows="1"/);
+  assert.match(form, /placeholder="最初にOpenAI APIキーを入力してください"/);
+  assert.doesNotMatch(form, /data-api-key|assistant-field--key|assistant-suggestions|data-question-suggestion/);
+  assert.doesNotMatch(assistant, /data-api-key|data-toggle-key|data-question-suggestion/);
+  assert.match(assistant, /if \(!apiKey\)[\s\S]*?apiKey = input;[\s\S]*?syncComposerMode\(\)/);
+  assert.match(assistant, /response\.status === 401[\s\S]*?apiKey = "";[\s\S]*?syncComposerMode\(\)/);
+  assert.match(form, /class="assistant-send" type="submit" aria-label="APIキーを設定"/);
   assert.match(styles, /\.assistant-composer \{[\s\S]*?border-radius: 999px;/);
+  assert.doesNotMatch(styles, /\.assistant-composer:focus-within/);
+  assert.match(styles, /textarea\[data-mode="api-key"\][\s\S]*?-webkit-text-security: disc;/);
   assert.match(styles, /textarea\[data-multiline="true"\][\s\S]*?border-radius: 1\.25rem;/);
   assert.match(assistant, /assistant-message--user/);
   assert.match(assistant, /assistant-message--assistant/);
