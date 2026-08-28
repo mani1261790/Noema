@@ -16,6 +16,7 @@ const { slug } = Astro.props;
     | "article_50"
     | "article_end"
     | "navigation_click"
+    | "discovery_click"
     | "updates_click"
     | "share"
     | "assistant_open"
@@ -112,10 +113,13 @@ const { slug } = Astro.props;
 
   function sendEvent(
     eventType: AnalyticsEventType,
-    navigation?: { navigationKind: "related" | "series_next"; targetSlug: string }
+    navigation?:
+      | { navigationKind: "related" | "series_next"; targetSlug: string }
+      | { navigationKind: "article_index" | "series_index" | "topic" }
   ): void {
     if (!articleSlug) return;
-    const key = `${eventType}:${navigation?.navigationKind ?? ""}:${navigation?.targetSlug ?? ""}`;
+    const targetSlug = navigation && "targetSlug" in navigation ? navigation.targetSlug : "";
+    const key = `${eventType}:${navigation?.navigationKind ?? ""}:${targetSlug}`;
     if (sentEvents.has(key)) return;
     sentEvents.add(key);
     const payload = JSON.stringify({
@@ -178,16 +182,23 @@ const { slug } = Astro.props;
     }
     const target = anchor?.closest<HTMLElement>("[data-analytics-navigation]");
     const navigationKind = target?.dataset.analyticsNavigation;
-    if (!anchor || (navigationKind !== "related" && navigationKind !== "series_next")) return;
-    try {
-      const targetUrl = new URL(anchor.href, window.location.href);
-      const match = targetUrl.pathname.match(/^\/articles\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/u);
-      if (match?.[1]) sendEvent("navigation_click", {
-        navigationKind,
-        targetSlug: match[1]
-      });
-    } catch {
-      // Only canonical Noema article links are measured.
+    if (anchor && (navigationKind === "related" || navigationKind === "series_next")) {
+      try {
+        const targetUrl = new URL(anchor.href, window.location.href);
+        const match = targetUrl.pathname.match(/^\/articles\/([a-z0-9]+(?:-[a-z0-9]+)*)\/?$/u);
+        if (match?.[1]) sendEvent("navigation_click", {
+          navigationKind,
+          targetSlug: match[1]
+        });
+      } catch {
+        // Only canonical Noema article links are measured.
+      }
+      return;
+    }
+    const discovery = anchor?.closest<HTMLElement>("[data-analytics-discovery]")
+      ?.dataset.analyticsDiscovery;
+    if (discovery === "article_index" || discovery === "series_index" || discovery === "topic") {
+      sendEvent("discovery_click", { navigationKind: discovery });
     }
   });
 

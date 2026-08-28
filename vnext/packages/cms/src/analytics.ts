@@ -5,6 +5,7 @@ export const cmsAnalyticsEventTypeSchema = z.enum([
   "article_50",
   "article_end",
   "navigation_click",
+  "discovery_click",
   "updates_click",
   "updates_action",
   "share",
@@ -13,9 +14,20 @@ export const cmsAnalyticsEventTypeSchema = z.enum([
   "assistant_error"
 ]);
 
-export const cmsAnalyticsNavigationKindSchema = z.enum([
+export const cmsAnalyticsOnwardNavigationKindSchema = z.enum([
   "series_next",
   "related"
+]);
+
+export const cmsAnalyticsDiscoveryKindSchema = z.enum([
+  "series_index",
+  "topic",
+  "article_index"
+]);
+
+export const cmsAnalyticsNavigationKindSchema = z.union([
+  cmsAnalyticsOnwardNavigationKindSchema,
+  cmsAnalyticsDiscoveryKindSchema
 ]);
 
 export const cmsAnalyticsEntryKindSchema = z.enum([
@@ -80,7 +92,9 @@ export const cmsAnalyticsEventRequestSchema = z.object({
   schemaVersion: z.literal(1),
   targetSlug: articleSlugSchema.optional()
 }).strict().superRefine((value, context) => {
-  const navigationEvent = value.eventType === "navigation_click";
+  const onwardEvent = value.eventType === "navigation_click";
+  const discoveryEvent = value.eventType === "discovery_click";
+  const navigationEvent = onwardEvent || discoveryEvent;
   if (navigationEvent && !value.navigationKind) {
     context.addIssue({
       code: "custom",
@@ -88,11 +102,32 @@ export const cmsAnalyticsEventRequestSchema = z.object({
       path: ["navigationKind"]
     });
   }
-  if (navigationEvent && !value.targetSlug) {
+  if (onwardEvent && !value.targetSlug) {
     context.addIssue({
       code: "custom",
       message: "targetSlug is required for navigation events.",
       path: ["targetSlug"]
+    });
+  }
+  if (discoveryEvent && value.targetSlug) {
+    context.addIssue({
+      code: "custom",
+      message: "targetSlug is only accepted for direct article navigation events.",
+      path: ["targetSlug"]
+    });
+  }
+  if (onwardEvent && value.navigationKind && !cmsAnalyticsOnwardNavigationKindSchema.safeParse(value.navigationKind).success) {
+    context.addIssue({
+      code: "custom",
+      message: "Direct article navigation requires an onward navigation kind.",
+      path: ["navigationKind"]
+    });
+  }
+  if (discoveryEvent && value.navigationKind && !cmsAnalyticsDiscoveryKindSchema.safeParse(value.navigationKind).success) {
+    context.addIssue({
+      code: "custom",
+      message: "Discovery navigation requires a collection navigation kind.",
+      path: ["navigationKind"]
     });
   }
   if (!navigationEvent && (value.navigationKind || value.targetSlug)) {
@@ -119,6 +154,8 @@ export const cmsAnalyticsRebuildRequestSchema = z.object({
 export type CmsAnalyticsEventType = z.infer<typeof cmsAnalyticsEventTypeSchema>;
 export type CmsAnalyticsEntryKind = z.infer<typeof cmsAnalyticsEntryKindSchema>;
 export type CmsAnalyticsNavigationKind = z.infer<typeof cmsAnalyticsNavigationKindSchema>;
+export type CmsAnalyticsOnwardNavigationKind = z.infer<typeof cmsAnalyticsOnwardNavigationKindSchema>;
+export type CmsAnalyticsDiscoveryKind = z.infer<typeof cmsAnalyticsDiscoveryKindSchema>;
 export type CmsAnalyticsAcquisitionChannel = z.infer<typeof cmsAnalyticsAcquisitionChannelSchema>;
 export type CmsAnalyticsAttribution = z.infer<typeof cmsAnalyticsAttributionSchema>;
 export type CmsAnalyticsEventRequest = z.infer<typeof cmsAnalyticsEventRequestSchema>;
@@ -169,7 +206,7 @@ export interface CmsAnalyticsRebuildResult extends CmsAnalyticsRebuildRequest {
 
 export const CMS_ANALYTICS_EVENT_CONTRACT_VERSION = 1 as const;
 export const CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION = 1 as const;
-export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-28" as const;
+export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-28.2" as const;
 export const CMS_ANALYTICS_READER_SHARE_SOURCE = "noema_reader" as const;
 export const CMS_ANALYTICS_READER_SHARE_MEDIUM = "share" as const;
 export const CMS_ANALYTICS_READER_SHARE_CAMPAIGN = "article_share" as const;
@@ -191,7 +228,7 @@ export interface CmsAnalyticsMetricDefinition {
   decision: string;
   denominator: CmsAnalyticsEventType;
   grain: "article_revision";
-  id: "article_50_rate" | "qualified_read_rate" | "onward_rate" | "updates_guide_rate" | "updates_action_rate" | "assistant_use_rate" | "assistant_success_rate";
+  id: "article_50_rate" | "qualified_read_rate" | "onward_rate" | "discovery_rate" | "updates_guide_rate" | "updates_action_rate" | "assistant_use_rate" | "assistant_success_rate";
   label: string;
   numerator: CmsAnalyticsEventType;
   owner: "editorial";
@@ -233,6 +270,18 @@ export const cmsAnalyticsMetricCatalog = [
     id: "onward_rate",
     label: "次記事移動率",
     numerator: "navigation_click",
+    owner: "editorial",
+    source: "cms_analytics_daily",
+    version: 1
+  },
+  {
+    caveat: "シリーズ一覧、テーマ、全記事へのクリックであり、その後に別の記事を読んだことまでは測りません。イベントを読者単位にも結合しません。",
+    decision: "記事末の発見リンクの種類、文言、並び順を見直す判断に使います。",
+    denominator: "article_end",
+    grain: "article_revision",
+    id: "discovery_rate",
+    label: "発見導線クリック率",
+    numerator: "discovery_click",
     owner: "editorial",
     source: "cms_analytics_daily",
     version: 1
@@ -325,14 +374,18 @@ export interface CmsAnalyticsHealth {
 export interface CmsAnalyticsCounts {
   article50: number;
   articleEnd: number;
+  articleIndex: number;
   assistantError: number;
   assistantOpen: number;
   assistantSuccess: number;
+  discoveryClick: number;
   landing: number;
   navigationClick: number;
   relatedClick: number;
+  seriesIndex: number;
   seriesNext: number;
   share: number;
+  topicIndex: number;
   updatesAction: number;
   updatesClick: number;
 }
@@ -341,6 +394,7 @@ export interface CmsAnalyticsTotals extends CmsAnalyticsCounts {
   article50Rate: number | null;
   assistantSuccessRate: number | null;
   assistantUseRate: number | null;
+  discoveryRate: number | null;
   onwardRate: number | null;
   qualifiedReadRate: number | null;
   updatesActionRate: number | null;
@@ -362,6 +416,7 @@ export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
   article50Rate: number | null;
   assistantSuccessRate: number | null;
   assistantUseRate: number | null;
+  discoveryRate: number | null;
   onwardRate: number | null;
   qualifiedReadRate: number | null;
   revisionNumber: number;
@@ -373,7 +428,7 @@ export interface CmsAnalyticsArticleMetric extends CmsAnalyticsCounts {
 
 export interface CmsAnalyticsOnwardPath {
   clickCount: number;
-  navigationKind: CmsAnalyticsNavigationKind;
+  navigationKind: CmsAnalyticsOnwardNavigationKind;
   sourceArticleId: string;
   sourceRevisionNumber: number;
   sourceSlug: string;
@@ -435,6 +490,7 @@ export interface CmsAnalyticsEntryMetric {
 export interface CmsAnalyticsDailyMetric {
   articleEnd: number;
   date: string;
+  discoveryClick: number;
   landing: number;
   navigationClick: number;
   updatesAction: number;

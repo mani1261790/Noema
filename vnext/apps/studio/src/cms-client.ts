@@ -4,7 +4,7 @@ import {
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
   cmsAnalyticsAcquisitionChannelSchema,
   cmsAnalyticsEntryKindSchema,
-  cmsAnalyticsNavigationKindSchema,
+  cmsAnalyticsOnwardNavigationKindSchema,
   cmsDraftFrontmatterSchema,
   cmsAssetStatusSchema,
   cmsPublicationStatusSchema,
@@ -1067,42 +1067,54 @@ function parseAnalyticsCounts(value: unknown): CmsAnalyticsCounts | null {
   const {
     article50,
     articleEnd,
+    articleIndex,
     assistantError,
     assistantOpen,
     assistantSuccess,
+    discoveryClick,
     landing,
     navigationClick,
     relatedClick,
+    seriesIndex,
     seriesNext,
     share,
+    topicIndex,
     updatesAction,
     updatesClick
   } = value;
   if (
     !isNonnegativeInteger(article50) ||
     !isNonnegativeInteger(articleEnd) ||
+    !isNonnegativeInteger(articleIndex) ||
     !isNonnegativeInteger(assistantError) ||
     !isNonnegativeInteger(assistantOpen) ||
     !isNonnegativeInteger(assistantSuccess) ||
+    !isNonnegativeInteger(discoveryClick) ||
     !isNonnegativeInteger(landing) ||
     !isNonnegativeInteger(navigationClick) ||
     !isNonnegativeInteger(relatedClick) ||
+    !isNonnegativeInteger(seriesIndex) ||
     !isNonnegativeInteger(seriesNext) ||
     !isNonnegativeInteger(share) ||
+    !isNonnegativeInteger(topicIndex) ||
     !isNonnegativeInteger(updatesAction) ||
     !isNonnegativeInteger(updatesClick)
   ) return null;
   return {
     article50,
     articleEnd,
+    articleIndex,
     assistantError,
     assistantOpen,
     assistantSuccess,
+    discoveryClick,
     landing,
     navigationClick,
     relatedClick,
+    seriesIndex,
     seriesNext,
     share,
+    topicIndex,
     updatesAction,
     updatesClick
   };
@@ -1124,6 +1136,7 @@ function parseCmsAnalyticsTotals(value: unknown): CmsAnalyticsTotals | null {
     !isNullableRate(value.article50Rate) ||
     !isNullableRate(value.assistantSuccessRate) ||
     !isNullableRate(value.assistantUseRate) ||
+    !isNullableRate(value.discoveryRate) ||
     !isNullableRate(value.onwardRate) ||
     !isNullableRate(value.qualifiedReadRate) ||
     !isNullableRate(value.updatesActionRate) ||
@@ -1134,6 +1147,7 @@ function parseCmsAnalyticsTotals(value: unknown): CmsAnalyticsTotals | null {
     article50Rate: value.article50Rate,
     assistantSuccessRate: value.assistantSuccessRate,
     assistantUseRate: value.assistantUseRate,
+    discoveryRate: value.discoveryRate,
     onwardRate: value.onwardRate,
     qualifiedReadRate: value.qualifiedReadRate,
     updatesActionRate: value.updatesActionRate,
@@ -1172,6 +1186,7 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
     !isNullableRate(value.article50Rate) ||
     !isNullableRate(value.assistantSuccessRate) ||
     !isNullableRate(value.assistantUseRate) ||
+    !isNullableRate(value.discoveryRate) ||
     !isNullableRate(value.onwardRate) ||
     !isNullableRate(value.qualifiedReadRate) ||
     !isNonnegativeInteger(value.revisionNumber) ||
@@ -1186,6 +1201,7 @@ function parseCmsAnalyticsArticle(value: unknown): CmsAnalyticsArticleMetric | n
     article50Rate: value.article50Rate,
     assistantSuccessRate: value.assistantSuccessRate,
     assistantUseRate: value.assistantUseRate,
+    discoveryRate: value.discoveryRate,
     onwardRate: value.onwardRate,
     qualifiedReadRate: value.qualifiedReadRate,
     revisionNumber: value.revisionNumber,
@@ -1328,7 +1344,7 @@ function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null 
 
 function parseCmsAnalyticsOnwardPath(value: unknown): CmsAnalyticsOnwardPath | null {
   if (!isRecord(value)) return null;
-  const navigationKind = cmsAnalyticsNavigationKindSchema.safeParse(value.navigationKind);
+  const navigationKind = cmsAnalyticsOnwardNavigationKindSchema.safeParse(value.navigationKind);
   if (
     !isNonnegativeInteger(value.clickCount) ||
     value.clickCount === 0 ||
@@ -1358,6 +1374,7 @@ function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null 
     !isRecord(value) ||
     !isNonnegativeInteger(value.articleEnd) ||
     !isString(value.date) ||
+    !isNonnegativeInteger(value.discoveryClick) ||
     !isNonnegativeInteger(value.landing) ||
     !isNonnegativeInteger(value.navigationClick) ||
     !isNonnegativeInteger(value.updatesAction) ||
@@ -1366,6 +1383,7 @@ function parseCmsAnalyticsDaily(value: unknown): CmsAnalyticsDailyMetric | null 
   return {
     articleEnd: value.articleEnd,
     date: value.date,
+    discoveryClick: value.discoveryClick,
     landing: value.landing,
     navigationClick: value.navigationClick,
     updatesAction: value.updatesAction,

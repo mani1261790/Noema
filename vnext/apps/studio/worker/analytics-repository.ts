@@ -18,7 +18,7 @@ import {
   type CmsAnalyticsDays,
   type CmsAnalyticsEntryMetric,
   type CmsAnalyticsHealth,
-  type CmsAnalyticsNavigationKind,
+  type CmsAnalyticsOnwardNavigationKind,
   type CmsAnalyticsOnwardPath,
   type CmsAnalyticsOrganicArticleMetric,
   type CmsAnalyticsQualityCheck,
@@ -74,7 +74,7 @@ interface EntryEventRow {
 interface OnwardPathRow {
   click_count: number;
   frontmatter_json: string | null;
-  navigation_kind: CmsAnalyticsNavigationKind;
+  navigation_kind: CmsAnalyticsOnwardNavigationKind;
   source_article_id: string;
   source_revision_number: number;
   source_slug: string;
@@ -104,14 +104,18 @@ function emptyCounts(): CmsAnalyticsCounts {
   return {
     article50: 0,
     articleEnd: 0,
+    articleIndex: 0,
     assistantError: 0,
     assistantOpen: 0,
     assistantSuccess: 0,
+    discoveryClick: 0,
     landing: 0,
     navigationClick: 0,
     relatedClick: 0,
+    seriesIndex: 0,
     seriesNext: 0,
     share: 0,
+    topicIndex: 0,
     updatesAction: 0,
     updatesClick: 0
   };
@@ -132,6 +136,12 @@ function addEvent(
   if (eventType === "assistant_open") counts.assistantOpen += eventCount;
   if (eventType === "assistant_success") counts.assistantSuccess += eventCount;
   if (eventType === "assistant_error") counts.assistantError += eventCount;
+  if (eventType === "discovery_click") {
+    counts.discoveryClick += eventCount;
+    if (navigationKind === "article_index") counts.articleIndex += eventCount;
+    if (navigationKind === "series_index") counts.seriesIndex += eventCount;
+    if (navigationKind === "topic") counts.topicIndex += eventCount;
+  }
   if (eventType === "navigation_click") {
     counts.navigationClick += eventCount;
     if (navigationKind === "related") counts.relatedClick += eventCount;
@@ -173,6 +183,7 @@ function totalsWithRates(counts: CmsAnalyticsCounts): CmsAnalyticsTotals {
     article50Rate: ratio(counts.article50, counts.landing),
     assistantSuccessRate: ratio(counts.assistantSuccess, counts.assistantOpen),
     assistantUseRate: ratio(counts.assistantOpen, counts.landing),
+    discoveryRate: ratio(counts.discoveryClick, counts.articleEnd),
     onwardRate: ratio(counts.navigationClick, counts.articleEnd),
     qualifiedReadRate: ratio(counts.articleEnd, counts.landing),
     updatesActionRate: ratio(counts.updatesAction, counts.updatesClick),
@@ -425,6 +436,7 @@ export async function listCmsAnalyticsSummary(
       article50Rate: null,
       assistantSuccessRate: null,
       assistantUseRate: null,
+      discoveryRate: null,
       onwardRate: null,
       qualifiedReadRate: null,
       revisionNumber: row.revision_number,
@@ -441,6 +453,7 @@ export async function listCmsAnalyticsSummary(
     article50Rate: ratio(metric.article50, metric.landing),
     assistantSuccessRate: ratio(metric.assistantSuccess, metric.assistantOpen),
     assistantUseRate: ratio(metric.assistantOpen, metric.landing),
+    discoveryRate: ratio(metric.discoveryClick, metric.articleEnd),
     onwardRate: ratio(metric.navigationClick, metric.articleEnd),
     qualifiedReadRate: ratio(metric.articleEnd, metric.landing),
     updatesActionRate: ratio(metric.updatesAction, metric.updatesClick),
@@ -626,13 +639,14 @@ export async function listCmsAnalyticsSummary(
   const dailyByDate = new Map<string, CmsAnalyticsDailyMetric>();
   for (let index = 0; index < days; index += 1) {
     const date = addDays(new Date(`${from}T00:00:00.000Z`), index).toISOString().slice(0, 10);
-    dailyByDate.set(date, { articleEnd: 0, date, landing: 0, navigationClick: 0, updatesAction: 0, updatesClick: 0 });
+    dailyByDate.set(date, { articleEnd: 0, date, discoveryClick: 0, landing: 0, navigationClick: 0, updatesAction: 0, updatesClick: 0 });
   }
   for (const row of dailyResult.results) {
     const metric = dailyByDate.get(row.event_date);
     if (!metric) continue;
     if (row.event_type === "landing") metric.landing += row.event_count;
     if (row.event_type === "article_end") metric.articleEnd += row.event_count;
+    if (row.event_type === "discovery_click") metric.discoveryClick += row.event_count;
     if (row.event_type === "navigation_click") metric.navigationClick += row.event_count;
     if (row.event_type === "updates_click") metric.updatesClick += row.event_count;
     if (row.event_type === "updates_action") metric.updatesAction += row.event_count;
@@ -705,7 +719,7 @@ function analyticsHealth(options: {
   const checks: CmsAnalyticsQualityCheck[] = [];
   const generatedAt = options.generatedAt.toISOString();
   const reportingEvents = options.totals.landing + options.totals.article50 +
-    options.totals.articleEnd + options.totals.navigationClick + options.totals.share +
+    options.totals.articleEnd + options.totals.navigationClick + options.totals.discoveryClick + options.totals.share +
     options.totals.updatesClick + options.totals.updatesAction + options.totals.assistantOpen +
     options.totals.assistantSuccess + options.totals.assistantError;
   if (!options.latestEventReceivedAt) {
@@ -789,6 +803,7 @@ function analyticsHealth(options: {
     options.totals.article50 > options.totals.landing,
     options.totals.articleEnd > options.totals.landing,
     options.totals.navigationClick > options.totals.articleEnd,
+    options.totals.discoveryClick > options.totals.articleEnd,
     options.totals.updatesClick > options.totals.articleEnd,
     options.totals.updatesAction > options.totals.updatesClick,
     options.totals.assistantSuccess > options.totals.assistantOpen

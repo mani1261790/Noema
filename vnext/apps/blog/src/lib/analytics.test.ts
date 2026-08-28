@@ -79,8 +79,17 @@ describe("reader analytics", () => {
       targetSlug: "quantization-basics"
     }, { now: new Date("2026-08-23T01:02:03.000Z") });
 
+    const discoveryRecorded = await recordCmsAnalyticsEvent(db, { writeDataPoint }, {
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
+      eventId: "019d2f30-4dc8-7a32-8a31-e5e80b4f0d9f",
+      eventType: "discovery_click",
+      navigationKind: "topic"
+    }, { now: new Date("2026-08-23T01:02:04.000Z") });
+
     expect(recorded).toBe("recorded");
-    expect(run).toHaveBeenCalledOnce();
+    expect(discoveryRecorded).toBe("recorded");
+    expect(run).toHaveBeenCalledTimes(2);
     expect(boundValues[1]).toEqual([
       "019d2f30-4dc8-7a32-8a31-e5e80b4f0d9e",
       1,
@@ -100,7 +109,26 @@ describe("reader analytics", () => {
       "quantization-basics",
       "article_search"
     ]);
-    expect(writeDataPoint).toHaveBeenCalledWith({
+    expect(boundValues[3]).toEqual([
+      "019d2f30-4dc8-7a32-8a31-e5e80b4f0d9f",
+      1,
+      "2026-08-23",
+      "2026-08-23T01:02:02.000Z",
+      "2026-08-23T01:02:04.000Z",
+      "article-id",
+      "local-ai-on-mac",
+      4,
+      "discovery_click",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "topic",
+      "",
+      "unknown"
+    ]);
+    expect(writeDataPoint).toHaveBeenNthCalledWith(1, {
       blobs: [
         "navigation_click",
         "local-ai-on-mac",
@@ -113,6 +141,23 @@ describe("reader analytics", () => {
         "related",
         "quantization-basics",
         "article_search"
+      ],
+      doubles: [1],
+      indexes: ["article-id"]
+    });
+    expect(writeDataPoint).toHaveBeenNthCalledWith(2, {
+      blobs: [
+        "discovery_click",
+        "local-ai-on-mac",
+        "4",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "topic",
+        "",
+        "unknown"
       ],
       doubles: [1],
       indexes: ["article-id"]
