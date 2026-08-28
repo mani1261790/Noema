@@ -137,6 +137,25 @@ describe("CMS contracts", () => {
     expect(cmsAnalyticsEventRequestSchema.safeParse({
       ...envelope,
       articleSlug: "local-ai-on-mac",
+      eventType: "discovery_click",
+      navigationKind: "topic"
+    }).success).toBe(true);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
+      eventType: "discovery_click",
+      navigationKind: "related"
+    }).success).toBe(false);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
+      eventType: "discovery_click",
+      navigationKind: "article_index",
+      targetSlug: "not-an-article"
+    }).success).toBe(false);
+    expect(cmsAnalyticsEventRequestSchema.safeParse({
+      ...envelope,
+      articleSlug: "local-ai-on-mac",
       eventType: "updates_click"
     }).success).toBe(true);
     expect(cmsAnalyticsEventRequestSchema.safeParse({
@@ -187,7 +206,14 @@ describe("CMS contracts", () => {
     expect(classifyCmsAnalyticsAcquisitionChannel({})).toBe("direct");
   });
 
-  it("defines update-guide clicks without claiming an RSS subscription", () => {
+  it("defines discovery and update clicks without claiming downstream outcomes", () => {
+    expect(cmsAnalyticsMetricCatalog).toContainEqual(expect.objectContaining({
+      denominator: "article_end",
+      id: "discovery_rate",
+      numerator: "discovery_click"
+    }));
+    expect(cmsAnalyticsMetricCatalog.find((metric) => metric.id === "discovery_rate")?.caveat)
+      .toContain("別の記事を読んだことまでは測りません");
     expect(cmsAnalyticsMetricCatalog).toContainEqual(expect.objectContaining({
       denominator: "article_end",
       id: "updates_guide_rate",

@@ -132,14 +132,18 @@ describe("CMS analytics client", () => {
     const counts = {
       article50: 8,
       articleEnd: 6,
+      articleIndex: 1,
       assistantError: 1,
       assistantOpen: 3,
       assistantSuccess: 2,
+      discoveryClick: 3,
       landing: 10,
       navigationClick: 3,
       relatedClick: 2,
+      seriesIndex: 1,
       seriesNext: 1,
       share: 1,
+      topicIndex: 1,
       updatesAction: 1,
       updatesClick: 2
     };
@@ -160,6 +164,7 @@ describe("CMS analytics client", () => {
         article50Rate: 0.8,
         assistantSuccessRate: 2 / 3,
         assistantUseRate: 0.3,
+        discoveryRate: 0.5,
         onwardRate: 0.5,
         qualifiedReadRate: 0.6,
         revisionNumber: 4,
@@ -177,13 +182,14 @@ describe("CMS analytics client", () => {
           article50Rate: 0.7,
           assistantSuccessRate: 0.5,
           assistantUseRate: 0.2,
+          discoveryRate: 0.5,
           onwardRate: 0.4,
           qualifiedReadRate: 0.5,
           updatesActionRate: 0.5,
           updatesGuideRate: 0.25
         }
       },
-      daily: [{ articleEnd: 6, date: "2026-08-23", landing: 10, navigationClick: 3, updatesAction: 1, updatesClick: 2 }],
+      daily: [{ articleEnd: 6, date: "2026-08-23", discoveryClick: 3, landing: 10, navigationClick: 3, updatesAction: 1, updatesClick: 2 }],
       entries: [{
         article50: 5,
         article50Rate: 5 / 6,
@@ -284,6 +290,7 @@ describe("CMS analytics client", () => {
         article50Rate: 0.8,
         assistantSuccessRate: 2 / 3,
         assistantUseRate: 0.3,
+        discoveryRate: 0.5,
         onwardRate: 0.5,
         qualifiedReadRate: 0.6,
         updatesActionRate: 0.5,

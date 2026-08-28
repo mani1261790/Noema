@@ -103,6 +103,8 @@ describe("CMS HTTP API", () => {
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_50", "x", "social", "launch", "diagram", "", "", "", 3, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "article_end", "x", "social", "launch", "diagram", "", "", "", 2, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "navigation_click", "x", "social", "launch", "diagram", "", "related", "next-article", 1, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "discovery_click", "x", "social", "launch", "diagram", "", "topic", "", 1, timestamp),
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "discovery_click", "x", "social", "launch", "diagram", "", "article_index", "", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "updates_click", "x", "social", "launch", "diagram", "", "", "", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "updates_action", "", "", "", "", "", "", "", 1, timestamp),
       insert.bind(date, article.id, article.slug, article.revisionNumber, "assistant_open", "", "", "", "", "", "", "", 2, timestamp),
@@ -131,6 +133,7 @@ describe("CMS HTTP API", () => {
         article50Rate: number;
         assistantSuccessRate: number;
         assistantUseRate: number;
+        discoveryRate: number;
         onwardRate: number;
         qualifiedReadRate: number;
         updatesActionRate: number;
@@ -173,6 +176,7 @@ describe("CMS HTTP API", () => {
         article50Rate: number;
         assistantSuccessRate: number;
         assistantUseRate: number;
+        discoveryRate: number;
         landing: number;
         onwardRate: number;
         qualifiedReadRate: number;
@@ -187,6 +191,8 @@ describe("CMS HTTP API", () => {
       article50Rate: 0.75,
       assistantSuccessRate: 0.5,
       assistantUseRate: 0.5,
+      discoveryClick: 2,
+      discoveryRate: 1,
       landing: 4,
       onwardRate: 0.5,
       qualifiedReadRate: 0.5,
@@ -197,10 +203,14 @@ describe("CMS HTTP API", () => {
       article50Rate: 0.75,
       assistantSuccessRate: 0.5,
       assistantUseRate: 0.5,
+      articleIndex: 1,
+      discoveryClick: 2,
+      discoveryRate: 1,
       onwardRate: 0.5,
       qualifiedReadRate: 0.5,
       updatesActionRate: 1,
-      updatesGuideRate: 0.5
+      updatesGuideRate: 0.5,
+      topicIndex: 1
     });
     expect(body.summary.entries).toContainEqual(expect.objectContaining({
       article50Rate: 0.75,
@@ -468,8 +478,8 @@ describe("CMS HTTP API", () => {
       const insert = testEnv.CMS_DB.prepare(
         `INSERT INTO cms_analytics_daily (
            event_date, article_id, article_slug, revision_number, event_type,
-           navigation_kind, event_count, updated_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+           navigation_kind, target_slug, event_count, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
       );
       const rows = [
         [currentDate, "landing", "", 8],
@@ -492,6 +502,7 @@ describe("CMS HTTP API", () => {
           article.revisionNumber,
           eventType,
           navigationKind,
+          eventType === "navigation_click" ? "comparison-target" : "",
           count,
           `${date}T01:00:00.000Z`
         )
