@@ -14,6 +14,11 @@ if (config.assets?.html_handling !== "drop-trailing-slash") {
   throw new Error("The Blog bundle must serve canonical HTML paths without trailing slashes.");
 }
 
+const workerFirstRoutes = config.assets?.run_worker_first ?? [];
+if (!Array.isArray(workerFirstRoutes) || !workerFirstRoutes.includes("/og/series/*")) {
+  throw new Error("The Blog bundle must route dynamic series Open Graph images through the Worker.");
+}
+
 const permanentLegacyRedirects = [
   "/index.html / 301",
   "/about.html /about 301",
@@ -43,4 +48,4 @@ if (!r2Buckets.some(({ binding, bucket_name: bucketName }) => binding === "ARTIC
   throw new Error("The Blog bundle must use the shared noema-article-assets R2 bucket.");
 }
 
-console.log("Validated the Blog deployment (canonical HTML paths, permanent legacy redirects, shared CMS D1/R2, no KV provisioning).");
+console.log("Validated the Blog deployment (canonical HTML paths, dynamic series images, permanent legacy redirects, shared CMS D1/R2, no KV provisioning).");
