@@ -1,5 +1,5 @@
 ---
-import { extractArticleImageReferences, extractArticleLinkReferences, topicLabels } from "@noema/content";
+import { extractArticleImageReferences, extractArticleLinkReferences } from "@noema/content";
 import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
@@ -12,6 +12,7 @@ import { findRelatedArticles, toArticleSummary } from "../../lib/articles";
 import { getArticleAssetDimensions, getArticleLinkAvailability, getPublishedArticleBySlug, getPublishedArticleRedirect, getPublishedSeriesByArticleSlug, listPublicArticleSummaries } from "../../lib/cms-publications";
 import { renderArticlePresentation } from "@noema/content/article-presentation";
 import { articleJsonLd } from "../../lib/seo";
+import { findNarrowingTopicForArticle } from "../../lib/topics";
 
 const slug = Astro.params.slug ?? "";
 const article = await getPublishedArticleBySlug(slug);
@@ -75,8 +76,7 @@ const jsonLd = articleJsonLd({
   publishedAt: article.publishedAt,
   updatedAt: article.updatedAt
 }, Astro.site);
-const topic = article.data.topics[0] ?? "technology";
-const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
+const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
 ---
 
 <BaseLayout
@@ -105,7 +105,9 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
       <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         {series && <a class="dads-link" href={series.href}>{`${series.title}の一覧を見る`}</a>}
-        <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
+        {narrowingTopic && (
+          <a class="dads-link" href={`/topics/${narrowingTopic.slug}`}>{`${narrowingTopic.label}の記事を見る`}</a>
+        )}
         <a class="dads-link" href="/articles">すべての記事を見る</a>
       </nav>
     </div>
