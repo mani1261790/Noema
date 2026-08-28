@@ -23,9 +23,12 @@ async function loadJapaneseFont(request: Request): Promise<ArrayBuffer> {
   return japaneseFont;
 }
 
-function withCacheHeaders(response: Response): Response {
+function withCacheHeaders(
+  response: Response,
+  cacheControl = "public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400",
+): Response {
   const headers = new Headers(response.headers);
-  headers.set("Cache-Control", "public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400");
+  headers.set("Cache-Control", cacheControl);
   headers.set("Content-Type", "image/png");
   headers.set("X-Content-Type-Options", "nosniff");
   return new Response(response.body, { headers, status: response.status, statusText: response.statusText });
@@ -55,6 +58,6 @@ export const GET: APIRoute = async ({ params, request }) => {
   } catch (error) {
     console.error("Series Open Graph image generation failed.", error);
     const fallback = await fetch(new URL("/og/default.png", request.url));
-    return withCacheHeaders(fallback);
+    return withCacheHeaders(fallback, "no-store");
   }
 };
