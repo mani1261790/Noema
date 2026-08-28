@@ -71,6 +71,8 @@ const { preview = false, slug } = Astro.props;
   let lastOpener: HTMLButtonElement | null = null;
   let panelWidth = defaultAssistantPanelWidth;
   let resizingPointerId: number | null = null;
+  let resizeStartClientX = 0;
+  let resizeStartPanelWidth = defaultAssistantPanelWidth;
   const dispatchAssistantOpen = () => {
     document.dispatchEvent(new CustomEvent("noema:analytics", {
       detail: { eventType: "assistant_open" }
@@ -148,13 +150,16 @@ const { preview = false, slug } = Astro.props;
   resizeHandle?.addEventListener("pointerdown", (event) => {
     if (!desktopAssistant.matches || !isPanelOpen()) return;
     resizingPointerId = event.pointerId;
+    resizeStartClientX = event.clientX;
+    resizeStartPanelWidth = panelWidth;
     resizeHandle.setPointerCapture(event.pointerId);
     document.body.classList.add("is-resizing-assistant-panel");
     event.preventDefault();
   });
   resizeHandle?.addEventListener("pointermove", (event) => {
     if (resizingPointerId !== event.pointerId) return;
-    const result = resolveAssistantPanelResize(window.innerWidth - event.clientX, window.innerWidth);
+    const requestedWidth = resizeStartPanelWidth + resizeStartClientX - event.clientX;
+    const result = resolveAssistantPanelResize(requestedWidth, window.innerWidth);
     if (result.shouldClose) {
       if (resizeHandle.hasPointerCapture(event.pointerId)) resizeHandle.releasePointerCapture(event.pointerId);
       closePanel();

@@ -45,7 +45,7 @@ test("opens a resizable split chat panel only from a text-selection chip", async
   assert.match(styles, /\.assistant-panel \{[\s\S]*?position: fixed;[\s\S]*?inset-block: calc\(5rem \+ 1px\) 0;[\s\S]*?box-shadow: none;/);
   assert.match(styles, /\.article-page\[data-assistant-open="true"\] \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) var\(--assistant-panel-width\);/);
   assert.match(styles, /\.assistant-panel__resize-handle \{[\s\S]*?cursor: ew-resize;[\s\S]*?touch-action: none;/);
-  assert.match(assistant, /resolveAssistantPanelResize\(window\.innerWidth - event\.clientX/);
+  assert.match(assistant, /resizeStartPanelWidth \+ resizeStartClientX - event\.clientX/);
   assert.match(assistant, /result\.shouldClose\)[\s\S]*?closePanel\(\)/);
   assert.match(styles, /\.assistant-selection \{[\s\S]*?border: 0;/);
   assert.doesNotMatch(styles, /\.assistant-selection \{[\s\S]*?border-inline-start/);

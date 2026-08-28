@@ -1161,6 +1161,7 @@ body.noema-public :focus-visible {
 
 .article-page {
   --assistant-panel-width: 28rem;
+
   display: grid;
   grid-template-columns: minmax(0, 1fr) 0;
   width: 100%;
