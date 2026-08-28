@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  addSeriesShareAttributionToArticleUrl,
   createArticleShareData,
+  createSeriesShareData,
   shareArticle,
   supportsNativeSharing,
   type ArticleShareData,
@@ -29,6 +31,43 @@ describe("article sharing", () => {
     }).url).toBe(
       "https://noema-learn.uk/preview/article?utm_source=noema_reader&utm_medium=share&utm_campaign=article_share&utm_content=copy",
     );
+  });
+
+  it("creates a series share URL with a distinct campaign", () => {
+    expect(createSeriesShareData({
+      canonicalUrl: "https://noema-learn.uk/series/start-ai-development",
+      fallbackUrl: "https://noema-learn.uk/series/start-ai-development?utm_source=incoming#articles",
+      method: "copy",
+      title: "はじめよう、AI駆動開発 | Noema",
+    })).toEqual({
+      title: "はじめよう、AI駆動開発",
+      url: "https://noema-learn.uk/series/start-ai-development?utm_source=noema_reader&utm_medium=share&utm_campaign=series_share&utm_content=copy",
+    });
+  });
+
+  it("carries bounded series-share attribution to canonical article links", () => {
+    expect(addSeriesShareAttributionToArticleUrl({
+      articleUrl: "/articles/what-is-coding-agent",
+      seriesLandingUrl: "https://noema-learn.uk/series/start-ai-development?utm_source=noema_reader&utm_medium=share&utm_campaign=series_share&utm_content=native&utm_term=ignored",
+    })).toBe(
+      "https://noema-learn.uk/articles/what-is-coding-agent?utm_source=noema_reader&utm_medium=share&utm_campaign=series_share&utm_content=native",
+    );
+  });
+
+  it("does not attribute arbitrary campaigns or non-canonical article links", () => {
+    const validLanding = "https://noema-learn.uk/series/start-ai-development?utm_source=noema_reader&utm_medium=share&utm_campaign=series_share&utm_content=copy";
+    expect(addSeriesShareAttributionToArticleUrl({
+      articleUrl: "https://example.com/articles/what-is-coding-agent",
+      seriesLandingUrl: validLanding,
+    })).toBe("https://example.com/articles/what-is-coding-agent");
+    expect(addSeriesShareAttributionToArticleUrl({
+      articleUrl: "/articles/what-is-coding-agent?preview=1",
+      seriesLandingUrl: validLanding,
+    })).toBe("/articles/what-is-coding-agent?preview=1");
+    expect(addSeriesShareAttributionToArticleUrl({
+      articleUrl: "/articles/what-is-coding-agent",
+      seriesLandingUrl: validLanding.replace("series_share", "other_campaign"),
+    })).toBe("/articles/what-is-coding-agent");
   });
 
   it("reports native share availability", () => {

@@ -30,6 +30,8 @@ Studioの主ナビゲーションから「分析」を開き、7日・30日・90
 
 Studioで作る配信用リンクは、campaignを`article_distribution`へ固定し、contentへ公開記事slugを入れます。分析画面はこのcampaignだけを外部配信の専用表へまとめ、配信元、方法、記事名、到達、50%到達、読了、次記事移動、更新案内を比較します。記事名は同じ期間の公開revision集計から表示し、対応する記事名が見つからない場合も保存済みのcontent値は隠しません。これは配信元と記事の組み合わせを判断する表示であり、読者単位のconversionではありません。
 
+読者が記事を共有したURLはcampaignを`article_share`、シリーズを共有したURLは`series_share`に固定し、contentには`native`または`copy`だけを入れます。共有されたシリーズを開いた時点ではイベントを送らず、そのページで選ばれた同一originの公開記事リンクに、この4つの限定されたUTM値だけを引き継ぎます。分析画面の「読者からの共有」は記事共有とシリーズ共有を分け、到達した記事、50%到達、読了、次記事移動を比較します。シリーズの共有操作自体は記事revisionへ結び付かないため数えず、共有後に記事へ到達した結果だけを扱います。
+
 外部流入とは別に、記事を開く直前のNoema内の入口を`home`、`article_index`、`series`、`topic`、`article`、`other_internal`へ分類します。外部referrerがある場合は`external`、referrerがない場合は`direct`です。これはホームや一覧の導線改善を比較するための列挙値であり、同一サイトの生URLや閲覧履歴は保存しません。外部流入のUTM・referrer hostを上書きせず、入口別の到達・50%到達・読了・次記事移動をStudioで別表として確認します。
 
 「次にどの記事へ進んだか」では、`navigation_click`を出発記事の公開revision、`series_next`または`related`の導線種別、移動先slugで集計します。個々のイベントを読者やセッションへ結合せず、選択期間内で件数の多い経路から最大200件を表示します。これにより、クリックされない関連記事の差し替えや、シリーズ順序の見直し対象を判断できます。200件を超えた場合は画面で切り捨てを明示します。
@@ -44,7 +46,7 @@ Studioで作る配信用リンクは、campaignを`article_distribution`へ固�
 | `navigation_click` | シリーズ次記事または関連記事を選んだとき |
 | `updates_click` | 記事末から更新案内ページへ移動したとき |
 | `updates_action` | 元記事を示すURL fragment付きの更新案内ページで、RSS URLのコピーに成功するかフィードリンクを選んだ最初の1回 |
-| `share` | 共有URLのclipboard保存に成功したとき |
+| `share` | 記事ページで共有シートが完了するか、共有URLのclipboard保存に成功したとき。シリーズ共有では送らない |
 | `assistant_open` | 「この記事について質問」ボタンまたは本文選択後の「AIに質問」から質問パネルを開いたとき |
 | `assistant_success` | アシスタント回答の表示に成功したとき |
 | `assistant_error` | アシスタント回答に失敗したとき |

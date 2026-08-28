@@ -260,6 +260,7 @@ describe("CMS analytics client", () => {
         article50Rate: 0.75,
         articleEnd: 2,
         articleId: "11111111-1111-4111-8111-111111111111",
+        campaign: "article_share",
         landing: 4,
         method: "copy",
         navigationClick: 1,
@@ -323,6 +324,7 @@ describe("CMS analytics client", () => {
         slug: "analytics-article"
       });
       expect(result.value.readerShareArticles[0]).toMatchObject({
+        campaign: "article_share",
         landing: 4,
         method: "copy",
         revisionNumber: 4,
