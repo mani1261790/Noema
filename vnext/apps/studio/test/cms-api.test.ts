@@ -6,6 +6,9 @@ import {
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
+  CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
+  CMS_ANALYTICS_READER_SHARE_MEDIUM,
+  CMS_ANALYTICS_READER_SHARE_SOURCE,
   CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
   CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
@@ -315,6 +318,98 @@ describe("CMS HTTP API", () => {
       revisionNumber: article.revisionNumber,
       slug: "organic-search-article"
     })]);
+  });
+
+  it("reports reader-share outcomes by article revision and share method", async () => {
+    await bootstrapAdmin();
+    const { article } = await createArticle("reader-share-article");
+    const date = new Date().toISOString().slice(0, 10);
+    const timestamp = `${date}T00:00:00.000Z`;
+    const insert = testEnv.CMS_DB.prepare(
+      `INSERT INTO cms_analytics_daily (
+         event_date, article_id, article_slug, revision_number, event_type,
+         source, medium, campaign, content, referrer_host,
+         navigation_kind, target_slug, event_count, updated_at
+       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)`
+    );
+    const shared = (
+      eventType: string,
+      method: string,
+      referrerHost: string,
+      navigationKind = "",
+      targetSlug = "",
+      eventCount = 1
+    ) => insert.bind(
+      date,
+      article.id,
+      article.slug,
+      article.revisionNumber,
+      eventType,
+      CMS_ANALYTICS_READER_SHARE_SOURCE,
+      CMS_ANALYTICS_READER_SHARE_MEDIUM,
+      CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
+      method,
+      referrerHost,
+      navigationKind,
+      targetSlug,
+      eventCount,
+      timestamp
+    );
+    await testEnv.CMS_DB.batch([
+      insert.bind(date, article.id, article.slug, article.revisionNumber, "share", "", "", "", "", "", "", "", 4, timestamp),
+      shared("landing", "native", "messages.example", "", "", 2),
+      shared("landing", "native", "social.example"),
+      shared("article_50", "native", "messages.example", "", "", 2),
+      shared("article_end", "native", "messages.example"),
+      shared("navigation_click", "native", "messages.example", "related", "next-article"),
+      shared("landing", "copy", "chat.example", "", "", 2),
+      shared("article_50", "copy", "chat.example"),
+      shared("article_end", "copy", "chat.example")
+    ]);
+
+    const response = await handleCmsApiRequest(
+      cmsRequest("/api/cms/analytics/summary?days=30"),
+      cmsEnv(),
+      ADMIN
+    );
+    const body = (await response.json()) as { summary: {
+      articles: Array<{ share: number; slug: string }>;
+      readerShareArticles: Array<{
+        article50Rate: number | null;
+        landing: number;
+        method: string;
+        onwardRate: number | null;
+        qualifiedReadRate: number | null;
+        revisionNumber: number;
+        slug: string;
+      }>;
+    } };
+
+    expect(response.status).toBe(200);
+    expect(body.summary.articles).toContainEqual(expect.objectContaining({
+      share: 4,
+      slug: "reader-share-article"
+    }));
+    expect(body.summary.readerShareArticles).toEqual([
+      expect.objectContaining({
+        article50Rate: 2 / 3,
+        landing: 3,
+        method: "native",
+        onwardRate: 1,
+        qualifiedReadRate: 1 / 3,
+        revisionNumber: article.revisionNumber,
+        slug: "reader-share-article"
+      }),
+      expect.objectContaining({
+        article50Rate: 0.5,
+        landing: 2,
+        method: "copy",
+        onwardRate: 0,
+        qualifiedReadRate: 0.5,
+        revisionNumber: article.revisionNumber,
+        slug: "reader-share-article"
+      })
+    ]);
   });
 
   it("bounds onward paths and reports when lower-volume paths are omitted", async () => {
