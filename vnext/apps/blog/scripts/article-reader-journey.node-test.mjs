@@ -30,7 +30,7 @@ test("offers the next reading choice before share and update actions", async () 
   assert.match(relatedArticles, /data-analytics-navigation="related"/);
 });
 
-test("opens a fixed chat panel only from a text-selection chip", async () => {
+test("opens a resizable split chat panel only from a text-selection chip", async () => {
   const [assistant, form, styles] = await Promise.all([
     readFile(articleAssistantUrl, "utf8"),
     readFile(assistantFormUrl, "utf8"),
@@ -39,8 +39,14 @@ test("opens a fixed chat panel only from a text-selection chip", async () => {
 
   assert.doesNotMatch(assistant, /data-open-assistant|assistant-trigger/);
   assert.match(assistant, /data-assistant-selection-chip/);
+  assert.match(assistant, /data-assistant-resize-handle/);
+  assert.match(assistant, /role="separator"/);
   assert.match(assistant, /M7\.9 20A9 9 0 1 0 4 16\.1L2 22Z/);
   assert.match(styles, /\.assistant-panel \{[\s\S]*?position: fixed;[\s\S]*?inset-block: calc\(5rem \+ 1px\) 0;[\s\S]*?box-shadow: none;/);
+  assert.match(styles, /\.article-page\[data-assistant-open="true"\] \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) var\(--assistant-panel-width\);/);
+  assert.match(styles, /\.assistant-panel__resize-handle \{[\s\S]*?cursor: ew-resize;[\s\S]*?touch-action: none;/);
+  assert.match(assistant, /resizeStartPanelWidth \+ resizeStartClientX - event\.clientX/);
+  assert.match(assistant, /result\.shouldClose\)[\s\S]*?closePanel\(\)/);
   assert.match(styles, /\.assistant-selection \{[\s\S]*?border: 0;/);
   assert.doesNotMatch(styles, /\.assistant-selection \{[\s\S]*?border-inline-start/);
   assert.match(form, /data-question data-mode="api-key" rows="1"/);
