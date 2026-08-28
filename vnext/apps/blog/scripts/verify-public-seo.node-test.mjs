@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { crc32, deflateSync } from "node:zlib";
 import {
   inspectSeoDocument,
   parsePngDimensions,
@@ -64,13 +65,30 @@ function seriesHtml() {
   </head><body><h1>AI開発を始める</h1></body></html>`;
 }
 
-function pngHeader(width, height) {
-  const bytes = Buffer.alloc(24);
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes);
-  bytes.write("IHDR", 12, "ascii");
-  bytes.writeUInt32BE(width, 16);
-  bytes.writeUInt32BE(height, 20);
-  return bytes;
+function pngChunk(type, data) {
+  const typeBytes = Buffer.from(type, "ascii");
+  const chunk = Buffer.alloc(data.length + 12);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])) >>> 0, data.length + 8);
+  return chunk;
+}
+
+function pngImage(width, height) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 0;
+  const pixels = Buffer.alloc((width + 1) * height);
+  return Buffer.concat([
+    signature,
+    pngChunk("IHDR", header),
+    pngChunk("IDAT", deflateSync(pixels)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
 }
 
 function homepageHtml(alternateName = "noema-learn.uk") {
@@ -173,10 +191,17 @@ test("validateSeoDocument cross-checks series metadata, structured data, and pub
   assert.ok(errors.some((error) => error.includes("og:image:width")));
   assert.ok(errors.some((error) => error.includes("declares 3 item(s) but contains 2")));
   assert.ok(errors.some((error) => error.includes("series image alt")));
+
+  const wrongCollection = seriesHtml().replace(
+    `"url":"${seriesUrl}"`,
+    '"url":"https://noema-learn.uk/series/other"',
+  );
+  const wrongCollectionErrors = validateSeoDocument(inspectSeoDocument(wrongCollection, seriesUrl), seriesUrl);
+  assert.ok(wrongCollectionErrors.some((error) => error.includes("canonical URL is missing")));
 });
 
 test("validateOgImageAsset accepts a generated 1200x630 series PNG with durable success headers", () => {
-  const body = pngHeader(1200, 630);
+  const body = pngImage(1200, 630);
   const headers = new Headers({
     "cache-control": "public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400",
     "content-type": "image/png",
@@ -191,10 +216,18 @@ test("validateOgImageAsset rejects a series fallback or malformed social image",
   const errors = validateOgImageAsset(seriesImageUrl, new Headers({
     "cache-control": "no-store",
     "content-type": "image/png",
-  }), pngHeader(800, 418));
+  }), pngImage(800, 418));
 
   assert.ok(errors.some((error) => error.includes("nosniff")));
   assert.ok(errors.some((error) => error.includes("missing public")));
   assert.ok(errors.some((error) => error.includes("no-store fallback")));
   assert.ok(errors.some((error) => error.includes("800x418")));
+
+  const truncated = pngImage(1200, 630).subarray(0, 24);
+  assert.equal(parsePngDimensions(truncated), null);
+  assert.ok(validateOgImageAsset(seriesImageUrl, new Headers({
+    "cache-control": "public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400",
+    "content-type": "image/png",
+    "x-content-type-options": "nosniff",
+  }), truncated).some((error) => error.includes("not a readable PNG")));
 });

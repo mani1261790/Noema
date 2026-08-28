@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { crc32 } from "node:zlib";
 
 const CANONICAL_ORIGIN = "https://noema-learn.uk";
 const MAX_CONCURRENCY = 6;
@@ -265,10 +266,9 @@ export function validateSeriesSeoDocument(document, canonicalUrl) {
     errors.push(`series og:image:height must be ${SERIES_OG_IMAGE_HEIGHT}.`);
   }
 
-  const collection = document.collectionPages.find((candidate) => candidate.url === canonicalUrl)
-    ?? document.collectionPages[0];
+  const collection = document.collectionPages.find((candidate) => candidate.url === canonicalUrl);
   if (!collection) {
-    errors.push("series CollectionPage JSON-LD is missing.");
+    errors.push("series CollectionPage JSON-LD for the canonical URL is missing.");
     return errors;
   }
 
@@ -304,11 +304,44 @@ export function validateSeriesSeoDocument(document, canonicalUrl) {
 
 export function parsePngDimensions(body) {
   const bytes = Buffer.from(body);
-  if (bytes.length < 24) return null;
+  if (bytes.length < 33) return null;
   const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
   if (signature.some((value, index) => bytes[index] !== value)) return null;
-  if (bytes.toString("ascii", 12, 16) !== "IHDR") return null;
-  return { height: bytes.readUInt32BE(20), width: bytes.readUInt32BE(16) };
+
+  let dimensions;
+  let foundImageData = false;
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    if (length > bytes.length - offset - 12) return null;
+    const typeStart = offset + 4;
+    const dataStart = offset + 8;
+    const crcOffset = dataStart + length;
+    const chunkEnd = crcOffset + 4;
+    const type = bytes.toString("ascii", typeStart, dataStart);
+    const expectedCrc = bytes.readUInt32BE(crcOffset);
+    const actualCrc = crc32(bytes.subarray(typeStart, crcOffset)) >>> 0;
+    if (actualCrc !== expectedCrc) return null;
+
+    if (offset === 8) {
+      if (type !== "IHDR" || length !== 13) return null;
+      dimensions = {
+        height: bytes.readUInt32BE(dataStart + 4),
+        width: bytes.readUInt32BE(dataStart),
+      };
+      if (dimensions.width === 0 || dimensions.height === 0) return null;
+    } else if (type === "IHDR") {
+      return null;
+    }
+
+    if (type === "IDAT") foundImageData = true;
+    if (type === "IEND") {
+      if (length !== 0 || !foundImageData || chunkEnd !== bytes.length) return null;
+      return dimensions ?? null;
+    }
+    offset = chunkEnd;
+  }
+  return null;
 }
 
 export function validateOgImageAsset(imageUrl, headers, body) {
