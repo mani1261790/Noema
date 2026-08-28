@@ -205,7 +205,7 @@ interface ReaderShareOverview {
   methodLandings: Map<string, number>;
   navigationClick: number;
   revisionNumber: number;
-  shareActions: number;
+  shareActions: number | null;
   slug: string;
   title: string;
 }
@@ -255,7 +255,7 @@ function aggregateReaderShares(
       methodLandings: new Map<string, number>(),
       navigationClick: 0,
       revisionNumber: article.revisionNumber,
-      shareActions: 0,
+      shareActions: article.campaign === CMS_ANALYTICS_READER_SHARE_CAMPAIGN ? 0 : null,
       slug: article.slug,
       title: article.title
     };
@@ -270,7 +270,10 @@ function aggregateReaderShares(
     metrics.set(key, metric);
   }
   return [...metrics.values()].sort((a, b) => (
-    b.landing - a.landing || b.shareActions - a.shareActions || a.slug.localeCompare(b.slug) || a.campaign.localeCompare(b.campaign)
+    b.landing - a.landing ||
+    (b.shareActions ?? -1) - (a.shareActions ?? -1) ||
+    a.slug.localeCompare(b.slug) ||
+    a.campaign.localeCompare(b.campaign)
   ));
 }
 
@@ -287,7 +290,7 @@ export function AnalyticsReaderShares({
       <div className="studio-analytics__section-heading">
         <div><p className="studio-library__eyebrow">読者からの共有</p><h2 id="studio-analytics-reader-shares-heading">共有が、新しい記事到達につながったか</h2></div>
       </div>
-      <p>記事の共有操作と、記事またはシリーズの計測URLから始まった記事到達を公開revision別に並べます。同じ読者を結合しないため、共有操作から到達への転換率は計算しません。</p>
+      <p>記事共有は共有操作と計測URLからの到達を、シリーズ共有は計測URLからの記事到達を公開revision別に並べます。シリーズページの共有操作はまだ計測していません。同じ読者を結合しないため、共有操作から到達への転換率は計算しません。</p>
       {shares.length === 0 ? (
         <p>この期間の共有操作と、共有リンクからの記事到達はまだありません。</p>
       ) : (
@@ -299,7 +302,7 @@ export function AnalyticsReaderShares({
               <tr key={`${article.articleId}:${article.revisionNumber}:${article.campaign}`}>
                 <th scope="row"><strong>{article.title}</strong><small>{article.slug}・rev.{article.revisionNumber}</small></th>
                 <td>{readerShareCampaignLabel(article.campaign)}</td>
-                <td>{article.shareActions}</td>
+                <td>{article.shareActions ?? "—"}</td>
                 <td>{article.landing}</td>
                 <td>{article.methodLandings.size === 0 ? "—" : [...article.methodLandings.entries()]
                   .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
