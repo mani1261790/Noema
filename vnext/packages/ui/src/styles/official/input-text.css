@@ -36,12 +36,6 @@
   border-style: dashed;
 }
 
-.dads-input-text__input:focus-visible {
-  outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black);
-  outline-offset: calc(2 / 16 * 1rem);
-  box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300);
-}
-
 @media (hover: hover) {
   .dads-input-text__input:not(:read-only):hover {
     border-color: var(--color-neutral-black);

@@ -88,18 +88,6 @@
   }
 }
 
-.dads-horizontal-menu__item-inner:focus-visible {
-  outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black);
-  outline-offset: calc(2 / 16 * 1rem);
-  border-radius: calc(4 / 16 * 1rem);
-  background-color: var(--color-primitive-yellow-300);
-  box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300);
-}
-
-.dads-horizontal-menu__item-inner[aria-current]:focus-visible {
-  background-color: var(--color-neutral-white);
-}
-
 .dads-horizontal-menu__item-inner[aria-expanded="true"]
   .dads-horizontal-menu__chevron {
   transform: rotate(180deg);

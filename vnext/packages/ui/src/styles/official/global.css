@@ -236,10 +236,8 @@ body:has(:modal) {
 }
 
 :focus-visible {
-  outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black);
-  outline-offset: calc(2 / 16 * 1rem);
-  border-radius: calc(4 / 16 * 1rem);
-  box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300);
+  outline: none;
+  box-shadow: none;
 }
 
 .dads-u-visually-hidden {
@@ -250,34 +248,6 @@ body:has(:modal) {
   position: absolute !important;
   white-space: nowrap !important;
   width: 1px !important;
-}
-
-:where(.dads-u-focus-outline):focus-visible {
-  outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black) !important;
-  outline-offset: calc(2 / 16 * 1rem) !important;
-  border-radius: calc(4 / 16 * 1rem) !important;
-  background-color: var(--color-primitive-yellow-300) !important;
-  box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300) !important;
-}
-
-@supports selector(:has(*)) {
-  :where(.dads-u-focus-within-outline):focus-visible,
-  :where(.dads-u-focus-within-outline):has(:focus-visible) {
-    outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black) !important;
-    outline-offset: calc(2 / 16 * 1rem) !important;
-    border-radius: calc(4 / 16 * 1rem) !important;
-    background-color: var(--color-primitive-yellow-300) !important;
-    box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300) !important;
-  }
-}
-@supports not selector(:has(*)) {
-  :where(.dads-u-focus-within-outline):focus-within {
-    outline: calc(4 / 16 * 1rem) solid var(--color-neutral-black) !important;
-    outline-offset: calc(2 / 16 * 1rem) !important;
-    border-radius: calc(4 / 16 * 1rem) !important;
-    background-color: var(--color-primitive-yellow-300) !important;
-    box-shadow: 0 0 0 calc(2 / 16 * 1rem) var(--color-primitive-yellow-300) !important;
-  }
 }
 
 .dads-u-dsp-64B-140 {

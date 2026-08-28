@@ -76,16 +76,6 @@ astro-dev-toolbar {
   text-decoration: none;
 }
 
-.site-header__brand:focus-visible,
-.site-header__search:focus-visible,
-.site-header__menu:focus-visible,
-.site-header__nav a:focus-visible {
-  outline: 3px solid var(--color-key-700);
-  outline-offset: 3px;
-  background: var(--color-key-50);
-  box-shadow: none;
-}
-
 .site-header__search {
   display: inline-flex;
   align-items: center;
@@ -276,32 +266,10 @@ astro-dev-toolbar {
   background: var(--color-key-50);
 }
 
-.site-search-form__submit:focus-visible {
-  outline: 3px solid var(--color-key-700);
-  outline-offset: 3px;
-  background: var(--color-key-50);
-  box-shadow: none;
-}
-
-/* Keep the public site focused without the shared Studio/DADS yellow-black treatment. */
+/* Noema does not add a decorative focus ring or halo. */
 body.noema-public :focus-visible {
-  outline: 3px solid var(--color-key-700) !important;
-  outline-offset: 3px !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-
-body.noema-public .site-header__brand:focus-visible,
-body.noema-public .site-header__search:focus-visible,
-body.noema-public .site-search-form__submit:focus-visible {
-  background: var(--color-key-50) !important;
-}
-
-body.noema-public .site-search-form__input input:focus-visible {
   outline: none !important;
-  outline-offset: 0 !important;
-  border-bottom: 1px solid var(--color-neutral-solid-gray-900);
-  background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
 }
 
@@ -614,13 +582,6 @@ body.noema-public .site-search-form__input input:focus-visible {
   text-decoration-thickness: 3px;
 }
 
-.recent-article-list a:focus-visible {
-  outline: 4px solid var(--color-neutral-black);
-  outline-offset: 2px;
-  background: var(--color-primitive-yellow-300);
-  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
-}
-
 .recent-article-list time,
 .recent-article-list__topic {
   color: var(--color-neutral-solid-gray-600);
@@ -670,13 +631,6 @@ body.noema-public .site-search-form__input input:focus-visible {
 .article-row:hover {
   outline: 3px solid var(--color-key-800);
   outline-offset: -1px;
-}
-
-.featured-article-card:focus-visible,
-.article-row:focus-visible {
-  outline: 4px solid var(--color-neutral-black);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
 }
 
 .featured-article-card--large {
@@ -965,14 +919,6 @@ body.noema-public .site-search-form__input input:focus-visible {
   text-decoration-thickness: 3px;
 }
 
-.topic-band__link:focus-visible {
-  outline: 4px solid var(--color-neutral-black);
-  outline-offset: 2px;
-  border-radius: 4px;
-  background: var(--color-primitive-yellow-300);
-  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
-}
-
 .dads-section-arrow {
   width: 1.125rem;
   height: 1.125rem;
@@ -1206,12 +1152,6 @@ body.noema-public .site-search-form__input input:focus-visible {
 
 .article-search select:hover {
   border-color: var(--color-neutral-black);
-}
-
-.article-search select:focus-visible {
-  outline: 4px solid var(--color-neutral-black);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--color-primitive-yellow-300);
 }
 
 .article-count {
@@ -1706,11 +1646,6 @@ body.noema-public .site-search-form__input input:focus-visible {
 
 .assistant-selection-chip:hover {
   background: var(--color-key-1000);
-}
-
-.assistant-selection-chip:focus-visible {
-  outline: 3px solid var(--color-key-300);
-  outline-offset: 3px;
 }
 
 .assistant-panel {
