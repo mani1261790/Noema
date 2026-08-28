@@ -1630,9 +1630,14 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .related-articles {
-  margin-top: 5rem;
+  margin-top: 3rem;
   padding-top: 3rem;
   border-top: 1px solid var(--noema-border);
+}
+
+.related-articles__lead {
+  margin: -0.75rem 0 1.5rem;
+  color: var(--color-neutral-solid-gray-700);
 }
 
 .related-articles .article-row {
