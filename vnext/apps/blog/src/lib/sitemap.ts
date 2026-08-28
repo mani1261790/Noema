@@ -1,6 +1,7 @@
-import { topicLabels, type ArticleSummary } from "@noema/content";
+import type { ArticleSummary } from "@noema/content";
 import type { CmsPublishedEditorListing, CmsPublishedSeries } from "./cms-publication-repository";
 import type { SitemapEntry } from "./seo";
+import { listNarrowingTopics } from "./topics";
 
 type StaticPageLastModified = Readonly<Record<"/about" | "/privacy" | "/updates", string>>;
 
@@ -30,7 +31,6 @@ export function buildSitemapEntries({
   seriesList,
   staticPageLastModified,
 }: SitemapContent): SitemapEntry[] {
-  const publicTopics = new Set(articles.flatMap((article) => article.topics));
   const latestPublicArticleDate = latestArticleDate(articles);
   const latestSeriesDate = seriesList.map((series) => series.updatedAt).sort().at(-1);
   const latestSiteDate = [latestPublicArticleDate, latestSeriesDate]
@@ -45,12 +45,11 @@ export function buildSitemapEntries({
     { pathname: "/updates", lastModified: staticPageLastModified["/updates"] },
     { pathname: "/about", lastModified: staticPageLastModified["/about"] },
     { pathname: "/privacy", lastModified: staticPageLastModified["/privacy"] },
-    ...Object.keys(topicLabels)
-      .filter((topicSlug) => publicTopics.has(topicSlug as keyof typeof topicLabels))
-      .map((topicSlug) => ({
-        pathname: `/topics/${topicSlug}`,
+    ...listNarrowingTopics(articles)
+      .map(({ slug }) => ({
+        pathname: `/topics/${slug}`,
         lastModified: latestArticleDate(articles.filter((article) =>
-          article.topics.includes(topicSlug as keyof typeof topicLabels)
+          article.topics.includes(slug)
         )),
       })),
     ...seriesList.map((series) => ({

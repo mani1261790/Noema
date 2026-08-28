@@ -56,6 +56,13 @@ export function listNarrowingTopics(
   );
 }
 
+export function topicCoversEveryArticle(
+  articleCount: number,
+  totalArticleCount: number
+): boolean {
+  return totalArticleCount > 0 && articleCount === totalArticleCount;
+}
+
 export function findNarrowingTopicForArticle(
   article: Pick<ArticleSummary, "topics">,
   articles: Array<Pick<ArticleSummary, "topics">>
