@@ -2,6 +2,76 @@ PRAGMA foreign_keys = ON;
 
 DROP TRIGGER IF EXISTS cms_analytics_events_project_daily;
 
+WITH legacy_repairs AS (
+  SELECT
+    'article_discovery_legacy_invalid_event_count' AS state_key,
+    COUNT(*) AS repair_count
+  FROM cms_analytics_events
+  WHERE event_type = 'navigation_click'
+    AND (navigation_kind NOT IN ('series_next', 'related') OR target_slug = '')
+
+  UNION ALL
+
+  SELECT
+    'article_discovery_legacy_normalized_event_count',
+    COUNT(*)
+  FROM cms_analytics_events
+  WHERE event_type <> 'navigation_click'
+    AND (navigation_kind <> '' OR target_slug <> '')
+
+  UNION ALL
+
+  SELECT
+    'article_discovery_legacy_invalid_daily_count',
+    COALESCE(SUM(event_count), 0)
+  FROM cms_analytics_daily
+  WHERE event_type = 'navigation_click'
+    AND (navigation_kind NOT IN ('series_next', 'related') OR target_slug = '')
+
+  UNION ALL
+
+  SELECT
+    'article_discovery_legacy_normalized_daily_count',
+    COALESCE(SUM(event_count), 0)
+  FROM cms_analytics_daily
+  WHERE event_type <> 'navigation_click'
+    AND (navigation_kind <> '' OR target_slug <> '')
+)
+INSERT INTO cms_analytics_pipeline_state (
+  state_key,
+  state_value,
+  updated_at
+)
+SELECT
+  state_key,
+  CAST(repair_count AS TEXT),
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+FROM legacy_repairs
+WHERE true
+ON CONFLICT (state_key) DO UPDATE SET
+  state_value = excluded.state_value,
+  updated_at = excluded.updated_at;
+
+WITH invalid_navigation_events AS (
+  SELECT event_date, COUNT(*) AS invalid_count
+  FROM cms_analytics_events
+  WHERE event_type = 'navigation_click'
+    AND (navigation_kind NOT IN ('series_next', 'related') OR target_slug = '')
+  GROUP BY event_date
+)
+UPDATE cms_analytics_ingestion_daily
+SET
+  accepted_event_count = MAX(
+    0,
+    accepted_event_count - COALESCE((
+      SELECT invalid_count
+      FROM invalid_navigation_events
+      WHERE invalid_navigation_events.event_date = cms_analytics_ingestion_daily.event_date
+    ), 0)
+  ),
+  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE event_date IN (SELECT event_date FROM invalid_navigation_events);
+
 CREATE TABLE cms_analytics_events_next (
   event_id TEXT PRIMARY KEY CHECK (length(event_id) = 36),
   schema_version INTEGER NOT NULL CHECK (schema_version = 1),
@@ -73,8 +143,12 @@ SELECT
   event_id, schema_version, event_date, occurred_at, received_at,
   article_id, article_slug, revision_number, event_type,
   source, medium, campaign, content, referrer_host,
-  navigation_kind, target_slug, entry_kind
-FROM cms_analytics_events;
+  CASE WHEN event_type = 'navigation_click' THEN navigation_kind ELSE '' END,
+  CASE WHEN event_type = 'navigation_click' THEN target_slug ELSE '' END,
+  entry_kind
+FROM cms_analytics_events
+WHERE event_type <> 'navigation_click'
+  OR (navigation_kind IN ('series_next', 'related') AND target_slug <> '');
 
 CREATE TABLE cms_analytics_daily_next (
   event_date TEXT NOT NULL CHECK (length(event_date) = 10),
@@ -142,10 +216,26 @@ INSERT INTO cms_analytics_daily_next (
   navigation_kind, target_slug, event_count, updated_at
 )
 SELECT
-  event_date, article_id, article_slug, revision_number, event_type,
+  event_date, article_id, MAX(article_slug), revision_number, event_type,
   source, medium, campaign, content, referrer_host,
-  navigation_kind, target_slug, event_count, updated_at
-FROM cms_analytics_daily;
+  CASE WHEN event_type = 'navigation_click' THEN navigation_kind ELSE '' END,
+  CASE WHEN event_type = 'navigation_click' THEN target_slug ELSE '' END,
+  SUM(event_count), MAX(updated_at)
+FROM cms_analytics_daily
+WHERE event_type <> 'navigation_click'
+  OR (navigation_kind IN ('series_next', 'related') AND target_slug <> '')
+GROUP BY
+  event_date,
+  article_id,
+  revision_number,
+  event_type,
+  source,
+  medium,
+  campaign,
+  content,
+  referrer_host,
+  CASE WHEN event_type = 'navigation_click' THEN navigation_kind ELSE '' END,
+  CASE WHEN event_type = 'navigation_click' THEN target_slug ELSE '' END;
 
 CREATE TABLE cms_analytics_entry_daily_next (
   event_date TEXT NOT NULL CHECK (length(event_date) = 10),
@@ -192,10 +282,41 @@ INSERT INTO cms_analytics_entry_daily_next (
   event_date, article_id, article_slug, revision_number,
   event_type, entry_kind, event_count, updated_at
 )
+WITH invalid_navigation_events AS (
+  SELECT
+    event_date,
+    article_id,
+    revision_number,
+    event_type,
+    entry_kind,
+    COUNT(*) AS invalid_count
+  FROM cms_analytics_events
+  WHERE event_type = 'navigation_click'
+    AND (navigation_kind NOT IN ('series_next', 'related') OR target_slug = '')
+  GROUP BY
+    event_date,
+    article_id,
+    revision_number,
+    event_type,
+    entry_kind
+)
 SELECT
-  event_date, article_id, article_slug, revision_number,
-  event_type, entry_kind, event_count, updated_at
-FROM cms_analytics_entry_daily;
+  entry.event_date,
+  entry.article_id,
+  entry.article_slug,
+  entry.revision_number,
+  entry.event_type,
+  entry.entry_kind,
+  entry.event_count - COALESCE(invalid.invalid_count, 0),
+  entry.updated_at
+FROM cms_analytics_entry_daily entry
+LEFT JOIN invalid_navigation_events invalid
+  ON invalid.event_date = entry.event_date
+ AND invalid.article_id = entry.article_id
+ AND invalid.revision_number = entry.revision_number
+ AND invalid.event_type = entry.event_type
+ AND invalid.entry_kind = entry.entry_kind
+WHERE entry.event_count > COALESCE(invalid.invalid_count, 0);
 
 DROP TABLE cms_analytics_events;
 DROP TABLE cms_analytics_daily;
