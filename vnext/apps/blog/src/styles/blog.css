@@ -891,7 +891,7 @@ body.noema-public .site-search-form__input input:focus-visible {
 .series-page__articles {
   display: grid;
   gap: 1.5rem;
-  margin: 0;
+  margin: 3rem 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1560,6 +1560,11 @@ body.noema-public .site-search-form__input input:focus-visible {
   margin: 0.75rem 0 0;
   color: var(--color-neutral-solid-gray-600);
   font-size: calc(14 / 16 * 1rem);
+}
+
+.series-share {
+  max-width: 52rem;
+  margin-top: 0;
 }
 
 .article-updates {

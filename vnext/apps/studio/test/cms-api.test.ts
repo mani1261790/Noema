@@ -6,6 +6,7 @@ import {
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
+  CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN,
   CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
   CMS_ANALYTICS_READER_SHARE_MEDIUM,
   CMS_ANALYTICS_READER_SHARE_SOURCE,
@@ -348,7 +349,8 @@ describe("CMS HTTP API", () => {
       referrerHost: string,
       navigationKind = "",
       targetSlug = "",
-      eventCount = 1
+      eventCount = 1,
+      campaign: string = CMS_ANALYTICS_READER_SHARE_CAMPAIGN
     ) => insert.bind(
       date,
       article.id,
@@ -357,7 +359,7 @@ describe("CMS HTTP API", () => {
       eventType,
       CMS_ANALYTICS_READER_SHARE_SOURCE,
       CMS_ANALYTICS_READER_SHARE_MEDIUM,
-      CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
+      campaign,
       method,
       referrerHost,
       navigationKind,
@@ -374,7 +376,9 @@ describe("CMS HTTP API", () => {
       shared("navigation_click", "native", "messages.example", "related", "next-article"),
       shared("landing", "copy", "chat.example", "", "", 2),
       shared("article_50", "copy", "chat.example"),
-      shared("article_end", "copy", "chat.example")
+      shared("article_end", "copy", "chat.example"),
+      shared("landing", "copy", "community.example", "", "", 1, CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN),
+      shared("article_end", "copy", "community.example", "", "", 1, CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN)
     ]);
 
     const response = await handleCmsApiRequest(
@@ -386,6 +390,7 @@ describe("CMS HTTP API", () => {
       articles: Array<{ share: number; slug: string }>;
       readerShareArticles: Array<{
         article50Rate: number | null;
+        campaign: string;
         landing: number;
         method: string;
         onwardRate: number | null;
@@ -403,6 +408,7 @@ describe("CMS HTTP API", () => {
     expect(body.summary.readerShareArticles).toEqual([
       expect.objectContaining({
         article50Rate: 2 / 3,
+        campaign: CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
         landing: 3,
         method: "native",
         onwardRate: 1,
@@ -412,10 +418,19 @@ describe("CMS HTTP API", () => {
       }),
       expect.objectContaining({
         article50Rate: 0.5,
+        campaign: CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
         landing: 2,
         method: "copy",
         onwardRate: 0,
         qualifiedReadRate: 0.5,
+        revisionNumber: article.revisionNumber,
+        slug: "reader-share-article"
+      }),
+      expect.objectContaining({
+        campaign: CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN,
+        landing: 1,
+        method: "copy",
+        qualifiedReadRate: 1,
         revisionNumber: article.revisionNumber,
         slug: "reader-share-article"
       })

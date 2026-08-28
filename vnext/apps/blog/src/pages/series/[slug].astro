@@ -1,6 +1,7 @@
 ---
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
+import ShareSeries from "../../components/ShareSeries.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPublishedSeriesBySlug } from "../../lib/cms-publications";
 
@@ -40,7 +41,8 @@ const jsonLd = series ? {
           <p>{series.description}</p>
           <p class="series-page__count">全{series.items.length}本</p>
         </header>
-        <ol class="series-page__articles" aria-label={`${series.title}の記事`}>
+        <ShareSeries />
+        <ol class="series-page__articles" aria-label={`${series.title}の記事`} data-series-articles>
           {series.items.map((article, index) => (
             <li>
               <span class="series-page__number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>

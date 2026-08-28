@@ -3,6 +3,7 @@ import {
   CMS_ANALYTICS_EVENT_CONTRACT_VERSION,
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_METRIC_CATALOG_VERSION,
+  CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN,
   CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
   CMS_ANALYTICS_READER_SHARE_MEDIUM,
   CMS_ANALYTICS_READER_SHARE_SOURCE,
@@ -544,13 +545,15 @@ export async function listCmsAnalyticsSummary(
     if (
       row.source === CMS_ANALYTICS_READER_SHARE_SOURCE &&
       row.medium === CMS_ANALYTICS_READER_SHARE_MEDIUM &&
-      row.campaign === CMS_ANALYTICS_READER_SHARE_CAMPAIGN
+      (row.campaign === CMS_ANALYTICS_READER_SHARE_CAMPAIGN ||
+        row.campaign === CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN)
     ) {
-      const key = `${row.article_id}:${row.revision_number}:${row.content}`;
+      const key = `${row.article_id}:${row.revision_number}:${row.campaign}:${row.content}`;
       const articleMetric = readerShareArticleMetrics.get(key) ?? {
         ...emptyAcquisitionCounts(),
         article50Rate: null,
         articleId: row.article_id,
+        campaign: row.campaign,
         method: row.content,
         onwardRate: null,
         qualifiedReadRate: null,
@@ -585,7 +588,7 @@ export async function listCmsAnalyticsSummary(
       onwardRate: ratio(metric.navigationClick, metric.articleEnd),
       qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
     }))
-    .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd || a.method.localeCompare(b.method));
+    .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd || a.campaign.localeCompare(b.campaign) || a.method.localeCompare(b.method));
 
   const entryMetrics = new Map<CmsAnalyticsEntryMetric["entryKind"], CmsAnalyticsEntryMetric>();
   for (const row of entryResult.results) {

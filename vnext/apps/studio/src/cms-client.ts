@@ -1306,9 +1306,10 @@ function parseCmsAnalyticsReaderShareArticle(
   value: unknown
 ): CmsAnalyticsReaderShareArticleMetric | null {
   const article = parseCmsAnalyticsOrganicArticle(value);
-  if (!article || !isRecord(value) || !isString(value.method)) return null;
+  if (!article || !isRecord(value) || !isString(value.campaign) || !isString(value.method)) return null;
   return {
     ...article,
+    campaign: value.campaign,
     method: value.method
   };
 }

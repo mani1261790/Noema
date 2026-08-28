@@ -1,0 +1,74 @@
+<div class="article-share series-share" data-series-share>
+  <h2>このシリーズを共有</h2>
+  <div class="article-share__actions">
+    <button class="dads-button" data-size="md" data-type="outline" type="button" data-share-series hidden>シリーズを共有</button>
+    <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-series-url>URLをコピー</button>
+  </div>
+  <p data-share-status role="status" aria-live="polite"></p>
+</div>
+
+<script>
+  import {
+    addSeriesShareAttributionToArticleUrl,
+    createSeriesShareData,
+    shareArticle,
+    supportsNativeSharing,
+  } from "../lib/article-sharing";
+
+  const shareRegion = document.querySelector<HTMLElement>("[data-series-share]");
+  const shareButton = shareRegion?.querySelector<HTMLButtonElement>("[data-share-series]");
+  const copyButton = shareRegion?.querySelector<HTMLButtonElement>("[data-copy-series-url]");
+  const shareStatus = shareRegion?.querySelector<HTMLElement>("[data-share-status]");
+  const canonicalUrl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
+  const shareDataInput = {
+    canonicalUrl,
+    fallbackUrl: window.location.href,
+    title: document.title,
+  };
+  const nativeShareData = createSeriesShareData({
+    ...shareDataInput,
+    method: "native",
+  });
+  const copiedShareData = createSeriesShareData({
+    ...shareDataInput,
+    method: "copy",
+  });
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-series-articles] a.article-row")
+    .forEach((articleLink) => {
+      articleLink.href = addSeriesShareAttributionToArticleUrl({
+        articleUrl: articleLink.href,
+        seriesLandingUrl: window.location.href,
+      });
+    });
+
+  if (shareButton && supportsNativeSharing(navigator)) {
+    shareButton.hidden = false;
+    shareButton.addEventListener("click", async () => {
+      shareButton.disabled = true;
+      shareButton.setAttribute("aria-busy", "true");
+      if (shareStatus) shareStatus.textContent = "";
+
+      const outcome = await shareArticle(navigator, nativeShareData);
+
+      shareButton.disabled = false;
+      shareButton.removeAttribute("aria-busy");
+      if (outcome === "shared") {
+        if (shareStatus) shareStatus.textContent = "シリーズを共有しました。";
+      } else if (outcome === "failed") {
+        if (shareStatus) shareStatus.textContent = "共有できませんでした。URLをコピーして共有できます。";
+      } else if (outcome === "unavailable") {
+        shareButton.hidden = true;
+      }
+    });
+  }
+
+  copyButton?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(copiedShareData.url);
+      if (shareStatus) shareStatus.textContent = "シリーズのURLをコピーしました。";
+    } catch {
+      if (shareStatus) shareStatus.textContent = "URLをコピーできませんでした。アドレスバーからコピーしてください。";
+    }
+  });
+</script>

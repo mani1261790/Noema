@@ -210,6 +210,7 @@ export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-28.2" as const;
 export const CMS_ANALYTICS_READER_SHARE_SOURCE = "noema_reader" as const;
 export const CMS_ANALYTICS_READER_SHARE_MEDIUM = "share" as const;
 export const CMS_ANALYTICS_READER_SHARE_CAMPAIGN = "article_share" as const;
+export const CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN = "series_share" as const;
 export const CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS = 35 as const;
 export const CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS = 400 as const;
 export const CMS_CLOUDFLARE_WEB_ANALYTICS_URL =
@@ -472,6 +473,7 @@ export interface CmsAnalyticsOrganicArticleMetric extends Omit<CmsAnalyticsAcqui
 }
 
 export interface CmsAnalyticsReaderShareArticleMetric extends CmsAnalyticsOrganicArticleMetric {
+  campaign: string;
   method: string;
 }
 
