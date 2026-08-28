@@ -131,3 +131,5 @@ jobs:
           done
           node apps/blog/scripts/verify-article-image-dimensions.mjs \
             https://noema-learn.mani1261790.workers.dev
+          npm run verify:public-seo --workspace @noema/blog -- \
+            https://noema-learn.mani1261790.workers.dev
