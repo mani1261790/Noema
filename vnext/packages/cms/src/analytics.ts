@@ -170,6 +170,9 @@ export interface CmsAnalyticsRebuildResult extends CmsAnalyticsRebuildRequest {
 export const CMS_ANALYTICS_EVENT_CONTRACT_VERSION = 1 as const;
 export const CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION = 1 as const;
 export const CMS_ANALYTICS_METRIC_CATALOG_VERSION = "2026-08-28" as const;
+export const CMS_ANALYTICS_READER_SHARE_SOURCE = "noema_reader" as const;
+export const CMS_ANALYTICS_READER_SHARE_MEDIUM = "share" as const;
+export const CMS_ANALYTICS_READER_SHARE_CAMPAIGN = "article_share" as const;
 export const CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS = 35 as const;
 export const CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS = 400 as const;
 export const CMS_CLOUDFLARE_WEB_ANALYTICS_URL =
@@ -413,6 +416,10 @@ export interface CmsAnalyticsOrganicArticleMetric extends Omit<CmsAnalyticsAcqui
   title: string;
 }
 
+export interface CmsAnalyticsReaderShareArticleMetric extends CmsAnalyticsOrganicArticleMetric {
+  method: string;
+}
+
 export interface CmsAnalyticsEntryMetric {
   article50: number;
   article50Rate: number | null;
@@ -444,6 +451,7 @@ export interface CmsAnalyticsSummary {
   onwardPaths: CmsAnalyticsOnwardPath[];
   onwardPathsTruncated: boolean;
   organicSearchArticles: CmsAnalyticsOrganicArticleMetric[];
+  readerShareArticles: CmsAnalyticsReaderShareArticleMetric[];
   range: {
     days: CmsAnalyticsDays;
     from: string;

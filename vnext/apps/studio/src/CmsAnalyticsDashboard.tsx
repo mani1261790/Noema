@@ -194,6 +194,118 @@ export function AnalyticsDistribution({
   );
 }
 
+interface ReaderShareOverview {
+  article50: number;
+  articleEnd: number;
+  articleId: string;
+  landing: number;
+  methodLandings: Map<string, number>;
+  navigationClick: number;
+  revisionNumber: number;
+  shareActions: number;
+  slug: string;
+  title: string;
+}
+
+function readerShareMethodLabel(method: string): string {
+  if (method === "native") return "共有シート";
+  if (method === "copy") return "URLコピー";
+  return method || "不明";
+}
+
+function aggregateReaderShares(
+  articles: CmsAnalyticsSummary["articles"],
+  inbound: CmsAnalyticsSummary["readerShareArticles"]
+): ReaderShareOverview[] {
+  const metrics = new Map<string, ReaderShareOverview>();
+  for (const article of articles) {
+    if (article.share === 0) continue;
+    const key = `${article.articleId}:${article.revisionNumber}`;
+    metrics.set(key, {
+      article50: 0,
+      articleEnd: 0,
+      articleId: article.articleId,
+      landing: 0,
+      methodLandings: new Map(),
+      navigationClick: 0,
+      revisionNumber: article.revisionNumber,
+      shareActions: article.share,
+      slug: article.slug,
+      title: article.title
+    });
+  }
+  for (const article of inbound) {
+    const key = `${article.articleId}:${article.revisionNumber}`;
+    const metric = metrics.get(key) ?? {
+      article50: 0,
+      articleEnd: 0,
+      articleId: article.articleId,
+      landing: 0,
+      methodLandings: new Map<string, number>(),
+      navigationClick: 0,
+      revisionNumber: article.revisionNumber,
+      shareActions: 0,
+      slug: article.slug,
+      title: article.title
+    };
+    metric.article50 += article.article50;
+    metric.articleEnd += article.articleEnd;
+    metric.landing += article.landing;
+    metric.navigationClick += article.navigationClick;
+    metric.methodLandings.set(
+      article.method,
+      (metric.methodLandings.get(article.method) ?? 0) + article.landing
+    );
+    metrics.set(key, metric);
+  }
+  return [...metrics.values()].sort((a, b) => (
+    b.landing - a.landing || b.shareActions - a.shareActions || a.slug.localeCompare(b.slug)
+  ));
+}
+
+export function AnalyticsReaderShares({
+  articles,
+  inbound
+}: {
+  articles: CmsAnalyticsSummary["articles"];
+  inbound: CmsAnalyticsSummary["readerShareArticles"];
+}) {
+  const shares = aggregateReaderShares(articles, inbound);
+  return (
+    <section className="studio-analytics__section" aria-labelledby="studio-analytics-reader-shares-heading">
+      <div className="studio-analytics__section-heading">
+        <div><p className="studio-library__eyebrow">読者からの共有</p><h2 id="studio-analytics-reader-shares-heading">共有が、新しい記事到達につながったか</h2></div>
+      </div>
+      <p>共有シートの完了またはURLコピー成功と、その計測URLから始まった記事到達を公開revision別に並べます。同じ読者を結合しないため、共有操作から到達への転換率は計算しません。</p>
+      {shares.length === 0 ? (
+        <p>この期間の共有操作と、共有リンクからの記事到達はまだありません。</p>
+      ) : (
+        <div className="studio-analytics__table-wrap">
+          <table>
+            <caption className="sr-only">共有された記事ごとの共有操作、共有リンク経由の到達、50%到達、読了、次記事移動</caption>
+            <thead><tr><th scope="col">記事</th><th scope="col">共有操作</th><th scope="col">共有リンク経由</th><th scope="col">到達方法</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">移動率</th></tr></thead>
+            <tbody>{shares.map((article) => (
+              <tr key={`${article.articleId}:${article.revisionNumber}`}>
+                <th scope="row"><strong>{article.title}</strong><small>{article.slug}・rev.{article.revisionNumber}</small></th>
+                <td>{article.shareActions}</td>
+                <td>{article.landing}</td>
+                <td>{article.methodLandings.size === 0 ? "—" : [...article.methodLandings.entries()]
+                  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                  .map(([method, landing]) => `${readerShareMethodLabel(method)} ${landing}`)
+                  .join(" / ")}</td>
+                <td>{formatPercent(distributionRate(article.article50, article.landing))}</td>
+                <td>{formatPercent(distributionRate(article.articleEnd, article.landing))}</td>
+                <td>{article.navigationClick}</td>
+                <td>{formatPercent(distributionRate(article.navigationClick, article.articleEnd))}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AnalyticsOnwardPaths({
   paths,
   truncated
@@ -515,6 +627,11 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
             <AnalyticsDistribution
               articles={state.summary.articles}
               sources={state.summary.sources}
+            />
+
+            <AnalyticsReaderShares
+              articles={state.summary.articles}
+              inbound={state.summary.readerShareArticles}
             />
 
             <section className="studio-analytics__section" aria-labelledby="studio-analytics-articles-heading">

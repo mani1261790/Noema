@@ -26,6 +26,7 @@ import {
   type CmsAnalyticsOnwardPath,
   type CmsAnalyticsOrganicArticleMetric,
   type CmsAnalyticsQualityCheck,
+  type CmsAnalyticsReaderShareArticleMetric,
   type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
   type CmsAnalyticsSummary,
@@ -1285,6 +1286,17 @@ function parseCmsAnalyticsOrganicArticle(value: unknown): CmsAnalyticsOrganicArt
   };
 }
 
+function parseCmsAnalyticsReaderShareArticle(
+  value: unknown
+): CmsAnalyticsReaderShareArticleMetric | null {
+  const article = parseCmsAnalyticsOrganicArticle(value);
+  if (!article || !isRecord(value) || !isString(value.method)) return null;
+  return {
+    ...article,
+    method: value.method
+  };
+}
+
 function parseCmsAnalyticsEntry(value: unknown): CmsAnalyticsEntryMetric | null {
   if (!isRecord(value)) return null;
   const parsedEntryKind = value.entryKind === "unknown"
@@ -1461,6 +1473,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !isBoolean(value.onwardPathsTruncated) ||
     !isRecord(value.range) ||
     !Array.isArray(value.organicSearchArticles) ||
+    !Array.isArray(value.readerShareArticles) ||
     !Array.isArray(value.sources) ||
     !isRecord(value.totals)
   ) return null;
@@ -1473,6 +1486,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
   const health = parseCmsAnalyticsHealth(value.health);
   const onwardPaths = value.onwardPaths.map(parseCmsAnalyticsOnwardPath);
   const organicSearchArticles = value.organicSearchArticles.map(parseCmsAnalyticsOrganicArticle);
+  const readerShareArticles = value.readerShareArticles.map(parseCmsAnalyticsReaderShareArticle);
   const totals = parseCmsAnalyticsTotals(value.totals);
   const days = value.range.days;
   if (
@@ -1483,6 +1497,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     !entries.every((item): item is CmsAnalyticsEntryMetric => item !== null) ||
     !onwardPaths.every((item): item is CmsAnalyticsOnwardPath => item !== null) ||
     !organicSearchArticles.every((item): item is CmsAnalyticsOrganicArticleMetric => item !== null) ||
+    !readerShareArticles.every((item): item is CmsAnalyticsReaderShareArticleMetric => item !== null) ||
     !sources.every((item): item is CmsAnalyticsSourceMetric => item !== null) ||
     !health ||
     !totals ||
@@ -1500,6 +1515,7 @@ function parseCmsAnalyticsSummary(value: unknown): CmsAnalyticsSummary | null {
     onwardPaths,
     onwardPathsTruncated: value.onwardPathsTruncated,
     organicSearchArticles,
+    readerShareArticles,
     range: { days, from: value.range.from, through: value.range.through },
     sources,
     totals
