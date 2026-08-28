@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import {
+  CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN,
+  CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
   CMS_GOOGLE_SEARCH_CONSOLE_INDEX_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_LINKS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_SITEMAPS_URL,
@@ -198,6 +200,7 @@ interface ReaderShareOverview {
   article50: number;
   articleEnd: number;
   articleId: string;
+  campaign: string;
   landing: number;
   methodLandings: Map<string, number>;
   navigationClick: number;
@@ -213,6 +216,12 @@ function readerShareMethodLabel(method: string): string {
   return method || "不明";
 }
 
+function readerShareCampaignLabel(campaign: string): string {
+  if (campaign === CMS_ANALYTICS_READER_SHARE_CAMPAIGN) return "記事";
+  if (campaign === CMS_ANALYTICS_READER_SERIES_SHARE_CAMPAIGN) return "シリーズ";
+  return campaign || "不明";
+}
+
 function aggregateReaderShares(
   articles: CmsAnalyticsSummary["articles"],
   inbound: CmsAnalyticsSummary["readerShareArticles"]
@@ -220,11 +229,12 @@ function aggregateReaderShares(
   const metrics = new Map<string, ReaderShareOverview>();
   for (const article of articles) {
     if (article.share === 0) continue;
-    const key = `${article.articleId}:${article.revisionNumber}`;
+    const key = `${article.articleId}:${article.revisionNumber}:${CMS_ANALYTICS_READER_SHARE_CAMPAIGN}`;
     metrics.set(key, {
       article50: 0,
       articleEnd: 0,
       articleId: article.articleId,
+      campaign: CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
       landing: 0,
       methodLandings: new Map(),
       navigationClick: 0,
@@ -235,11 +245,12 @@ function aggregateReaderShares(
     });
   }
   for (const article of inbound) {
-    const key = `${article.articleId}:${article.revisionNumber}`;
+    const key = `${article.articleId}:${article.revisionNumber}:${article.campaign}`;
     const metric = metrics.get(key) ?? {
       article50: 0,
       articleEnd: 0,
       articleId: article.articleId,
+      campaign: article.campaign,
       landing: 0,
       methodLandings: new Map<string, number>(),
       navigationClick: 0,
@@ -259,7 +270,7 @@ function aggregateReaderShares(
     metrics.set(key, metric);
   }
   return [...metrics.values()].sort((a, b) => (
-    b.landing - a.landing || b.shareActions - a.shareActions || a.slug.localeCompare(b.slug)
+    b.landing - a.landing || b.shareActions - a.shareActions || a.slug.localeCompare(b.slug) || a.campaign.localeCompare(b.campaign)
   ));
 }
 
@@ -276,17 +287,18 @@ export function AnalyticsReaderShares({
       <div className="studio-analytics__section-heading">
         <div><p className="studio-library__eyebrow">読者からの共有</p><h2 id="studio-analytics-reader-shares-heading">共有が、新しい記事到達につながったか</h2></div>
       </div>
-      <p>共有シートの完了またはURLコピー成功と、その計測URLから始まった記事到達を公開revision別に並べます。同じ読者を結合しないため、共有操作から到達への転換率は計算しません。</p>
+      <p>記事の共有操作と、記事またはシリーズの計測URLから始まった記事到達を公開revision別に並べます。同じ読者を結合しないため、共有操作から到達への転換率は計算しません。</p>
       {shares.length === 0 ? (
         <p>この期間の共有操作と、共有リンクからの記事到達はまだありません。</p>
       ) : (
         <div className="studio-analytics__table-wrap">
           <table>
-            <caption className="sr-only">共有された記事ごとの共有操作、共有リンク経由の到達、50%到達、読了、次記事移動</caption>
-            <thead><tr><th scope="col">記事</th><th scope="col">共有操作</th><th scope="col">共有リンク経由</th><th scope="col">到達方法</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">移動率</th></tr></thead>
+            <caption className="sr-only">共有元と記事ごとの共有操作、共有リンク経由の到達、50%到達、読了、次記事移動</caption>
+            <thead><tr><th scope="col">記事</th><th scope="col">共有元</th><th scope="col">共有操作</th><th scope="col">共有リンク経由</th><th scope="col">到達方法</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">次記事</th><th scope="col">移動率</th></tr></thead>
             <tbody>{shares.map((article) => (
-              <tr key={`${article.articleId}:${article.revisionNumber}`}>
+              <tr key={`${article.articleId}:${article.revisionNumber}:${article.campaign}`}>
                 <th scope="row"><strong>{article.title}</strong><small>{article.slug}・rev.{article.revisionNumber}</small></th>
+                <td>{readerShareCampaignLabel(article.campaign)}</td>
                 <td>{article.shareActions}</td>
                 <td>{article.landing}</td>
                 <td>{article.methodLandings.size === 0 ? "—" : [...article.methodLandings.entries()]

@@ -49,6 +49,7 @@ function inbound(
     article50Rate: 2 / 3,
     articleEnd: 1,
     articleId: "11111111-1111-4111-8111-111111111111",
+    campaign: "article_share",
     landing: 3,
     method: "native",
     navigationClick: 1,
@@ -76,6 +77,13 @@ describe("AnalyticsReaderShares", () => {
           navigationClick: 0,
           onwardRate: 0,
           qualifiedReadRate: 0.5
+        }),
+        inbound({
+          article50: 1,
+          campaign: "series_share",
+          landing: 1,
+          method: "copy",
+          navigationClick: 0
         })
       ]
     }));
@@ -83,6 +91,7 @@ describe("AnalyticsReaderShares", () => {
     expect(html).toContain("共有が、新しい記事到達につながったか");
     expect(html).toContain("コーディングエージェントとは何か");
     expect(html).toContain("共有シート 3 / URLコピー 2");
+    expect(html).toContain("シリーズ");
     expect(html).toContain("60%");
     expect(html).toContain("40%");
     expect(html).toContain("50%");
