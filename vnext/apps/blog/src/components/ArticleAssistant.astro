@@ -28,6 +28,19 @@ const { preview = false, slug } = Astro.props;
   aria-hidden="true"
   inert
 >
+  <div
+    class="assistant-panel__resize-handle"
+    data-assistant-resize-handle
+    role="separator"
+    aria-label="質問パネルの幅を調整"
+    aria-orientation="vertical"
+    aria-valuemin="320"
+    aria-valuemax="640"
+    aria-valuenow="448"
+    tabindex="0"
+  >
+    <span aria-hidden="true"></span>
+  </div>
   <div class="assistant-panel__header">
     <h2 id="assistant-panel-heading">この記事について質問</h2>
     <button type="button" class="assistant-panel__close" data-close-assistant aria-label="質問パネルを閉じる">
@@ -38,22 +51,42 @@ const { preview = false, slug } = Astro.props;
 </aside>
 
 <script>
+  import {
+    defaultAssistantPanelWidth,
+    getAssistantPanelWidthBounds,
+    resolveAssistantPanelResize
+  } from "../lib/assistant-panel-layout";
+
   const panel = document.querySelector<HTMLElement>("[data-assistant-panel]");
   const articleSlug = panel?.dataset.articleSlug;
   const previewArticle = panel?.dataset.articlePreview === "true";
   const articlePage = panel?.closest(".article-page") as HTMLElement | null | undefined;
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
+  const resizeHandle = document.querySelector<HTMLElement>("[data-assistant-resize-handle]");
   const selectionChip = document.querySelector<HTMLButtonElement>("[data-assistant-selection-chip]");
   const articleBody = document.querySelector<HTMLElement>(".article-body");
+  const desktopAssistant = window.matchMedia("(min-width: 56.0625rem)");
   let selectedText = "";
   let selectionCandidate = "";
   let lastOpener: HTMLButtonElement | null = null;
+  let panelWidth = defaultAssistantPanelWidth;
+  let resizingPointerId: number | null = null;
   const dispatchAssistantOpen = () => {
     document.dispatchEvent(new CustomEvent("noema:analytics", {
       detail: { eventType: "assistant_open" }
     }));
   };
   const isPanelOpen = () => articlePage?.dataset.assistantOpen === "true";
+  const syncPanelWidth = (requestedWidth = panelWidth) => {
+    if (!articlePage || !resizeHandle) return;
+    const result = resolveAssistantPanelResize(requestedWidth, window.innerWidth);
+    panelWidth = result.width;
+    articlePage.style.setProperty("--assistant-panel-width", `${panelWidth}px`);
+    const bounds = getAssistantPanelWidthBounds(window.innerWidth);
+    resizeHandle.setAttribute("aria-valuemin", String(bounds.min));
+    resizeHandle.setAttribute("aria-valuemax", String(bounds.max));
+    resizeHandle.setAttribute("aria-valuenow", String(panelWidth));
+  };
   const syncSelectionContext = () => {
     document.querySelectorAll<HTMLElement>("[data-assistant-selection]").forEach((selection) => {
       const selectedTextElement = selection.querySelector<HTMLElement>("[data-selected-text]");
@@ -75,6 +108,7 @@ const { preview = false, slug } = Astro.props;
   const openPanel = (opener: HTMLButtonElement | null, focusQuestion = false) => {
     if (!articlePage || !panel || isPanelOpen()) return;
     lastOpener = opener;
+    syncPanelWidth();
     articlePage.dataset.assistantOpen = "true";
     panel.removeAttribute("inert");
     panel.setAttribute("aria-hidden", "false");
@@ -88,11 +122,16 @@ const { preview = false, slug } = Astro.props;
   };
   const closePanel = () => {
     if (!articlePage || !panel || !isPanelOpen()) return;
+    if (panel.contains(document.activeElement)) {
+      (document.activeElement as HTMLElement).blur();
+    }
     articlePage.dataset.assistantOpen = "false";
     panel.setAttribute("inert", "");
     panel.setAttribute("aria-hidden", "true");
     selectionChip?.setAttribute("aria-expanded", "false");
     document.body.classList.remove("has-assistant-panel");
+    document.body.classList.remove("is-resizing-assistant-panel");
+    resizingPointerId = null;
     if (selectionChip && lastOpener === selectionChip && selectedText) {
       const chip = selectionChip;
       window.setTimeout(() => {
@@ -106,6 +145,40 @@ const { preview = false, slug } = Astro.props;
     }
   };
   closeButton?.addEventListener("click", closePanel);
+  resizeHandle?.addEventListener("pointerdown", (event) => {
+    if (!desktopAssistant.matches || !isPanelOpen()) return;
+    resizingPointerId = event.pointerId;
+    resizeHandle.setPointerCapture(event.pointerId);
+    document.body.classList.add("is-resizing-assistant-panel");
+    event.preventDefault();
+  });
+  resizeHandle?.addEventListener("pointermove", (event) => {
+    if (resizingPointerId !== event.pointerId) return;
+    const result = resolveAssistantPanelResize(window.innerWidth - event.clientX, window.innerWidth);
+    if (result.shouldClose) {
+      if (resizeHandle.hasPointerCapture(event.pointerId)) resizeHandle.releasePointerCapture(event.pointerId);
+      closePanel();
+      return;
+    }
+    syncPanelWidth(result.width);
+  });
+  const finishPanelResize = (event: PointerEvent) => {
+    if (resizingPointerId !== event.pointerId) return;
+    if (resizeHandle?.hasPointerCapture(event.pointerId)) resizeHandle.releasePointerCapture(event.pointerId);
+    resizingPointerId = null;
+    document.body.classList.remove("is-resizing-assistant-panel");
+  };
+  resizeHandle?.addEventListener("pointerup", finishPanelResize);
+  resizeHandle?.addEventListener("pointercancel", finishPanelResize);
+  resizeHandle?.addEventListener("keydown", (event) => {
+    if (!desktopAssistant.matches || !isPanelOpen()) return;
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const requestedWidth = panelWidth + (event.key === "ArrowLeft" ? 24 : -24);
+    const result = resolveAssistantPanelResize(requestedWidth, window.innerWidth);
+    if (result.shouldClose) closePanel();
+    else syncPanelWidth(result.width);
+  });
   selectionChip?.addEventListener("pointerdown", (event) => event.preventDefault());
   selectionChip?.addEventListener("click", () => {
     if (!selectionCandidate) return;
@@ -119,7 +192,7 @@ const { preview = false, slug } = Astro.props;
   document.addEventListener("pointerdown", (event) => {
     const target = event.target;
     if (!isPanelOpen() || !(target instanceof Node)) return;
-    if (!panel?.contains(target) && !selectionChip?.contains(target)) closePanel();
+    if (!desktopAssistant.matches && !panel?.contains(target) && !selectionChip?.contains(target)) closePanel();
   });
 
   function showSelectionChip() {
@@ -163,7 +236,10 @@ const { preview = false, slug } = Astro.props;
   window.addEventListener("scroll", () => {
     if (!isPanelOpen()) hideSelectionChip();
   }, { passive: true });
-  window.addEventListener("resize", hideSelectionChip);
+  window.addEventListener("resize", () => {
+    hideSelectionChip();
+    syncPanelWidth();
+  });
 
   document.querySelectorAll<HTMLFormElement>("[data-assistant-form]").forEach((form) => {
     const questionInput = form.querySelector<HTMLTextAreaElement>("[data-question]");

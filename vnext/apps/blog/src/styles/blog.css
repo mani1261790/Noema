@@ -1160,22 +1160,38 @@ body.noema-public :focus-visible {
 }
 
 .article-page {
+  --assistant-panel-width: 28rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0;
+  width: 100%;
+  max-width: none;
+  padding-inline: 0;
   padding-block: 2rem 6rem;
+  transition: grid-template-columns 240ms ease-out;
 }
 
 .article-page__main {
+  width: 100%;
+  max-width: var(--noema-content-width);
   min-width: 0;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
 }
 
 .article-page__aside {
-  position: fixed;
-  z-index: 35;
-  inset: calc(5rem + 1px) 0 0;
+  position: relative;
+  width: 0;
+  min-width: 0;
   pointer-events: none;
 }
 
 .article-page[data-assistant-open="true"] .article-page__aside {
+  width: var(--assistant-panel-width);
   pointer-events: auto;
+}
+
+.article-page[data-assistant-open="true"] {
+  grid-template-columns: minmax(0, 1fr) var(--assistant-panel-width);
 }
 
 .article-header {
@@ -1655,7 +1671,7 @@ body.noema-public :focus-visible {
   inset-inline-end: 0;
   display: flex;
   flex-direction: column;
-  width: min(28rem, 100vw);
+  width: var(--assistant-panel-width);
   overflow: hidden;
   background: var(--color-neutral-white);
   border: 0;
@@ -1669,6 +1685,43 @@ body.noema-public :focus-visible {
   transition:
     transform 240ms ease-out,
     opacity 180ms ease-out;
+}
+
+.assistant-panel__resize-handle {
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 0.75rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.assistant-panel__resize-handle > span {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 1px;
+  background: var(--noema-border);
+  transition: width 160ms ease-out, background-color 160ms ease-out;
+}
+
+.assistant-panel__resize-handle:hover > span,
+body.is-resizing-assistant-panel .assistant-panel__resize-handle > span {
+  width: 3px;
+  background: var(--color-key-700);
+}
+
+body.is-resizing-assistant-panel {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+body.is-resizing-assistant-panel .article-page {
+  transition: none;
 }
 
 .article-page[data-assistant-open="true"] .assistant-panel {
@@ -1995,6 +2048,10 @@ body.noema-public :focus-visible {
     padding-bottom: 4rem;
   }
 
+  .article-page__main {
+    padding-inline: 1.5rem;
+  }
+
   .home-hero__inner {
     grid-template-columns: 1fr;
   }
@@ -2004,12 +2061,16 @@ body.noema-public :focus-visible {
   }
 
   .article-page__aside {
+    position: fixed;
+    z-index: 35;
     inset: calc(4.5rem + 1px) 0 0;
+    width: auto;
     background: transparent;
     transition: background-color 180ms ease-out;
   }
 
   .article-page[data-assistant-open="true"] .article-page__aside {
+    width: auto;
     background: rgb(0 0 0 / 45%);
     pointer-events: auto;
   }
@@ -2022,6 +2083,10 @@ body.noema-public :focus-visible {
     inset-block-start: calc(4.5rem + 1px);
     width: min(100vw, 26rem);
     transform: translateX(100%);
+  }
+
+  .assistant-panel__resize-handle {
+    display: none;
   }
 }
 
