@@ -43,29 +43,14 @@ a {
   display: none !important;
 }
 
-#root :where(button, input, textarea, select, summary, a):focus-visible {
-  outline: 3px solid #006b65;
-  outline-offset: 2px;
-  border-radius: 2px;
-  box-shadow: none;
-}
-
-#root :where(
-  #studio-article-library-heading,
-  .studio-validation,
-  .studio-review,
-  .studio-cms,
-  .studio-topic-field
-):focus {
+#root :focus-visible {
   outline: none;
   box-shadow: none;
 }
 
-@media (forced-colors: active) {
-  #root :where(button, input, textarea, select, summary, a):focus-visible {
-    outline: 2px solid Highlight;
-    outline-offset: 2px;
-  }
+#root [tabindex="-1"]:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .sr-only {
@@ -904,13 +889,6 @@ a {
   border-color: #315f5b;
 }
 
-.studio-library-search-field input:focus-visible,
-.studio-library-filter-field select:focus-visible {
-  outline: 0;
-  border-color: #006a62;
-  box-shadow: 0 0 0 3px #bce3df;
-}
-
 .studio-library-controls__summary {
   display: grid;
   justify-items: end;
@@ -1201,7 +1179,6 @@ a {
 }
 
 .studio-panel-resize-handle:hover > span,
-.studio-panel-resize-handle:focus-visible > span,
 .studio-panel-resize-handle.is-dragging > span {
   left: calc(50% - 2px);
   width: 4px;
@@ -1356,11 +1333,6 @@ a {
   border-color: #005ea8;
 }
 
-.studio-version-history__list li > button:focus-visible {
-  outline: 3px solid #ffbf47;
-  outline-offset: 2px;
-}
-
 .studio-version-history__version-heading,
 .studio-version-history__badges {
   display: flex;
@@ -1481,11 +1453,6 @@ a {
 .studio-version-history__checkpoints li > button.is-selected {
   background: #f1f6fb;
   border-color: #005ea8;
-}
-
-.studio-version-history__checkpoints li > button:focus-visible {
-  outline: 3px solid #ffbf47;
-  outline-offset: 2px;
 }
 
 .studio-version-history__checkpoints small {
@@ -1936,11 +1903,6 @@ a {
   background: #e3f2f0;
 }
 
-.studio-review-comment__quote:focus-visible {
-  outline: 3px solid var(--studio-focus, #005fcc);
-  outline-offset: 2px;
-}
-
 .studio-review-comment__quote span {
   font-size: calc(13 / 16 * 1rem);
   font-weight: 700;
@@ -2035,11 +1997,6 @@ a {
 .studio-review-comments__form textarea {
   min-height: 7rem;
   resize: vertical;
-}
-
-.studio-review-comments__form textarea:focus-visible {
-  outline: 3px solid var(--studio-focus, #005fcc);
-  outline-offset: 2px;
 }
 
 .studio-review-comments__form-actions {
