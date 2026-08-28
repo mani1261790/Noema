@@ -66,6 +66,7 @@ for (const filename of await readdir(outputDirectory)) {
   if (extname(filename) === ".png") await rm(join(outputDirectory, filename));
 }
 
+await writeFile(join(outputDirectory, "noema-og-japanese-bold.ttf"), fontData);
 await writeImage("default.png", "「できた」の先に、なぜがある。", "AIと技術を、直感と具体例から");
 await writeImage("preview.png", "NotebookLMで自分専用の資料案内役をつくる", "情報検索・整理");
 
