@@ -11,6 +11,13 @@ import {
 import { AnalyticsSources } from "../src/CmsAnalyticsDashboard";
 
 describe("AnalyticsSources", () => {
+  it("opens Cloudflare Web Analytics with public-host and bot filters", () => {
+    const url = new URL(CMS_CLOUDFLARE_WEB_ANALYTICS_URL);
+
+    expect(url.searchParams.get("excludeBots")).toBe("Yes");
+    expect(url.searchParams.get("host")).toBe("noema-learn.uk");
+  });
+
   it("distinguishes integrated and external sources with source-specific links", () => {
     const html = renderToStaticMarkup(createElement(AnalyticsSources, {
       sources: [
