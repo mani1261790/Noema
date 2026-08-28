@@ -4,6 +4,7 @@ import {
   findNarrowingTopicForArticle,
   listActiveTopics,
   listNarrowingTopics,
+  topicCoversEveryArticle,
   topicListingResponse
 } from "./topics";
 
@@ -68,6 +69,14 @@ describe("listNarrowingTopics", () => {
   it("returns no discovery choices when every represented topic is universal", () => {
     expect(listNarrowingTopics([{ topics: ["development-environment"] }])).toEqual([]);
     expect(listNarrowingTopics([])).toEqual([]);
+  });
+});
+
+describe("topicCoversEveryArticle", () => {
+  it("identifies a populated topic whose collection duplicates the full catalog", () => {
+    expect(topicCoversEveryArticle(16, 16)).toBe(true);
+    expect(topicCoversEveryArticle(2, 16)).toBe(false);
+    expect(topicCoversEveryArticle(0, 0)).toBe(false);
   });
 });
 
