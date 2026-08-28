@@ -95,6 +95,9 @@ describe("AnalyticsReaderShares", () => {
     expect(html).toContain("60%");
     expect(html).toContain("40%");
     expect(html).toContain("50%");
+    expect(html).toMatch(/<td>記事<\/td><td>4<\/td><td>5<\/td>/u);
+    expect(html).toMatch(/<td>シリーズ<\/td><td>—<\/td><td>1<\/td>/u);
+    expect(html).toContain("シリーズページの共有操作はまだ計測していません");
     expect(html).toContain("共有操作から到達への転換率は計算しません");
   });
 
