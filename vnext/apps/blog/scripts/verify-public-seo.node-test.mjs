@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   inspectSeoDocument,
+  parseRssFeed,
   parseSitemap,
+  validateRssFeed,
   validateSeoDocument,
 } from "./verify-public-seo.mjs";
 
@@ -51,6 +53,41 @@ test("parseSitemap rejects duplicates and noncanonical origins", () => {
     <url><loc>https://example.com/a</loc><lastmod>2026-08-28</lastmod></url>
     <url><loc>https://example.com/a</loc><lastmod>yesterday</lastmod></url>
   </urlset>`), /outside https:\/\/noema-learn\.uk[\s\S]*duplicate sitemap URL[\s\S]*YYYY-MM-DD/u);
+});
+
+test("validateRssFeed accepts canonical article links and matching permanent GUIDs", () => {
+  const sitemap = parseSitemap(`<?xml version="1.0"?><urlset>
+    <url><loc>https://noema-learn.uk/</loc><lastmod>2026-08-28</lastmod></url>
+    <url><loc>https://noema-learn.uk/articles/example</loc><lastmod>2026-08-27</lastmod></url>
+  </urlset>`);
+  const feed = parseRssFeed(`<?xml version="1.0"?><rss><channel>
+    <title>Noema</title><link>https://noema-learn.uk/</link>
+    <item><title>Example</title><link>${articleUrl}</link><guid isPermaLink="true">${articleUrl}</guid></item>
+  </channel></rss>`);
+
+  assert.deepEqual(validateRssFeed(feed, sitemap), []);
+  assert.deepEqual(feed.items, [{
+    guid: articleUrl,
+    guidIsPermaLink: true,
+    link: articleUrl,
+  }]);
+});
+
+test("validateRssFeed rejects redirecting links, mismatched GUIDs, and missing articles", () => {
+  const sitemap = parseSitemap(`<?xml version="1.0"?><urlset>
+    <url><loc>https://noema-learn.uk/articles/example</loc><lastmod>2026-08-27</lastmod></url>
+  </urlset>`);
+  const feed = parseRssFeed(`<?xml version="1.0"?><rss><channel>
+    <link>https://noema-learn.uk</link>
+    <item><link>${articleUrl}/</link><guid isPermaLink="false">${articleUrl}/old</guid></item>
+  </channel></rss>`);
+  const errors = validateRssFeed(feed, sitemap);
+
+  assert.ok(errors.some((error) => error.includes("channel link")));
+  assert.ok(errors.some((error) => error.includes("not a canonical public article URL")));
+  assert.ok(errors.some((error) => error.includes("GUID does not match")));
+  assert.ok(errors.some((error) => error.includes("isPermaLink=true")));
+  assert.ok(errors.some((error) => error.includes("missing from RSS")));
 });
 
 test("inspectSeoDocument accepts a complete article document", () => {
