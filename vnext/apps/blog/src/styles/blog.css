@@ -1827,74 +1827,6 @@ body.noema-public .site-search-form__input input:focus-visible {
   -webkit-line-clamp: 4;
 }
 
-.assistant-field > label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 700;
-}
-
-.assistant-field--key {
-  margin-bottom: 0.75rem;
-}
-
-.assistant-field--key > label {
-  font-size: calc(13 / 16 * 1rem);
-}
-
-.assistant-suggestions {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.assistant-suggestions button {
-  padding: 0.375rem 0.625rem;
-  background: var(--color-neutral-white);
-  color: var(--color-key-1000);
-  border: 1px solid var(--color-key-700);
-  border-radius: 999px;
-  font-size: calc(13 / 16 * 1rem);
-  font-weight: 600;
-  line-height: 1.5;
-  text-align: left;
-  cursor: pointer;
-}
-
-.assistant-suggestions button:hover {
-  background: var(--color-key-50);
-}
-
-.assistant-field input {
-  width: 100%;
-  padding: 0.625rem 0.75rem;
-  background: var(--color-neutral-white);
-  border: 1px solid var(--color-neutral-solid-gray-600);
-  border-radius: 0.25rem;
-}
-
-.assistant-key-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.assistant-key-field input {
-  border-radius: 0.25rem 0 0 0.25rem;
-}
-
-.assistant-key-field button {
-  padding-inline: 0.75rem;
-  background: var(--color-neutral-white);
-  color: var(--color-key-900);
-  border: 1px solid var(--color-neutral-solid-gray-600);
-  border-left: 0;
-  border-radius: 0 0.25rem 0.25rem 0;
-  font-weight: 600;
-}
-
-.assistant-field p,
 .assistant-privacy,
 .assistant-status {
   margin: 0.5rem 0 0;
@@ -2025,13 +1957,7 @@ body.noema-public .site-search-form__input input:focus-visible {
   background: var(--color-neutral-white);
   border: 1px solid var(--color-neutral-solid-gray-600);
   border-radius: 999px;
-  transition: border-radius 160ms ease-out, border-color 160ms ease-out;
-}
-
-.assistant-composer:focus-within {
-  border-color: var(--color-key-900);
-  outline: 3px solid var(--color-key-300);
-  outline-offset: 2px;
+  transition: border-radius 160ms ease-out;
 }
 
 .assistant-composer:has(textarea[data-multiline="true"]) {
@@ -2051,6 +1977,10 @@ body.noema-public .site-search-form__input input:focus-visible {
   outline: 0;
   font: inherit;
   line-height: 1.5;
+}
+
+.assistant-composer textarea[data-mode="api-key"] {
+  -webkit-text-security: disc;
 }
 
 .assistant-send {
