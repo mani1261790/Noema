@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   inspectSeoDocument,
+  parsePngDimensions,
   parseRssFeed,
   parseSitemap,
+  validateOgImageAsset,
   validateRssFeed,
   validateSeoDocument,
 } from "./verify-public-seo.mjs";
 
 const articleUrl = "https://noema-learn.uk/articles/example";
 const homepageUrl = "https://noema-learn.uk/";
+const seriesUrl = "https://noema-learn.uk/series/learning-path";
+const seriesImageUrl = "https://noema-learn.uk/og/series/learning-path.png?v=1234abcd";
 
 function articleHtml(overrides = "") {
   return `<!doctype html>
@@ -23,14 +27,50 @@ function articleHtml(overrides = "") {
     <meta property="og:description" content="重複しないテスト記事の説明です。">
     <meta property="og:url" content="${articleUrl}">
     <meta property="og:image" content="https://noema-learn.uk/og/example.png">
+    <meta property="og:image:alt" content="テスト記事">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="テスト記事 | Noema">
     <meta name="twitter:description" content="重複しないテスト記事の説明です。">
     <meta name="twitter:image" content="https://noema-learn.uk/og/example.png">
+    <meta name="twitter:image:alt" content="テスト記事">
     <script type="application/ld+json">{"@type":"BlogPosting"}</script>
     <script type="application/ld+json">{"@type":"BreadcrumbList"}</script>
     ${overrides}
   </head><body><h1>テスト記事</h1><img src="/example.png" alt="説明"></body></html>`;
+}
+
+function seriesHtml() {
+  return `<!doctype html>
+  <html lang="ja"><head>
+    <title>AI開発を始める | Noema</title>
+    <meta name="description" content="AI開発を順番に学ぶシリーズです。">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <link rel="canonical" href="${seriesUrl}">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml">
+    <meta property="og:title" content="AI開発を始める | Noema">
+    <meta property="og:description" content="AI開発を順番に学ぶシリーズです。">
+    <meta property="og:url" content="${seriesUrl}">
+    <meta property="og:image" content="${seriesImageUrl}">
+    <meta property="og:image:alt" content="AI開発を始める。全2本の記事を順番に読めるNoemaのシリーズ">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AI開発を始める | Noema">
+    <meta name="twitter:description" content="AI開発を順番に学ぶシリーズです。">
+    <meta name="twitter:image" content="${seriesImageUrl}">
+    <meta name="twitter:image:alt" content="AI開発を始める。全2本の記事を順番に読めるNoemaのシリーズ">
+    <script type="application/ld+json">{"@type":"CollectionPage","url":"${seriesUrl}","primaryImageOfPage":{"@type":"ImageObject","url":"${seriesImageUrl}","contentUrl":"${seriesImageUrl}","width":1200,"height":630},"mainEntity":{"@type":"ItemList","numberOfItems":2,"itemListElement":[{"@type":"ListItem","position":1},{"@type":"ListItem","position":2}]}}</script>
+    <script type="application/ld+json">{"@type":"BreadcrumbList"}</script>
+  </head><body><h1>AI開発を始める</h1></body></html>`;
+}
+
+function pngHeader(width, height) {
+  const bytes = Buffer.alloc(24);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(bytes);
+  bytes.write("IHDR", 12, "ascii");
+  bytes.writeUInt32BE(width, 16);
+  bytes.writeUInt32BE(height, 20);
+  return bytes;
 }
 
 function homepageHtml(alternateName = "noema-learn.uk") {
@@ -120,4 +160,41 @@ test("validateSeoDocument reports indexability and presentation regressions toge
   assert.ok(errors.some((error) => error.includes("omit alt")));
   assert.ok(errors.some((error) => error.includes("invalid JSON-LD")));
   assert.ok(errors.some((error) => error.includes("BlogPosting")));
+});
+
+test("validateSeoDocument cross-checks series metadata, structured data, and public item count", () => {
+  const complete = inspectSeoDocument(seriesHtml(), seriesUrl);
+  assert.deepEqual(validateSeoDocument(complete, seriesUrl), []);
+
+  const inconsistent = seriesHtml()
+    .replace('content="1200"', 'content="1199"')
+    .replace('"numberOfItems":2', '"numberOfItems":3');
+  const errors = validateSeoDocument(inspectSeoDocument(inconsistent, seriesUrl), seriesUrl);
+  assert.ok(errors.some((error) => error.includes("og:image:width")));
+  assert.ok(errors.some((error) => error.includes("declares 3 item(s) but contains 2")));
+  assert.ok(errors.some((error) => error.includes("series image alt")));
+});
+
+test("validateOgImageAsset accepts a generated 1200x630 series PNG with durable success headers", () => {
+  const body = pngHeader(1200, 630);
+  const headers = new Headers({
+    "cache-control": "public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400",
+    "content-type": "image/png",
+    "x-content-type-options": "nosniff",
+  });
+
+  assert.deepEqual(parsePngDimensions(body), { height: 630, width: 1200 });
+  assert.deepEqual(validateOgImageAsset(seriesImageUrl, headers, body), []);
+});
+
+test("validateOgImageAsset rejects a series fallback or malformed social image", () => {
+  const errors = validateOgImageAsset(seriesImageUrl, new Headers({
+    "cache-control": "no-store",
+    "content-type": "image/png",
+  }), pngHeader(800, 418));
+
+  assert.ok(errors.some((error) => error.includes("nosniff")));
+  assert.ok(errors.some((error) => error.includes("missing public")));
+  assert.ok(errors.some((error) => error.includes("no-store fallback")));
+  assert.ok(errors.some((error) => error.includes("800x418")));
 });

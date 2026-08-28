@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 
 const CANONICAL_ORIGIN = "https://noema-learn.uk";
 const MAX_CONCURRENCY = 6;
+const SERIES_OG_IMAGE_HEIGHT = 630;
+const SERIES_OG_IMAGE_WIDTH = 1200;
 const HTML_TAG_PATTERN = /<(?<name>[a-z][a-z0-9:-]*)\b(?<attributes>[^>]*)>/giu;
 const ATTRIBUTE_PATTERN = /(?<name>[^\s=/>]+)(?:\s*=\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)'|(?<bare>[^\s"'=<>`]+)))?/gu;
 
@@ -126,12 +128,15 @@ export function inspectSeoDocument(html, canonicalUrl) {
   }
   const schemaTypes = new Set();
   const websites = [];
+  const collectionPages = [];
   for (const value of jsonLd) collectSchemaTypes(value, schemaTypes);
   for (const value of jsonLd) collectSchemaNodes(value, "WebSite", websites);
+  for (const value of jsonLd) collectSchemaNodes(value, "CollectionPage", collectionPages);
 
   return {
     canonical: canonicalLinks[0]?.attributes.href ?? "",
     canonicalCount: canonicalLinks.length,
+    collectionPages,
     description: meta.get("description") ?? "",
     h1,
     htmlLanguage: htmlTag?.attributes.lang ?? "",
@@ -141,6 +146,9 @@ export function inspectSeoDocument(html, canonicalUrl) {
     openGraph: {
       description: properties.get("og:description") ?? "",
       image: properties.get("og:image") ?? "",
+      imageAlt: properties.get("og:image:alt") ?? "",
+      imageHeight: properties.get("og:image:height") ?? "",
+      imageWidth: properties.get("og:image:width") ?? "",
       title: properties.get("og:title") ?? "",
       url: properties.get("og:url") ?? "",
     },
@@ -153,6 +161,7 @@ export function inspectSeoDocument(html, canonicalUrl) {
       card: meta.get("twitter:card") ?? "",
       description: meta.get("twitter:description") ?? "",
       image: meta.get("twitter:image") ?? "",
+      imageAlt: meta.get("twitter:image:alt") ?? "",
       title: meta.get("twitter:title") ?? "",
     },
     websites,
@@ -188,6 +197,14 @@ export function validateSeoDocument(document, canonicalUrl) {
   for (const [label, value] of expectedSocialValues) {
     if (!value) errors.push(`${label} is missing.`);
   }
+  if (!document.openGraph.imageAlt) errors.push("og:image:alt is missing.");
+  if (!document.twitter.imageAlt) errors.push("twitter:image:alt is missing.");
+  if (document.twitter.image !== document.openGraph.image) {
+    errors.push("twitter:image must match og:image.");
+  }
+  if (document.twitter.imageAlt !== document.openGraph.imageAlt) {
+    errors.push("twitter:image:alt must match og:image:alt.");
+  }
   if (document.openGraph.url !== canonicalUrl) errors.push(`og:url is ${document.openGraph.url || "empty"}.`);
   if (document.twitter.card !== "summary_large_image") {
     errors.push(`twitter:card is ${document.twitter.card || "empty"}.`);
@@ -215,6 +232,117 @@ export function validateSeoDocument(document, canonicalUrl) {
         errors.push("WebSite alternateName must include noema-learn.uk.");
       }
     }
+  }
+  errors.push(...validateSeriesSeoDocument(document, canonicalUrl));
+  return errors;
+}
+
+export function validateSeriesSeoDocument(document, canonicalUrl) {
+  const canonical = new URL(canonicalUrl);
+  const match = canonical.pathname.match(/^\/series\/(?<slug>[a-z0-9-]+)$/u);
+  if (!match) return [];
+
+  const errors = [];
+  let imageUrl;
+  try {
+    imageUrl = new URL(document.openGraph.image);
+  } catch {
+    errors.push("series og:image must be an absolute URL.");
+  }
+  if (imageUrl) {
+    const expectedPathname = `/og/series/${match.groups.slug}.png`;
+    if (imageUrl.origin !== CANONICAL_ORIGIN || imageUrl.pathname !== expectedPathname) {
+      errors.push(`series og:image must use ${CANONICAL_ORIGIN}${expectedPathname}.`);
+    }
+    if (!/^\?v=[0-9a-f]{8}$/u.test(imageUrl.search)) {
+      errors.push("series og:image must include an eight-character content version.");
+    }
+  }
+  if (document.openGraph.imageWidth !== String(SERIES_OG_IMAGE_WIDTH)) {
+    errors.push(`series og:image:width must be ${SERIES_OG_IMAGE_WIDTH}.`);
+  }
+  if (document.openGraph.imageHeight !== String(SERIES_OG_IMAGE_HEIGHT)) {
+    errors.push(`series og:image:height must be ${SERIES_OG_IMAGE_HEIGHT}.`);
+  }
+
+  const collection = document.collectionPages.find((candidate) => candidate.url === canonicalUrl)
+    ?? document.collectionPages[0];
+  if (!collection) {
+    errors.push("series CollectionPage JSON-LD is missing.");
+    return errors;
+  }
+
+  const itemList = collection.mainEntity;
+  const listItems = Array.isArray(itemList?.itemListElement) ? itemList.itemListElement : [];
+  const itemCount = itemList?.numberOfItems;
+  if (!Number.isInteger(itemCount) || itemCount < 0) {
+    errors.push("series ItemList numberOfItems must be a non-negative integer.");
+  } else {
+    if (itemCount !== listItems.length) {
+      errors.push(`series ItemList declares ${itemCount} item(s) but contains ${listItems.length}.`);
+    }
+    const expectedAlt = `${document.h1[0] ?? ""}。全${itemCount}本の記事を順番に読めるNoemaのシリーズ`;
+    if (document.openGraph.imageAlt !== expectedAlt) {
+      errors.push(`series image alt is ${document.openGraph.imageAlt || "empty"}.`);
+    }
+  }
+
+  const primaryImage = collection.primaryImageOfPage;
+  if (!primaryImage || typeof primaryImage !== "object") {
+    errors.push("series primaryImageOfPage JSON-LD is missing.");
+  } else {
+    if (primaryImage.url !== document.openGraph.image || primaryImage.contentUrl !== document.openGraph.image) {
+      errors.push("series primaryImageOfPage must match og:image.");
+    }
+    if (primaryImage.width !== SERIES_OG_IMAGE_WIDTH || primaryImage.height !== SERIES_OG_IMAGE_HEIGHT) {
+      errors.push(`series primaryImageOfPage must be ${SERIES_OG_IMAGE_WIDTH}x${SERIES_OG_IMAGE_HEIGHT}.`);
+    }
+  }
+
+  return errors;
+}
+
+export function parsePngDimensions(body) {
+  const bytes = Buffer.from(body);
+  if (bytes.length < 24) return null;
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (signature.some((value, index) => bytes[index] !== value)) return null;
+  if (bytes.toString("ascii", 12, 16) !== "IHDR") return null;
+  return { height: bytes.readUInt32BE(20), width: bytes.readUInt32BE(16) };
+}
+
+export function validateOgImageAsset(imageUrl, headers, body) {
+  const errors = [];
+  const contentType = headers.get("content-type") ?? "";
+  if (!contentType.startsWith("image/")) errors.push(`content-type is ${contentType || "empty"}.`);
+
+  const url = new URL(imageUrl);
+  if (!/^\/og\/series\/[a-z0-9-]+\.png$/u.test(url.pathname)) return errors;
+
+  if (!contentType.toLowerCase().startsWith("image/png")) {
+    errors.push(`series image content-type is ${contentType || "empty"}.`);
+  }
+  if ((headers.get("x-content-type-options") ?? "").toLowerCase() !== "nosniff") {
+    errors.push("series image must set X-Content-Type-Options: nosniff.");
+  }
+
+  const cacheControl = (headers.get("cache-control") ?? "").toLowerCase();
+  const cacheDirectives = new Set(cacheControl.split(",").map((value) => value.trim()).filter(Boolean));
+  for (const directive of [
+    "public",
+    "max-age=3600",
+    "s-maxage=604800",
+    "stale-while-revalidate=86400",
+  ]) {
+    if (!cacheDirectives.has(directive)) errors.push(`series image cache-control is missing ${directive}.`);
+  }
+  if (cacheDirectives.has("no-store")) errors.push("series image must not use no-store fallback caching.");
+
+  const dimensions = parsePngDimensions(body);
+  if (!dimensions) {
+    errors.push("series image is not a readable PNG.");
+  } else if (dimensions.width !== SERIES_OG_IMAGE_WIDTH || dimensions.height !== SERIES_OG_IMAGE_HEIGHT) {
+    errors.push(`series image is ${dimensions.width}x${dimensions.height}, expected ${SERIES_OG_IMAGE_WIDTH}x${SERIES_OG_IMAGE_HEIGHT}.`);
   }
   return errors;
 }
@@ -254,13 +382,16 @@ export async function verifyPublicSeo(sourceOrigin, options = {}) {
   if (errors.length > 0) throw new Error(`Public SEO verification failed:\n${errors.join("\n")}`);
 
   const ogImages = [...new Set(pages.map((page) => page.document.openGraph.image))];
-  await mapWithConcurrency(ogImages, MAX_CONCURRENCY, async (imageUrl) => {
+  const imageResults = await mapWithConcurrency(ogImages, MAX_CONCURRENCY, async (imageUrl) => {
     const canonicalImage = new URL(imageUrl);
     const sourceImage = new URL(`${canonicalImage.pathname}${canonicalImage.search}`, normalizedSourceOrigin);
     const response = await fetchOk(sourceImage, fetcher);
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.startsWith("image/")) throw new Error(`${imageUrl} returned ${contentType || "no content-type"}.`);
+    const body = await response.arrayBuffer();
+    return validateOgImageAsset(imageUrl, response.headers, body)
+      .map((error) => `${imageUrl}: ${error}`);
   });
+  const imageErrors = imageResults.flat();
+  if (imageErrors.length > 0) throw new Error(`Public OG image verification failed:\n${imageErrors.join("\n")}`);
 
   console.log(`Verified SEO metadata for ${pages.length} sitemap URL(s), ${ogImages.length} OG image(s), and ${rssFeed.items.length} canonical RSS item(s).`);
   return { ogImageCount: ogImages.length, pageCount: pages.length, rssItemCount: rssFeed.items.length };
