@@ -3,6 +3,9 @@ import {
   CMS_ANALYTICS_EVENT_CONTRACT_VERSION,
   CMS_ANALYTICS_EVENT_FACT_RETENTION_DAYS,
   CMS_ANALYTICS_METRIC_CATALOG_VERSION,
+  CMS_ANALYTICS_READER_SHARE_CAMPAIGN,
+  CMS_ANALYTICS_READER_SHARE_MEDIUM,
+  CMS_ANALYTICS_READER_SHARE_SOURCE,
   CMS_ANALYTICS_REPORTING_MART_RETENTION_DAYS,
   CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
   CMS_GOOGLE_SEARCH_CONSOLE_URL,
@@ -19,6 +22,7 @@ import {
   type CmsAnalyticsOnwardPath,
   type CmsAnalyticsOrganicArticleMetric,
   type CmsAnalyticsQualityCheck,
+  type CmsAnalyticsReaderShareArticleMetric,
   type CmsAnalyticsRebuildRequest,
   type CmsAnalyticsRebuildResult,
   type CmsAnalyticsSourceMetric,
@@ -489,6 +493,7 @@ export async function listCmsAnalyticsSummary(
     CmsAnalyticsAcquisitionMetric
   >();
   const organicArticleMetrics = new Map<string, CmsAnalyticsOrganicArticleMetric>();
+  const readerShareArticleMetrics = new Map<string, CmsAnalyticsReaderShareArticleMetric>();
   for (const row of acquisitionArticleResult.results) {
     const channel = classifyCmsAnalyticsAcquisitionChannel({
       campaign: row.campaign || undefined,
@@ -507,20 +512,42 @@ export async function listCmsAnalyticsSummary(
     addAcquisitionEvent(channelMetric, row.event_type, row.event_count);
     acquisitionChannelMetrics.set(channel, channelMetric);
 
-    if (channel !== "organic_search") continue;
-    const key = `${row.article_id}:${row.revision_number}`;
-    const articleMetric = organicArticleMetrics.get(key) ?? {
-      ...emptyAcquisitionCounts(),
-      article50Rate: null,
-      articleId: row.article_id,
-      onwardRate: null,
-      qualifiedReadRate: null,
-      revisionNumber: row.revision_number,
-      slug: row.article_slug,
-      title: articleTitle(row.frontmatter_json, row.article_slug)
-    };
-    addAcquisitionEvent(articleMetric, row.event_type, row.event_count);
-    organicArticleMetrics.set(key, articleMetric);
+    if (channel === "organic_search") {
+      const key = `${row.article_id}:${row.revision_number}`;
+      const articleMetric = organicArticleMetrics.get(key) ?? {
+        ...emptyAcquisitionCounts(),
+        article50Rate: null,
+        articleId: row.article_id,
+        onwardRate: null,
+        qualifiedReadRate: null,
+        revisionNumber: row.revision_number,
+        slug: row.article_slug,
+        title: articleTitle(row.frontmatter_json, row.article_slug)
+      };
+      addAcquisitionEvent(articleMetric, row.event_type, row.event_count);
+      organicArticleMetrics.set(key, articleMetric);
+    }
+
+    if (
+      row.source === CMS_ANALYTICS_READER_SHARE_SOURCE &&
+      row.medium === CMS_ANALYTICS_READER_SHARE_MEDIUM &&
+      row.campaign === CMS_ANALYTICS_READER_SHARE_CAMPAIGN
+    ) {
+      const key = `${row.article_id}:${row.revision_number}:${row.content}`;
+      const articleMetric = readerShareArticleMetrics.get(key) ?? {
+        ...emptyAcquisitionCounts(),
+        article50Rate: null,
+        articleId: row.article_id,
+        method: row.content,
+        onwardRate: null,
+        qualifiedReadRate: null,
+        revisionNumber: row.revision_number,
+        slug: row.article_slug,
+        title: articleTitle(row.frontmatter_json, row.article_slug)
+      };
+      addAcquisitionEvent(articleMetric, row.event_type, row.event_count);
+      readerShareArticleMetrics.set(key, articleMetric);
+    }
   }
   const acquisitionChannels = [...acquisitionChannelMetrics.values()]
     .map((metric) => ({
@@ -538,6 +565,14 @@ export async function listCmsAnalyticsSummary(
       qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
     }))
     .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd);
+  const readerShareArticles = [...readerShareArticleMetrics.values()]
+    .map((metric) => ({
+      ...metric,
+      article50Rate: ratio(metric.article50, metric.landing),
+      onwardRate: ratio(metric.navigationClick, metric.articleEnd),
+      qualifiedReadRate: ratio(metric.articleEnd, metric.landing)
+    }))
+    .sort((a, b) => b.landing - a.landing || b.articleEnd - a.articleEnd || a.method.localeCompare(b.method));
 
   const entryMetrics = new Map<CmsAnalyticsEntryMetric["entryKind"], CmsAnalyticsEntryMetric>();
   for (const row of entryResult.results) {
@@ -648,6 +683,7 @@ export async function listCmsAnalyticsSummary(
     onwardPaths,
     onwardPathsTruncated: onwardPathResult.results.length > ONWARD_PATH_LIMIT,
     organicSearchArticles,
+    readerShareArticles,
     range: { days, from, through },
     sources,
     totals: totalsWithRates(totals)

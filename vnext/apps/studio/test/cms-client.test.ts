@@ -249,6 +249,20 @@ describe("CMS analytics client", () => {
         slug: "analytics-article",
         title: "分析記事"
       }],
+      readerShareArticles: [{
+        article50: 3,
+        article50Rate: 0.75,
+        articleEnd: 2,
+        articleId: "11111111-1111-4111-8111-111111111111",
+        landing: 4,
+        method: "copy",
+        navigationClick: 1,
+        onwardRate: 0.5,
+        qualifiedReadRate: 0.5,
+        revisionNumber: 4,
+        slug: "analytics-article",
+        title: "分析記事"
+      }],
       range: { days: 30, from: "2026-07-25", through: "2026-08-23" },
       sources: [{
         article50: 8,
@@ -298,6 +312,12 @@ describe("CMS analytics client", () => {
       expect(result.value.onwardPathsTruncated).toBe(false);
       expect(result.value.organicSearchArticles[0]).toMatchObject({
         landing: 5,
+        revisionNumber: 4,
+        slug: "analytics-article"
+      });
+      expect(result.value.readerShareArticles[0]).toMatchObject({
+        landing: 4,
+        method: "copy",
         revisionNumber: 4,
         slug: "analytics-article"
       });
