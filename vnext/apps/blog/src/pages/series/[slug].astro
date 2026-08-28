@@ -4,6 +4,11 @@ import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import ShareSeries from "../../components/ShareSeries.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPublishedSeriesBySlug } from "../../lib/cms-publications";
+import {
+  seriesOgImagePath,
+  SERIES_OG_IMAGE_HEIGHT,
+  SERIES_OG_IMAGE_WIDTH,
+} from "../../lib/series-og";
 
 const { slug } = Astro.params;
 const series = slug ? await getPublishedSeriesBySlug(slug) : null;
@@ -11,12 +16,27 @@ if (!series) Astro.response.status = 404;
 
 const title = series ? `${series.title} | Noema` : "シリーズが見つかりません | Noema";
 const description = series?.description ?? "指定されたシリーズは見つかりませんでした。";
+const image = series ? seriesOgImagePath({
+  description: series.description,
+  itemCount: series.items.length,
+  slug: series.slug,
+  title: series.title,
+}) : undefined;
+const imageUrl = image ? new URL(image, Astro.site ?? "https://noema-learn.uk").toString() : undefined;
 const jsonLd = series ? {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   name: series.title,
   description: series.description,
+  inLanguage: "ja",
   url: new URL(series.href, Astro.site ?? "https://noema-learn.uk").toString(),
+  primaryImageOfPage: {
+    "@type": "ImageObject",
+    contentUrl: imageUrl,
+    height: SERIES_OG_IMAGE_HEIGHT,
+    url: imageUrl,
+    width: SERIES_OG_IMAGE_WIDTH,
+  },
   mainEntity: {
     "@type": "ItemList",
     numberOfItems: series.items.length,
@@ -30,7 +50,18 @@ const jsonLd = series ? {
 } : undefined;
 ---
 
-<BaseLayout title={title} description={description} noindex={!series} jsonLd={jsonLd}>
+<BaseLayout
+  title={title}
+  description={description}
+  noindex={!series}
+  jsonLd={jsonLd}
+  {...(series && image ? {
+    image,
+    imageAlt: `${series.title}。全${series.items.length}本の記事を順番に読めるNoemaのシリーズ`,
+    imageHeight: SERIES_OG_IMAGE_HEIGHT,
+    imageWidth: SERIES_OG_IMAGE_WIDTH,
+  } : {})}
+>
   <div class="noema-container series-page">
     {series ? (
       <>
