@@ -1220,19 +1220,7 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .article-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
-  align-items: start;
-  column-gap: 0;
   padding-block: 2rem 6rem;
-  transition:
-    grid-template-columns 240ms ease-out,
-    column-gap 240ms ease-out;
-}
-
-.article-page[data-assistant-open="true"] {
-  grid-template-columns: minmax(0, 1fr) minmax(19rem, 24rem);
-  column-gap: clamp(2rem, 4vw, 3rem);
 }
 
 .article-page__main {
@@ -1240,11 +1228,14 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .article-page__aside {
-  min-width: 0;
+  position: fixed;
+  z-index: 35;
+  inset: calc(5rem + 1px) 0 0;
+  pointer-events: none;
 }
 
-.article-page:not([data-assistant-open="true"]) .article-page__aside {
-  overflow: clip;
+.article-page[data-assistant-open="true"] .article-page__aside {
+  pointer-events: auto;
 }
 
 .article-header {
@@ -1683,34 +1674,6 @@ body.noema-public .site-search-form__input input:focus-visible {
   margin-top: 3rem;
 }
 
-.assistant-panel {
-  background: var(--color-neutral-white);
-  border: 1px solid var(--noema-border);
-}
-
-.assistant-trigger {
-  position: fixed;
-  z-index: 30;
-  inset-block-start: 7rem;
-  inset-inline-end: max(1.5rem, calc((100vw - var(--noema-content-width)) / 2 + 1.5rem));
-  width: auto;
-  justify-content: center;
-  gap: 0.75rem;
-  box-shadow: var(--elevation-1);
-  transition: opacity 160ms ease-out;
-}
-
-.article-page[data-assistant-open="true"] .assistant-trigger {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.assistant-trigger .noema-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
 .assistant-selection-chip {
   position: fixed;
   z-index: 70;
@@ -1723,7 +1686,7 @@ body.noema-public .site-search-form__input input:focus-visible {
   color: var(--color-neutral-white);
   border: 0;
   border-radius: 999px;
-  box-shadow: var(--elevation-3);
+  box-shadow: none;
   font-size: calc(14 / 16 * 1rem);
   font-weight: 700;
   line-height: 1.5;
@@ -1751,17 +1714,22 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .assistant-panel {
-  position: sticky;
-  inset-block-start: 6.5rem;
-  width: 100%;
-  max-height: calc(100dvh - 8rem);
-  padding: 1.5rem;
-  overflow-y: auto;
-  border-radius: 0.75rem;
-  box-shadow: var(--elevation-4);
+  position: fixed;
+  z-index: 36;
+  inset-block: calc(5rem + 1px) 0;
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(28rem, 100vw);
+  overflow: hidden;
+  background: var(--color-neutral-white);
+  border: 0;
+  border-inline-start: 1px solid var(--noema-border);
+  border-radius: 0;
+  box-shadow: none;
   visibility: hidden;
   opacity: 0;
-  transform: translateX(2rem);
+  transform: translateX(100%);
   pointer-events: none;
   transition:
     transform 240ms ease-out,
@@ -1777,9 +1745,7 @@ body.noema-public .site-search-form__input input:focus-visible {
 
 .assistant-form-shell h2,
 .assistant-panel__header h2 {
-  margin: 0 0 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--noema-border);
+  margin: 0;
   font-size: calc(20 / 16 * 1rem);
   font-weight: 700;
   line-height: 1.5;
@@ -1787,15 +1753,38 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .assistant-field {
-  margin-bottom: 1.25rem;
+  margin: 0;
+}
+
+.assistant-form-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.assistant-form-shell form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1rem;
+}
+
+.assistant-conversation {
+  flex: 1;
+  min-height: 8rem;
+  margin: -1rem -1rem 1rem;
+  padding: 1rem;
+  overflow-y: auto;
+  background: var(--color-neutral-solid-gray-50);
 }
 
 .assistant-selection {
   margin-bottom: 1.25rem;
   padding: 0.875rem;
-  background: var(--color-key-50);
-  border-inline-start: 4px solid var(--color-key-700);
-  border-radius: 0.25rem;
+  background: var(--color-neutral-white);
+  border: 0;
+  border-radius: 0.75rem;
 }
 
 .assistant-selection[hidden] {
@@ -1844,11 +1833,21 @@ body.noema-public .site-search-form__input input:focus-visible {
   font-weight: 700;
 }
 
+.assistant-field--key {
+  margin-bottom: 0.75rem;
+}
+
+.assistant-field--key > label {
+  font-size: calc(13 / 16 * 1rem);
+}
+
 .assistant-suggestions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .assistant-suggestions button {
@@ -1856,7 +1855,7 @@ body.noema-public .site-search-form__input input:focus-visible {
   background: var(--color-neutral-white);
   color: var(--color-key-1000);
   border: 1px solid var(--color-key-700);
-  border-radius: 0.25rem;
+  border-radius: 999px;
   font-size: calc(13 / 16 * 1rem);
   font-weight: 600;
   line-height: 1.5;
@@ -1868,8 +1867,7 @@ body.noema-public .site-search-form__input input:focus-visible {
   background: var(--color-key-50);
 }
 
-.assistant-field input,
-.assistant-field textarea {
+.assistant-field input {
   width: 100%;
   padding: 0.625rem 0.75rem;
   background: var(--color-neutral-white);
@@ -1905,13 +1903,10 @@ body.noema-public .site-search-form__input input:focus-visible {
   letter-spacing: 0;
 }
 
-.assistant-panel .dads-button {
-  width: 100%;
-}
-
 .assistant-privacy {
   color: var(--noema-muted);
-  text-align: center;
+  font-size: calc(12 / 16 * 1rem);
+  text-align: left;
 }
 
 .assistant-status {
@@ -1920,9 +1915,9 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .assistant-answer {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--noema-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
   white-space: pre-wrap;
 }
 
@@ -1931,16 +1926,29 @@ body.noema-public .site-search-form__input input:focus-visible {
   display: none;
 }
 
-.assistant-answer:not(:empty) + .assistant-clear {
+.assistant-form-shell form:has(.assistant-answer:not(:empty)) > .assistant-clear {
   display: inline-flex;
 }
 
-.assistant-answer h3 {
-  margin: 0 0 0.5rem;
-  font-size: calc(17 / 16 * 1rem);
-  font-weight: 700;
-  line-height: 1.7;
-  letter-spacing: 0.02em;
+.assistant-message {
+  width: fit-content;
+  max-width: 88%;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--noema-border);
+  border-radius: 1rem;
+}
+
+.assistant-message--user {
+  align-self: flex-end;
+  background: var(--color-key-900);
+  color: var(--color-neutral-white);
+  border-end-end-radius: 0.25rem;
+}
+
+.assistant-message--assistant {
+  align-self: flex-start;
+  background: var(--color-neutral-white);
+  border-end-start-radius: 0.25rem;
 }
 
 .assistant-answer h4 {
@@ -1952,7 +1960,7 @@ body.noema-public .site-search-form__input input:focus-visible {
 
 .assistant-answer p,
 .assistant-answer ul {
-  margin-block: 0.5rem 0;
+  margin-block: 0;
 }
 
 .assistant-answer ul {
@@ -1966,7 +1974,8 @@ body.noema-public .site-search-form__input input:focus-visible {
 }
 
 .assistant-clear {
-  margin-top: 1rem;
+  align-self: flex-start;
+  margin-top: 0.5rem;
   padding: 0;
   background: transparent;
   color: var(--color-key-1000);
@@ -1977,9 +1986,13 @@ body.noema-public .site-search-form__input input:focus-visible {
 
 .assistant-panel__header {
   display: flex;
-  align-items: start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--noema-border);
 }
 
 .assistant-panel__close {
@@ -1989,8 +2002,83 @@ body.noema-public .site-search-form__input input:focus-visible {
   height: 3rem;
   padding: 0.5rem;
   background: var(--color-neutral-white);
-  border: 1px solid var(--noema-border);
-  border-radius: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.assistant-panel__close:hover {
+  background: var(--color-neutral-solid-gray-100);
+}
+
+.assistant-panel__close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.assistant-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0.375rem;
+  background: var(--color-neutral-white);
+  border: 1px solid var(--color-neutral-solid-gray-600);
+  border-radius: 999px;
+  transition: border-radius 160ms ease-out, border-color 160ms ease-out;
+}
+
+.assistant-composer:focus-within {
+  border-color: var(--color-key-900);
+  outline: 3px solid var(--color-key-300);
+  outline-offset: 2px;
+}
+
+.assistant-composer:has(textarea[data-multiline="true"]) {
+  border-radius: 1.25rem;
+}
+
+.assistant-composer textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.375rem;
+  max-height: 9rem;
+  padding: 0.4375rem 0.625rem;
+  overflow-y: auto;
+  resize: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.assistant-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.375rem;
+  height: 2.375rem;
+  padding: 0;
+  background: var(--color-key-900);
+  color: var(--color-neutral-white);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.assistant-send:hover {
+  background: var(--color-key-1000);
+}
+
+.assistant-send:disabled {
+  background: var(--color-neutral-solid-gray-500);
+  cursor: wait;
+}
+
+.assistant-send svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .prose-page h2 {
@@ -2003,12 +2091,6 @@ body.noema-public .site-search-form__input input:focus-visible {
 
 .prose-page li + li {
   margin-top: 0.5rem;
-}
-
-@media (max-width: 72rem) {
-  .article-page[data-assistant-open="true"] {
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 20rem);
-  }
 }
 
 @media (min-width: 64rem) {
@@ -2057,11 +2139,8 @@ body.noema-public .site-search-form__input input:focus-visible {
   }
 
   .article-page__aside {
-    position: fixed;
-    z-index: 60;
-    inset: 4.5rem 0 0;
+    inset: calc(4.5rem + 1px) 0 0;
     background: transparent;
-    pointer-events: none;
     transition: background-color 180ms ease-out;
   }
 
@@ -2074,20 +2153,9 @@ body.noema-public .site-search-form__input input:focus-visible {
     overflow: hidden;
   }
 
-  .assistant-trigger {
-    display: none;
-  }
-
   .assistant-panel {
-    position: absolute;
-    inset-block: 0;
-    inset-inline-end: 0;
-    width: min(90vw, 24rem);
-    max-height: none;
-    padding: 1.25rem;
-    border-block: 0;
-    border-inline-end: 0;
-    border-radius: 0;
+    inset-block-start: calc(4.5rem + 1px);
+    width: min(100vw, 26rem);
     transform: translateX(100%);
   }
 }
@@ -2274,7 +2342,6 @@ body.noema-public .site-search-form__input input:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .article-page,
   .article-page__aside,
-  .assistant-trigger,
   .assistant-selection-chip,
   .assistant-panel,
   .site-search-panel,
