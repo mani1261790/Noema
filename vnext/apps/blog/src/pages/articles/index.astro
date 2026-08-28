@@ -7,7 +7,7 @@ import { buildArticleSearchText } from "../../lib/article-search";
 import { sortArticlesByDate } from "../../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../../lib/cms-publications";
 import { collectionPageJsonLd } from "../../lib/seo";
-import { listActiveTopics } from "../../lib/topics";
+import { listActiveTopics, listNarrowingTopics } from "../../lib/topics";
 
 const [articleResults, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const articles = sortArticlesByDate(articleResults);
@@ -16,6 +16,7 @@ const articleSeries = new Map(seriesList.flatMap((series) => series.items.map((a
   title: series.title,
 }] as const)));
 const activeTopics = listActiveTopics(articles);
+const narrowingTopics = listNarrowingTopics(articles);
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
 const suggestions = [...new Set([
   ...articles.map((article) => article.title),
@@ -78,7 +79,7 @@ const jsonLd = collectionPageJsonLd({
               <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
               <select id="article-topic" name="topic">
                 <option value="">すべてのテーマ</option>
-                {activeTopics.map((topic) => <option value={topic.slug}>{topic.label}（{topic.articleCount}）</option>)}
+                {narrowingTopics.map((topic) => <option value={topic.slug}>{topic.label}（{topic.articleCount}）</option>)}
               </select>
             </div>
             <div class="dads-form-control-label" data-size="md">

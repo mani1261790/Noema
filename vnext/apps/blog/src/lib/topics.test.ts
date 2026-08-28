@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { listActiveTopics, topicListingResponse } from "./topics";
+import { listActiveTopics, listNarrowingTopics, topicListingResponse } from "./topics";
 
 describe("listActiveTopics", () => {
   it("lists only topics represented by public articles in schema order", () => {
@@ -38,5 +38,30 @@ describe("topicListingResponse", () => {
 
   it("reports empty topic pages as noindex 404s instead of thin indexable pages", () => {
     expect(topicListingResponse(0)).toEqual({ noindex: true, status: 404 });
+  });
+});
+
+describe("listNarrowingTopics", () => {
+  it("keeps only topic choices that narrow the public article set", () => {
+    const articles: Parameters<typeof listActiveTopics>[0] = [
+      { topics: ["development-environment", "conversational-ai"] },
+      { topics: ["development-environment", "data-models"] }
+    ];
+
+    expect(listNarrowingTopics(articles).map(({ slug, articleCount }) => ({
+      slug,
+      articleCount
+    }))).toEqual([
+      { slug: "conversational-ai", articleCount: 1 },
+      { slug: "data-models", articleCount: 1 }
+    ]);
+    expect(listActiveTopics(articles)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ slug: "development-environment", articleCount: 2 })
+    ]));
+  });
+
+  it("returns no discovery choices when every represented topic is universal", () => {
+    expect(listNarrowingTopics([{ topics: ["development-environment"] }])).toEqual([]);
+    expect(listNarrowingTopics([])).toEqual([]);
   });
 });
