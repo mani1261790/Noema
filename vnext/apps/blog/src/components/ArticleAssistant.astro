@@ -180,9 +180,7 @@ const { preview = false, slug } = Astro.props;
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     const requestedWidth = panelWidth + (event.key === "ArrowLeft" ? 24 : -24);
-    const result = resolveAssistantPanelResize(requestedWidth, window.innerWidth);
-    if (result.shouldClose) closePanel();
-    else syncPanelWidth(result.width);
+    syncPanelWidth(requestedWidth);
   });
   selectionChip?.addEventListener("pointerdown", (event) => event.preventDefault());
   selectionChip?.addEventListener("click", () => {
