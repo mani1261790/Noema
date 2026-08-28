@@ -20,3 +20,4 @@ vnext/apps/studio/worker/worker-configuration.d.ts
 vnext/apps/studio-mcp/src/worker-configuration.d.ts
 vnext/apps/blog/src/worker-configuration.d.ts
 vnext/apps/blog/public/og/*.png
+vnext/apps/blog/public/og/*.ttf
