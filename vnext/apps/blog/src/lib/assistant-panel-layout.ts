@@ -1,6 +1,6 @@
 export const defaultAssistantPanelWidth = 448;
 export const minimumAssistantPanelWidth = 320;
-export const assistantPanelCloseThreshold = minimumAssistantPanelWidth;
+export const assistantPanelCloseThreshold = 240;
 
 const maximumAssistantPanelWidth = 640;
 const maximumViewportShare = 0.45;

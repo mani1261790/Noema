@@ -16,10 +16,12 @@ describe("assistant panel layout", () => {
     expect(resolveAssistantPanelResize(900, 1440)).toEqual({ shouldClose: false, width: 640 });
   });
 
-  it("closes when the reader tries to drag narrower than the minimum", () => {
+  it("holds at the minimum before a deliberate drag reaches the close threshold", () => {
     expect(minimumAssistantPanelWidth).toBe(320);
-    expect(assistantPanelCloseThreshold).toBe(320);
+    expect(assistantPanelCloseThreshold).toBe(240);
     expect(resolveAssistantPanelResize(320, 1440)).toEqual({ shouldClose: false, width: 320 });
-    expect(resolveAssistantPanelResize(319, 1440)).toEqual({ shouldClose: true, width: 320 });
+    expect(resolveAssistantPanelResize(319, 1440)).toEqual({ shouldClose: false, width: 320 });
+    expect(resolveAssistantPanelResize(240, 1440)).toEqual({ shouldClose: false, width: 320 });
+    expect(resolveAssistantPanelResize(239, 1440)).toEqual({ shouldClose: true, width: 320 });
   });
 });
