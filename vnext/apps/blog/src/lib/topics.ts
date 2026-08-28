@@ -47,3 +47,11 @@ export function listActiveTopics(
       : [];
   });
 }
+
+export function listNarrowingTopics(
+  articles: Array<Pick<ArticleSummary, "topics">>
+): ActiveTopic[] {
+  return listActiveTopics(articles).filter(
+    ({ articleCount }) => articleCount < articles.length
+  );
+}
