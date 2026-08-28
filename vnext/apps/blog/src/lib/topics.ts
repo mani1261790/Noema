@@ -55,3 +55,30 @@ export function listNarrowingTopics(
     ({ articleCount }) => articleCount < articles.length
   );
 }
+
+export function topicCoversEveryArticle(
+  articleCount: number,
+  totalArticleCount: number
+): boolean {
+  return totalArticleCount > 0 && articleCount === totalArticleCount;
+}
+
+export function findNarrowingTopicForArticle(
+  article: Pick<ArticleSummary, "topics">,
+  articles: Array<Pick<ArticleSummary, "topics">>
+): ActiveTopic | null {
+  const narrowingTopics = new Map(
+    listNarrowingTopics(articles).map((topic) => [topic.slug, topic])
+  );
+  let selectedTopic: ActiveTopic | null = null;
+
+  for (const topicSlug of article.topics) {
+    const topic = narrowingTopics.get(topicSlug);
+    if (!topic) continue;
+    if (!selectedTopic || topic.articleCount < selectedTopic.articleCount) {
+      selectedTopic = topic;
+    }
+  }
+
+  return selectedTopic;
+}

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { listActiveTopics, listNarrowingTopics, topicListingResponse } from "./topics";
+import {
+  findNarrowingTopicForArticle,
+  listActiveTopics,
+  listNarrowingTopics,
+  topicCoversEveryArticle,
+  topicListingResponse
+} from "./topics";
 
 describe("listActiveTopics", () => {
   it("lists only topics represented by public articles in schema order", () => {
@@ -63,5 +69,46 @@ describe("listNarrowingTopics", () => {
   it("returns no discovery choices when every represented topic is universal", () => {
     expect(listNarrowingTopics([{ topics: ["development-environment"] }])).toEqual([]);
     expect(listNarrowingTopics([])).toEqual([]);
+  });
+});
+
+describe("topicCoversEveryArticle", () => {
+  it("identifies a populated topic whose collection duplicates the full catalog", () => {
+    expect(topicCoversEveryArticle(16, 16)).toBe(true);
+    expect(topicCoversEveryArticle(2, 16)).toBe(false);
+    expect(topicCoversEveryArticle(0, 0)).toBe(false);
+  });
+});
+
+describe("findNarrowingTopicForArticle", () => {
+  const articles: Parameters<typeof listActiveTopics>[0] = [
+    { topics: ["development-environment"] },
+    { topics: ["development-environment", "data-models"] },
+    { topics: ["development-environment", "data-models"] },
+    { topics: ["development-environment", "conversational-ai"] }
+  ];
+
+  it("selects the most specific public topic assigned to the article", () => {
+    expect(findNarrowingTopicForArticle(articles[1], articles)).toMatchObject({
+      slug: "data-models",
+      articleCount: 2
+    });
+    expect(findNarrowingTopicForArticle(articles[3], articles)).toMatchObject({
+      slug: "conversational-ai",
+      articleCount: 1
+    });
+  });
+
+  it("omits the topic route when every assigned topic covers the full catalog", () => {
+    expect(findNarrowingTopicForArticle(articles[0], articles)).toBeNull();
+  });
+
+  it("preserves article topic order when equally specific topics are available", () => {
+    const equalTopics: Parameters<typeof listActiveTopics>[0] = [
+      { topics: ["development-environment", "data-models", "conversational-ai"] },
+      { topics: ["development-environment"] }
+    ];
+
+    expect(findNarrowingTopicForArticle(equalTopics[0], equalTopics)?.slug).toBe("data-models");
   });
 });

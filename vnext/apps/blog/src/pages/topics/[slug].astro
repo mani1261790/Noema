@@ -5,7 +5,7 @@ import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { listPublicArticleSummaries } from "../../lib/cms-publications";
 import { collectionPageJsonLd } from "../../lib/seo";
-import { topicListingResponse } from "../../lib/topics";
+import { topicCoversEveryArticle, topicListingResponse } from "../../lib/topics";
 
 const { slug } = Astro.params;
 const topic = articleTopicSchema.safeParse(slug);
@@ -14,6 +14,9 @@ const label = topicLabels[topic.data];
 const description = topicDescriptions[topic.data];
 const allArticles = await listPublicArticleSummaries();
 const articles = allArticles.filter((article) => article.topics.includes(topic.data));
+if (topicCoversEveryArticle(articles.length, allArticles.length)) {
+  return Astro.redirect("/articles", 301);
+}
 const listingResponse = topicListingResponse(articles.length);
 Astro.response.status = listingResponse.status;
 const pathname = `/topics/${topic.data}`;
