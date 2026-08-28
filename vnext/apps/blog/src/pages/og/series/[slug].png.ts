@@ -1,5 +1,6 @@
 import { ImageResponse } from "@cloudflare/pages-plugin-vercel-og/api";
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
 import { getPublishedSeriesBySlug } from "../../../lib/cms-publications";
 import {
   createSeriesOgMarkup,
@@ -12,7 +13,7 @@ let japaneseFont: Promise<ArrayBuffer> | undefined;
 async function loadJapaneseFont(request: Request): Promise<ArrayBuffer> {
   if (!japaneseFont) {
     const fontUrl = new URL("/og/noema-og-japanese-bold.ttf", request.url);
-    japaneseFont = fetch(fontUrl).then(async (response) => {
+    japaneseFont = env.ASSETS.fetch(new Request(fontUrl)).then(async (response) => {
       if (!response.ok) throw new Error(`Series OG font request failed (${response.status}).`);
       return response.arrayBuffer();
     }).catch((error) => {

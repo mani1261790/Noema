@@ -13,6 +13,9 @@ const redirects = new Set(
 if (config.assets?.html_handling !== "drop-trailing-slash") {
   throw new Error("The Blog bundle must serve canonical HTML paths without trailing slashes.");
 }
+if (config.assets?.binding !== "ASSETS") {
+  throw new Error("The Blog bundle must expose static assets to dynamic routes through the ASSETS binding.");
+}
 
 const workerFirstRoutes = config.assets?.run_worker_first ?? [];
 if (!Array.isArray(workerFirstRoutes) || !workerFirstRoutes.includes("/og/series/*")) {
