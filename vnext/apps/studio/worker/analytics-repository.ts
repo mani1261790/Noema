@@ -853,7 +853,7 @@ function analyticsHealth(options: {
       {
         accessUrl: CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
         id: "cloudflare_web_analytics",
-        role: "実利用環境、ページ表示、Core Web VitalsをCloudflareで確認",
+        role: "公開サイトの実利用環境、ページ表示、Core Web VitalsをCloudflareで確認",
         status: "external"
       },
       {
