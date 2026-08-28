@@ -30,9 +30,9 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
     <div class="article-page__main">
       <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: topicLabel, href: `/topics/${topic}` }, { label: article.title }]} />
       <Fragment set:html={presentationHtml} />
+      <RelatedArticles articles={relatedArticles} />
       <ShareArticle />
       <ArticleUpdatesCta />
-      <RelatedArticles articles={relatedArticles} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
         <a class="dads-link" href="/articles">すべての記事を見る</a>
