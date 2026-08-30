@@ -63,3 +63,13 @@ test("opens a resizable split chat panel only from a text-selection chip", async
   assert.match(assistant, /assistant-message--user/);
   assert.match(assistant, /assistant-message--assistant/);
 });
+
+test("keeps the article reading area away from the viewport edge", async () => {
+  const styles = await readFile(blogStylesUrl, "utf8");
+
+  assert.match(styles, /\.article-page__main \{[\s\S]*?padding-inline: 3rem;/);
+  assert.match(
+    styles,
+    /@media \(max-width: 56rem\) \{[\s\S]*?\.article-page__main \{[\s\S]*?padding-inline: 2rem;/,
+  );
+});

@@ -1176,7 +1176,7 @@ body.noema-public :focus-visible {
   max-width: var(--noema-content-width);
   min-width: 0;
   margin-inline: auto;
-  padding-inline: 1.5rem;
+  padding-inline: 3rem;
 }
 
 .article-page__aside {
@@ -2050,7 +2050,7 @@ body.is-resizing-assistant-panel .article-page {
   }
 
   .article-page__main {
-    padding-inline: 1.5rem;
+    padding-inline: 2rem;
   }
 
   .home-hero__inner {
