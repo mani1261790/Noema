@@ -12,6 +12,7 @@ test("applies the preview sheet to the complete shared presentation", () => {
 });
 
 test("separates only the second and later authored h2 headings", () => {
+  assert.doesNotMatch(articleCss, /\.article-body h2\s*\{[^}]*border-/s);
   assert.match(
     articleCss,
     /\.article-body > h2 ~ h2\s*\{[^}]*border-top:\s*1px solid var\(--noema-border\);/s,
