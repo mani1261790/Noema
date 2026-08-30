@@ -170,7 +170,10 @@
 .article-body > h2 ~ h2 {
   margin-top: 4rem;
   padding-top: 2rem;
-  border-top: 1px solid var(--noema-border);
+  background:
+    radial-gradient(circle, var(--noema-accent) 0 4px, transparent 4px) 4.5rem top / 0.5rem 0.5rem no-repeat,
+    linear-gradient(var(--color-key-900), var(--color-key-900)) left 2px / 4rem 4px no-repeat,
+    linear-gradient(var(--noema-border), var(--noema-border)) left 3px / 100% 1px no-repeat;
 }
 
 .article-body h3 {

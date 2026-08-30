@@ -15,7 +15,7 @@ test("separates only the second and later authored h2 headings", () => {
   assert.doesNotMatch(articleCss, /\.article-body h2\s*\{[^}]*border-/s);
   assert.match(
     articleCss,
-    /\.article-body > h2 ~ h2\s*\{[^}]*border-top:\s*1px solid var\(--noema-border\);/s,
+    /\.article-body > h2 ~ h2\s*\{[^}]*radial-gradient\(circle, var\(--noema-accent\) 0 4px, transparent 4px\) 4\.5rem top \/ 0\.5rem 0\.5rem no-repeat,[^}]*linear-gradient\(var\(--color-key-900\), var\(--color-key-900\)\) left 2px \/ 4rem 4px no-repeat,[^}]*linear-gradient\(var\(--noema-border\), var\(--noema-border\)\) left 3px \/ 100% 1px no-repeat;/s,
   );
   assert.doesNotMatch(articleCss, /\.article-body\s*>?\s*h3[^{}]*\{[^}]*border-/s);
 });
