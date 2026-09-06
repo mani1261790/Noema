@@ -11,7 +11,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@noema/content": "0.1.0",
+    "@noema/content": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

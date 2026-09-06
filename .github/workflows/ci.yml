@@ -16,29 +16,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.7.0
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: vnext/package-lock.json
+          cache: pnpm
+          cache-dependency-path: vnext/pnpm-lock.yaml
 
       - name: Install current application dependencies
         working-directory: vnext
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Audit dependencies
         working-directory: vnext
-        run: npm audit --audit-level=high
+        run: pnpm audit --audit-level=high
 
       - name: Test current application
         working-directory: vnext
-        run: npm test
+        run: pnpm test
 
       - name: Validate current application
         working-directory: vnext
-        run: npm run check
+        run: pnpm run check
 
       - name: Verify Cloudflare deployment bundles
         working-directory: vnext
-        run: npm run deploy:dry-run
+        run: pnpm run deploy:dry-run
