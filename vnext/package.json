@@ -10,21 +10,32 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:blog": "npm run dev --workspace @noema/blog",
-    "dev:studio": "npm run dev --workspace @noema/studio",
-    "dev:studio:worker": "npm run dev:worker --workspace @noema/studio",
-    "dev:studio-mcp": "npm run dev --workspace @noema/studio-mcp",
-    "test": "npm run test --workspaces --if-present",
-    "check": "npm run check --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
-    "deploy:dry-run": "npm run deploy:dry-run --workspace @noema/public-gate && npm run deploy:dry-run --workspace @noema/blog && npm run deploy:dry-run:production --workspace @noema/blog && npm run deploy:dry-run --workspace @noema/studio && npm run deploy:dry-run --workspace @noema/studio-mcp",
-    "deploy:gate": "npm run deploy --workspace @noema/public-gate",
-    "deploy:blog": "npm run deploy --workspace @noema/blog",
-    "deploy:studio": "npm run deploy --workspace @noema/studio",
-    "deploy:studio-mcp": "npm run deploy --workspace @noema/studio-mcp"
+    "dev:blog": "pnpm --filter @noema/blog run dev",
+    "dev:studio": "pnpm --filter @noema/studio run dev",
+    "dev:studio:worker": "pnpm --filter @noema/studio run dev:worker",
+    "dev:studio-mcp": "pnpm --filter @noema/studio-mcp run dev",
+    "test": "pnpm -r --workspace-concurrency=1 --if-present run test",
+    "check": "pnpm -r --workspace-concurrency=1 --if-present run check",
+    "build": "pnpm -r --workspace-concurrency=1 --if-present run build",
+    "deploy:dry-run": "pnpm --filter @noema/public-gate run deploy:dry-run && pnpm --filter @noema/blog run deploy:dry-run && pnpm --filter @noema/blog run deploy:dry-run:production && pnpm --filter @noema/studio run deploy:dry-run && pnpm --filter @noema/studio-mcp run deploy:dry-run",
+    "deploy:gate": "pnpm --filter @noema/public-gate run deploy",
+    "deploy:blog": "pnpm --filter @noema/blog run deploy",
+    "deploy:studio": "pnpm --filter @noema/studio run deploy",
+    "deploy:studio-mcp": "pnpm --filter @noema/studio-mcp run deploy"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "wrangler": "^4.126.0"
+  },
+  "packageManager": "pnpm@10.7.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ],
+    "overrides": {
+      "fast-uri@3.1.5": "3.1.6"
+    }
   }
 }
