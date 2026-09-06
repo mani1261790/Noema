@@ -1,5 +1,7 @@
 # Noemaアプリケーション
 
+開発には `pnpm@10.7.0` を使用します。初回は `npm install --global pnpm@10.7.0` で用意し、このディレクトリで `pnpm install --frozen-lockfile` を実行してください。依存関係の正本は `pnpm-lock.yaml` です。
+
 D1をsource of truthとするCMS型Markdown技術ブログの現行実装です。directory名の`vnext`は旧AWS版と並行開発していた時期の名残ですが、現在はこちらが唯一のNoema applicationです。
 
 退役したNext.js/AWS版は [Noema AWS Archive](https://github.com/mani1261790/Noema-AWS-Archive) に保存しています。
@@ -51,7 +53,7 @@ Studioとブログの運用全体は [Studio・CMS・ブログ接続ガイド](.
 
 ```bash
 cd vnext
-npm ci
+pnpm install --frozen-lockfile
 ```
 
 ### ブログとlocal D1
@@ -60,14 +62,14 @@ npm ci
 
 ```bash
 cd vnext
-npm run dev:blog
+pnpm run dev:blog
 ```
 
 Blog workspaceの`predev`が、Studioのmigration fileをlocal D1へ非対話で適用してからAstroを起動します。Cloudflare adapterは開発時にも有効なので、`cloudflare:workers`のlocal `CMS_DB` bindingをそのまま利用できます。
 
 ```bash
 cd vnext/apps/blog
-CI=true npx wrangler d1 migrations apply noema-cms \
+CI=true pnpm exec wrangler d1 migrations apply noema-cms \
   --local \
   --config ../studio/wrangler.jsonc \
   --persist-to .wrangler/state
@@ -81,7 +83,7 @@ Blogの既定URLは `http://localhost:4321` です。Local D1はremote `noema-cm
 
 ```bash
 cd vnext
-npm run dev:studio
+pnpm run dev:studio
 ```
 
 既定URLは `http://localhost:4322` です。`dev:studio`はUI編集用で、Worker API、Access JWT、D1 binding、`.dev.vars`は読みません。
@@ -90,10 +92,10 @@ Workerのasset配信とlocal D1 bindingを確認する場合は、Studioのlocal
 
 ```bash
 cd vnext/apps/studio
-npx wrangler d1 migrations apply noema-cms \
+pnpm exec wrangler d1 migrations apply noema-cms \
   --local \
   --config wrangler.jsonc
-npm run dev:worker
+pnpm run dev:worker
 ```
 
 Workerの既定URLは`http://localhost:8787`です。ローカルのmutation境界を確認する場合は、Git管理しない`.dev.vars`の`STUDIO_ALLOWED_ORIGIN`もこのoriginへ合わせます。ただしlocalhostではCloudflare Access edgeが`Cf-Access-Jwt-Assertion`を付与しないため、通常のbrowser操作でCMS APIにloginできるわけではありません。APIの認証・role・D1 mutationはlocal Worker test、Accessを含む統合flowはdeploy後の`studio.noema-learn.uk`で確認します。
@@ -106,8 +108,8 @@ Studio MCPは`https://mcp.noema-learn.uk/mcp`でStreamable HTTPを提供しま�
 
 ```bash
 cd vnext
-npm test --workspace @noema/studio-mcp
-npm run check --workspace @noema/studio-mcp
+pnpm test --workspace @noema/studio-mcp
+pnpm --filter @noema/studio-mcp run check
 ```
 
 Cloudflare側の初期設定とclient接続は[Studio MCP接続・運用ガイド](../docs/studio-mcp.md)を参照してください。
@@ -196,10 +198,10 @@ Mutationは固定Studio origin、検証済みAccess principal、CMS role、JSON 
 
 ```bash
 cd vnext
-npm test
-npm run check
-npm run build
-npm run deploy:dry-run
+pnpm test
+pnpm run check
+pnpm run build
+pnpm run deploy:dry-run
 ```
 
 `deploy:dry-run`はCloudflareへ認証・uploadせず、公開ゲート、ブログ、Studio、Studio MCPのWorker成果物とbindingを検証します。D1 repository testはmigrationをlocal Miniflareへ適用し、role、状態遷移、published revisionの固定、stale update時に孤立revisionを作らないことを検証します。

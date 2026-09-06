@@ -54,8 +54,8 @@ Node.js 22.18以上が必要です。GitHub ActionsはNode.js 24を使います�
 
 ```bash
 cd vnext
-npm ci
-npm run dev:blog
+pnpm install --frozen-lockfile
+pnpm run dev:blog
 ```
 
 `dev:blog`は起動前にStudioのmigrationをBlog用local D1へ適用し、Cloudflare adapter経由で`CMS_DB`を利用します。Remote D1は変更しません。
@@ -64,7 +64,7 @@ Studioは別terminalで起動します。
 
 ```bash
 cd vnext
-npm run dev:studio
+pnpm run dev:studio
 ```
 
 既定URLはブログが `http://localhost:4321`、Studioが `http://localhost:4322` です。
@@ -75,9 +75,9 @@ StudioのCMS APIとlocal D1まで確認する場合は、[アプリケーショ�
 
 ```bash
 cd vnext
-npm run check
-npm run build
-npm run deploy:dry-run
+pnpm run check
+pnpm run build
+pnpm run deploy:dry-run
 ```
 
 `deploy:dry-run`はCloudflareへuploadせず、公開ゲート、ブログ、Studio、Studio MCPのbundleを検証します。
