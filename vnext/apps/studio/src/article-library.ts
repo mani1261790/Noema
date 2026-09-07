@@ -25,11 +25,6 @@ export const cmsAllArticleFilter: CmsArticleFilter = {
   statuses: cmsArticleStatusOptions.map(({ value }) => value),
   includeArchived: true
 };
-export const cmsUnpublishedArticleFilter: CmsArticleFilter = {
-  statuses: ["draft", "in_review", "approved"],
-  includeArchived: false
-};
-
 // A live article remains published even while its next revision is being edited.
 export function getCmsArticleStatus(article: CmsArticleSummary): CmsArticleStatus {
   if (article.publicationStatus === "published") return "published";
