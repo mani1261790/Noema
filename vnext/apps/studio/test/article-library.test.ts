@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CmsArticleSummary, CmsSeries } from "@noema/cms";
-import { cmsAllArticleFilter, cmsUnpublishedArticleFilter, filterCmsArticles, getCmsArticleStatus, groupCmsArticles, sortCmsArticles } from "../src/article-library";
+import { cmsAllArticleFilter, filterCmsArticles, getCmsArticleStatus, groupCmsArticles, sortCmsArticles } from "../src/article-library";
 
 const articles: CmsArticleSummary[] = [
   {
@@ -70,7 +70,7 @@ describe("article library", () => {
   });
 
   it("selects only unpublished articles and keeps archives accessible separately", () => {
-    expect(filterCmsArticles(source, "", cmsUnpublishedArticleFilter).map(({ id }) => id)).toEqual(["article-review", "fix", "ready", "draft"]);
+    expect(filterCmsArticles(source, "", { statuses: ["draft", "in_review", "approved"], includeArchived: false }).map(({ id }) => id)).toEqual(["article-review", "fix", "ready", "draft"]);
     expect(filterCmsArticles(source, "", cmsAllArticleFilter)).toEqual(source);
     expect(filterCmsArticles(source, "", { statuses: ["approved"], includeArchived: true }).map(({ id }) => id)).toEqual(["article-archived", "ready"]);
   });

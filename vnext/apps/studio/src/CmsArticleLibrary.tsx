@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useRef } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import {
   cmsVisibilityLabels,
   type CmsArticleSummary,
@@ -7,7 +7,6 @@ import {
 } from "@noema/cms";
 import {
   cmsAllArticleFilter,
-  cmsUnpublishedArticleFilter,
   cmsArticleStatusOptions,
   groupCmsArticles,
   sortCmsArticles,
@@ -225,6 +224,7 @@ export function CmsArticleLibrary({
   query,
   series
 }: CmsArticleLibraryProps) {
+  const [filterDetailsOpen, setFilterDetailsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
   const seriesByArticle = useMemo(() => {
@@ -255,6 +255,10 @@ export function CmsArticleLibrary({
   );
   const groupedArticles = useMemo(() => groupCmsArticles(visibleArticles, series, sort), [visibleArticles, series, sort]);
   const hasConditions = query.trim().length > 0 || filter.statuses.length !== 4 || !filter.includeArchived;
+  const selectedStatusLabel = filter.statuses.length === 4 ? "すべて"
+    : filter.statuses.length === 0 ? "未選択"
+      : cmsArticleStatusOptions.filter(({ value }) => filter.statuses.includes(value)).map(({ label }) => label).join("・");
+  const displaySettingsLabel = [sort === "title" ? "名前順" : "", groupBySeries ? "シリーズ表示" : ""].filter(Boolean).join("・");
   const clearConditions = () => {
     onQueryChange("");
     onFilterChange(cmsAllArticleFilter);
@@ -384,50 +388,22 @@ export function CmsArticleLibrary({
                   />
                 </div>
               </div>
-              <div className="studio-library-filter-field">
-                <label htmlFor="studio-article-sort">並び順</label>
-                <div className="studio-library-filter-field__control">
-                  <select id="studio-article-sort" value={sort} onChange={(event) => onSortChange(event.target.value as CmsArticleSort)}>
-                    <option value="updated">更新が新しい順</option>
-                    <option value="title">名前順</option>
-                  </select>
-                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
-                </div>
+              <div className="studio-library-filter-disclosure">
+                <button
+                  aria-controls="studio-article-filter-details"
+                  aria-expanded={filterDetailsOpen}
+                  className="studio-library-filter-trigger"
+                  onClick={() => setFilterDetailsOpen((open) => !open)}
+                  type="button"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d={filterDetailsOpen ? "M5 12h14" : "M5 12h14M12 5v14"} /></svg>
+                  <span>絞り込み・表示設定を{filterDetailsOpen ? "閉じる" : "開く"}</span>
+                </button>
+                <p className="studio-library-filter-selection">
+                  {selectedStatusLabel}
+                  {displaySettingsLabel ? ` · ${displaySettingsLabel}` : ""}
+                </p>
               </div>
-              <label className="studio-library-check studio-library-group-toggle">
-                <input type="checkbox" checked={groupBySeries} onChange={(event) => onGroupBySeriesChange(event.target.checked)} />
-                <span>シリーズごとにまとめる</span>
-              </label>
-              <fieldset className="studio-library-statuses">
-                <legend>表示する記事 <span>複数選択可</span></legend>
-                <div className="studio-library-statuses__options">
-                  {filterOptions.map((option) => (
-                    <label className="studio-library-check" key={option.value}>
-                      <input
-                        type="checkbox"
-                        checked={filter.statuses.includes(option.value)}
-                        onChange={(event) => onFilterChange({
-                          ...filter,
-                          statuses: event.target.checked
-                            ? [...filter.statuses, option.value]
-                            : filter.statuses.filter((value) => value !== option.value)
-                        })}
-                      />
-                      <span>{option.label} <span className="studio-library-check__count">{option.count}</span></span>
-                    </label>
-                  ))}
-                </div>
-                <div className="studio-library-statuses__presets">
-                  <button className="studio-library__clear" type="button" onClick={() => onFilterChange(cmsAllArticleFilter)}>すべて選択</button>
-                  <button className="studio-library__clear" type="button" onClick={() => onFilterChange(cmsUnpublishedArticleFilter)}>未公開を選択</button>
-                  {articles.some((article) => article.publicationStatus === "archived") ? (
-                    <label className="studio-library-check">
-                      <input type="checkbox" checked={filter.includeArchived} onChange={(event) => onFilterChange({ ...filter, includeArchived: event.target.checked })} />
-                      <span>保管した記事も含める</span>
-                    </label>
-                  ) : null}
-                </div>
-              </fieldset>
               <div className="studio-library-controls__summary">
                 <p aria-atomic="true" aria-live="polite" className="studio-library__count">
                   {hasConditions ? `${visibleArticles.length}件（全${articles.length}件）` : `${articles.length}件`}
@@ -437,6 +413,54 @@ export function CmsArticleLibrary({
                     条件をリセット
                   </button>
                 ) : null}
+              </div>
+              <div className="studio-library-filter-details" hidden={!filterDetailsOpen} id="studio-article-filter-details">
+                <fieldset className="studio-library-statuses">
+                  <legend>表示するステータス <span>複数選択可</span></legend>
+                  <div className="studio-library-statuses__options">
+                    {filterOptions.map((option, index) => (
+                      <label className="studio-library-status-option" key={option.value}>
+                        <span aria-hidden="true" className="studio-library-status-option__connector" />
+                        <input
+                          className="sr-only"
+                          type="checkbox"
+                          checked={filter.statuses.includes(option.value)}
+                          onChange={(event) => onFilterChange({
+                            ...filter,
+                            statuses: event.target.checked
+                              ? [...filter.statuses, option.value]
+                              : filter.statuses.filter((value) => value !== option.value)
+                          })}
+                        />
+                        <span aria-hidden="true" className="studio-library-status-option__number">{index + 1}</span>
+                        <strong>{option.label}</strong>
+                        <span className="studio-library-check__count">{option.count}件</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="studio-library-display-options">
+                  <div className="studio-library-filter-field">
+                    <label htmlFor="studio-article-sort">並び順</label>
+                    <div className="studio-library-filter-field__control">
+                      <select id="studio-article-sort" value={sort} onChange={(event) => onSortChange(event.target.value as CmsArticleSort)}>
+                        <option value="updated">更新が新しい順</option>
+                        <option value="title">名前順</option>
+                      </select>
+                      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+                    </div>
+                  </div>
+                  <label className="studio-library-check">
+                    <input type="checkbox" checked={groupBySeries} onChange={(event) => onGroupBySeriesChange(event.target.checked)} />
+                    <span>シリーズごとにまとめる</span>
+                  </label>
+                  {articles.some((article) => article.publicationStatus === "archived") ? (
+                    <label className="studio-library-check">
+                      <input type="checkbox" checked={filter.includeArchived} onChange={(event) => onFilterChange({ ...filter, includeArchived: event.target.checked })} />
+                      <span>保管した記事も含める</span>
+                    </label>
+                  ) : null}
+                </div>
               </div>
             </div>
 

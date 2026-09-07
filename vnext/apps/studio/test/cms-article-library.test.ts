@@ -70,16 +70,21 @@ function renderLibrary(overrides: Partial<ComponentProps<typeof CmsArticleLibrar
 }
 
 describe("CmsArticleLibrary", () => {
-  it("keeps search and publication filters visible when the CMS has no articles", () => {
+  it("keeps the initial toolbar compact with all statuses selected and details hidden", () => {
     const html = renderLibrary();
 
     expect(html).toContain('role="search"');
     expect(html).toContain('id="studio-article-search"');
-    expect(html).toContain('<legend>表示する記事');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('class="studio-library-filter-details" hidden=""');
+    expect(html).toContain('絞り込み・表示設定を開く');
+    expect(html).toContain('class="studio-library-filter-selection">すべて</p>');
+    expect(html.match(/type="checkbox" checked=""/g)).toHaveLength(4);
     expect(html.match(/type="checkbox"/g)).toHaveLength(5);
     expect(html).toContain("レビュー中");
     expect(html).toContain("承認済み");
-    expect(html).toContain("未公開を選択");
+    expect(html).not.toContain("未公開を選択");
+    expect(html).not.toContain("すべて選択");
     expect(html).toContain('id="studio-article-sort"');
     expect(html).toContain("0件");
     expect(html).toContain("CMSの記事はまだありません");
@@ -109,7 +114,7 @@ describe("CmsArticleLibrary", () => {
     const html = renderLibrary({ articles: [reviewArticle], filter: { statuses: ["in_review"], includeArchived: false } });
 
     expect(html).not.toContain("対応待ち");
-    expect(html).toContain("レビュー中 <span class=\"studio-library-check__count\">1</span>");
+    expect(html).toContain("レビュー中</strong><span class=\"studio-library-check__count\">1件</span>");
     expect(html).toContain("レビューする");
   });
 
@@ -169,7 +174,7 @@ describe("CmsArticleLibrary", () => {
       filter: { statuses: ["draft"], includeArchived: false }
     });
 
-    expect(html).toContain("下書き <span class=\"studio-library-check__count\">1</span>");
+    expect(html).toContain("下書き</strong><span class=\"studio-library-check__count\">1件</span>");
     expect(html).toContain("レビュー対応を開く");
     expect(html).not.toContain("対応待ち");
   });
