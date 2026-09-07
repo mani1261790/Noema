@@ -3,95 +3,41 @@ import {
   cmsReviewStatusLabels,
   cmsVisibilityLabels,
   type CmsArticleSummary,
-  type CmsRole
+  type CmsSeries
 } from "@noema/cms";
 
-export type CmsArticleFilter =
-  | "all"
-  | "archived"
-  | "changes_requested"
-  | "draft"
-  | "in_review"
-  | "published"
-  | "ready_to_publish"
-  | "review";
+export type CmsArticleStatus = "draft" | "in_review" | "approved" | "published";
+export type CmsArticleSort = "updated" | "title";
 
-export interface CmsEditorialQueueItem {
-  count: number;
-  description: string;
-  filter: CmsArticleFilter;
-  label: string;
+export interface CmsArticleFilter {
+  statuses: readonly CmsArticleStatus[];
+  includeArchived: boolean;
 }
 
-export const cmsArticleFilterOptions: ReadonlyArray<{
-  label: string;
-  value: CmsArticleFilter;
-}> = [
-  { label: "すべて", value: "all" },
-  { label: "公開中", value: "published" },
+export const cmsArticleStatusOptions: ReadonlyArray<{ label: string; value: CmsArticleStatus }> = [
   { label: "下書き", value: "draft" },
-  { label: "レビュー対応", value: "changes_requested" },
-  { label: "レビュー・承認", value: "review" },
-  { label: "保管", value: "archived" }
+  { label: "レビュー中", value: "in_review" },
+  { label: "承認済み", value: "approved" },
+  { label: "公開", value: "published" }
 ];
+
+export const cmsAllArticleFilter: CmsArticleFilter = {
+  statuses: cmsArticleStatusOptions.map(({ value }) => value),
+  includeArchived: true
+};
+export const cmsUnpublishedArticleFilter: CmsArticleFilter = {
+  statuses: ["draft", "in_review", "approved"],
+  includeArchived: false
+};
+
+// A live article remains published even while its next revision is being edited.
+export function getCmsArticleStatus(article: CmsArticleSummary): CmsArticleStatus {
+  if (article.publicationStatus === "published") return "published";
+  return article.reviewStatus === "changes_requested" ? "draft" : article.reviewStatus;
+}
 
 function normalizeArticleSearchValue(value: string): string {
   return value.normalize("NFKC").toLocaleLowerCase("ja-JP").trim();
-}
-
-function matchesArticleFilter(article: CmsArticleSummary, filter: CmsArticleFilter): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "draft":
-      return article.reviewStatus === "draft";
-    case "changes_requested":
-      return article.reviewStatus === "changes_requested";
-    case "in_review":
-      return article.reviewStatus === "in_review";
-    case "review":
-      return ["in_review", "approved"].includes(article.reviewStatus);
-    case "ready_to_publish":
-      return article.reviewStatus === "approved" && article.publicationStatus === "unpublished";
-    case "published":
-      return article.publicationStatus === "published";
-    case "archived":
-      return article.publicationStatus === "archived";
-  }
-}
-
-export function getCmsEditorialQueue(
-  articles: readonly CmsArticleSummary[],
-  role: CmsRole
-): CmsEditorialQueueItem[] {
-  if (role === "editor") {
-    return [{
-      count: articles.filter((article) => article.reviewStatus === "changes_requested").length,
-      description: "レビューコメントを確認して、本文を直す記事です。",
-      filter: "changes_requested",
-      label: "レビュー対応する記事"
-    }];
-  }
-
-  const reviewCount = articles.filter((article) => article.reviewStatus === "in_review").length;
-  const queue: CmsEditorialQueueItem[] = [{
-    count: reviewCount,
-    description: "内容を確認し、承認または修正依頼を返す記事です。",
-    filter: "in_review",
-    label: "レビューする記事"
-  }];
-
-  if (role === "admin") {
-    queue.push({
-      count: articles.filter((article) => (
-        article.reviewStatus === "approved" && article.publicationStatus === "unpublished"
-      )).length,
-      description: "承認済みで、公開操作を待っている記事です。",
-      filter: "ready_to_publish",
-      label: "公開する記事"
-    });
-  }
-  return queue;
 }
 
 export function filterCmsArticles(
@@ -102,7 +48,8 @@ export function filterCmsArticles(
 ): CmsArticleSummary[] {
   const normalizedQuery = normalizeArticleSearchValue(query);
   return articles.filter((article) => {
-    if (!matchesArticleFilter(article, filter)) return false;
+    if (!filter.includeArchived && article.publicationStatus === "archived") return false;
+    if (!filter.statuses.includes(getCmsArticleStatus(article))) return false;
     if (!normalizedQuery) return true;
     const searchableText = normalizeArticleSearchValue([
       article.title,
@@ -115,4 +62,45 @@ export function filterCmsArticles(
     ].join(" "));
     return searchableText.includes(normalizedQuery);
   });
+}
+
+const articleNameCollator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
+
+export function sortCmsArticles(articles: readonly CmsArticleSummary[], sort: CmsArticleSort): CmsArticleSummary[] {
+  return [...articles].sort((a, b) => {
+    const byTitle = articleNameCollator.compare(a.title.trim() || "無題の記事", b.title.trim() || "無題の記事");
+    const byUpdated = (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0);
+    return (sort === "title" ? byTitle || byUpdated : byUpdated || byTitle) || a.id.localeCompare(b.id);
+  });
+}
+
+export interface CmsArticleGroup {
+  id: string;
+  title: string;
+  articles: CmsArticleSummary[];
+  total: number;
+}
+
+export function groupCmsArticles(
+  articles: readonly CmsArticleSummary[],
+  series: readonly CmsSeries[],
+  sort: CmsArticleSort
+): { groups: CmsArticleGroup[]; standalone: CmsArticleSummary[] } {
+  const memberships = new Map<string, string>();
+  for (const item of series) for (const id of item.articleIds) memberships.set(id, item.id);
+  const byId = new Map(articles.map((article) => [article.id, article]));
+  const groups = series.flatMap((item) => {
+    // Series order expresses the reading sequence, independent of the group sort.
+    const members = item.articleIds.flatMap((id) => {
+      const article = byId.get(id);
+      return article && memberships.get(id) === item.id ? [article] : [];
+    });
+    return members.length ? [{ id: item.id, title: item.title, articles: members, total: item.articleIds.length }] : [];
+  });
+  const updatedAt = (group: CmsArticleGroup) => Math.max(...group.articles.map((article) => Date.parse(article.updatedAt) || 0));
+  groups.sort((a, b) => {
+    const byTitle = articleNameCollator.compare(a.title, b.title);
+    return (sort === "title" ? byTitle : updatedAt(b) - updatedAt(a) || byTitle) || a.id.localeCompare(b.id);
+  });
+  return { groups, standalone: sortCmsArticles(articles.filter((article) => !memberships.has(article.id)), sort) };
 }

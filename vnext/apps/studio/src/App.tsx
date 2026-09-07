@@ -107,7 +107,7 @@ import {
 } from "./CmsArticleLibrary";
 import { CmsAnalyticsDashboard } from "./CmsAnalyticsDashboard";
 import { CmsDistributionLink } from "./CmsDistributionLink";
-import type { CmsArticleFilter } from "./article-library";
+import { cmsAllArticleFilter, type CmsArticleFilter, type CmsArticleSort } from "./article-library";
 import { suggestArticleMetadata } from "./article-autofill";
 import { canDeleteCmsDraftArticle } from "./article-deletion";
 import { CmsAssetLibrary } from "./CmsAssetLibrary";
@@ -613,7 +613,9 @@ export function App() {
   const [cmsSeriesBusy, setCmsSeriesBusy] = useState(false);
   const [cmsSeriesError, setCmsSeriesError] = useState<string | null>(null);
   const [cmsArticleQuery, setCmsArticleQuery] = useState("");
-  const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>("all");
+  const [cmsArticleSort, setCmsArticleSort] = useState<CmsArticleSort>("updated");
+  const [cmsGroupBySeries, setCmsGroupBySeries] = useState(false);
+  const [cmsArticleFilter, setCmsArticleFilter] = useState<CmsArticleFilter>(cmsAllArticleFilter);
   const [cmsArticle, setCmsArticle] = useState<CmsArticleDetail | null>(null);
   const [cmsReviewComments, setCmsReviewComments] = useState<CmsReviewComment[]>([]);
   const [cmsReviewCommentsBusy, setCmsReviewCommentsBusy] = useState(false);
@@ -3128,6 +3130,10 @@ export function App() {
           )}
           connection={cmsLibraryConnection}
           filter={cmsArticleFilter}
+          sort={cmsArticleSort}
+          onSortChange={setCmsArticleSort}
+          groupBySeries={cmsGroupBySeries}
+          onGroupBySeriesChange={setCmsGroupBySeries}
           hasRecoveryDraft={hasRecoveryDraft && !cmsArticle}
           hasWorkingEditor={Boolean(cmsArticle || cmsRecoveryReference)}
           onFilterChange={setCmsArticleFilter}
