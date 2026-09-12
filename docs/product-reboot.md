@@ -138,7 +138,7 @@ Studioとブログは同じfrontmatter・Markdown contractを使い、raw HTML�
 - 公開フロー: 保存、レビュー依頼、承認、管理者による公開
 - 画像: Cloudflare R2のprivate bucketへ保存する計画。ただしaccount未有効のため現在はupload不可
 
-Cloudflare Accessの認証後、D1のCMS memberとroleを照合する。roleは管理者、編集者、レビュー担当の3種類とし、管理者だけがメンバー管理と公開を行える。編集者は作成・編集・レビュー依頼、レビュー担当はそれに加えて承認・修正依頼を行える。レビュー担当が自分で保存した最新版を自己承認することは禁止する。
+Cloudflare Accessの認証後、D1のCMS memberとroleを照合する。roleは管理者、編集者、レビュー担当の3種類とし、管理者だけがメンバー管理を行える。編集者は作成・編集・レビュー依頼・承認・修正依頼・公開・保管、レビュー担当は閲覧・承認・修正依頼を行える。編集者は自分が保存した最新版も承認・公開できる。レビュー担当が自分で保存した最新版を自己承認することは禁止する。
 
 Review状態は`draft`、`in_review`、`changes_requested`、`approved`、publication状態は`unpublished`、`published`、`archived`として別々に管理する。公開範囲は`public`、`unlisted`、`restricted`、`internal`とする。`restricted`は読者認証が未接続のため現在は公開できず、`internal`は公開ブログへ出さない。
 

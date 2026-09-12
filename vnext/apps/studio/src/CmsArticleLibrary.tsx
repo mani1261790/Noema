@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useRef, useState } from "react";
 import {
+  canCms,
   cmsVisibilityLabels,
   type CmsArticleSummary,
   type CmsRole,
@@ -72,10 +73,10 @@ export function getCmsArticleActionLabel(
     return role === "reviewer" ? "修正内容を確認" : "レビュー対応を開く";
   }
   if (article.reviewStatus === "in_review") {
-    return role === "editor" ? "レビュー状況を確認" : "レビューする";
+    return "レビューする";
   }
   if (article.reviewStatus === "approved") {
-    if (role !== "admin") return "承認内容を確認";
+    if (!canCms(role, "publish")) return "承認内容を確認";
     return article.publicationStatus === "unpublished" ? "公開を確認" : "公開を管理";
   }
   if (role === "reviewer") return "内容を確認";

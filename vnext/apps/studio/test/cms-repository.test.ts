@@ -1081,6 +1081,35 @@ describe("CMS repository", () => {
     });
   });
 
+  it("lets an editor approve and publish their own revision only after review", async () => {
+    const admin = await bootstrapAdmin();
+    await upsertCmsMemberInvitation(testEnv.CMS_DB, admin.identity,
+      { active: true, email: "publisher@example.com", role: "editor" }, NOW);
+    const editor = await resolveCmsSession(testEnv.CMS_DB,
+      { email: "publisher@example.com", subject: "publisher-subject" }, "owner@example.com", NOW);
+    expect(editor.capabilities.canApprove).toBe(true);
+    expect(editor.capabilities.canPublish).toBe(true);
+    expect(editor.capabilities.canManageMembers).toBe(false);
+    let article = await createCmsArticle(testEnv.CMS_DB, editor.identity,
+      validArticle("editor-publication"), NOW);
+    await expect(transitionCmsArticle(testEnv.CMS_DB, editor.identity, article.id,
+      "publish", article.lockVersion, { visibility: "public" }, NOW))
+      .rejects.toMatchObject({ code: "invalid_transition" });
+    article = await transitionCmsArticle(testEnv.CMS_DB, editor.identity, article.id,
+      "request_review", article.lockVersion, {}, NOW);
+    article = await transitionCmsArticle(testEnv.CMS_DB, editor.identity, article.id,
+      "approve", article.lockVersion, {}, NOW);
+    expect(article.reviewStatus).toBe("approved");
+    expect(article.publicationStatus).toBe("unpublished");
+    article = await transitionCmsArticle(testEnv.CMS_DB, editor.identity, article.id,
+      "publish", article.lockVersion, { visibility: "public" }, NOW);
+    expect(article.publicationStatus).toBe("published");
+    expect(article.publishedRevisionNumber).toBe(article.revisionNumber);
+    await expect(upsertCmsMemberInvitation(testEnv.CMS_DB, editor.identity,
+      { active: true, email: "other@example.com", role: "admin" }, NOW))
+      .rejects.toMatchObject({ code: "forbidden" });
+  });
+
   it("prevents a reviewer from approving their own latest revision", async () => {
     const admin = await bootstrapAdmin();
     await upsertCmsMemberInvitation(

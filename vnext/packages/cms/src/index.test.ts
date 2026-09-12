@@ -35,9 +35,12 @@ describe("CMS contracts", () => {
       .toBeGreaterThan(0);
   });
 
-  it("keeps editorial and approval permissions separate", () => {
+  it("allows editors to approve and publish while keeping member management restricted", () => {
     expect(canCms("editor", "edit")).toBe(true);
-    expect(canCms("editor", "approve")).toBe(false);
+    expect(canCms("editor", "approve")).toBe(true);
+    expect(canCms("editor", "publish")).toBe(true);
+    expect(canCms("editor", "manage_members")).toBe(false);
+    expect(canCms("reviewer", "publish")).toBe(false);
     expect(canCms("reviewer", "approve")).toBe(true);
     expect(canCms("reviewer", "edit")).toBe(false);
     expect(canCms("reviewer", "comment")).toBe(true);

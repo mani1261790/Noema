@@ -146,7 +146,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain(">編集する</button>");
   });
 
-  it("shows review progress instead of an edit action to editors", () => {
+  it("offers editors a review action for submitted articles", () => {
     const reviewArticle = {
       ...article,
       publicationStatus: "unpublished" as const,
@@ -158,7 +158,7 @@ describe("CmsArticleLibrary", () => {
       connection: { email: "editor@example.com", kind: "ready", role: "editor" }
     });
 
-    expect(html).toContain("レビュー状況を確認");
+    expect(html).toContain("レビューする");
     expect(html).not.toContain(">編集する</button>");
   });
 

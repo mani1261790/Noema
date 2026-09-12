@@ -385,7 +385,7 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 
 現在のレビュー状態と指摘は`studio_get_article`の`reviewStatus`、`reviewNote`と`studio_list_review_comments`で確認します。レビュー依頼、修正依頼、承認は、結果が分からない再送だけ同じ入力と同じ`requestId`を使います。公開を実行するMCPツールはありません。
 
-記事単位の指摘も`target: "article"`、記事情報への指摘は`target: "metadata"`で追加できます。この2種類は本文アンカーを持ちません。編集者は`studio_withdraw_review`でレビュー依頼を取り下げられ、レビュー担当者または管理者は`studio_revoke_approval`で承認を取り消せます。いずれも公開状態は変更しません。
+記事単位の指摘も`target: "article"`、記事情報への指摘は`target: "metadata"`で追加できます。この2種類は本文アンカーを持ちません。編集者は`studio_withdraw_review`でレビュー依頼を取り下げられ、編集者、レビュー担当者または管理者は`studio_revoke_approval`で承認を取り消せます。いずれも公開状態は変更しません。
 
 ### レビューを承認する
 
