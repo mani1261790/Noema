@@ -22,11 +22,11 @@ const testEnv = env as Env & { CMS_TEST_MIGRATIONS: D1Migration[] };
 const ONE_PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 const SESSION: CmsSession = {
   capabilities: {
-    canApprove: false,
+    canApprove: true,
     canComment: true,
     canEdit: true,
     canManageMembers: false,
-    canPublish: false
+    canPublish: true
   },
   identity: {
     displayName: "編集者",
@@ -1048,16 +1048,6 @@ describe("Studio MCP tools", () => {
     });
     expect(articleFrom(replayedRequest.structuredContent).lockVersion).toBe(2);
 
-    const editorChangeRequest = await editor.client.callTool({
-      name: "studio_request_changes",
-      arguments: {
-        articleId: created.id,
-        expectedVersion: 2,
-        note: "編集者にはレビュー権限がありません。",
-        requestId: "00000000-0000-4000-8000-000000000012"
-      }
-    });
-    expect(toolErrorCode(editorChangeRequest)).toBe("forbidden");
     await editor.close();
 
     const reviewer = await connectClient(REVIEWER_SESSION);
@@ -1132,7 +1122,7 @@ describe("Studio MCP tools", () => {
     await reviewer.close();
   });
 
-  it("approves a reviewed revision idempotently without publishing it", async () => {
+  it.each(["editor", "reviewer"] as const)("lets %s approve idempotently without publishing", async (role) => {
     const editor = await connectClient();
     const createdResult = await editor.client.callTool({
       name: "studio_create_draft",
@@ -1151,30 +1141,19 @@ describe("Studio MCP tools", () => {
       }
     });
     const inReview = articleFrom(requested.structuredContent);
-    const forbidden = await editor.client.callTool({
-      name: "studio_approve_article",
-      arguments: {
-        articleId: created.id,
-        expectedVersion: inReview.lockVersion,
-        note: "編集者自身による承認はできません。",
-        requestId: "00000000-0000-4000-8000-000000000052"
-      }
-    });
-    expect(toolErrorCode(forbidden)).toBe("forbidden");
-    await editor.close();
-
-    const reviewer = await connectClient(REVIEWER_SESSION);
+    if (role === "reviewer") await editor.close();
+    const approver = role === "editor" ? editor : await connectClient(REVIEWER_SESSION);
     const approveArguments = {
       articleId: created.id,
       expectedVersion: inReview.lockVersion,
       note: "構成、根拠、画像説明を確認しました。",
       requestId: "00000000-0000-4000-8000-000000000053"
     };
-    const approved = await reviewer.client.callTool({
+    const approved = await approver.client.callTool({
       name: "studio_approve_article",
       arguments: approveArguments
     });
-    const replayedApproval = await reviewer.client.callTool({
+    const replayedApproval = await approver.client.callTool({
       name: "studio_approve_article",
       arguments: approveArguments
     });
@@ -1188,12 +1167,12 @@ describe("Studio MCP tools", () => {
       article: { publicationStatus: "unpublished" }
     });
 
-    const changedApproval = await reviewer.client.callTool({
+    const changedApproval = await approver.client.callTool({
       name: "studio_approve_article",
       arguments: { ...approveArguments, note: "異なる承認理由です。" }
     });
     expect(toolErrorCode(changedApproval)).toBe("idempotency_conflict");
-    const staleApproval = await reviewer.client.callTool({
+    const staleApproval = await approver.client.callTool({
       name: "studio_approve_article",
       arguments: {
         ...approveArguments,
@@ -1211,7 +1190,7 @@ describe("Studio MCP tools", () => {
       requestId: approveArguments.requestId,
       tool: "studio_approve_article"
     });
-    await reviewer.close();
+    await approver.close();
   });
 
   it("rejects reviewer self-approval and an empty approval reason", async () => {

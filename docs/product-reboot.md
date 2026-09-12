@@ -135,10 +135,10 @@ Studioとブログは同じfrontmatter・Markdown contractを使い、raw HTML�
 - 認証: Cloudflare Access
 - UI: 記事一覧、Markdown入力、リアルタイムプレビュー、全frontmatter項目、validation、review・publication状態、公開範囲
 - 保存先: Cloudflare D1 `noema-cms`
-- 公開フロー: 保存、レビュー依頼、承認、管理者による公開
+- 公開フロー: 保存、レビュー依頼、承認、編集者または管理者による公開
 - 画像: Cloudflare R2のprivate bucketへ保存する計画。ただしaccount未有効のため現在はupload不可
 
-Cloudflare Accessの認証後、D1のCMS memberとroleを照合する。roleは管理者、編集者、レビュー担当の3種類とし、管理者だけがメンバー管理と公開を行える。編集者は作成・編集・レビュー依頼、レビュー担当はそれに加えて承認・修正依頼を行える。レビュー担当が自分で保存した最新版を自己承認することは禁止する。
+Cloudflare Accessの認証後、D1のCMS memberとroleを照合する。roleは管理者、編集者、レビュー担当の3種類とし、管理者だけがメンバー管理を行える。編集者は作成・編集・レビュー依頼・承認・修正依頼・公開・保管、レビュー担当は閲覧・承認・修正依頼を行える。編集者は自分が保存した最新版も承認・公開できる。レビュー担当が自分で保存した最新版を自己承認することは禁止する。
 
 Review状態は`draft`、`in_review`、`changes_requested`、`approved`、publication状態は`unpublished`、`published`、`archived`として別々に管理する。公開範囲は`public`、`unlisted`、`restricted`、`internal`とする。`restricted`は読者認証が未接続のため現在は公開できず、`internal`は公開ブログへ出さない。
 
@@ -297,7 +297,7 @@ AWS版とCloudFrontは退役済みであり、ドメインのネームサーバ�
 - published revisionとcurrent revisionの分離
 - R2画像アップロード（未実装）
 
-完了条件: 複数人がStudioで保存・レビューし、管理者が承認済みrevisionを公開でき、ブログが公開範囲に応じたrevisionだけを配信する。
+完了条件: 複数人がStudioで保存・レビューし、編集者または管理者が承認済みrevisionを公開でき、ブログが公開範囲に応じたrevisionだけを配信する。
 
 `studio.noema-learn.uk`のAccess application、本人限定policy、team domain、application AUD、固定allowed originは設定済みで、`workers.dev`とpreview URLも無効化している。D1 `noema-cms`をStudioとブログへbindし、記事の保存と公開をcode deploymentから分離する。旧GitHub App publicationは移行期間中のlegacyとして保持する。
 

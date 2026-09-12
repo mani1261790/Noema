@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getCmsArticleActionLabel } from "../src/CmsArticleLibrary";
 import type { CmsArticleSummary, CmsSeries } from "@noema/cms";
 import { cmsAllArticleFilter, filterCmsArticles, getCmsArticleStatus, groupCmsArticles, sortCmsArticles } from "../src/article-library";
 
@@ -99,5 +100,16 @@ describe("article library", () => {
     expect(result.standalone.map(({ id }) => id)).toEqual(["article-review", "draft", "article-archived"]);
     expect(groupCmsArticles(source, series, "title").groups.map(({ id }) => id)).toEqual(["a", "b"]);
     expect(groupCmsArticles([source[3]], series, "updated").groups[0].articles.map(({ id }) => id)).toEqual(["fix"]);
+  });
+});
+
+describe("article workflow actions", () => {
+  it("offers editors review and publication actions", () => {
+    const article = articles[1]!;
+    expect(getCmsArticleActionLabel(article, "editor")).toBe("レビューする");
+    expect(getCmsArticleActionLabel({ ...article, reviewStatus: "approved" }, "editor"))
+      .toBe("公開を確認");
+    expect(getCmsArticleActionLabel({ ...article, reviewStatus: "approved" }, "reviewer"))
+      .toBe("承認内容を確認");
   });
 });
