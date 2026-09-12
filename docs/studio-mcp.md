@@ -107,7 +107,7 @@ Codexでは前項のプロジェクト設定を使い、ここで接続先を手
 | `studio_request_review` | レビュー状態を変更 | 原稿を検証してレビュー中へ進める |
 | `studio_withdraw_review` | レビュー状態を変更 | レビュー依頼を取り下げて下書きへ戻す |
 | `studio_request_changes` | レビュー状態を変更 | 未対応の指摘をまとめて要修正へ戻す |
-| `studio_approve_article` | レビュー状態を変更 | レビュー担当が理由を記録して最新版を承認する。公開はしない |
+| `studio_approve_article` | レビュー状態を変更 | 編集者・レビュー担当・管理者が理由を記録して最新版を承認する。編集者は自己承認できるが、レビュー担当はできない。公開はしない |
 | `studio_revoke_approval` | レビュー状態を変更 | 承認を取り消してレビュー中へ戻す |
 | `studio_create_review_comment` | コメントを追加 | 現在revisionの本文選択範囲、記事全体、記事情報へ指摘を追加する |
 | `studio_resolve_review_comment` | コメントを更新 | 修正・保存後、現在revisionで指摘を対応済みにする |
