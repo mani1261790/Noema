@@ -2,6 +2,7 @@ import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { CmsArticleSummary, CmsSeries } from "@noema/cms";
+import { cmsAllArticleFilter } from "../src/article-library";
 import { CmsArticleLibrary } from "../src/CmsArticleLibrary";
 
 const article: CmsArticleSummary = {
@@ -37,7 +38,11 @@ const baseProps: ComponentProps<typeof CmsArticleLibrary> = {
   canCreate: true,
   canOpenArticles: true,
   connection: { email: "admin@example.com", kind: "ready", role: "admin" },
-  filter: "all",
+  filter: cmsAllArticleFilter,
+  sort: "updated",
+  groupBySeries: false,
+  onSortChange: () => undefined,
+  onGroupBySeriesChange: () => undefined,
   hasRecoveryDraft: false,
   hasWorkingEditor: false,
   onContinueRecovery: () => undefined,
@@ -65,15 +70,22 @@ function renderLibrary(overrides: Partial<ComponentProps<typeof CmsArticleLibrar
 }
 
 describe("CmsArticleLibrary", () => {
-  it("keeps search and publication filters visible when the CMS has no articles", () => {
+  it("keeps the initial toolbar compact with all statuses selected and details hidden", () => {
     const html = renderLibrary();
 
     expect(html).toContain('role="search"');
     expect(html).toContain('id="studio-article-search"');
-    expect(html).toContain('id="studio-article-filter"');
-    expect(html.match(/<option/g)).toHaveLength(6);
-    expect(html).toContain("公開中（0）");
-    expect(html).toContain("レビュー対応（0）");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('class="studio-library-filter-details" hidden=""');
+    expect(html).toContain('絞り込み・表示設定を開く');
+    expect(html).toContain('class="studio-library-filter-selection">すべて</p>');
+    expect(html.match(/type="checkbox" checked=""/g)).toHaveLength(4);
+    expect(html.match(/type="checkbox"/g)).toHaveLength(5);
+    expect(html).toContain("レビュー中");
+    expect(html).toContain("承認済み");
+    expect(html).not.toContain("未公開を選択");
+    expect(html).not.toContain("すべて選択");
+    expect(html).toContain('id="studio-article-sort"');
     expect(html).toContain("0件");
     expect(html).toContain("CMSの記事はまだありません");
     expect(html).not.toContain("studio-public-link");
@@ -99,10 +111,10 @@ describe("CmsArticleLibrary", () => {
 
   it("integrates review counts into the status filter without a separate queue", () => {
     const reviewArticle = { ...article, publicationStatus: "unpublished" as const, reviewStatus: "in_review" as const };
-    const html = renderLibrary({ articles: [reviewArticle], filter: "review" });
+    const html = renderLibrary({ articles: [reviewArticle], filter: { statuses: ["in_review"], includeArchived: false } });
 
     expect(html).not.toContain("対応待ち");
-    expect(html).toContain("レビュー・承認（1）");
+    expect(html).toContain("レビュー中</strong><span class=\"studio-library-check__count\">1件</span>");
     expect(html).toContain("レビューする");
   });
 
@@ -134,7 +146,7 @@ describe("CmsArticleLibrary", () => {
     expect(html).not.toContain(">編集する</button>");
   });
 
-  it("shows review progress instead of an edit action to editors", () => {
+  it("offers editors a review action for submitted articles", () => {
     const reviewArticle = {
       ...article,
       publicationStatus: "unpublished" as const,
@@ -146,11 +158,11 @@ describe("CmsArticleLibrary", () => {
       connection: { email: "editor@example.com", kind: "ready", role: "editor" }
     });
 
-    expect(html).toContain("レビュー状況を確認");
+    expect(html).toContain("レビューする");
     expect(html).not.toContain(">編集する</button>");
   });
 
-  it("keeps review responses separate from ordinary drafts", () => {
+  it("includes review responses under drafts while preserving the response action", () => {
     const correctionArticle = {
       ...article,
       publicationStatus: "unpublished" as const,
@@ -159,10 +171,10 @@ describe("CmsArticleLibrary", () => {
     const html = renderLibrary({
       articles: [correctionArticle],
       connection: { email: "editor@example.com", kind: "ready", role: "editor" },
-      filter: "changes_requested"
+      filter: { statuses: ["draft"], includeArchived: false }
     });
 
-    expect(html).toContain("レビュー対応（1）");
+    expect(html).toContain("下書き</strong><span class=\"studio-library-check__count\">1件</span>");
     expect(html).toContain("レビュー対応を開く");
     expect(html).not.toContain("対応待ち");
   });
@@ -186,6 +198,13 @@ describe("CmsArticleLibrary", () => {
     expect(html).toContain("Cloudflare入門");
     expect(html).toContain("第2回／全2記事");
     expect(html).toContain("studio-library-item__series");
+  });
+
+  it("groups series in native accordions only when enabled", () => {
+    const html = renderLibrary({ articles: [article], series: [series], groupBySeries: true });
+    expect(html).toContain('<details class="studio-library-group" open="">');
+    expect(html).toContain("1件 / 全2件");
+    expect(renderLibrary({ articles: [article], series: [series] })).not.toContain("<details");
   });
 
   it("finds an article by its series title", () => {

@@ -25,7 +25,7 @@ interface CmsTeamSettingsProps {
 
 const roleDescriptions: Record<CmsRole, string> = {
   admin: "記事の編集・レビュー・公開と、メンバーのアクセス管理ができます。",
-  editor: "記事を編集し、レビューを依頼できます。承認や公開はできません。",
+  editor: "記事の編集・レビュー依頼・承認・公開ができます。自分が保存した最新版も承認できます。",
   reviewer: "記事を確認し、承認や修正依頼ができます。本文は編集できません。"
 };
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CmsArticleSummary } from "@noema/cms";
-import { filterCmsArticles, getCmsEditorialQueue } from "../src/article-library";
+import { getCmsArticleActionLabel } from "../src/CmsArticleLibrary";
+import type { CmsArticleSummary, CmsSeries } from "@noema/cms";
+import { cmsAllArticleFilter, filterCmsArticles, getCmsArticleStatus, groupCmsArticles, sortCmsArticles } from "../src/article-library";
 
 const articles: CmsArticleSummary[] = [
   {
@@ -41,77 +42,74 @@ const articles: CmsArticleSummary[] = [
   }
 ];
 
-describe("filterCmsArticles", () => {
-  it("searches title, slug, and editor without changing the source order", () => {
-    expect(filterCmsArticles(articles, "  WORKERS-AI  ", "all").map((article) => article.id))
-      .toEqual(["article-newest"]);
-    expect(filterCmsArticles(articles, "レビュー", "all").map((article) => article.id))
-      .toEqual(["article-review"]);
-    expect(filterCmsArticles(articles, "EDITOR@EXAMPLE.COM", "all").map((article) => article.id))
-      .toEqual(["article-newest"]);
-    expect(filterCmsArticles(articles, "", "all").map((article) => article.id))
-      .toEqual(["article-newest", "article-review", "article-archived"]);
+describe("article library", () => {
+  const source: CmsArticleSummary[] = [
+    ...articles,
+    { ...articles[1], id: "fix", reviewStatus: "changes_requested" },
+    { ...articles[1], id: "ready", reviewStatus: "approved" },
+    { ...articles[1], id: "draft", reviewStatus: "draft" }
+  ];
+
+  it("searches normalized titles, URLs, editors and series names", () => {
+    expect(filterCmsArticles(source, "　ＷＯＲＫＥＲＳ－ＡＩ　", cmsAllArticleFilter).map(({ id }) => id)).toEqual(["article-newest"]);
+    expect(filterCmsArticles(source, "EDITOR@EXAMPLE.COM", cmsAllArticleFilter).map(({ id }) => id)).toEqual(["article-newest"]);
+    expect(filterCmsArticles(source, "入門", cmsAllArticleFilter, new Map([["fix", "Cloudflare入門"]])).map(({ id }) => id)).toEqual(["fix"]);
   });
 
-  it("filters articles by editorial and publication state", () => {
-    expect(filterCmsArticles(articles, "", "draft").map((article) => article.id))
-      .toEqual(["article-newest"]);
-    expect(filterCmsArticles(articles, "", "review").map((article) => article.id))
-      .toEqual(["article-review", "article-archived"]);
-    expect(filterCmsArticles(articles, "", "published").map((article) => article.id))
-      .toEqual(["article-newest"]);
-    expect(filterCmsArticles(articles, "", "archived").map((article) => article.id))
-      .toEqual(["article-archived"]);
+  it("classifies live revisions as published and requested changes as drafts", () => {
+    for (const reviewStatus of ["draft", "changes_requested", "in_review", "approved"] as const) {
+      expect(getCmsArticleStatus({ ...articles[0], reviewStatus })).toBe("published");
+    }
+    expect(getCmsArticleStatus(source[3])).toBe("draft");
   });
 
-  it("combines a status filter with normalized search text", () => {
-    expect(filterCmsArticles(articles, "　ＡＤＭＩＮ＠ＥＸＡＭＰＬＥ．ＣＯＭ　", "archived")
-      .map((article) => article.id)).toEqual(["article-archived"]);
-    expect(filterCmsArticles(articles, "reviewer", "published")).toEqual([]);
+  it("combines statuses with OR, search with AND, and no selection shows no articles", () => {
+    const filter = { statuses: ["draft", "approved"] as const, includeArchived: false };
+    expect(filterCmsArticles(source, "", filter).map(({ id }) => id)).toEqual(["fix", "ready", "draft"]);
+    expect(filterCmsArticles(source, "does not exist", filter)).toEqual([]);
+    expect(filterCmsArticles(source, "", { statuses: [], includeArchived: true })).toEqual([]);
   });
 
-  it("includes optional series names in search", () => {
-    const aliases = new Map([["article-newest", "Cloudflare入門"]]);
-
-    expect(filterCmsArticles(articles, "cloudflare入門", "all", aliases)
-      .map((article) => article.id)).toEqual(["article-newest"]);
+  it("selects only unpublished articles and keeps archives accessible separately", () => {
+    expect(filterCmsArticles(source, "", { statuses: ["draft", "in_review", "approved"], includeArchived: false }).map(({ id }) => id)).toEqual(["article-review", "fix", "ready", "draft"]);
+    expect(filterCmsArticles(source, "", cmsAllArticleFilter)).toEqual(source);
+    expect(filterCmsArticles(source, "", { statuses: ["approved"], includeArchived: true }).map(({ id }) => id)).toEqual(["article-archived", "ready"]);
   });
 
-  it("builds a role-specific queue without mixing review and publication work", () => {
-    const readyToPublish: CmsArticleSummary = {
-      ...articles[1],
-      id: "article-publish",
-      publicationStatus: "unpublished",
-      reviewStatus: "approved"
-    };
-    const changesRequested: CmsArticleSummary = {
-      ...articles[1],
-      id: "article-fix",
-      reviewStatus: "changes_requested"
-    };
-    const source = [...articles, readyToPublish, changesRequested];
-
-    expect(getCmsEditorialQueue(source, "editor")).toEqual([
-      expect.objectContaining({ count: 1, filter: "changes_requested", label: "レビュー対応する記事" })
-    ]);
-    expect(getCmsEditorialQueue(source, "reviewer")).toEqual([
-      expect.objectContaining({ count: 1, filter: "in_review", label: "レビューする記事" })
-    ]);
-    expect(getCmsEditorialQueue(source, "admin")).toEqual([
-      expect.objectContaining({ count: 1, filter: "in_review", label: "レビューする記事" }),
-      expect.objectContaining({ count: 1, filter: "ready_to_publish", label: "公開する記事" })
-    ]);
-  });
-
-  it("applies the precise queue filters", () => {
-    const source: CmsArticleSummary[] = [
-      ...articles,
-      { ...articles[1], id: "article-fix", reviewStatus: "changes_requested" },
-      { ...articles[1], id: "article-publish", reviewStatus: "approved", publicationStatus: "unpublished" }
+  it("sorts Japanese titles and embedded numbers without mutating input", () => {
+    const input = [
+      { ...articles[0], id: "ten", title: "入門10", updatedAt: "2026-07-01T00:00:00Z" },
+      { ...articles[0], id: "two", title: "入門2", updatedAt: "2026-07-03T00:00:00Z" },
+      { ...articles[0], id: "one", title: "入門1", updatedAt: "2026-07-02T00:00:00Z" }
     ];
+    expect(sortCmsArticles(input, "title").map(({ id }) => id)).toEqual(["one", "two", "ten"]);
+    expect(sortCmsArticles(input, "updated").map(({ id }) => id)).toEqual(["two", "one", "ten"]);
+    expect(input.map(({ id }) => id)).toEqual(["ten", "two", "one"]);
+  });
 
-    expect(filterCmsArticles(source, "", "changes_requested").map(({ id }) => id)).toEqual(["article-fix"]);
-    expect(filterCmsArticles(source, "", "in_review").map(({ id }) => id)).toEqual(["article-review"]);
-    expect(filterCmsArticles(source, "", "ready_to_publish").map(({ id }) => id)).toEqual(["article-publish"]);
+  it("groups only matching articles, preserves series order and retains standalone articles", () => {
+    const series = [
+      { id: "b", title: "入門2", articleIds: ["fix", "article-newest", "missing"] },
+      { id: "a", title: "入門1", articleIds: ["ready"] },
+      { id: "empty", title: "対象なし", articleIds: ["missing"] }
+    ] as CmsSeries[];
+    const result = groupCmsArticles(source, series, "updated");
+    expect(result.groups.map(({ id }) => id)).toEqual(["b", "a"]);
+    expect(result.groups[0].articles.map(({ id }) => id)).toEqual(["fix", "article-newest"]);
+    expect(result.groups[0].total).toBe(3);
+    expect(result.standalone.map(({ id }) => id)).toEqual(["article-review", "draft", "article-archived"]);
+    expect(groupCmsArticles(source, series, "title").groups.map(({ id }) => id)).toEqual(["a", "b"]);
+    expect(groupCmsArticles([source[3]], series, "updated").groups[0].articles.map(({ id }) => id)).toEqual(["fix"]);
+  });
+});
+
+describe("article workflow actions", () => {
+  it("offers editors review and publication actions", () => {
+    const article = articles[1]!;
+    expect(getCmsArticleActionLabel(article, "editor")).toBe("レビューする");
+    expect(getCmsArticleActionLabel({ ...article, reviewStatus: "approved" }, "editor"))
+      .toBe("公開を確認");
+    expect(getCmsArticleActionLabel({ ...article, reviewStatus: "approved" }, "reviewer"))
+      .toBe("承認内容を確認");
   });
 });

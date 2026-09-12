@@ -2859,7 +2859,7 @@ function buildTransition(
       requirePermission(identity.role, "approve");
       if (reviewStatus !== "in_review") throw invalidTransition();
       if (
-        identity.role !== "admin" &&
+        identity.role === "reviewer" &&
         current.current_revision_created_by_subject === identity.subject
       ) {
         throw new CmsRepositoryError(

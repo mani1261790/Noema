@@ -1,12 +1,17 @@
-import { useDeferredValue, useMemo, useRef } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import {
+  canCms,
   cmsVisibilityLabels,
   type CmsArticleSummary,
   type CmsRole,
   type CmsSeries
 } from "@noema/cms";
 import {
-  cmsArticleFilterOptions,
+  cmsAllArticleFilter,
+  cmsArticleStatusOptions,
+  groupCmsArticles,
+  sortCmsArticles,
+  type CmsArticleSort,
   filterCmsArticles,
   type CmsArticleFilter
 } from "./article-library";
@@ -24,6 +29,10 @@ interface CmsArticleLibraryProps {
   canOpenArticles: boolean;
   connection: CmsLibraryConnection;
   filter: CmsArticleFilter;
+  sort: CmsArticleSort;
+  onSortChange: (sort: CmsArticleSort) => void;
+  groupBySeries: boolean;
+  onGroupBySeriesChange: (group: boolean) => void;
   hasRecoveryDraft: boolean;
   hasWorkingEditor: boolean;
   recoveryNeedsArticleAssociation: boolean;
@@ -64,10 +73,10 @@ export function getCmsArticleActionLabel(
     return role === "reviewer" ? "修正内容を確認" : "レビュー対応を開く";
   }
   if (article.reviewStatus === "in_review") {
-    return role === "editor" ? "レビュー状況を確認" : "レビューする";
+    return "レビューする";
   }
   if (article.reviewStatus === "approved") {
-    if (role !== "admin") return "承認内容を確認";
+    if (!canCms(role, "publish")) return "承認内容を確認";
     return article.publicationStatus === "unpublished" ? "公開を確認" : "公開を管理";
   }
   if (role === "reviewer") return "内容を確認";
@@ -102,11 +111,9 @@ function CmsArticleListItem({
     <li className="studio-library-item">
       <div className="studio-library-item__main">
         <div className="studio-library-item__title">
-          <span
-            aria-label={status.detail ? `${status.label}。${status.detail}` : status.label}
-            className="studio-library-item__status"
-          >
+          <span className="studio-library-item__status">
             {status.label}
+            {status.detail ? <span className="sr-only">。{status.detail}</span> : null}
           </span>
           <h3>{title}</h3>
         </div>
@@ -193,6 +200,10 @@ export function CmsArticleLibrary({
   canOpenArticles,
   connection,
   filter,
+  sort,
+  onSortChange,
+  groupBySeries,
+  onGroupBySeriesChange,
   hasRecoveryDraft,
   hasWorkingEditor,
   recoveryNeedsArticleAssociation,
@@ -214,6 +225,7 @@ export function CmsArticleLibrary({
   query,
   series
 }: CmsArticleLibraryProps) {
+  const [filterDetailsOpen, setFilterDetailsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
   const seriesByArticle = useMemo(() => {
@@ -232,22 +244,45 @@ export function CmsArticleLibrary({
     [seriesByArticle]
   );
   const visibleArticles = useMemo(
-    () => filterCmsArticles(articles, deferredQuery, filter, seriesSearchAliases),
-    [articles, deferredQuery, filter, seriesSearchAliases]
+    () => sortCmsArticles(filterCmsArticles(articles, deferredQuery, filter, seriesSearchAliases), sort),
+    [articles, deferredQuery, filter, seriesSearchAliases, sort]
   );
   const filterOptions = useMemo(
-    () => cmsArticleFilterOptions.map((option) => ({
+    () => cmsArticleStatusOptions.map((option) => ({
       ...option,
-      count: filterCmsArticles(articles, "", option.value).length
+      count: filterCmsArticles(articles, deferredQuery, { includeArchived: filter.includeArchived, statuses: [option.value] }, seriesSearchAliases).length
     })),
-    [articles]
+    [articles, deferredQuery, filter.includeArchived, seriesSearchAliases]
   );
-  const hasConditions = query.trim().length > 0 || filter !== "all";
+  const groupedArticles = useMemo(() => groupCmsArticles(visibleArticles, series, sort), [visibleArticles, series, sort]);
+  const hasConditions = query.trim().length > 0 || filter.statuses.length !== 4 || !filter.includeArchived;
+  const selectedStatusLabel = filter.statuses.length === 4 ? "すべて"
+    : filter.statuses.length === 0 ? "未選択"
+      : cmsArticleStatusOptions.filter(({ value }) => filter.statuses.includes(value)).map(({ label }) => label).join("・");
+  const displaySettingsLabel = [sort === "title" ? "名前順" : "", groupBySeries ? "シリーズ表示" : ""].filter(Boolean).join("・");
   const clearConditions = () => {
     onQueryChange("");
-    onFilterChange("all");
+    onFilterChange(cmsAllArticleFilter);
     window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
+
+  const renderArticleList = (items: CmsArticleSummary[]) => (
+    <ul className="studio-library-list">
+      {items.map((article) => (
+        <CmsArticleListItem
+          actionLabel={getCmsArticleActionLabel(article, connection.kind === "ready" ? connection.role : "editor")}
+          article={article}
+          busy={busy}
+          canOpen={canOpenArticles}
+          key={article.id}
+          onEdit={onEdit}
+          opening={openingArticleId === article.id}
+          recoveryNeedsArticleAssociation={recoveryNeedsArticleAssociation}
+          seriesMembership={seriesByArticle.get(article.id) ?? null}
+        />
+      ))}
+    </ul>
+  );
 
   return (
     <main
@@ -337,7 +372,8 @@ export function CmsArticleLibrary({
         ) : null}
 
         {connection.kind === "ready" ? (
-          <section aria-label="記事一覧" className="studio-library__saved">
+          <section aria-labelledby="studio-saved-articles-heading" className="studio-library__saved">
+            <h2 className="sr-only" id="studio-saved-articles-heading">記事一覧</h2>
             <div aria-label="CMSの記事を検索・絞り込み" className="studio-library-controls" role="search">
               <div className="studio-library-search-field">
                 <label htmlFor="studio-article-search">記事を検索</label>
@@ -353,20 +389,21 @@ export function CmsArticleLibrary({
                   />
                 </div>
               </div>
-              <div className="studio-library-filter-field">
-                <label htmlFor="studio-article-filter">表示する記事</label>
-                <div className="studio-library-filter-field__control">
-                  <select
-                    id="studio-article-filter"
-                    onChange={(event) => onFilterChange(event.target.value as CmsArticleFilter)}
-                    value={filter}
-                  >
-                    {filterOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}（{option.count}）</option>
-                    ))}
-                  </select>
-                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
-                </div>
+              <div className="studio-library-filter-disclosure">
+                <button
+                  aria-controls="studio-article-filter-details"
+                  aria-expanded={filterDetailsOpen}
+                  className="studio-library-filter-trigger"
+                  onClick={() => setFilterDetailsOpen((open) => !open)}
+                  type="button"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d={filterDetailsOpen ? "M5 12h14" : "M5 12h14M12 5v14"} /></svg>
+                  <span>絞り込み・表示設定を{filterDetailsOpen ? "閉じる" : "開く"}</span>
+                </button>
+                <p className="studio-library-filter-selection">
+                  {selectedStatusLabel}
+                  {displaySettingsLabel ? ` · ${displaySettingsLabel}` : ""}
+                </p>
               </div>
               <div className="studio-library-controls__summary">
                 <p aria-atomic="true" aria-live="polite" className="studio-library__count">
@@ -377,6 +414,54 @@ export function CmsArticleLibrary({
                     条件をリセット
                   </button>
                 ) : null}
+              </div>
+              <div className="studio-library-filter-details" hidden={!filterDetailsOpen} id="studio-article-filter-details">
+                <fieldset className="studio-library-statuses">
+                  <legend>表示するステータス <span>複数選択可</span></legend>
+                  <div className="studio-library-statuses__options">
+                    {filterOptions.map((option, index) => (
+                      <label className="studio-library-status-option" key={option.value}>
+                        <span aria-hidden="true" className="studio-library-status-option__connector" />
+                        <input
+                          className="sr-only"
+                          type="checkbox"
+                          checked={filter.statuses.includes(option.value)}
+                          onChange={(event) => onFilterChange({
+                            ...filter,
+                            statuses: event.target.checked
+                              ? [...filter.statuses, option.value]
+                              : filter.statuses.filter((value) => value !== option.value)
+                          })}
+                        />
+                        <span aria-hidden="true" className="studio-library-status-option__number">{index + 1}</span>
+                        <strong>{option.label}</strong>
+                        <span className="studio-library-check__count">{option.count}件</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="studio-library-display-options">
+                  <div className="studio-library-filter-field">
+                    <label htmlFor="studio-article-sort">並び順</label>
+                    <div className="studio-library-filter-field__control">
+                      <select id="studio-article-sort" value={sort} onChange={(event) => onSortChange(event.target.value as CmsArticleSort)}>
+                        <option value="updated">更新が新しい順</option>
+                        <option value="title">名前順</option>
+                      </select>
+                      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5" /></svg>
+                    </div>
+                  </div>
+                  <label className="studio-library-check">
+                    <input type="checkbox" checked={groupBySeries} onChange={(event) => onGroupBySeriesChange(event.target.checked)} />
+                    <span>シリーズごとにまとめる</span>
+                  </label>
+                  {articles.some((article) => article.publicationStatus === "archived") ? (
+                    <label className="studio-library-check">
+                      <input type="checkbox" checked={filter.includeArchived} onChange={(event) => onFilterChange({ ...filter, includeArchived: event.target.checked })} />
+                      <span>保管した記事も含める</span>
+                    </label>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -396,21 +481,23 @@ export function CmsArticleLibrary({
                 <p>検索語や「表示する記事」を変えると、別の記事を探せます。</p>
               </div>
             ) : (
-              <ul className="studio-library-list">
-                {visibleArticles.map((article) => (
-                  <CmsArticleListItem
-                    actionLabel={getCmsArticleActionLabel(article, connection.role)}
-                    article={article}
-                    busy={busy}
-                    canOpen={canOpenArticles}
-                    key={article.id}
-                    onEdit={onEdit}
-                    opening={openingArticleId === article.id}
-                    recoveryNeedsArticleAssociation={recoveryNeedsArticleAssociation}
-                    seriesMembership={seriesByArticle.get(article.id) ?? null}
-                  />
-                ))}
-              </ul>
+              groupBySeries ? (
+                <div className="studio-library-groups">
+                  <p className="studio-library-groups__hint">シリーズ内は記事の順番で表示します。</p>
+                  {groupedArticles.groups.map((group) => (
+                    <details className="studio-library-group" key={group.id} open>
+                      <summary><span>{group.title}</span><small>{group.articles.length}件 / 全{group.total}件</small></summary>
+                      {renderArticleList(group.articles)}
+                    </details>
+                  ))}
+                  {groupedArticles.standalone.length ? (
+                    <section aria-labelledby="studio-standalone-heading" className="studio-library-standalone">
+                      <h2 id="studio-standalone-heading">シリーズなし <small>{groupedArticles.standalone.length}件</small></h2>
+                      {renderArticleList(groupedArticles.standalone)}
+                    </section>
+                  ) : null}
+                </div>
+              ) : renderArticleList(visibleArticles)
             )}
           </section>
         ) : null}

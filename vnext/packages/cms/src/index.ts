@@ -458,7 +458,8 @@ export function canCms(role: CmsRole, permission: CmsPermission): boolean {
   if (role === "admin") return true;
   if (permission === "view") return true;
   if (permission === "edit") return role === "editor";
-  if (permission === "approve") return role === "reviewer";
+  if (permission === "approve") return role === "editor" || role === "reviewer";
+  if (permission === "publish") return role === "editor";
   if (permission === "comment") return role === "editor" || role === "reviewer";
   return false;
 }
