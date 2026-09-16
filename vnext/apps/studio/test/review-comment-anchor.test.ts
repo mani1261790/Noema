@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   createReviewCommentAnchor,
   createReviewCommentAnchorFromRenderedSelection,
+  formatReviewCommentMarkdownLineRange,
   getRenderedReviewCommentQuote,
+  getReviewCommentMarkdownLineRange,
   locateReviewCommentAnchor
 } from "../src/review-comment-anchor";
 
@@ -100,5 +102,19 @@ describe("review comment anchors", () => {
     );
     expect(anchor?.quote).toBe("これは**重要な説明**です");
     expect(anchor && getRenderedReviewCommentQuote(anchor.quote)).toBe("これは重要な説明です");
+  });
+
+  it("reports the current one-based Markdown line range for an anchor", () => {
+    const markdown = "## 導入\n\n複数行の\n指摘箇所です。\n\n## 次へ";
+    const startOffset = markdown.indexOf("複数行");
+    const anchor = createReviewCommentAnchor(
+      markdown,
+      startOffset,
+      startOffset + "複数行の\n指摘箇所".length
+    );
+    const range = anchor && getReviewCommentMarkdownLineRange(markdown, anchor);
+
+    expect(range).toEqual({ startLine: 3, endLine: 4 });
+    expect(range && formatReviewCommentMarkdownLineRange(range)).toBe("Markdown 3〜4行目");
   });
 });

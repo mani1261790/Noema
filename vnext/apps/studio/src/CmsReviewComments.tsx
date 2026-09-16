@@ -3,10 +3,14 @@ import type {
   CmsReviewCommentAnchor
 } from "@noema/cms";
 import type { FormEvent, RefObject } from "react";
+import {
+  formatReviewCommentMarkdownLineRange,
+  getReviewCommentMarkdownLineRange
+} from "./review-comment-anchor";
 
 interface CmsReviewCommentsProps {
   activeAnchor: CmsReviewCommentAnchor | null;
-  body: string;
+  commentBody: string;
   busy: boolean;
   canComment: boolean;
   canReopen: boolean;
@@ -14,6 +18,7 @@ interface CmsReviewCommentsProps {
   comments: CmsReviewComment[];
   inputRef: RefObject<HTMLTextAreaElement | null>;
   loading: boolean;
+  markdown: string;
   mode: "response" | "review";
   onActiveAnchorClear: () => void;
   onBodyChange: (value: string) => void;
@@ -24,7 +29,7 @@ interface CmsReviewCommentsProps {
 
 export function CmsReviewComments({
   activeAnchor,
-  body,
+  commentBody,
   busy,
   canComment,
   canReopen,
@@ -32,6 +37,7 @@ export function CmsReviewComments({
   comments,
   inputRef,
   loading,
+  markdown,
   mode,
   onActiveAnchorClear,
   onBodyChange,
@@ -41,6 +47,9 @@ export function CmsReviewComments({
 }: CmsReviewCommentsProps) {
   const openComments = comments.filter((comment) => comment.status === "open");
   const resolvedComments = comments.filter((comment) => comment.status === "resolved");
+  const activeMarkdownLineRange = activeAnchor
+    ? getReviewCommentMarkdownLineRange(markdown, activeAnchor)
+    : null;
   return (
     <section aria-labelledby="cms-review-comments-heading" className="studio-review-comments">
       <div className="studio-review-comments__heading">
@@ -70,6 +79,7 @@ export function CmsReviewComments({
               action={canResolve ? "resolve" : null}
               busy={busy}
               comment={comment}
+              markdown={markdown}
               key={comment.id}
               onFocus={onCommentFocus}
               onStatusChange={onStatusChange}
@@ -89,6 +99,7 @@ export function CmsReviewComments({
                 action={canReopen ? "reopen" : null}
                 busy={busy}
                 comment={comment}
+                markdown={markdown}
                 key={comment.id}
                 onFocus={onCommentFocus}
                 onStatusChange={onStatusChange}
@@ -104,6 +115,11 @@ export function CmsReviewComments({
             <div className="studio-review-comments__selection" role="status">
               <div>
                 <strong>選択した箇所</strong>
+                {activeMarkdownLineRange ? (
+                  <span className="studio-review-comment__line">
+                    {formatReviewCommentMarkdownLineRange(activeMarkdownLineRange)}
+                  </span>
+                ) : null}
                 <blockquote>{activeAnchor.quote}</blockquote>
               </div>
               <button onClick={onActiveAnchorClear} type="button">選択を解除</button>
@@ -119,14 +135,14 @@ export function CmsReviewComments({
             placeholder="何を、どのように直してほしいかを具体的に書きます。"
             ref={inputRef}
             rows={4}
-            value={body}
+            value={commentBody}
           />
           <div className="studio-review-comments__form-actions">
             <button
               className="dads-button"
               data-size="md"
               data-type="outline"
-              disabled={busy || !body.trim() || !activeAnchor}
+              disabled={busy || !commentBody.trim() || !activeAnchor}
               type="submit"
             >
               指摘を追加
@@ -142,6 +158,7 @@ function ReviewCommentCard({
   action,
   busy,
   comment,
+  markdown,
   onFocus,
   onStatusChange,
   responseMode
@@ -149,10 +166,14 @@ function ReviewCommentCard({
   action: "reopen" | "resolve" | null;
   busy: boolean;
   comment: CmsReviewComment;
+  markdown: string;
   onFocus: (comment: CmsReviewComment) => void;
   onStatusChange: (comment: CmsReviewComment, action: "resolve" | "reopen") => void;
   responseMode: boolean;
 }) {
+  const markdownLineRange = comment.anchor
+    ? getReviewCommentMarkdownLineRange(markdown, comment.anchor)
+    : null;
   return (
     <li className={comment.status === "resolved" ? "is-resolved" : "is-open"}>
       <div className="studio-review-comment__status">
@@ -162,6 +183,11 @@ function ReviewCommentCard({
       {comment.anchor ? (
         <button className="studio-review-comment__quote" onClick={() => onFocus(comment)} type="button">
           <span>{responseMode ? "Markdownの該当箇所を開く" : "本文の該当箇所を開く"}</span>
+          {markdownLineRange ? (
+            <span className="studio-review-comment__line">
+              {formatReviewCommentMarkdownLineRange(markdownLineRange)}
+            </span>
+          ) : null}
           <q>{comment.anchor.quote}</q>
         </button>
       ) : null}
