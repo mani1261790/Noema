@@ -114,6 +114,10 @@ import { CmsAssetLibrary } from "./CmsAssetLibrary";
 import { CmsAssetPicker } from "./CmsAssetPicker";
 import { CmsAssetTray, noemaAssetDragType } from "./CmsAssetTray";
 import { CmsPublicationJourney, getCmsWorkflowShortcut } from "./CmsPublicationJourney";
+import {
+  canStartPublishedRevision,
+  CmsPublishedRevisionStarter
+} from "./CmsPublishedRevisionStarter";
 import { CmsVersionHistory } from "./CmsVersionHistory";
 import { CmsTeamSettings } from "./CmsTeamSettings";
 import { CmsArticleSeriesEditor } from "./CmsArticleSeriesEditor";
@@ -2034,6 +2038,9 @@ export function App() {
       note = `未対応のレビューコメントが${openCommentCount}件あります。`;
     }
 
+    if (action === "start_revision" && !window.confirm(
+      `公開中のrevision ${target.revisionNumber}を残したまま、編集用のrevision ${target.revisionNumber + 1}を作成しますか？`
+    )) return;
     if (action === "revoke_approval" && !window.confirm(
       cmsArticle?.publicationStatus === "published"
         ? "承認を取り消してレビュー中へ戻しますか？ 現在公開中の内容はそのまま維持されます。"
@@ -2073,12 +2080,24 @@ export function App() {
         request_changes: "修正を依頼しました。",
         request_review: "レビューを依頼しました。",
         restore: "記事を未公開へ戻しました。",
+        start_revision: "公開版を残して、新しい編集用revisionを作成しました。",
         withdraw_review: "レビューを取り下げ、編集できる状態へ戻しました。"
       };
       if (action === "approve" && cmsSessionState.session.capabilities.canPublish) {
         setSettingsMode("publish");
       }
       if (action === "revoke_approval") setSettingsMode("review");
+      if (action === "start_revision") {
+        setSettingsMode("metadata");
+        setSettingsOpen(false);
+        setPreviewFullscreen(false);
+        showNotification({
+          text: `公開中のrevision ${result.value.publishedRevisionNumber}はそのままです。revision ${result.value.revisionNumber}を編集できます。`,
+          title: "新しいrevisionを作成しました",
+          tone: "info"
+        });
+        window.requestAnimationFrame(() => bodyInput.current?.focus());
+      }
       if (action === "request_changes") setCmsReviewCommentBody("");
       if (localChangedDuringAction) {
         showNotification({
@@ -3354,7 +3373,9 @@ export function App() {
             />
             {cmsArticle?.publishedRevisionNumber !== null && cmsArticle?.publishedRevisionNumber !== undefined ? (
               <p className="studio-cms__published-note">
-                公開中はrevision {cmsArticle.publishedRevisionNumber}です。現在のrevision {cmsArticle.revisionNumber}を編集しても、承認して公開するまで読者向け内容は変わりません。
+                {cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber
+                  ? `公開中はrevision ${cmsArticle.publishedRevisionNumber}です。新しいrevisionを作成・編集しても、承認して公開するまで読者向け内容は変わりません。`
+                  : `公開中はrevision ${cmsArticle.publishedRevisionNumber}です。現在のrevision ${cmsArticle.revisionNumber}を編集しても、承認して公開するまで読者向け内容は変わりません。`}
               </p>
             ) : null}
             {cmsArticle?.publicationStatus === "published" && cmsArticle.publishedSlug ? (
@@ -3429,15 +3450,21 @@ export function App() {
                 <p>公開範囲は下書きの編集項目ではなく、この画面で公開する時にだけ設定します。</p>
               </div>
               <button className="dads-button studio-publish-stage__back" data-size="sm" data-type="outline" onClick={() => setSettingsMode("review")} type="button">レビューへ戻る</button>
+              <CmsPublishedRevisionStarter
+                article={cmsArticle}
+                busy={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict}
+                canEdit={Boolean(cmsSession?.capabilities.canEdit)}
+                onStart={() => void runCmsAction("start_revision")}
+              />
               {cmsArticle?.reviewStatus !== "approved" ? (
                 <div className="studio-publish-readiness" role="status">
                   <strong>公開前にレビュー承認が必要です</strong>
                   <p>レビューで内容を承認すると、このrevisionを公開できるようになります。</p>
                   <button className="dads-button" data-size="md" data-type="outline" onClick={() => setSettingsMode("review")} type="button">レビューを開く</button>
                 </div>
-              ) : (
+              ) : !canStartPublishedRevision(cmsArticle, Boolean(cmsSession?.capabilities.canEdit)) ? (
                 <p className="studio-publish-readiness is-ready"><strong>revision {cmsArticle.revisionNumber} は承認済みです。</strong> 公開範囲を選び、公開内容を確定してください。</p>
-              )}
+              ) : null}
               <fieldset className="studio-cms__visibility" disabled={!cmsSession?.capabilities.canPublish || cmsOperationBusy}>
                 <legend>公開範囲</legend>
                 {(Object.keys(cmsVisibilityLabels) as CmsVisibility[]).map((visibility) => {
@@ -3454,7 +3481,13 @@ export function App() {
                 {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "published" ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("archive")} type="button">公開を終了する</button> : null}
                 {cmsSession?.capabilities.canPublish && cmsArticle?.publicationStatus === "archived" ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("restore")} type="button">未公開状態へ戻す</button> : null}
               </div>
-              {cmsArticle?.reviewStatus === "approved" && !cmsCanPublish && cmsArticle.publicationStatus === "published" && cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber ? <p className="studio-cms__published-note">このrevisionはすでに公開中です。内容を変える場合は、承認を取り消してレビューからやり直してください。</p> : null}
+              {cmsArticle?.reviewStatus === "approved" &&
+              !cmsCanPublish &&
+              cmsArticle.publicationStatus === "published" &&
+              cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber &&
+              !canStartPublishedRevision(cmsArticle, Boolean(cmsSession?.capabilities.canEdit))
+                ? <p className="studio-cms__published-note">このrevisionはすでに公開中です。内容を変える場合は、承認を取り消してレビューからやり直してください。</p>
+                : null}
             </section> : null}
             <p className="sr-only" aria-live="polite">{saveStatus}</p>
           </details>
