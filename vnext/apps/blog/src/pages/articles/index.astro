@@ -20,12 +20,13 @@ const narrowingTopics = listNarrowingTopics(articles);
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
 const suggestions = [...new Set([
   ...articles.map((article) => article.title),
+  ...articles.flatMap((article) => article.editor?.displayName ? [article.editor.displayName] : article.authors),
   ...seriesList.map((series) => series.title),
   ...activeTopics.map((topic) => topic.label),
   ...tags,
 ])];
 const title = "AI駆動開発・ローカルLLMの記事を探す | Noema";
-const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・概要・シリーズ・テーマ・タグから探せます。";
+const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・概要・編集者・シリーズ・テーマ・タグから探せます。";
 const jsonLd = collectionPageJsonLd({
   description,
   items: articles.map((article) => ({ name: article.title, pathname: article.href })),
@@ -56,7 +57,7 @@ const jsonLd = collectionPageJsonLd({
         </datalist>
         <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">検索</button>
       </div>
-      <p id="article-search-support" class="article-search__support">タイトル、記事の概要や抜粋、シリーズ、テーマ、タグから検索できます。</p>
+      <p id="article-search-support" class="article-search__support">タイトル、記事の概要や抜粋、URL名、編集者、シリーズ、テーマ、タグから検索できます。</p>
       <details class="article-search__detail dads-disclosure" data-filter-details>
         <summary class="dads-disclosure__summary">
           <svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
@@ -110,9 +111,12 @@ const jsonLd = collectionPageJsonLd({
           <div
             data-article-item
             data-search-text={buildArticleSearchText({
+              authors: article.authors,
               description: article.description,
+              editorName: article.editor?.displayName,
               excerpt: article.excerpt,
               seriesTitle: memberSeries?.title,
+              slug: article.slug,
               tags: article.tags,
               title: article.title,
               topicLabels: article.topics.map((topic) => topicLabels[topic]),

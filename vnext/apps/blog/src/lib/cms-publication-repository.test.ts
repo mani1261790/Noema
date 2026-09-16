@@ -7,6 +7,7 @@ import {
   getCmsPublishedEditorProfile,
   getCmsPublishedArticleRedirect,
   isCmsPublicationVisible,
+  listCmsPublicArticleSummaries,
   listCmsPublishedEditors,
   listCmsPublishedSeries,
   parseCmsPublishedArticleRow,
@@ -93,6 +94,42 @@ describe("CMS publication visibility", () => {
       revision_created_at: "2026-07-17T05:06:07.000Z",
       revision_number: 1,
     }, "listing")).toThrow(/does not match/);
+  });
+});
+
+describe("public article summaries", () => {
+  it("keeps the public editor attribution available to article search", async () => {
+    const db = {
+      prepare() {
+        return {
+          async all<T>() {
+            return { results: [{
+              frontmatter_json: JSON.stringify(validFrontmatter),
+              editor_display_name: "山田 編集",
+              editor_public_id: "0123456789abcdef0123456789abcdef",
+              published_at: "2026-07-18T01:02:03.000Z",
+              published_slug: "cms-published-article",
+              published_visibility: "public",
+              revision_created_at: "2026-07-17T05:06:07.000Z",
+              revision_number: 4,
+            }] as T[] };
+          },
+          bind() { return this; },
+          async first<T>() { return null as T | null; },
+        };
+      },
+    } satisfies CmsPublicationDatabase;
+
+    await expect(listCmsPublicArticleSummaries(db)).resolves.toEqual([
+      expect.objectContaining({
+        editor: {
+          displayName: "山田 編集",
+          href: "/editors/0123456789abcdef0123456789abcdef",
+          publicId: "0123456789abcdef0123456789abcdef",
+        },
+        slug: "cms-published-article",
+      }),
+    ]);
   });
 });
 
