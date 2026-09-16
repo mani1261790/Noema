@@ -119,6 +119,7 @@ import { CmsTeamSettings } from "./CmsTeamSettings";
 import { CmsArticleSeriesEditor } from "./CmsArticleSeriesEditor";
 import { CmsPasswordLoginMigration } from "./CmsPasswordLoginMigration";
 import { CmsReviewComments } from "./CmsReviewComments";
+import { MarkdownEditor } from "./MarkdownEditor";
 import { CmsLogin } from "./CmsLogin";
 import {
   resolveArticleOpeningSurface,
@@ -2239,7 +2240,7 @@ export function App() {
     if (!anchor) return;
     setCmsReviewCommentAnchor(anchor);
     if (focusCommentInput) {
-      window.requestAnimationFrame(() => reviewCommentInput.current?.focus());
+      window.requestAnimationFrame(() => reviewCommentInput.current?.focus({ preventScroll: true }));
     }
   };
 
@@ -3392,7 +3393,7 @@ export function App() {
               {cmsArticle && (["in_review", "changes_requested", "approved"].includes(cmsArticle.reviewStatus) || cmsReviewComments.length > 0) ? (
                 <CmsReviewComments
                   activeAnchor={cmsReviewCommentAnchor}
-                  body={cmsReviewCommentBody}
+                  commentBody={cmsReviewCommentBody}
                   busy={cmsOperationBusy}
                   canComment={Boolean(cmsSession?.capabilities.canComment) && ["in_review", "approved"].includes(cmsArticle.reviewStatus)}
                   canReopen={Boolean(cmsSession?.capabilities.canApprove)}
@@ -3400,6 +3401,7 @@ export function App() {
                   comments={cmsReviewComments}
                   inputRef={reviewCommentInput}
                   loading={cmsReviewCommentsBusy}
+                  markdown={body}
                   mode={cmsReviewResponseMode ? "response" : "review"}
                   onActiveAnchorClear={() => setCmsReviewCommentAnchor(null)}
                   onBodyChange={setCmsReviewCommentBody}
@@ -3785,7 +3787,7 @@ export function App() {
             </div>
             <div className={`studio-writing-canvas ${assetDropActive ? "is-asset-drop" : ""}`} hidden={previewFullscreen}>
               <label className="sr-only" htmlFor="article-body">Markdown本文</label>
-              <textarea
+              <MarkdownEditor
                 aria-describedby="article-body-help"
                 aria-errormessage={bodyInvalid ? "article-body-error" : undefined}
                 aria-invalid={bodyInvalid || undefined}
