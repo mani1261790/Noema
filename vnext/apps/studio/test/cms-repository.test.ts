@@ -534,6 +534,110 @@ describe("CMS repository", () => {
     expect(approvedRevisionId).toBeNull();
   });
 
+  it("starts a new draft revision while keeping the published revision live", async () => {
+    const admin = await bootstrapAdmin();
+    let article = await createCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      validArticle("start-published-revision"),
+      NOW
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "request_review",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:01:00.000Z")
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "approve",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:02:00.000Z")
+    );
+    article = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "publish",
+      article.lockVersion,
+      { visibility: "public" },
+      new Date("2026-07-18T00:03:00.000Z")
+    );
+    const publishedRevisionId = article.currentRevision.id;
+    await upsertCmsMemberInvitation(
+      testEnv.CMS_DB,
+      admin.identity,
+      { active: true, email: "revision-reviewer@example.com", role: "reviewer" },
+      NOW
+    );
+    const reviewer = await resolveCmsSession(
+      testEnv.CMS_DB,
+      { email: "revision-reviewer@example.com", subject: "revision-reviewer-subject" },
+      "owner@example.com",
+      NOW
+    );
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      reviewer.identity,
+      article.id,
+      "start_revision",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:03:30.000Z")
+    )).rejects.toMatchObject({ code: "forbidden" });
+
+    const draft = await transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "start_revision",
+      article.lockVersion,
+      {},
+      new Date("2026-07-18T00:04:00.000Z")
+    );
+
+    expect(draft.currentRevision.number).toBe(2);
+    expect(draft.currentRevision.id).not.toBe(publishedRevisionId);
+    expect(draft.currentRevision.frontmatter).toEqual(article.currentRevision.frontmatter);
+    expect(draft.currentRevision.markdown).toBe(article.currentRevision.markdown);
+    expect(draft.reviewStatus).toBe("draft");
+    expect(draft.publicationStatus).toBe("published");
+    expect(draft.publishedRevisionNumber).toBe(1);
+    const pointers = await testEnv.CMS_DB.prepare(
+      `SELECT approved_revision_id, current_revision_id, published_revision_id
+       FROM cms_articles WHERE id = ?1`
+    ).bind(article.id).first<{
+      approved_revision_id: string | null;
+      current_revision_id: string;
+      published_revision_id: string;
+    }>();
+    expect(pointers).toEqual({
+      approved_revision_id: null,
+      current_revision_id: draft.currentRevision.id,
+      published_revision_id: publishedRevisionId
+    });
+    const auditCount = await testEnv.CMS_DB.prepare(
+      "SELECT COUNT(*) AS count FROM cms_audit_events WHERE article_id = ?1 AND action = 'article.start_revision'"
+    ).bind(article.id).first<number>("count");
+    expect(auditCount).toBe(1);
+
+    await expect(transitionCmsArticle(
+      testEnv.CMS_DB,
+      admin.identity,
+      article.id,
+      "start_revision",
+      draft.lockVersion,
+      {},
+      new Date("2026-07-18T00:05:00.000Z")
+    )).rejects.toMatchObject({ code: "invalid_transition" });
+  });
+
   it("validates the approved revision again immediately before publication", async () => {
     const admin = await bootstrapAdmin();
     let article = await createCmsArticle(

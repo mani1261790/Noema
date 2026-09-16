@@ -51,6 +51,7 @@ Reviewとpublicationは別の状態です。公開中の記事に新しいrevisi
 
 | action | 実行できるrole | 前提 | 結果 |
 | --- | --- | --- | --- |
+| `start_revision` | `admin`、`editor` | publicationが`published`で、current revisionが公開中かつ承認済み | 公開中のrevisionを固定したまま、同じ内容の新しいdraft revisionを作る |
 | `request_review` | `admin`、`editor` | reviewが`draft`または`changes_requested`で、記事検証に成功 | reviewを`in_review`へ変更し、以前の承認pointerを外す |
 | `withdraw_review` | `admin`、`editor` | reviewが`in_review` | reviewを`draft`へ戻し、編集を再開する |
 | `approve` | `admin`、`reviewer` | reviewが`in_review` | reviewを`approved`へ変更し、current revisionをapproved revisionへ固定 |

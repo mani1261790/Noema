@@ -109,6 +109,16 @@ describe("article workflow actions", () => {
     expect(getCmsArticleActionLabel(article, "editor")).toBe("レビューする");
     expect(getCmsArticleActionLabel({ ...article, reviewStatus: "approved" }, "editor"))
       .toBe("公開を確認");
+    expect(getCmsArticleActionLabel({
+      ...article,
+      publicationStatus: "published",
+      reviewStatus: "approved"
+    }, "editor")).toBe("公開を管理・改訂");
+    expect(getCmsArticleActionLabel({
+      ...article,
+      publicationStatus: "archived",
+      reviewStatus: "approved"
+    }, "editor")).toBe("公開を管理");
     expect(getCmsArticleActionLabel({ ...article, reviewStatus: "approved" }, "reviewer"))
       .toBe("承認内容を確認");
   });
