@@ -13,7 +13,7 @@ Cloudflare Accessの認証に成功しただけでは、MCPは利用できませ
 
 ## 5分で接続する
 
-### Codexで接続する（動作確認済み）
+### Codexで接続する（認可URLの生成まで確認）
 
 Noemaリポジトリには、接続先とOAuth scopeを`.codex/config.toml`で設定済みです。Codexアプリ、CLI、IDE拡張はこの設定を共有します。
 
@@ -38,6 +38,22 @@ Noemaリポジトリには、接続先とOAuth scopeを`.codex/config.toml`で�
 ```bash
 codex mcp login noema-studio --scopes openid
 ```
+
+### ChatGPTのpersonal plugin（Noemaの実機OAuthは未検証）
+
+[公式quickstart](https://developers.openai.com/plugins/quickstart)に沿って、Settings → Security and loginでDeveloper modeを有効にし、Pluginsの追加画面へNoemaのendpointを登録します。personal pluginsからインストールし、新しいWorkチャットで`@`から選択してください。
+
+公式例は認証不要のMCPです。登録手順が確認できても、NoemaのManaged OAuthが完了する証拠にはなりません。認証なしの設定、共有token、認証を迂回するプロキシで代用しないでください。
+
+### dot（利用環境・Noemaの実機OAuthは未検証）
+
+利用するdotの画面・環境で、Noemaのプラグインが表示され、選択・利用できることを確認します。ChatGPTで作成しただけではdotでも利用可能とは限りません。表示されない場合は、そのクライアントの利用条件・インストール状態を確認し、接続済みとは記録しません。
+
+### 登録と認証を分けて確認する
+
+Studioの「AIから接続」（`/connection`）からURLをコピーできます。コピーが失敗したときもURL欄を選択して手動でコピーでき、再試行できます。この画面は外部クライアントの接続状態を取得しません。
+
+GitHub連携、クライアントのログイン・MCP登録・プラグインのインストール・操作許可、Cloudflare Access認証、CMSメンバー権限は別です。クライアントの登録操作で止まっただけでは、Noemaサーバーの認証障害とは判断しません。
 
 ### 1. 接続先を登録する
 
@@ -129,7 +145,7 @@ MCPでは、記事の公開、公開終了、再公開はできません。過�
 
 ### 新しい下書きの例
 
-まず`studio_validate_draft`で内容を検証し、問題がなければ同じ記事内容を`studio_create_draft`へ渡します。
+まず`studio_whoami`で本人・役割と`capabilities.canEdit`を確認し、`studio_list_articles`で読み取り、`studio_validate_draft`で内容を検証します。ここまで保存は不要です。利用者が保存を明示的に選んだときだけ、editorまたはadminの編集権限と入力を確認して`studio_create_draft`へ渡します。接続確認のために自動保存しないでください。
 
 ```json
 {
@@ -413,6 +429,9 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 | 表示 | 意味と対応 |
 | --- | --- |
 | `Consent request is malformed` | CodexのOAuth要求にscopeがありません。Noemaリポジトリであれば`.codex/config.toml`が読み込まれているか確認して再起動します。リポジトリ外では`codex mcp login noema-studio --scopes openid`を実行します。 |
+| クライアント未接続・ツールがない | クライアントへのログイン、登録・インストール、現在のタスクでの選択・操作許可を確認します。Noemaの認証障害とはまだ判断できません。 |
+| scope不足 | `openid` scopeと正しい`resource`を確認して再認証します。保護設定を解除しないでください。 |
+| 通信障害 | endpointとネットワークを確認し、時間を置いて`studio_whoami`から再試行します。保存結果が不明な場合のみ、同じ入力・`requestId`で再送します。 |
 | `401 unauthorized` | 認証情報がないか期限切れです。MCPクライアントから再認証します。 |
 | `403 member_not_registered` | Studioで招待の受け入れ・初回登録が完了していない、メンバーが無効、または別のAccessアカウントに紐づいています。Studioへ同じメールアドレスでログインして登録状態を確認します。 |
 | `revision_conflict` | 他の編集者が先に保存しています。最新版を取得し、変更を統合して、新しい`requestId`で更新します。 |
@@ -427,10 +446,34 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 | `last_admin_required` | 最後の有効な管理者を無効化または降格しようとしています。別の管理者を先に追加します。 |
 | `invalid_transition` | 現在の記事または画像の状態では操作できません。`studio_get_article`または`studio_list_assets`で最新状態を確認します。 |
 | `self_approval_forbidden` | レビュー担当者が自分で保存した最新版を承認しようとしています。別のレビュー担当者または管理者に確認を依頼します。 |
-| `forbidden` | 現在のStudio役割に必要な権限がありません。修正依頼と承認にはレビュー担当または管理者の権限が必要です。 |
+| `forbidden` | 現在のStudio役割に必要な権限がありません。`studio_whoami`の役割とcapabilitiesを確認してください。下書き保存にはeditorまたはadminの編集権限が必要です。 |
 | `503 authentication_unavailable` | 認証基盤が一時的に利用できません。書き込み結果を推測せず、復旧後に同じ入力と同じ`requestId`で再送します。 |
 
 認証できたか不明な場合は、接続状態だけで判断せず`studio_whoami`が成功することを確認してください。
+
+### 秘密を共有しない診断
+
+相談時はクライアント名、バージョン、確認日、最後に成功した段階、エラーコードだけを共有します。token、cookie、認可コード、認可URL全体、メール本文、認証ログの全文は貼らないでください。Studioの診断は定型の症状を選ぶだけで、選択内容を送信・保存しません。
+
+## 互換性の確認記録
+
+| クライアント | 確認日 | バージョン | 確認できた段階 | 未確認 |
+| --- | --- | --- | --- | --- |
+| Codex CLI（既存記録） | 記録なし | 0.147.0 | DCR後の認可URLに`openid`と正しい`resource`がある | 今回のOAuth完了、callback、`studio_whoami`、一覧・検証 |
+| ChatGPT personal plugin | 2026-09-30（公式資料の確認のみ） | 実機未確認 | 公式quickstartの登録・インストール手順 | Noemaでの登録、OAuth、callback、ツール実行 |
+| dot | 未実施 | 未確認 | なし | 利用画面でのプラグイン選択、OAuth、callback、ツール実行 |
+
+認可URLの生成、OAuth完了、本人・役割確認、一覧取得、原稿検証、明示的な保存を別々に記録してください。未実施やクライアント側で停止した項目は未検証のまま残します。
+
+| 項目 | ローカルで確認する契約 | 実機で確認する事項 |
+| --- | --- | --- |
+| Streamable HTTP | MCPテストの認証後のtool discoveryとツール呼び出し | クライアントからの実際の接続 |
+| OAuth discovery・DCR | Worker内では提供せず、Accessが担当。ローカルの401はdiscovery成功の証拠ではない | Accessのmetadata取得とクライアント登録 |
+| `resource`・scope | `.codex/config.toml`のendpoint・`openid`・書き込み確認を案内と照合 | クライアントが実際に送る要求の値 |
+| callback | ローカルWorkerテストの対象外 | 実機クライアントへの復帰と認証完了 |
+| CMS権限 | 未登録メンバーの拒否、role別操作、監査、公開ツール非公開の既存テスト | `studio_whoami`の本人・役割と編集権限 |
+
+ローカルテスト合格だけでManaged OAuthや各クライアントを「対応済み」にしません。CloudflareのOAuth設定・grant・権限変更が必要になった場合は別途確認します。
 
 ## 管理者・開発者向け情報
 
@@ -472,9 +515,10 @@ Cloudflare API tokenには、既存のWorker/D1 deploy権限に加えて、こ�
 
 ```bash
 cd vnext
-npm test --workspace @noema/studio-mcp
-npm run check --workspace @noema/studio-mcp
-npm run deploy:dry-run --workspace @noema/studio-mcp
+pnpm test
+pnpm run check
+pnpm run build
+pnpm run deploy:dry-run
 ```
 
 `develop`へのmerge後は、ActionsのmigrationとStudio MCP Worker deployが成功したことを確認します。その後、Access認証、`studio_whoami`、記事・シリーズ・Asset一覧、検証、テスト用下書きとシリーズの作成・更新・空状態・統合・空シリーズ削除・履歴復元、レビューコメントと状態遷移を順に確認します。管理者ではメンバー一覧、未使用のテスト画像では削除も確認します。公開、公開終了、再公開のツールが一覧に存在しないことを受入条件にします。
