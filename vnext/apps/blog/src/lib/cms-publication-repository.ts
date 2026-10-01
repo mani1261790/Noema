@@ -34,6 +34,10 @@ export interface CmsPublishedEditor {
   publicId: string;
 }
 
+export interface CmsPublicArticleSummary extends ArticleSummary {
+  editor: CmsPublishedEditor | null;
+}
+
 export interface CmsPublishedEditorListing extends CmsPublishedEditor {
   updatedAt: string;
 }
@@ -149,7 +153,7 @@ export function parseCmsPublishedArticleRow(
 
 export async function listCmsPublicArticleSummaries(
   db: CmsPublicationDatabase,
-): Promise<ArticleSummary[]> {
+): Promise<CmsPublicArticleSummary[]> {
   const result = await db.prepare(
     `SELECT ${publishedSummaryColumns}
      FROM cms_articles a
@@ -160,9 +164,13 @@ export async function listCmsPublicArticleSummaries(
      ORDER BY a.published_at DESC, a.id ASC`,
   ).all<CmsPublishedArticleRow>();
 
-  return result.results.map((row) =>
-    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data),
-  );
+  return result.results.map((row) => {
+    const published = parseCmsPublishedArticleRow(row, "listing");
+    return {
+      ...toArticleSummary(published.data),
+      editor: published.editor ?? null,
+    };
+  });
 }
 
 export async function getCmsPublishedArticleBySlug(

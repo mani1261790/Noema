@@ -6,6 +6,14 @@ import {
 
 export { articleMarkdownGuidance } from "./article-extensions";
 
+export function normalizeArticleSearchValue(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("ja-JP")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 export {
   extractArticleHeadingSlugs,
   extractArticleHeadings,

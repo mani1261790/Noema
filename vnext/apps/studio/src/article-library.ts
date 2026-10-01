@@ -5,6 +5,7 @@ import {
   type CmsArticleSummary,
   type CmsSeries
 } from "@noema/cms";
+import { normalizeArticleSearchValue } from "@noema/content";
 
 export type CmsArticleStatus = "draft" | "in_review" | "approved" | "published";
 export type CmsArticleSort = "updated" | "title";
@@ -29,10 +30,6 @@ export const cmsAllArticleFilter: CmsArticleFilter = {
 export function getCmsArticleStatus(article: CmsArticleSummary): CmsArticleStatus {
   if (article.publicationStatus === "published") return "published";
   return article.reviewStatus === "changes_requested" ? "draft" : article.reviewStatus;
-}
-
-function normalizeArticleSearchValue(value: string): string {
-  return value.normalize("NFKC").toLocaleLowerCase("ja-JP").trim();
 }
 
 export function filterCmsArticles(

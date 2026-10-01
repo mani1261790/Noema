@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { articleFrontmatterSchema, previewArticles } from "./index";
+import { articleFrontmatterSchema, normalizeArticleSearchValue, previewArticles } from "./index";
+
+describe("normalizeArticleSearchValue", () => {
+  it("normalizes width, case, and repeated whitespace for every article search surface", () => {
+    expect(normalizeArticleSearchValue("  Ｃｏｄｅｘ   API\n入門  ")).toBe("codex api 入門");
+  });
+});
 
 describe("articleFrontmatterSchema URL policy", () => {
   const article = previewArticles[0];
