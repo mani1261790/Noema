@@ -13,7 +13,7 @@ Cloudflare Accessの認証に成功しただけでは、MCPは利用できませ
 
 ## 5分で接続する
 
-### Codexで接続する（認可URLの生成まで確認）
+### Codexで接続する（OAuth・読み取り・原稿検証まで確認）
 
 Noemaリポジトリには、接続先とOAuth scopeを`.codex/config.toml`で設定済みです。Codexアプリ、CLI、IDE拡張はこの設定を共有します。
 
@@ -31,7 +31,7 @@ Noemaリポジトリには、接続先とOAuth scopeを`.codex/config.toml`で�
 
 `.codex/config.toml`の`scopes = ["openid"]`は削除しないでください。Cloudflare Managed OAuthはscopeのない許可要求を`Consent request is malformed`として拒否するため、Codexが常に正しい要求を送るために必要です。書き込みツールでは確認を表示し、読み取りツールはそのまま使えるよう`default_tools_approval_mode = "writes"`も設定しています。
 
-この手順はCodex CLI `0.147.0`で、Dynamic Client Registration後の認可URLへ`scope=openid`と正しい`resource`が渡ることを確認しています。Codexのバージョンを変更した場合は`codex --version`を記録し、認可URLを同じように再確認します。
+2026年10月1日、Codex CLI `0.157.0`でDynamic Client Registration後の認可URLへ`scope=openid`と正しい`resource`が渡り、Cloudflare Access認証・許可後にCLIのログインが完了することを確認しました。同じCodex app-serverで`studio_whoami`（admin・`canEdit: true`）、`studio_list_articles`、`studio_validate_draft`（`valid: true`）が成功しています。記事の保存・公開は行っていません。Codexのバージョンを変更した場合は`codex --version`を記録し、認可URLを同じように再確認します。
 
 リポジトリ外でグローバル設定だけを使う場合は、初回認証と再認証で次のコマンドを使います。
 
@@ -432,6 +432,8 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 | クライアント未接続・ツールがない | クライアントへのログイン、登録・インストール、現在のタスクでの選択・操作許可を確認します。Noemaの認証障害とはまだ判断できません。 |
 | scope不足 | `openid` scopeと正しい`resource`を確認して再認証します。保護設定を解除しないでください。 |
 | 通信障害 | endpointとネットワークを確認し、時間を置いて`studio_whoami`から再試行します。保存結果が不明な場合のみ、同じ入力・`requestId`で再送します。 |
+| `Invalid nonce` | 認証要求を使い直さず、クライアントからログインを開始して新しい認可URLを開きます。今回の確認では再試行後に認証が完了しました。 |
+| `invalid_grant: Grant not found` | 以前のOAuth grantが利用できません。クライアントから再認証し、本人確認と許可を完了します。 |
 | `401 unauthorized` | 認証情報がないか期限切れです。MCPクライアントから再認証します。 |
 | `403 member_not_registered` | Studioで招待の受け入れ・初回登録が完了していない、メンバーが無効、または別のAccessアカウントに紐づいています。Studioへ同じメールアドレスでログインして登録状態を確認します。 |
 | `revision_conflict` | 他の編集者が先に保存しています。最新版を取得し、変更を統合して、新しい`requestId`で更新します。 |
@@ -459,7 +461,7 @@ PNG、JPEG、WebP、GIFのいずれかを、`data:`接頭辞なしの正規Base6
 
 | クライアント | 確認日 | バージョン | 確認できた段階 | 未確認 |
 | --- | --- | --- | --- | --- |
-| Codex CLI（既存記録） | 記録なし | 0.147.0 | DCR後の認可URLに`openid`と正しい`resource`がある | 今回のOAuth完了、callback、`studio_whoami`、一覧・検証 |
+| Codex CLI / app-server | 2026-10-01 | 0.157.0 | DCR、`openid`・`resource`、Access認証・許可、callback後のCLIログイン完了、`studio_whoami`（admin・編集可）、記事一覧、原稿検証（valid） | 保存操作、他の役割・アカウント |
 | ChatGPT personal plugin | 2026-09-30（公式資料の確認のみ） | 実機未確認 | 公式quickstartの登録・インストール手順 | Noemaでの登録、OAuth、callback、ツール実行 |
 | dot | 未実施 | 未確認 | なし | 利用画面でのプラグイン選択、OAuth、callback、ツール実行 |
 

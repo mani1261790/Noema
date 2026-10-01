@@ -40,7 +40,7 @@ export function StudioMcpConnection() {
           <li><code>.codex/config.toml</code>の<code>scopes = ["openid"]</code>を維持します。MCP一覧の<code>noema-studio</code>からAuthenticate、または<code>codex mcp login noema-studio</code>を実行します。</li>
           <li>初回認証・再認証をブラウザで完了し、新しいタスクで下記の確認を行います。グローバル設定のみの場合は<code>codex mcp login noema-studio --scopes openid</code>を使います。</li>
         </ol>
-        <p>既存記録: CLI 0.147.0でDCR後の認可URLにopenidとresourceが渡ることを確認。今回の実機OAuth・ツール実行は未検証です。</p>
+        <p>2026年10月1日、Codex CLI 0.157.0でOAuth認証、本人・編集権限の確認、記事一覧の取得、保存しない原稿検証まで確認しました。接続時にはご自身のアカウントでも確認してください。</p>
       </details>
       <details>
         <summary>ChatGPT — personal pluginを登録・インストールする</summary>
