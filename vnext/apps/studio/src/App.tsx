@@ -1339,11 +1339,13 @@ export function App() {
         const surface = resolveArticleOpeningSurface(
           cmsSessionState.session.capabilities.canEdit,
           cmsSessionState.session.capabilities.canPublish,
-          result.value.reviewStatus
+          result.value.reviewStatus,
+          result.value.publicationStatus === "published" &&
+            result.value.publishedRevisionNumber === result.value.revisionNumber
         );
         if (surface) {
           setSettingsMode(surface.mode);
-          setSettingsOpen(true);
+          setSettingsOpen(surface.panelOpen);
           setPreviewFullscreen(surface.previewOnly);
         }
       } else {
@@ -1386,11 +1388,13 @@ export function App() {
       const surface = resolveArticleOpeningSurface(
         Boolean(cmsSession?.capabilities.canEdit),
         Boolean(cmsSession?.capabilities.canPublish),
-        cmsArticle.reviewStatus
+        cmsArticle.reviewStatus,
+        cmsArticle.publicationStatus === "published" &&
+          cmsArticle.publishedRevisionNumber === cmsArticle.revisionNumber
       );
       if (surface) {
         setSettingsMode(surface.mode);
-        setSettingsOpen(true);
+        setSettingsOpen(surface.panelOpen);
         setPreviewFullscreen(surface.previewOnly);
       }
       return true;
@@ -1432,11 +1436,13 @@ export function App() {
       const surface = resolveArticleOpeningSurface(
         cmsSessionState.kind === "ready" && cmsSessionState.session.capabilities.canEdit,
         cmsSessionState.kind === "ready" && cmsSessionState.session.capabilities.canPublish,
-        result.value.reviewStatus
+        result.value.reviewStatus,
+        result.value.publicationStatus === "published" &&
+          result.value.publishedRevisionNumber === result.value.revisionNumber
       );
       if (surface) {
         setSettingsMode(surface.mode);
-        setSettingsOpen(true);
+        setSettingsOpen(surface.panelOpen);
         setPreviewFullscreen(surface.previewOnly);
       }
       if (associatingRecovery && application.manualSaveRequired) {
@@ -3036,10 +3042,11 @@ export function App() {
               data-size="md"
               data-type="solid-fill"
               onClick={() => {
-                setPreviewFullscreen(false);
+                const closing = settingsOpen && settingsMode === "publish";
+                setPreviewFullscreen(closing && editorLocked);
                 setAssetTrayOpen(false);
                 setSettingsMode("publish");
-                setSettingsOpen((current) => settingsMode === "publish" ? !current : true);
+                setSettingsOpen(!closing);
               }}
               type="button"
             >
@@ -3052,10 +3059,11 @@ export function App() {
               data-size="md"
               data-type="outline"
               onClick={() => {
-                setPreviewFullscreen(false);
+                const closing = settingsOpen && settingsMode === "series";
+                setPreviewFullscreen(closing && editorLocked);
                 setAssetTrayOpen(false);
                 setSettingsMode("series");
-                setSettingsOpen((current) => settingsMode === "series" ? !current : true);
+                setSettingsOpen(!closing);
               }}
               type="button"
             >
@@ -3274,7 +3282,10 @@ export function App() {
                 : settingsMode === "series"
                   ? "記事本文や承認状態を変えずに、読む順序とシリーズ情報を管理します。"
                   : "本文から自動整理されます。必要な項目だけ確認・修正できます。"}
-            onClose={editorLocked ? undefined : () => setSettingsOpen(false)}
+            onClose={() => {
+              setSettingsOpen(false);
+              if (editorLocked) setPreviewFullscreen(true);
+            }}
             title={settingsMode === "review"
               ? cmsReviewResponseMode ? "レビュー対応" : "レビュー"
               : settingsMode === "publish"
