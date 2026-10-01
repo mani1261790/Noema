@@ -35,11 +35,12 @@
       "workerd"
     ],
     "overrides": {
-      "fast-uri@3.1.5": "3.1.6",
       "miniflare>sharp": "0.35.4",
       "@astrojs/internal-helpers>js-yaml": "4.3.2",
       "@astrojs/internal-helpers>smol-toml": "1.7.1",
-      "astro>zod": "4.4.3"
+      "astro>zod": "4.4.3",
+      "fast-uri@>=3.0.0 <3.1.8": "3.1.8",
+      "undici@>=7.0.0 <7.29.1": "7.29.1"
     }
   }
 }

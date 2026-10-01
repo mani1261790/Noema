@@ -105,6 +105,7 @@ import {
   CmsArticleLibrary,
   type CmsLibraryConnection
 } from "./CmsArticleLibrary";
+import { StudioMcpConnection } from "./StudioMcpConnection";
 import { CmsAnalyticsDashboard } from "./CmsAnalyticsDashboard";
 import { CmsDistributionLink } from "./CmsDistributionLink";
 import { cmsAllArticleFilter, type CmsArticleFilter, type CmsArticleSort } from "./article-library";
@@ -1227,6 +1228,8 @@ export function App() {
           ? "studio-asset-library-heading"
           : nextView === "analytics"
             ? "studio-analytics-heading"
+          : nextView === "connection"
+            ? "studio-mcp-heading"
           : nextView === "team"
             ? "studio-team-heading"
             : "editor-heading";
@@ -3103,6 +3106,7 @@ export function App() {
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
             <a aria-current={studioView === "analytics" ? "page" : undefined} href={studioViewHref("analytics")} onClick={(event) => { event.preventDefault(); showAnalytics(); }}>分析</a>
+            <a aria-current={studioView === "connection" ? "page" : undefined} href={studioViewHref("connection")} onClick={(event) => { event.preventDefault(); pendingViewFocus.current = "studio-mcp-heading"; changeStudioView("connection"); }}>AIから接続</a>
             <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>プロフィール</a>
           </div>
         </nav>
@@ -3171,6 +3175,8 @@ export function App() {
           onUpdate={saveAsset}
           onUpload={uploadAssets}
         />
+      ) : studioView === "connection" ? (
+        <StudioMcpConnection />
       ) : studioView === "analytics" ? (
         <CmsAnalyticsDashboard connection={cmsLibraryConnection} />
       ) : studioView === "team" ? (
