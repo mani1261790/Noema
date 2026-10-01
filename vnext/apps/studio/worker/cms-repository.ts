@@ -1957,6 +1957,138 @@ export async function transitionCmsArticle(
   if (replayArticleId) return getCmsArticle(db, identity, replayArticleId);
   const current = await getCurrentArticleRow(db, articleId);
   if (current.lock_version !== expectedVersion) throw revisionConflict();
+  const timestamp = now.toISOString();
+  if (action === "start_revision") {
+    requirePermission(identity.role, "edit");
+    if (
+      parsePublicationStatus(current.publication_status) !== "published" ||
+      parseReviewStatus(current.review_status) !== "approved" ||
+      current.current_revision_id !== current.published_revision_id ||
+      current.current_revision_id !== current.approved_revision_id
+    ) {
+      throw new CmsRepositoryError(
+        "invalid_transition",
+        "現在公開中のrevisionからだけ、新しい編集用revisionを作成できます。"
+      );
+    }
+
+    const revisionId = crypto.randomUUID();
+    const auditId = crypto.randomUUID();
+    const nextRevision = current.current_revision_number + 1;
+    const nextVersion = expectedVersion + 1;
+    let result: D1Result[];
+    try {
+      result = await db.batch([
+        db.prepare(
+          `INSERT INTO cms_article_revisions (
+            id, article_id, revision_number, frontmatter_json, markdown,
+            content_sha256, created_by_subject, created_at, edit_session_id,
+            save_reason, source_revision_id, draft_visibility
+          )
+          SELECT ?1, a.id, ?2, r.frontmatter_json, r.markdown,
+                 r.content_sha256, ?3, ?4, NULL, 'manual', NULL, a.draft_visibility
+          FROM cms_articles a
+          JOIN cms_article_revisions r ON r.id = a.current_revision_id
+          WHERE a.id = ?5 AND a.lock_version = ?6
+            AND a.publication_status = 'published'
+            AND a.review_status = 'approved'
+            AND a.current_revision_id = a.published_revision_id
+            AND a.current_revision_id = a.approved_revision_id`
+        ).bind(
+          revisionId,
+          nextRevision,
+          identity.subject,
+          timestamp,
+          articleId,
+          expectedVersion
+        ),
+        db.prepare(
+          `UPDATE cms_articles
+           SET current_revision_id = ?1,
+               current_revision_number = ?2,
+               review_status = 'draft',
+               approved_revision_id = NULL,
+               review_note = NULL,
+               review_requested_at = NULL,
+               reviewed_at = NULL,
+               reviewed_by_subject = NULL,
+               lock_version = ?3,
+               updated_by_subject = ?4,
+               updated_at = ?5
+           WHERE id = ?6 AND lock_version = ?7
+             AND publication_status = 'published'
+             AND review_status = 'approved'
+             AND current_revision_id = published_revision_id
+             AND current_revision_id = approved_revision_id`
+        ).bind(
+          revisionId,
+          nextRevision,
+          nextVersion,
+          identity.subject,
+          timestamp,
+          articleId,
+          expectedVersion
+        ),
+        db.prepare(
+          `INSERT INTO cms_audit_events
+            (id, article_id, actor_subject, action, metadata_json, created_at)
+           SELECT ?1, id, ?2, 'article.start_revision', ?3, ?4
+           FROM cms_articles
+           WHERE id = ?5 AND lock_version = ?6 AND current_revision_id = ?7`
+        ).bind(
+          auditId,
+          identity.subject,
+          JSON.stringify(auditMetadata({
+            publishedRevisionId: current.published_revision_id,
+            revisionId,
+            revisionNumber: nextRevision
+          }, context)),
+          timestamp,
+          articleId,
+          nextVersion,
+          revisionId
+        ),
+        ...idempotencyStatementForAudit(
+          db,
+          identity,
+          context,
+          checksum,
+          auditId,
+          timestamp
+        )
+      ]);
+    } catch (error) {
+      if (isIdempotencyConstraint(error)) {
+        const replay = await findIdempotentArticle(
+          db,
+          identity,
+          context,
+          checksum
+        );
+        if (replay) return getCmsArticle(db, identity, replay);
+      }
+      if (isUniqueConstraint(error, "cms_article_revisions")) {
+        throw revisionConflict();
+      }
+      throw error;
+    }
+
+    if (
+      result[0]?.meta.changes !== 1 ||
+      result[1]?.meta.changes !== 1 ||
+      result[2]?.meta.changes !== 1
+    ) {
+      const replay = await findIdempotentArticle(
+        db,
+        identity,
+        context,
+        checksum
+      );
+      if (replay) return getCmsArticle(db, identity, replay);
+      throw revisionConflict();
+    }
+    return getCmsArticle(db, identity, articleId);
+  }
   let openReviewCommentCount: number | null = null;
   if (new Set<CmsArticleAction>(["request_review", "request_changes", "approve"]).has(action)) {
     openReviewCommentCount = await countOpenReviewComments(db, articleId);
@@ -1980,7 +2112,6 @@ export async function transitionCmsArticle(
       }
     : options;
   const detail = await getCmsArticle(db, identity, articleId);
-  const timestamp = now.toISOString();
   const transition = buildTransition(current, detail, identity, action, transitionOptions, timestamp);
   if (action === "request_review" || action === "publish") {
     const outboundIssues = await validateArticleLinkTargets(

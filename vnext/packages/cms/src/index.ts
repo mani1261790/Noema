@@ -126,6 +126,7 @@ export const cmsDeleteArticleRequestSchema = z.object({
 
 export const cmsArticleActionSchema = z.object({
   action: z.enum([
+    "start_revision",
     "request_review",
     "withdraw_review",
     "approve",

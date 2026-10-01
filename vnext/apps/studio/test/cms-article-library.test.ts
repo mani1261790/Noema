@@ -141,8 +141,8 @@ describe("CmsArticleLibrary", () => {
     };
     const html = renderLibrary({ articles: [approvedArticle] });
 
-    expect(html).toContain('aria-label="「Workers AI ガイド」の公開を管理"');
-    expect(html).toContain(">公開を管理</button>");
+    expect(html).toContain('aria-label="「Workers AI ガイド」の公開を管理・改訂"');
+    expect(html).toContain(">公開を管理・改訂</button>");
     expect(html).not.toContain(">編集する</button>");
   });
 

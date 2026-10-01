@@ -77,7 +77,8 @@ export function getCmsArticleActionLabel(
   }
   if (article.reviewStatus === "approved") {
     if (!canCms(role, "publish")) return "承認内容を確認";
-    return article.publicationStatus === "unpublished" ? "公開を確認" : "公開を管理";
+    if (article.publicationStatus === "unpublished") return "公開を確認";
+    return article.publicationStatus === "published" ? "公開を管理・改訂" : "公開を管理";
   }
   if (role === "reviewer") return "内容を確認";
   return "編集する";
