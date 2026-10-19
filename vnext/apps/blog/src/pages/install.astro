@@ -1,0 +1,68 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+export const prerender = true;
+---
+<BaseLayout title="ホーム画面にNoemaを追加 | Noema" description="Noemaをスマートフォンのホーム画面やパソコンに追加する方法。アイコンから、すぐに記事を開けます。">
+  <div class="noema-reading-container prose-page install-page">
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "ホーム画面に追加" }]} />
+    <img class="install-icon" src="/icons/icon-512.png" width="104" height="104" alt="紙を重ねたNを描いたNoemaのアイコン" />
+    <h1>好奇心の入り口を、<br>ホーム画面に。</h1>
+    <p class="prose-page__lead">Noemaを追加すると、アイコンをタップするだけで記事を開けます。いつもの学びを、もう少し身近に。</p>
+    <button class="dads-button" data-size="md" data-type="solid-fill" type="button" data-install hidden>Noemaを追加する</button>
+    <p data-install-status role="status" aria-live="polite"></p>
+    <section aria-labelledby="install-iphone"><h2 id="install-iphone">iPhone・iPad</h2>
+      <ol><li>SafariでNoemaを開きます。</li><li>共有メニューから「ホーム画面に追加」を選びます。</li><li>確認画面で「追加」をタップします。「Webアプリとして開く」が表示される場合はオンにします。</li></ol>
+    </section>
+    <section aria-labelledby="install-android"><h2 id="install-android">Android</h2>
+      <p>Chromeのメニューから「ホーム画面に追加」または「アプリをインストール」を選びます。このページに追加ボタンが表示されている場合は、そのボタンからも追加できます。</p>
+    </section>
+    <section aria-labelledby="install-desktop"><h2 id="install-desktop">パソコン</h2>
+      <p>Chrome・Edgeでは、アドレスバーのインストールアイコンやブラウザのメニューから追加できます。対応するMacのSafariでは「ファイル」メニューの「Dockに追加」を選びます。</p>
+    </section>
+    <p>メニューの名前や表示位置は、OSやブラウザのバージョンによって異なります。記事の閲覧にはインターネット接続が必要です。</p>
+  </div>
+</BaseLayout>
+<style>
+  .install-icon { margin-top: 32px; border-radius: 24px; box-shadow: 0 12px 32px rgb(0 70 64 / 16%); }
+  .install-page h1 { line-height: 1.5; }
+  [data-install][hidden] { display: none; }
+</style>
+<script>
+  interface InstallPrompt extends Event {
+    prompt(): Promise<void>;
+    userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  }
+  const button = document.querySelector<HTMLButtonElement>("[data-install]");
+  const status = document.querySelector<HTMLElement>("[data-install-status]");
+  let deferred: InstallPrompt | undefined;
+  const installed = () => {
+    deferred = undefined;
+    if (button) button.hidden = true;
+    if (status) status.textContent = "Noemaはアプリとして開かれています。ホーム画面やアプリ一覧から、いつでもアクセスできます。";
+  };
+  if (window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone) installed();
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferred = event as InstallPrompt;
+    if (button) button.hidden = false;
+  });
+  button?.addEventListener("click", async () => {
+    const prompt = deferred;
+    if (!prompt) return;
+    deferred = undefined;
+    button.hidden = true;
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (status) status.textContent = choice.outcome === "accepted" ? "追加を受け付けました。ホーム画面やアプリ一覧をご確認ください。" : "あとからブラウザのメニューで追加できます。";
+    } catch {
+      if (status) status.textContent = "ブラウザのメニューから追加してください。";
+    }
+  });
+  window.addEventListener("appinstalled", () => {
+    deferred = undefined;
+    if (button) button.hidden = true;
+    if (status) status.textContent = "Noemaが追加されました。ホーム画面やアプリ一覧から開けます。";
+  });
+</script>
