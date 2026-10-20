@@ -35,11 +35,17 @@
       "workerd"
     ],
     "overrides": {
-      "fast-uri@3.1.5": "3.1.6",
-      "miniflare>sharp": "0.35.4",
+      "miniflare>sharp": "0.35.5",
       "@astrojs/internal-helpers>js-yaml": "4.3.2",
       "@astrojs/internal-helpers>smol-toml": "1.7.1",
-      "astro>zod": "4.4.3"
+      "astro>zod": "4.4.3",
+      "fast-uri@>=3.0.0 <3.1.8": "3.1.8",
+      "undici@>=7.0.0 <7.29.1": "7.29.1",
+      "astro>devalue": "5.9.3",
+      "astro>http-cache-semantics": "4.3.0",
+      "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
+      "proxy-addr@>=1.1.0 <2.0.8": "2.0.8",
+      "@modelcontextprotocol/sdk@>=1.12.0 <1.31.0": "1.31.0"
     }
   }
 }

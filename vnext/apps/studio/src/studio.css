@@ -2035,7 +2035,16 @@ a {
   background: #e3f2f0;
 }
 
-.studio-review-comment__quote span {
+.studio-review-comment__quote > span:first-child {
+  font-size: calc(13 / 16 * 1rem);
+  font-weight: 700;
+}
+
+.studio-review-comment__line {
+  display: block;
+  margin-top: .2rem;
+  color: #005e58;
+  font-family: var(--font-family-mono);
   font-size: calc(13 / 16 * 1rem);
   font-weight: 700;
 }
@@ -3707,6 +3716,29 @@ textarea.studio-control {
   font-weight: 700;
 }
 
+.studio-markdown-editor {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-markdown-editor__line-numbers {
+  min-width: 3.5rem;
+  padding: 2rem .75rem 2rem 1rem;
+  overflow: hidden;
+  color: #666;
+  background: #f3f3f3;
+  border-right: 1px solid #d1d1d1;
+  font: 400 calc(16 / 16 * 1rem)/1.7 var(--font-family-mono);
+  text-align: right;
+  user-select: none;
+  white-space: pre;
+}
+
 .studio-writing-canvas textarea {
   width: 100%;
   height: 100%;
@@ -5261,4 +5293,23 @@ textarea.studio-control {
   .studio-preview__body blockquote {
     border-left-color: CanvasText;
   }
+}
+
+/* Connection guidance stays readable at narrow widths and with keyboard focus. */
+.studio-mcp { width: min(100%, 52rem); min-height: 0; margin-inline: auto; padding: 1.5rem; overflow-y: auto; overflow-wrap: anywhere; }
+.studio-mcp h2 { margin-top: 2rem; }
+.studio-mcp p, .studio-mcp li { line-height: 1.8; }
+.studio-mcp li + li { margin-top: .5rem; }
+.studio-mcp details { border-bottom: 1px solid #949494; padding-block: 1rem; }
+.studio-mcp summary { cursor: pointer; font-weight: 700; }
+.studio-mcp label { display: block; margin-bottom: .5rem; }
+.studio-mcp__endpoint { display: flex; flex-wrap: wrap; gap: .75rem; }
+.studio-mcp input { flex: 1 1 20rem; min-width: 0; }
+.studio-mcp input, .studio-mcp select { max-width: 100%; padding: .75rem; border: 1px solid #666; border-radius: .25rem; background: #fff; color: #222; font: inherit; }
+.studio-mcp select { width: 100%; }
+.studio-mcp :is(a, button, input, select, summary):focus-visible { outline: 3px solid #005fcc; outline-offset: 3px; }
+@media (max-width: 640px) {
+  .studio-primary-nav { flex-wrap: wrap; gap: 0; }
+  .studio-primary-nav > div { flex-wrap: wrap; }
+  .studio-mcp { padding: 1rem; }
 }

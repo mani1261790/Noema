@@ -5,7 +5,7 @@ import { CmsReviewComments } from "../src/CmsReviewComments";
 
 const baseProps = {
   activeAnchor: null,
-  body: "",
+  commentBody: "",
   busy: false,
   canComment: true,
   canReopen: false,
@@ -13,6 +13,7 @@ const baseProps = {
   comments: [],
   inputRef: { current: null },
   loading: false,
+  markdown: "## 導入\n\n選択した箇所を説明します。",
   mode: "review" as const,
   onActiveAnchorClear: () => undefined,
   onBodyChange: () => undefined,
@@ -59,11 +60,13 @@ describe("CmsReviewComments", () => {
         status: "open" as const,
         target: "body" as const
       }],
+      markdown: "## 導入\n\n説明する箇所です。",
       mode: "response"
     }));
 
     expect(html).toContain("未対応の指摘を開き、Markdownを修正してから対応済みにします。");
     expect(html).toContain("Markdownの該当箇所を開く");
+    expect(html).toContain("Markdown 3行目");
     expect(html).toContain("修正を保存して対応済みにする");
     expect(html).not.toContain("指摘を追加");
   });
@@ -78,10 +81,11 @@ describe("CmsReviewComments", () => {
         startOffset: 2,
         suffix: ""
       },
-      body: "ここを修正してください。"
+      commentBody: "ここを修正してください。"
     }));
 
     expect(html).toContain("選択した箇所");
+    expect(html).toContain("Markdown 3行目");
     expect(html).toMatch(/<button[^>]*type="submit"[^>]*>指摘を追加<\/button>/);
     expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*type="submit"/);
   });

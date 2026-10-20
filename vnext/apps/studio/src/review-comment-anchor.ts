@@ -108,6 +108,26 @@ export function locateReviewCommentAnchor(
   };
 }
 
+export function getReviewCommentMarkdownLineRange(
+  markdown: string,
+  anchor: CmsReviewCommentAnchor
+): { endLine: number; startLine: number } | null {
+  const location = locateReviewCommentAnchor(markdown, anchor);
+  if (!location) return null;
+  const startLine = markdown.slice(0, location.startOffset).split("\n").length;
+  const finalSelectedOffset = Math.max(location.startOffset, location.endOffset - 1);
+  const endLine = markdown.slice(0, finalSelectedOffset).split("\n").length;
+  return { endLine, startLine };
+}
+
+export function formatReviewCommentMarkdownLineRange(
+  range: { endLine: number; startLine: number }
+): string {
+  return range.startLine === range.endLine
+    ? `Markdown ${range.startLine}行目`
+    : `Markdown ${range.startLine}〜${range.endLine}行目`;
+}
+
 function commonPrefixLength(left: string, right: string): number {
   const maximum = Math.min(left.length, right.length);
   let length = 0;
