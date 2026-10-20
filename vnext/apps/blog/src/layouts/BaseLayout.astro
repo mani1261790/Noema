@@ -81,6 +81,8 @@ const serializedJsonLd = jsonLd ? serializeJsonLd(jsonLd) : "";
     {authors.map((author) => <meta property="article:author" content={author} />)}
     {jsonLd && <script is:inline type="application/ld+json" set:html={serializedJsonLd} />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <title>{title}</title>
   </head>
   <body class="noema-public">
@@ -90,5 +92,15 @@ const serializedJsonLd = jsonLd ? serializeJsonLd(jsonLd) : "";
       <slot />
     </main>
     <SiteFooter />
+    <script>
+      if (import.meta.env.PROD && "serviceWorker" in navigator) {
+        const register = () => {
+          void navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" })
+            .catch((error) => console.warn("Noema offline support could not start:", error));
+        };
+        if (document.readyState === "complete") register();
+        else window.addEventListener("load", register, { once: true });
+      }
+    </script>
   </body>
 </html>

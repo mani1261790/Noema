@@ -25,7 +25,8 @@
     "preview": "astro preview",
     "deploy:dry-run": "pnpm run build && wrangler deploy --dry-run --config dist/server/wrangler.json",
     "deploy:dry-run:production": "pnpm run build && pnpm run validate:deployment-config && wrangler deploy --dry-run --config dist/server/wrangler.json --name noema-learn-production --route 'noema-learn.uk/*'",
-    "deploy": "pnpm run build && wrangler deploy --config dist/server/wrangler.json"
+    "deploy": "pnpm run build && wrangler deploy --config dist/server/wrangler.json",
+    "generate:pwa": "node scripts/generate-pwa-assets.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.5",
@@ -51,7 +52,7 @@
     "@types/react": "^18.3.24",
     "@vercel/og": "^0.4.1",
     "satori": "^0.26.0",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10",
