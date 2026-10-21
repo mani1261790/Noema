@@ -34,3 +34,20 @@ describe("buildArticleSearchText", () => {
     })).toBe("単独記事 概要 抜粋 開発環境");
   });
 });
+
+describe("reader author search", () => {
+  it("finds every credited author and the public editor name after normalization", () => {
+    const searchText = buildArticleSearchText({
+      title: "検索の検証",
+      authors: ["山田 太郎", "ＡＬＩＣＥ"],
+      editorDisplayName: "公開プロフィール名",
+      description: "概要",
+      excerpt: "抜粋",
+      tags: [],
+      topicLabels: [],
+    });
+    for (const query of ["山田", "alice", "Ａｌｉｃｅ", "公開プロフィール名"]) {
+      expect(searchText).toContain(normalizeArticleSearchText(query));
+    }
+  });
+});

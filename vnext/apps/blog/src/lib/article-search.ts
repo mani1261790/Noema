@@ -1,4 +1,6 @@
 export type ArticleSearchDocument = {
+  authors?: readonly string[];
+  editorDisplayName?: string;
   description: string;
   excerpt: string;
   seriesTitle?: string;
@@ -18,6 +20,8 @@ export function normalizeArticleSearchText(value: string): string {
 export function buildArticleSearchText(document: ArticleSearchDocument): string {
   return normalizeArticleSearchText([
     document.title,
+    ...(document.authors ?? []),
+    document.editorDisplayName,
     document.description,
     document.excerpt,
     document.seriesTitle,

@@ -149,7 +149,7 @@ export function parseCmsPublishedArticleRow(
 
 export async function listCmsPublicArticleSummaries(
   db: CmsPublicationDatabase,
-): Promise<ArticleSummary[]> {
+): Promise<Array<ArticleSummary & { editorDisplayName?: string }>> {
   const result = await db.prepare(
     `SELECT ${publishedSummaryColumns}
      FROM cms_articles a
@@ -160,9 +160,13 @@ export async function listCmsPublicArticleSummaries(
      ORDER BY a.published_at DESC, a.id ASC`,
   ).all<CmsPublishedArticleRow>();
 
-  return result.results.map((row) =>
-    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data),
-  );
+  return result.results.map((row) => {
+    const article = parseCmsPublishedArticleRow(row, "listing");
+    return {
+      ...toArticleSummary(article.data),
+      editorDisplayName: article.editor?.displayName,
+    };
+  });
 }
 
 export async function getCmsPublishedArticleBySlug(

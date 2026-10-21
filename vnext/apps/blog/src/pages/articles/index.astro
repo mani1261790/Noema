@@ -20,12 +20,14 @@ const narrowingTopics = listNarrowingTopics(articles);
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
 const suggestions = [...new Set([
   ...articles.map((article) => article.title),
+  ...articles.flatMap((article) => article.authors),
+  ...articles.flatMap((article) => article.editorDisplayName ? [article.editorDisplayName] : []),
   ...seriesList.map((series) => series.title),
   ...activeTopics.map((topic) => topic.label),
   ...tags,
 ])];
 const title = "AI駆動開発・ローカルLLMの記事を探す | Noema";
-const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・概要・シリーズ・テーマ・タグから探せます。";
+const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・執筆者・概要・シリーズ・テーマ・タグから探せます。";
 const jsonLd = collectionPageJsonLd({
   description,
   items: articles.map((article) => ({ name: article.title, pathname: article.href })),
@@ -49,14 +51,13 @@ const jsonLd = collectionPageJsonLd({
             <path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" />
           </svg>
           <span class="noema-visually-hidden">記事を検索</span>
-          <input class="dads-input-text__input" data-size="md" id="article-keyword" name="keyword" type="search" list="article-search-suggestions" aria-describedby="article-search-support" autocomplete="off" />
+          <input class="dads-input-text__input" data-size="sm" placeholder="記事名・執筆者で検索" id="article-keyword" name="keyword" type="search" list="article-search-suggestions" autocomplete="off" />
         </label>
         <datalist id="article-search-suggestions">
           {suggestions.map((suggestion) => <option value={suggestion}></option>)}
         </datalist>
-        <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">検索</button>
+        <button class="dads-button" data-size="sm" data-type="outline" type="submit">検索</button>
       </div>
-      <p id="article-search-support" class="article-search__support">タイトル、記事の概要や抜粋、シリーズ、テーマ、タグから検索できます。</p>
       <details class="article-search__detail dads-disclosure" data-filter-details>
         <summary class="dads-disclosure__summary">
           <svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
@@ -108,6 +109,8 @@ const jsonLd = collectionPageJsonLd({
           <div
             data-article-item
             data-search-text={buildArticleSearchText({
+              authors: article.authors,
+              editorDisplayName: article.editorDisplayName,
               description: article.description,
               excerpt: article.excerpt,
               seriesTitle: memberSeries?.title,
