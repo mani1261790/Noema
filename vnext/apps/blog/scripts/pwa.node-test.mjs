@@ -36,8 +36,14 @@ test("manifest references valid opaque icons with the declared dimensions", asyn
     const stats = await sharp(new URL(icon.src.slice(1), publicUrl).pathname).stats();
     assert.equal(stats.isOpaque, true);
   }
-  const apple = await sharp(new URL("icons/apple-touch-icon.png", publicUrl).pathname).metadata();
+  const apple = await sharp(new URL("apple-touch-icon.png", publicUrl).pathname).metadata();
   assert.equal(apple.width, 180);
+  assert.equal(apple.height, 180);
+  assert.equal(apple.channels, 3);
+  assert.equal(apple.hasAlpha, false);
+  const rootIcon = await readFile(new URL("apple-touch-icon.png", publicUrl));
+  assert.deepEqual(rootIcon, await readFile(new URL("apple-touch-icon-precomposed.png", publicUrl)));
+  assert.deepEqual(rootIcon, await readFile(new URL("icons/v2/apple-touch-icon.png", publicUrl)));
 });
 
 test("installation caches only the self-contained fallback and cleans only owned old caches", async () => {
