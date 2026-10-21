@@ -40,7 +40,7 @@
     "astro": "^7.2.8",
     "github-slugger": "^2.0.0",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.3.0",
+    "markdown-it": "^14.3.3",
     "satteri": "^0.9.5",
     "zod": "^4.4.3"
   },

@@ -9,7 +9,7 @@ The favicon uses a simplified silhouette to stay legible at 16 px.
 - Source: `app-icon.svg` (hand-authored vector; no generated bitmap dependency).
 - Preview: open `icon-preview.html` in a browser for square, circular, and small-size review.
 - Regenerate: from `vnext`, run `pnpm --filter @noema/blog generate:pwa`.
-- Outputs: `public/icons/` (192, 512, maskable 512, Apple touch 180).
+- Outputs: `public/icons/v2/` (192, 512, maskable 512, Apple touch 180).
 
 ## PWA behavior
 
@@ -30,3 +30,15 @@ worker waits for old tabs to close before activating an update.
   service worker, disconnect the browser, navigate to an article, and reconnect.
 - Verify iOS home-screen launch and Android installation on actual devices before
   claiming device acceptance. Desktop browser emulation is not that verification.
+
+## Safari icon discovery
+
+Apple touch metadata points to `/apple-touch-icon.png?v=2` to refresh previously
+failed icon lookups. The root `/apple-touch-icon.png` and
+`/apple-touch-icon-precomposed.png` are also served directly as PNG (no redirect).
+Manifest icons use versioned paths. All new exports are RGB without an alpha
+channel. Existing unversioned assets remain available to older manifests.
+
+These changes cover fallback discovery and stale icon URLs; they do not prove
+that the reported iOS 27 share-sheet failure is resolved. Verify that step on
+the affected device after deployment.
