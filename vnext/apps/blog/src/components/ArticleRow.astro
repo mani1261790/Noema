@@ -16,7 +16,6 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 
 <a class:list={["article-row", compact && "article-row--compact"]} href={article.href}>
   <div class="article-row__body">
-    <p class="article-row__topic">{topicLabel}</p>
     {headingLevel === 3
       ? <h3 class="article-row__title">{article.title}</h3>
       : <h2 class="article-row__title">{article.title}</h2>}
@@ -27,7 +26,10 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
       </ul>
     )}
     <div class="article-row__meta">
-      <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
+      <div class="article-row__details">
+        <span class="article-row__topic">{topicLabel}</span>
+        <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
+      </div>
       <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
     </div>
   </div>

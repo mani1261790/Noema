@@ -20,11 +20,13 @@ const hasImage = Boolean(article.heroImage);
     </div>
   )}
   <div class="featured-article-card__body">
-    <p class="featured-article-card__topic">{topicLabel}</p>
     <h3 class="featured-article-card__title">{article.title}</h3>
     <p class="featured-article-card__excerpt">{article.excerpt}</p>
     <div class="featured-article-card__meta">
-      <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
+      <div class="featured-article-card__details">
+        <span class="featured-article-card__topic">{topicLabel}</span>
+        <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
+      </div>
       <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>
     </div>
   </div>

@@ -67,7 +67,6 @@ const jsonLd = series ? {
       <>
         <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "シリーズ", href: "/series" }, { label: series.title }]} />
         <header class="series-page__header">
-          <p class="page-heading__eyebrow">Series</p>
           <h1>{series.title}</h1>
           <p>{series.description}</p>
           <p class="series-page__count">全{series.items.length}本</p>
