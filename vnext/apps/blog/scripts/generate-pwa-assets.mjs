@@ -14,5 +14,7 @@ for (const [name, size] of [["icon-192.png", 192], ["icon-512.png", 512], ["icon
     // Safari can discover these paths without relying on page metadata.
     await writeFile(new URL("apple-touch-icon.png", publicUrl), png);
     await writeFile(new URL("apple-touch-icon-precomposed.png", publicUrl), png);
+    // Avoid a separate icon fetch in the iOS Add to Home Screen sheet.
+    await writeFile(new URL("../src/lib/apple-touch-icon.txt", import.meta.url), `data:image/png;base64,${png.toString("base64")}`);
   }
 }
