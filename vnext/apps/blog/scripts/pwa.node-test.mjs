@@ -44,6 +44,9 @@ test("manifest references valid opaque icons with the declared dimensions", asyn
   const rootIcon = await readFile(new URL("apple-touch-icon.png", publicUrl));
   assert.deepEqual(rootIcon, await readFile(new URL("apple-touch-icon-precomposed.png", publicUrl)));
   assert.deepEqual(rootIcon, await readFile(new URL("icons/v2/apple-touch-icon.png", publicUrl)));
+  const embeddedIcon = await readFile(new URL("../src/lib/apple-touch-icon.txt", import.meta.url), "utf8");
+  assert.ok(embeddedIcon.startsWith("data:image/png;base64,"));
+  assert.deepEqual(Buffer.from(embeddedIcon.split(",")[1], "base64"), rootIcon);
 });
 
 test("installation caches only the self-contained fallback and cleans only owned old caches", async () => {

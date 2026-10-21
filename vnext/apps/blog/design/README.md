@@ -33,12 +33,17 @@ worker waits for old tabs to close before activating an update.
 
 ## Safari icon discovery
 
-Apple touch metadata points to `/apple-touch-icon.png?v=2` to refresh previously
-failed icon lookups. The root `/apple-touch-icon.png` and
+Apple touch metadata embeds the 180px PNG as a data URI, generated alongside the
+PNG exports in `src/lib/apple-touch-icon.txt` and bundled via Vite's `?raw` import.
+This avoids a separate network fetch by the Add to Home Screen sheet and adds
+about 9.7 KB before compression per HTML response. No runtime filesystem access
+is needed. The root `/apple-touch-icon.png` and
 `/apple-touch-icon-precomposed.png` are also served directly as PNG (no redirect).
 Manifest icons use versioned paths. All new exports are RGB without an alpha
 channel. Existing unversioned assets remain available to older manifests.
 
-These changes cover fallback discovery and stale icon URLs; they do not prove
-that the reported iOS 27 share-sheet failure is resolved. Verify that step on
-the affected device after deployment.
+The data URI workaround follows first-hand reports of iOS 27.2 failing to use
+network icon URLs even when macOS succeeds:
+https://www.reddit.com/r/PWA/comments/1wsruwy/pwa_icon_not_working_on_ios_272beta2/
+This is not an Apple-confirmed diagnosis. Verify the share sheet on the affected
+device after deployment before claiming the issue is resolved.
