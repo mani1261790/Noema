@@ -8,14 +8,18 @@ interface Props {
 }
 
 const { series, headingLevel = 3 } = Astro.props;
+const firstArticle = series.items[0];
 ---
 
-<a class="series-card" href={series.href}>
-  <div class="series-card__body">
-    {headingLevel === 2
-      ? <h2 class="series-card__title">{series.title}</h2>
-      : <h3 class="series-card__title">{series.title}</h3>}
-    <p class="series-card__description">{series.description}</p>
-  </div>
-  <span class="series-card__link"><span>全{series.items.length}本 · シリーズを読む</span> <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span></span>
-</a>
+<article class="series-card">
+  <a class="series-card__primary" href={firstArticle?.href ?? series.href}>
+    <div class="series-card__body">
+      {headingLevel === 2
+        ? <h2 class="series-card__title">{series.title}</h2>
+        : <h3 class="series-card__title">{series.title}</h3>}
+      <p class="series-card__description">{series.description}</p>
+    </div>
+    <span class="series-card__link"><span>全{series.items.length}本 · {firstArticle ? "1本目から読む" : "シリーズを見る"}</span> <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span></span>
+  </a>
+  {firstArticle && <a class="series-card__overview dads-link" href={series.href} aria-label={`${series.title}の概要・目次`}>概要・目次を見る</a>}
+</article>
