@@ -9,13 +9,13 @@ import { canonicalUrl, organizationJsonLd, websiteJsonLd } from "../lib/seo";
 import { listNarrowingTopics } from "../lib/topics";
 
 const [articles, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
-const recentArticles = sortArticlesByDate(articles).slice(0, 5);
-const recentArticleSlugs = new Set(recentArticles.map((article) => article.slug));
-const standaloneArticles = selectStandaloneArticles(
-  articles.filter((article) => !recentArticleSlugs.has(article.slug)),
-  seriesList,
-  3,
-);
+const standaloneArticles = selectStandaloneArticles(articles, seriesList, 3);
+const startArticles = standaloneArticles.length > 0
+  ? standaloneArticles
+  : sortArticlesByDate(articles).slice(0, 3);
+const startArticleSlugs = new Set(startArticles.map((article) => article.slug));
+const recentArticles = sortArticlesByDate(articles)
+  .filter((article) => !startArticleSlugs.has(article.slug)).slice(0, 5);
 const narrowingTopics = listNarrowingTopics(articles);
 const title = "AIでできることと、その仕組みを学ぶ | Noema";
 const description = "コーディングエージェントやローカルLLMなど、AIでできることと、その仕組みを、初めての人にもわかる具体例から解説する技術メディアです。";
@@ -47,6 +47,20 @@ const jsonLd = {
     </div>
   </section>
 
+  {startArticles.length > 0 && (
+    <section class="home-start" aria-labelledby="start-heading">
+      <div class="noema-container">
+        <div class="section-heading-row">
+          <h2 id="start-heading" class="noema-section-heading">まず、1本から読む</h2>
+          <a class="dads-link" href="/articles">すべての記事を見る</a>
+        </div>
+        <div class="article-list home-start__articles">
+          {startArticles.map((article) => <ArticleRow article={article} headingLevel={3} />)}
+        </div>
+      </div>
+    </section>
+  )}
+
   {seriesList.length > 0 && (
     <section class="home-series" aria-labelledby="series-heading">
       <div class="noema-container">
@@ -56,18 +70,6 @@ const jsonLd = {
         </div>
         <p class="home-series__lead">ひとつのテーマを、記事をたどりながら少しずつ深められます。</p>
         <div class="series-grid series-grid--home">{seriesList.slice(0, 4).map((series) => <SeriesCard series={series} />)}</div>
-      </div>
-    </section>
-  )}
-
-  {standaloneArticles.length > 0 && (
-    <section class="home-start" aria-labelledby="start-heading">
-      <div class="noema-container">
-        <h2 id="start-heading" class="noema-section-heading">まず、1本から読む</h2>
-        <p class="home-start__lead">シリーズをたどらず、気になった題名の記事から始められます。</p>
-        <div class="article-list home-start__articles">
-          {standaloneArticles.map((article) => <ArticleRow article={article} headingLevel={3} />)}
-        </div>
       </div>
     </section>
   )}

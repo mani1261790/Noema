@@ -318,10 +318,10 @@ body.noema-public :focus-visible {
 
 .home-hero__inner {
   display: grid;
-  grid-template-columns: minmax(18rem, 0.8fr) minmax(28rem, 1.2fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   align-items: center;
   gap: 2rem;
-  padding-block: 3.5rem 3rem;
+  padding-block: 2rem 1.5rem;
 }
 
 .home-hero__copy {
@@ -331,14 +331,14 @@ body.noema-public :focus-visible {
 .home-hero__copy h1 {
   max-width: 18ch;
   margin: 0;
-  font-size: clamp(2.25rem, 4vw, 3rem);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0;
 }
 
 .home-hero__copy p {
-  margin: 2rem 0 0;
+  margin: 1rem 0 0;
   font-size: calc(17 / 16 * 1rem);
   line-height: 1.7;
   letter-spacing: 0.02em;
@@ -358,15 +358,12 @@ body.noema-public :focus-visible {
   background: var(--color-neutral-white);
 }
 
-.home-start,
-.home-recent {
-  padding-block: 4.5rem;
+.home-start {
+  padding-block: 1.5rem 3rem;
 }
 
-.home-start__lead {
-  max-width: 42rem;
-  margin: 1rem 0 2rem;
-  color: var(--color-neutral-solid-gray-700);
+.home-recent {
+  padding-block: 4.5rem;
 }
 
 .home-topics {
@@ -445,6 +442,7 @@ body.noema-public :focus-visible {
 }
 
 .series-card {
+  position: relative;
   display: flex;
   min-height: 100%;
   flex-direction: column;
@@ -455,6 +453,33 @@ body.noema-public :focus-visible {
   border: 1px solid var(--noema-border);
   border-radius: 0.75rem;
   text-decoration: none;
+}
+
+.series-card__primary {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  color: inherit;
+  text-decoration: none;
+}
+
+.series-card__primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.series-card__overview {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
 }
 
 .series-card:hover {
@@ -2023,9 +2048,7 @@ body.is-resizing-assistant-panel .article-page {
     padding-inline: 2rem;
   }
 
-  .home-hero__inner {
-    grid-template-columns: 1fr;
-  }
+
 
   .home-hero__illustration {
     max-width: 42rem;
@@ -2070,12 +2093,12 @@ body.is-resizing-assistant-panel .article-page {
 
   .home-hero__inner {
     gap: 1rem;
-    padding-block: 2rem 2.5rem;
+    padding-block: 1.5rem 0.75rem;
+    grid-template-columns: 1fr;
   }
 
   .home-hero__illustration {
-    max-width: 24rem;
-    margin-top: 0;
+    display: none;
   }
 
   .home-hero__copy h1 {
@@ -2277,7 +2300,6 @@ body.is-resizing-assistant-panel .article-page {
     padding-inline: 1.5rem;
   }
 
-  .home-hero__inner,
   .series-grid,
   .featured-article-grid {
     grid-template-columns: 1fr;
