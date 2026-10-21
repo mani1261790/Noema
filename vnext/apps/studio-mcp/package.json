@@ -13,7 +13,7 @@
     "deploy": "pnpm run build && wrangler deploy --config wrangler.jsonc"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.3.0",
     "@noema/cms": "workspace:*",
     "@noema/content": "workspace:*",
     "agents": "0.21.0",
@@ -24,8 +24,8 @@
     "@cloudflare/vitest-pool-workers": "^0.21.0",
     "@modelcontextprotocol/client": "^2.2.0",
     "typescript": "^5.9.3",
-    "vite": "^8.1.4",
+    "vite": "^8.1.6",
     "vitest": "^4.1.10",
-    "@modelcontextprotocol/sdk": "1.31.0"
+    "@modelcontextprotocol/sdk": "1.32.1"
   }
 }
