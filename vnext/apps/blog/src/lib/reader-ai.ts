@@ -7,7 +7,8 @@ export async function reserveReaderAiRequest(db: CmsPublicationDatabase, limit: 
     VALUES ('reader', ?, 1)
     ON CONFLICT(scope) DO UPDATE SET day = excluded.day,
       requests = CASE WHEN cms_reader_ai_budget.day = excluded.day THEN cms_reader_ai_budget.requests + 1 ELSE 1 END
-    WHERE cms_reader_ai_budget.day <> excluded.day OR cms_reader_ai_budget.requests < ?
+    WHERE cms_reader_ai_budget.day < excluded.day
+      OR (cms_reader_ai_budget.day = excluded.day AND cms_reader_ai_budget.requests < ?)
     RETURNING requests`).bind(day, limit).first<{ requests: number }>();
   return row !== null;
 }
@@ -47,9 +48,9 @@ export async function runReaderAi(request: Request, system: string, input: strin
     if (!env.AI || !env.READER_AI_RATE_LIMITER) return aiJson({error:'AI案内は現在利用できません。通常の記事検索をご利用ください。'},503);
     const ip = request.headers.get('cf-connecting-ip') ?? 'local';
     if (!(await env.READER_AI_RATE_LIMITER.limit({key: ip})).success) return aiJson({error:'続けて利用されています。1分ほど待ってからお試しください。'},429);
-    if (!await reserveReaderAiRequest(env.CMS_DB, Number(env.READER_AI_DAILY_LIMIT))) return aiJson({error:'本日のAI利用上限に達しました。記事検索や本文は引き続き利用できます。'},429);
     // Bound input and output independently of the daily request count. Never retry upstream automatically.
     if (system.length + input.length > 24_000) return aiJson({error:'内容が長すぎるためAI案内を実行できませんでした。'},400);
+    if (!await reserveReaderAiRequest(env.CMS_DB, Number(env.READER_AI_DAILY_LIMIT))) return aiJson({error:'本日のAI利用上限に達しました。記事検索や本文は引き続き利用できます。'},429);
     const result = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [{role:'system',content: system}, {role:'user',content: input + '\n/no_think'}],
       max_tokens: 900,

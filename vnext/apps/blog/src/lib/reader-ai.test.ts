@@ -14,6 +14,7 @@ describe('reader AI bounded usage', () => {
   expect(results.filter(Boolean)).toHaveLength(100);
   expect(await reserveReaderAiRequest(db,100,now)).toBe(false);
   expect(await reserveReaderAiRequest(db,100,new Date('2026-10-23T00:00:00Z'))).toBe(true);
+  expect(await reserveReaderAiRequest(db,100,now)).toBe(false); // A delayed previous-day request cannot reset today's budget.
   expect(sql.prepare('select requests from cms_reader_ai_budget').get()?.requests).toBe(1);
   for(const limit of [0,-1,NaN,201])expect(await reserveReaderAiRequest(db,limit,now)).toBe(false);
   sql.close();
