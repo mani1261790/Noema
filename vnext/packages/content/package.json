@@ -19,13 +19,13 @@
   "dependencies": {
     "github-slugger": "^2.0.0",
     "highlight.js": "^11.11.1",
-    "katex": "^0.16.45",
+    "katex": "^0.18.2",
     "markdown-it": "^14.3.3",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }

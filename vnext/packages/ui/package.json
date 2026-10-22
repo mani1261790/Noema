@@ -8,6 +8,6 @@
     "./article-styles": "./src/styles/article.css"
   },
   "dependencies": {
-    "katex": "^0.16.45"
+    "katex": "^0.18.2"
   }
 }
