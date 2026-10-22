@@ -7,7 +7,7 @@ import { buildSitemapEntries } from "../lib/sitemap";
 export const GET: APIRoute = async ({ site }) => {
   const base = site ?? new URL("https://noema-learn.uk");
   const [articles, editors, seriesList] = await Promise.all([
-    listPublicArticleSummaries(),
+    listPublicArticleSummaries({ includeFeatures: false }),
     listPublishedEditors(),
     listPublishedSeries()
   ]);

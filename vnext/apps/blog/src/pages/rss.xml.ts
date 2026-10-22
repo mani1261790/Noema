@@ -4,7 +4,7 @@ import { listPublicArticleSummaries } from "../lib/cms-publications";
 import { createNoemaRssItems } from "../lib/rss";
 
 export const GET: APIRoute = async ({ site }) => {
-  const articles = await listPublicArticleSummaries();
+  const articles = await listPublicArticleSummaries({ includeFeatures: false });
   const canonicalSite = site ?? new URL("https://noema-learn.uk");
   return rss({
     title: "Noema",

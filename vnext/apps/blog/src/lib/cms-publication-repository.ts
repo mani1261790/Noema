@@ -83,7 +83,6 @@ interface CmsPublishedSeriesRow extends CmsPublishedArticleRow {
 }
 
 const publishedSummaryColumns = `r.frontmatter_json,
-  r.markdown,
   a.published_at,
   a.published_slug,
   a.published_visibility,
@@ -150,9 +149,10 @@ export function parseCmsPublishedArticleRow(
 
 export async function listCmsPublicArticleSummaries(
   db: CmsPublicationDatabase,
+  options: { includeFeatures?: boolean } = {},
 ): Promise<Array<ArticleSummary & { editorDisplayName?: string }>> {
   const result = await db.prepare(
-    `SELECT ${publishedSummaryColumns}
+    `SELECT ${publishedSummaryColumns}${options.includeFeatures === false ? "" : ", r.markdown"}
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
@@ -177,7 +177,7 @@ export async function getCmsPublishedArticleBySlug(
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
 
   const row = await db.prepare(
-    `SELECT ${publishedSummaryColumns}
+    `SELECT ${publishedSummaryColumns}, r.markdown
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
@@ -352,7 +352,7 @@ export async function getCmsPublishedSeriesBySlug(
        sr.title AS series_title,
        sr.description AS series_description,
        sr.created_at AS series_updated_at,
-       ${publishedSummaryColumns}
+       ${publishedSummaryColumns}, r.markdown
      FROM cms_series s
      JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
      JOIN cms_series_revision_items item ON item.revision_id = s.published_revision_id
@@ -383,7 +383,7 @@ export async function getCmsPublishedEditorProfile(
   if (!editor) return null;
 
   const result = await db.prepare(
-    `SELECT ${publishedSummaryColumns}
+    `SELECT ${publishedSummaryColumns}, r.markdown
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject

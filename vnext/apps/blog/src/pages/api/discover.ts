@@ -21,7 +21,7 @@ export const POST: APIRoute = async ({request,url}) => {
   const selections = parseDiscoveryAnswer(output,candidates);
   if (!selections) return aiJson({error:'記事案内を取得できませんでした。通常の記事検索をご利用ください。'},502);
   // A publication may have been withdrawn while inference was running.
-  const publicNow = new Map((await listPublicArticleSummaries()).map(a=>[a.slug,a]));
+  const publicNow = new Map((await listPublicArticleSummaries({ includeFeatures: false })).map(a=>[a.slug,a]));
   return aiJson({articles:selections.flatMap(({article,reason})=>{
     const current = publicNow.get(article.slug);
     return current && current.title===article.title && current.description===article.description

@@ -130,3 +130,14 @@ describe("findRelatedArticles", () => {
     ]);
   });
 });
+
+it('does not mistake a shared audience label for a shared subject', () => {
+  const current = article('current', '2026-10-01', {tags:['初学者','AI']});
+  const unrelated = article('unrelated', '2026-10-02', {tags:['初学者','AI']});
+  expect(findRelatedArticles(current,[unrelated])).toEqual([]);
+});
+it('matches concrete related tags across width and case differences', () => {
+  const current = article('current', '2026-10-01', {tags:['Ｐｙｔｈｏｎ']});
+  const related = article('related', '2026-10-02', {tags:['python']});
+  expect(findRelatedArticles(current,[related])).toEqual([related]);
+});
