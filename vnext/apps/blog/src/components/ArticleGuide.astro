@@ -1,0 +1,34 @@
+<details class="article-guide">
+  <summary><span>AIに記事を探してもらう</span></summary>
+  <form data-article-guide>
+    <label for="guide-query">知りたいこと・やってみたいこと</label>
+    <textarea id="guide-query" name="query" rows="2" maxlength="500" required placeholder="例：AIがもっともらしい間違いをする理由を知りたい"></textarea>
+    <div class="article-guide__actions"><button type="submit" class="dads-button" data-size="sm" data-type="outline">記事を探してもらう</button><small>入力内容をCloudflare Workers AIへ送信します。</small></div>
+    <p data-guide-status role="status" aria-live="polite"></p>
+    <ul data-guide-results></ul>
+  </form>
+</details>
+<script>
+ const form=document.querySelector<HTMLFormElement>('[data-article-guide]');
+ if(form){
+  const status=form.querySelector<HTMLElement>('[data-guide-status]')!;
+  const results=form.querySelector<HTMLElement>('[data-guide-results]')!;
+  const button=form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  form.addEventListener('submit',async(event)=>{
+   event.preventDefault(); if(button.disabled)return;
+   results.replaceChildren();status.textContent='公開記事から探しています。';button.disabled=true;form.setAttribute('aria-busy','true');
+   try{
+    const response=await fetch('/api/discover',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:new FormData(form).get('query')}),signal:AbortSignal.timeout(45_000)});
+    const payload=await response.json();
+    if(!response.ok)throw new Error(payload.error ?? '記事案内を取得できませんでした。');
+    for(const article of payload.articles){
+     const li=document.createElement('li');const link=document.createElement('a');const reason=document.createElement('p');
+     if(typeof article.href!=='string'||!/^\/articles\/[a-z0-9-]+$/u.test(article.href))continue;
+     link.href=article.href;link.textContent=article.title;reason.textContent=article.reason;li.append(link,reason);results.append(li);
+    }
+    status.textContent=results.children.length?'AIが選んだ記事です。紹介理由は記事の内容とあわせてご確認ください。':'合う記事を見つけられませんでした。言い換えるか、下の記事一覧から探してみてください。';
+   }catch(error){status.textContent=error instanceof Error&&error.name!=='TimeoutError'?error.message:'時間がかかっています。通常の記事検索もご利用いただけます。';}
+   finally{button.disabled=false;form.removeAttribute('aria-busy');}
+  });
+ }
+</script>

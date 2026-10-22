@@ -1960,9 +1960,6 @@ body.is-resizing-assistant-panel .article-page {
   line-height: 1.5;
 }
 
-.assistant-composer textarea[data-mode="api-key"] {
-  -webkit-text-security: disc;
-}
 
 .assistant-send {
   display: grid;

@@ -83,6 +83,7 @@ interface CmsPublishedSeriesRow extends CmsPublishedArticleRow {
 }
 
 const publishedSummaryColumns = `r.frontmatter_json,
+  r.markdown,
   a.published_at,
   a.published_slug,
   a.published_visibility,
@@ -163,7 +164,7 @@ export async function listCmsPublicArticleSummaries(
   return result.results.map((row) => {
     const article = parseCmsPublishedArticleRow(row, "listing");
     return {
-      ...toArticleSummary(article.data),
+      ...toArticleSummary(article.data, row.markdown),
       editorDisplayName: article.editor?.displayName,
     };
   });
@@ -176,8 +177,7 @@ export async function getCmsPublishedArticleBySlug(
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
 
   const row = await db.prepare(
-    `SELECT ${publishedSummaryColumns},
-       r.markdown
+    `SELECT ${publishedSummaryColumns}
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
@@ -304,7 +304,7 @@ export async function getCmsPublishedSeriesByArticleSlug(
      ORDER BY item.position`,
   ).bind(series.id).all<CmsPublishedArticleRow>();
   const items = result.results.map((row) =>
-    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data),
+    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data, row.markdown),
   );
   const currentIndex = items.findIndex((item) => item.slug === articleSlug);
   if (currentIndex < 0) return null;
@@ -394,7 +394,7 @@ export async function getCmsPublishedEditorProfile(
   ).bind(editor.subject).all<CmsPublishedArticleRow>();
 
   return {
-    articles: result.results.map((row) => toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data)),
+    articles: result.results.map((row) => toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data, row.markdown)),
     displayName: editor.display_name,
     href: `/editors/${editor.public_id}`,
     publicId: editor.public_id,
@@ -453,7 +453,7 @@ function groupPublishedSeries(rows: CmsPublishedSeriesRow[]): CmsPublishedSeries
       };
       grouped.set(row.series_id, series);
     }
-    series.items.push(toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data));
+    series.items.push(toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data, row.markdown));
   }
   return [...grouped.values()];
 }

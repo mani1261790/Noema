@@ -1,0 +1,7 @@
+---
+import { articleFeatureLabels, visibleArticleFeatures, type ArticleFeature } from "@noema/content/article-features";
+interface Props { features?: ArticleFeature[] }
+const { features = [] } = Astro.props;
+const visible = visibleArticleFeatures(features);
+---
+{visible.length > 0 && <ul class="article-features" aria-label="記事の特徴">{visible.map((feature) => <li>{articleFeatureLabels[feature]}</li>)}</ul>}

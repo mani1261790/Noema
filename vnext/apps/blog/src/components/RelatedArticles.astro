@@ -1,12 +1,14 @@
 ---
 import type { ArticleSummary } from "@noema/content";
+import { relatedReadingReason } from "../lib/article-discovery";
 import ArticleRow from "./ArticleRow.astro";
 
 interface Props {
   articles: ArticleSummary[];
+  current?: ArticleSummary;
 }
 
-const { articles } = Astro.props;
+const { articles, current } = Astro.props;
 ---
 
 {articles.length > 0 && (
@@ -14,7 +16,7 @@ const { articles } = Astro.props;
     <h2 id="related-articles-heading" class="noema-section-heading">次に読む</h2>
     <p class="related-articles__lead">いま読んだ内容につながる記事です。</p>
     <div class="article-list" data-analytics-navigation="related">
-      {articles.map((article) => <ArticleRow article={article} headingLevel={3} compact />)}
+      {articles.map((article) => <ArticleRow article={article} headingLevel={3} reason={current ? relatedReadingReason(current, article) : undefined} compact />)}
     </div>
   </section>
 )}

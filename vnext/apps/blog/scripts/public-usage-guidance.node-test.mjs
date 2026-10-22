@@ -13,7 +13,7 @@ test("publishes current reader guidance instead of a pre-release placeholder", a
 
   assert.match(terms, /<h1>利用にあたって<\/h1>/);
   assert.match(terms, /記事アシスタント/);
-  assert.match(terms, /OpenAI APIキー/);
+  assert.match(terms, /APIキーなし/);
   assert.match(terms, /href="\/privacy"/);
   assert.match(terms, /href="\/about"/);
   assert.doesNotMatch(terms, /実装確認用|公開前に運営者/);

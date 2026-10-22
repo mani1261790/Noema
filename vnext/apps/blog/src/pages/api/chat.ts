@@ -3,6 +3,8 @@ import { previewArticles, previewArticleMarkdown } from "@noema/content";
 import { createAnswerSchema, extractArticleHeadings, parseAssistantAnswer } from "../../lib/article-assistant";
 import { getPublishedArticleBySlug } from "../../lib/cms-publications";
 
+import { aiJson, readAiRequest, runReaderAi } from "../../lib/reader-ai";
+
 export const prerender = false;
 
 type ConversationTurn = {
@@ -48,23 +50,6 @@ function json(payload: unknown, status = 200) {
   });
 }
 
-function readOutputText(payload: unknown): string {
-  if (!payload || typeof payload !== "object") return "";
-  const output = (payload as { output?: unknown }).output;
-  if (!Array.isArray(output)) return "";
-  return output
-    .flatMap((item) => {
-      if (!item || typeof item !== "object" || (item as { type?: unknown }).type !== "message") return [];
-      const content = (item as { content?: unknown }).content;
-      if (!Array.isArray(content)) return [];
-      return content
-        .filter((part) => part && typeof part === "object" && (part as { type?: unknown }).type === "output_text")
-        .map((part) => String((part as { text?: unknown }).text ?? ""));
-    })
-    .join("\n")
-    .trim();
-}
-
 function normalizeHistory(value: unknown): ConversationTurn[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -74,7 +59,7 @@ function normalizeHistory(value: unknown): ConversationTurn[] {
       const role = (turn as { role?: unknown }).role;
       const content = (turn as { content?: unknown }).content;
       if ((role !== "user" && role !== "assistant") || typeof content !== "string") return null;
-      return { role, content: content.trim().slice(0, 3000) } satisfies ConversationTurn;
+      return { role, content: content.trim().slice(0, 500) } satisfies ConversationTurn;
     })
     .filter((turn): turn is ConversationTurn => Boolean(turn?.content));
 }
@@ -92,17 +77,13 @@ export function buildReaderInput(conversation: string, selectedText: string, que
 }
 
 export const POST: APIRoute = async ({ request, url }) => {
-  const origin = request.headers.get("origin");
-  if (origin && origin !== url.origin) return json({ error: "許可されていない送信元です。" }, 403);
-
-  const apiKey = request.headers.get("x-openai-api-key")?.trim() ?? "";
-  if (apiKey.length < 20) return json({ error: "OpenAI APIキーを入力してください。" }, 401);
-
   let body: ChatBody;
   try {
-    body = (await request.json()) as ChatBody;
+    const value = await readAiRequest(request, url.origin);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return aiJson({error:"質問の形式が正しくありません。"},400);
+    body = value as ChatBody;
   } catch {
-    return json({ error: "リクエストの形式が正しくありません。" }, 400);
+    return aiJson({error:"質問を送信できませんでした。ページを開き直してください。"},400);
   }
 
   const slug = typeof body.slug === "string" ? body.slug.trim() : "";
@@ -131,46 +112,12 @@ export const POST: APIRoute = async ({ request, url }) => {
     `記事タイトル: ${article.title}`,
     `記事概要: ${article.description}`,
     "記事本文:",
-    articleMarkdown.slice(0, 18_000)
+    articleMarkdown.slice(0, 16_000)
   ].join("\n");
 
-  try {
-    const upstream = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-5.6-luna",
-        reasoning: { effort: "low" },
-        instructions,
-        input: buildReaderInput(conversation, selectedText, question),
-        max_output_tokens: 800,
-        store: false,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "article_grounded_answer",
-            strict: true,
-            schema: createAnswerSchema(headings)
-          }
-        }
-      })
-    });
-
-    if (!upstream.ok) {
-      if (upstream.status === 401) return json({ error: "OpenAI APIキーを確認してください。" }, 401);
-      if (upstream.status === 429) return json({ error: "OpenAI APIの利用上限に達しました。しばらくしてから再試行してください。" }, 429);
-      return json({ error: "OpenAI APIから回答を取得できませんでした。" }, 502);
-    }
-
-    const payload: unknown = await upstream.json();
-    const outputText = readOutputText(payload);
-    const result = parseAssistantAnswer(outputText, headings);
-    if (!result) return json({ error: "回答の本文を取得できませんでした。" }, 502);
-    return json(result);
-  } catch {
-    return json({ error: "OpenAI APIへ接続できませんでした。" }, 502);
-  }
+  const output = await runReaderAi(request, instructions, buildReaderInput(conversation, selectedText, question), createAnswerSchema(headings));
+  if (output instanceof Response) return output;
+  const result = parseAssistantAnswer(output, headings);
+  if (!result) return json({ error: "回答を取得できませんでした。本文の見出しから読み返すこともできます。" }, 502);
+  return json(result);
 };

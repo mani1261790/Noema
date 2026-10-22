@@ -1,33 +1,35 @@
 ---
 import { topicLabels, type ArticleSummary } from "@noema/content";
 import { formatJapaneseDate } from "../lib/articles";
+import ArticleFeatures from "./ArticleFeatures.astro";
 import ArrowIcon from "./ArrowIcon.astro";
 
 interface Props {
   article: ArticleSummary;
   headingLevel?: 2 | 3;
   compact?: boolean;
+  showImage?: boolean;
+  reason?: string;
 }
 
-const { article, headingLevel = 2, compact = false } = Astro.props;
+const { article, headingLevel = 2, compact = false, showImage = true, reason } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
 
-<a class:list={["article-row", compact && "article-row--compact"]} href={article.href}>
+<a class:list={["article-row", compact && "article-row--compact", showImage && article.heroImage && "article-row--illustrated"]} href={article.href}>
+  {showImage && article.heroImage && <div class="article-row__image"><img src={article.heroImage.src} alt="" width="320" height="200" loading="lazy" /></div>}
   <div class="article-row__body">
+    {reason && <p class="article-row__reason">{reason}</p>}
     {headingLevel === 3
       ? <h3 class="article-row__title">{article.title}</h3>
       : <h2 class="article-row__title">{article.title}</h2>}
     <p class="article-row__excerpt">{article.excerpt}</p>
-    {article.tags.length > 0 && (
-      <ul class="article-row__tags" aria-label="タグ">
-        {article.tags.slice(0, 3).map((tag) => <li>{tag}</li>)}
-      </ul>
-    )}
+    <ArticleFeatures features={article.features} />
     <div class="article-row__meta">
       <div class="article-row__details">
         <span class="article-row__topic">{topicLabel}</span>
+        <span class="article-row__author">{article.editorDisplayName ?? article.authors.join("・")}</span>
         <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
       </div>
       <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span>

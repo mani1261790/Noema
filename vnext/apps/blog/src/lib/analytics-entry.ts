@@ -3,7 +3,7 @@ import type { CmsAnalyticsEntryKind } from "@noema/cms";
 const ARTICLE_PATH = /^\/articles\/[a-z0-9]+(?:-[a-z0-9]+)*\/?$/u;
 const SERIES_PATH = /^\/series(?:\/|$)/u;
 const TOPIC_PATH = /^\/topics(?:\/|$)/u;
-const ARTICLE_SEARCH_PARAMETERS = ["keyword", "series", "topic", "tag"] as const;
+const ARTICLE_SEARCH_PARAMETERS = ["keyword", "series", "topic", "tag", "feature", "intent"] as const;
 
 /**
  * Reduce the referrer to a small, non-identifying discovery surface.

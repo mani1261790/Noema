@@ -23,6 +23,9 @@ export default defineConfig({
   // and `cloudflare:workers` behave exactly as they do after deployment.
   adapter: cloudflare({
     configPath: "./wrangler.jsonc",
+    // Builds and ordinary local previews must not invoke paid remote bindings.
+    // Set NOEMA_REMOTE_AI=1 only for an authenticated live AI integration check.
+    remoteBindings: process.env.NOEMA_REMOTE_AI === "1",
     imageService: "compile"
   }),
   markdown: {

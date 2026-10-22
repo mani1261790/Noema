@@ -23,15 +23,15 @@ const { idPrefix, headingId, hideHeading = false } = Astro.props;
       <p class="assistant-status" data-assistant-status role="status" aria-live="polite"></p>
     </div>
     <div class="assistant-composer">
-      <label class="noema-visually-hidden" for={`${idPrefix}-question`} data-composer-label>OpenAI APIキー</label>
-      <textarea id={`${idPrefix}-question`} data-question data-mode="api-key" rows="1" maxlength="1000" autocomplete="off" spellcheck="false" aria-label="OpenAI APIキー" placeholder="最初にOpenAI APIキーを入力してください"></textarea>
-      <button class="assistant-send" type="submit" aria-label="APIキーを設定">
+      <label class="noema-visually-hidden" for={`${idPrefix}-question`} data-composer-label>質問</label>
+      <textarea id={`${idPrefix}-question`} data-question data-mode="question" rows="1" maxlength="1000" autocomplete="off" spellcheck="false" aria-label="質問" placeholder="この記事について、知りたいことを入力"></textarea>
+      <button class="assistant-send" type="submit" aria-label="質問を送信">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m12 19V5m-6 6 6-6 6 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
         </svg>
       </button>
     </div>
-    <p class="assistant-privacy">APIキーはこのページ内だけで保持され、質問時にOpenAIへ送信されます。Noemaには保存されません。</p>
+    <p class="assistant-privacy">質問と記事の内容をCloudflare Workers AIへ送信します。AIの回答には誤りが含まれることがあります。</p>
     <button class="assistant-clear" type="button" data-clear-conversation>会話を消去</button>
   </form>
 </div>
