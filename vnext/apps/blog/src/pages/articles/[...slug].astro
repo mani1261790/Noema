@@ -39,7 +39,7 @@ const markdownRenderer = createArticleMarkdownRenderer({
   resolveImageDimensions: (reference) => articleImageDimensions.get(reference),
   resolveLinkAvailability: (href) => unavailableArticleHrefs.has(href) ? "unavailable" : "available"
 });
-const currentSummary = toArticleSummary(article.data);
+const currentSummary = toArticleSummary(article.data, article.markdown);
 const seriesSlugs = new Set(series?.items.map((item) => item.slug) ?? []);
 const relatedArticles = findRelatedArticles(
   currentSummary,
@@ -100,7 +100,7 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
         ? [{ label: "ホーム", href: "/" }, { label: "シリーズ", href: "/series" }, { label: series.title, href: series.href }, { label: article.data.title }]
         : [{ label: "ホーム", href: "/" }, { label: "記事を探す", href: "/articles" }, { label: article.data.title }]} />
       <Fragment set:html={presentationHtml} />
-      <RelatedArticles articles={relatedArticles} />
+      <RelatedArticles articles={relatedArticles} current={currentSummary} />
       <ShareArticle />
       <ArticleUpdatesCta slug={article.data.slug} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">

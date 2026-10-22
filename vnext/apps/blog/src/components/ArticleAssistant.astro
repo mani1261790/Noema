@@ -96,7 +96,6 @@ const { preview = false, slug } = Astro.props;
       if (selectedTextElement) selectedTextElement.textContent = selectedText;
     });
     document.querySelectorAll<HTMLTextAreaElement>("[data-question]").forEach((questionInput) => {
-      if (questionInput.dataset.mode === "api-key") return;
       questionInput.placeholder = selectedText
         ? "選択した本文について質問してください"
         : "この記事の内容について質問してください";
@@ -254,21 +253,15 @@ const { preview = false, slug } = Astro.props;
     const conversation = form.querySelector<HTMLElement>(".assistant-conversation");
     const composerLabel = form.querySelector<HTMLLabelElement>("[data-composer-label]");
     const history: Array<{ role: "user" | "assistant"; content: string }> = [];
-    let apiKey = "";
 
     if (!questionInput || !status || !answer || !submit) return;
 
     const syncComposerMode = () => {
-      const enteringApiKey = !apiKey;
-      questionInput.dataset.mode = enteringApiKey ? "api-key" : "question";
-      questionInput.placeholder = enteringApiKey
-        ? "最初にOpenAI APIキーを入力してください"
-        : selectedText
-          ? "選択した本文について質問してください"
-          : "この記事の内容について質問してください";
-      questionInput.setAttribute("aria-label", enteringApiKey ? "OpenAI APIキー" : "質問");
-      submit.setAttribute("aria-label", enteringApiKey ? "APIキーを設定" : "質問を送信");
-      if (composerLabel) composerLabel.textContent = enteringApiKey ? "OpenAI APIキー" : "質問";
+      questionInput.dataset.mode = "question";
+      questionInput.placeholder = selectedText ? "選択した本文について質問してください" : "この記事の内容について質問してください";
+      questionInput.setAttribute("aria-label", "質問");
+      submit.setAttribute("aria-label", "質問を送信");
+      if (composerLabel) composerLabel.textContent = "質問";
     };
 
     const resizeQuestionInput = () => {
@@ -292,12 +285,11 @@ const { preview = false, slug } = Astro.props;
 
     clear?.addEventListener("click", () => {
       history.length = 0;
-      apiKey = "";
       answer.replaceChildren();
       questionInput.value = "";
       syncComposerMode();
       resizeQuestionInput();
-      status.textContent = "会話とAPIキーを消去しました。";
+      status.textContent = "会話を消去しました。";
     });
 
     clearSelection?.addEventListener("click", () => {
@@ -311,20 +303,6 @@ const { preview = false, slug } = Astro.props;
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const input = questionInput.value.trim();
-      if (!apiKey && input.length < 20) {
-        status.textContent = "有効なOpenAI APIキーを入力してください。";
-        questionInput.focus();
-        return;
-      }
-      if (!apiKey) {
-        apiKey = input;
-        questionInput.value = "";
-        syncComposerMode();
-        resizeQuestionInput();
-        status.textContent = "APIキーを設定しました。質問を入力してください。";
-        questionInput.focus();
-        return;
-      }
       const question = input;
       if (!question) {
         status.textContent = "質問を入力してください。";
@@ -348,8 +326,7 @@ const { preview = false, slug } = Astro.props;
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: {
-            "content-type": "application/json",
-            "x-openai-api-key": apiKey
+            "content-type": "application/json"
           },
           body: JSON.stringify({
             slug: articleSlug,
@@ -361,12 +338,6 @@ const { preview = false, slug } = Astro.props;
         });
         const payload = await response.json();
         if (!response.ok) {
-          if (response.status === 401) {
-            apiKey = "";
-            questionInput.value = "";
-            syncComposerMode();
-            resizeQuestionInput();
-          }
           throw new Error(payload.error || "回答を作成できませんでした。");
         }
 
@@ -406,7 +377,7 @@ const { preview = false, slug } = Astro.props;
       } catch (error) {
         userMessage.remove();
         status.textContent = error instanceof Error ? error.message : "回答を作成できませんでした。";
-        if (!apiKey) questionInput.focus();
+        questionInput.focus();
         document.dispatchEvent(new CustomEvent("noema:analytics", {
           detail: { eventType: "assistant_error" }
         }));

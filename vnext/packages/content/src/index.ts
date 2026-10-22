@@ -92,6 +92,8 @@ export type ArticleSummary = Pick<
   ArticleFrontmatter,
   "title" | "description" | "slug" | "publishedAt" | "updatedAt" | "topics" | "tags" | "approach" | "authors" | "heroImage"
 > & {
+  features?: import("./article-features").ArticleFeature[];
+  editorDisplayName?: string;
   excerpt: string;
   href: string;
 };

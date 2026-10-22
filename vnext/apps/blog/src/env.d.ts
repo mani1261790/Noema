@@ -7,6 +7,9 @@ declare module "virtual:noema-static-page-revisions" {
 
 declare module "cloudflare:workers" {
   const env: {
+    AI: Ai;
+    READER_AI_RATE_LIMITER: RateLimit;
+    READER_AI_DAILY_LIMIT: string;
     ANALYTICS_RATE_LIMITER: RateLimit;
     ARTICLE_ASSETS: R2Bucket;
     ASSETS: { fetch(input: Request): Promise<Response> };

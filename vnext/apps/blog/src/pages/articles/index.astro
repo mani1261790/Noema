@@ -1,9 +1,12 @@
 ---
+import { articleFeatureLabels, type ArticleFeature } from "@noema/content/article-features";
+import { articleIntent, readingIntents } from "../../lib/article-discovery";
 import { topicLabels } from "@noema/content";
+import ArticleGuide from "../../components/ArticleGuide.astro";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { buildArticleSearchText } from "../../lib/article-search";
+import { buildArticleSearchText, searchArticles } from "../../lib/article-search";
 import { sortArticlesByDate } from "../../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../../lib/cms-publications";
 import { collectionPageJsonLd } from "../../lib/seo";
@@ -26,6 +29,20 @@ const suggestions = [...new Set([
   ...activeTopics.map((topic) => topic.label),
   ...tags,
 ])];
+const availableFeatures = (Object.keys(articleFeatureLabels) as ArticleFeature[]).filter((feature) => articles.some((article) => article.features?.includes(feature)));
+const searchDocuments = articles.map((article) => ({
+  slug: article.slug, title: article.title,
+  text: buildArticleSearchText({ ...article, seriesTitle: articleSeries.get(article.slug)?.title, topicLabels: article.topics.map((topic) => topicLabels[topic]) }),
+  series: articleSeries.get(article.slug)?.slug ?? "", topics: article.topics, tags: article.tags,
+  features: article.features ?? [], intent: articleIntent(article), publishedAt: article.publishedAt ?? article.updatedAt, updatedAt: article.updatedAt,
+}));
+const params = Astro.url.searchParams;
+const filtered = searchArticles(searchDocuments, params);
+const pageSize = 12;
+const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+const currentPage = Math.max(1, Math.min(totalPages, Number.parseInt(params.get("page") ?? "1", 10) || 1));
+const visibleSlugs = new Set(filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item) => item.slug));
+const orderedArticles = [...filtered.map((item) => articles.find((article) => article.slug === item.slug)!), ...articles.filter((article) => !filtered.some((item) => item.slug === article.slug))];
 const title = "AI駆動開発・ローカルLLMの記事を探す | Noema";
 const description = "AI駆動開発、コーディングエージェント、ローカルLLMなど、Noemaで公開している技術記事を、タイトル・執筆者・概要・シリーズ・テーマ・タグから探せます。";
 const jsonLd = collectionPageJsonLd({
@@ -41,7 +58,7 @@ const jsonLd = collectionPageJsonLd({
     <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "記事を探す" }]} />
     <header class="page-heading">
       <h1>記事を探す</h1>
-      <p>AI駆動開発やローカルLLMなど、気になる言葉やテーマから記事を探せます。</p>
+      <p>AI駆動開発やローカルLLMなど、気になる言葉や、読みたい形から選べます。</p>
     </header>
 
     <form id="search" class="article-search" role="search">
@@ -51,41 +68,46 @@ const jsonLd = collectionPageJsonLd({
             <path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" />
           </svg>
           <span class="noema-visually-hidden">記事を検索</span>
-          <input class="dads-input-text__input" data-size="sm" placeholder="記事名・執筆者で検索" id="article-keyword" name="keyword" type="search" list="article-search-suggestions" autocomplete="off" />
+          <input class="dads-input-text__input" data-size="sm" placeholder="記事名・執筆者で検索" id="article-keyword" name="keyword" type="search" value={params.get("keyword") ?? ""} list="article-search-suggestions" autocomplete="off" />
         </label>
         <datalist id="article-search-suggestions">
           {suggestions.map((suggestion) => <option value={suggestion}></option>)}
         </datalist>
         <button class="dads-button" data-size="sm" data-type="outline" type="submit">検索</button>
       </div>
-      <details class="article-search__detail dads-disclosure" data-filter-details>
+      {availableFeatures.length > 0 && <fieldset class="search-features"><legend>記事の特徴</legend>{availableFeatures.map((feature) => <label><input type="checkbox" name="feature" value={feature} checked={params.getAll("feature").includes(feature)} /><span>{articleFeatureLabels[feature]}</span></label>)}</fieldset>}
+      <details open={Boolean(params.get("intent") || params.get("series") || params.get("topic") || params.get("tag"))} class="article-search__detail dads-disclosure" data-filter-details>
         <summary class="dads-disclosure__summary">
           <svg class="dads-disclosure__icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m7 10 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          シリーズ・テーマ・タグで絞り込む
+          読み方・シリーズ・テーマで絞り込む
         </summary>
         <div class="article-search__detail-content dads-disclosure__content">
           <div class="article-search__filters">
             <div class="dads-form-control-label" data-size="md">
+              <label class="dads-form-control-label__label" for="article-intent">読み方</label>
+              <select id="article-intent" name="intent"><option value="">すべて</option>{Object.entries(readingIntents).map(([id, intent]) => <option value={id} selected={params.get("intent") === id}>{intent.label}</option>)}</select>
+            </div>
+            <div class="dads-form-control-label" data-size="md">
               <label class="dads-form-control-label__label" for="article-series">シリーズ</label>
               <select id="article-series" name="series">
                 <option value="">すべてのシリーズ</option>
-                {seriesList.map((series) => <option value={series.slug}>{series.title}</option>)}
+                {seriesList.map((series) => <option value={series.slug} selected={params.get("series") === series.slug}>{series.title}</option>)}
               </select>
             </div>
             <div class="dads-form-control-label" data-size="md">
               <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
               <select id="article-topic" name="topic">
                 <option value="">すべてのテーマ</option>
-                {narrowingTopics.map((topic) => <option value={topic.slug}>{topic.label}（{topic.articleCount}）</option>)}
+                {narrowingTopics.map((topic) => <option value={topic.slug} selected={params.get("topic") === topic.slug}>{topic.label}（{topic.articleCount}）</option>)}
               </select>
             </div>
             <div class="dads-form-control-label" data-size="md">
               <label class="dads-form-control-label__label" for="article-tag">タグ</label>
               <select id="article-tag" name="tag">
                 <option value="">すべてのタグ</option>
-                {tags.map((tag) => <option value={tag}>{tag}</option>)}
+                {tags.map((tag) => <option value={tag} selected={params.get("tag") === tag}>{tag}</option>)}
               </select>
             </div>
           </div>
@@ -101,30 +123,15 @@ const jsonLd = collectionPageJsonLd({
       <span>選択中の条件</span>
       <ul data-active-filter-list></ul>
     </div>
-    <p class="article-count" data-article-count role="status" aria-live="polite" tabindex="-1">{articles.length}件の記事</p>
+    <ArticleGuide />
+    <div class="article-results-bar">
+    <p class="article-count" data-article-count role="status" aria-live="polite" tabindex="-1">{filtered.length}件の記事</p>
+    <label class="article-sort">並び順 <select name="sort" form="search" id="article-sort"><option value="relevance" selected={!params.get("sort") || params.get("sort") === "relevance"}>関連度順</option><option value="published" selected={params.get("sort") === "published"}>新着順</option><option value="updated" selected={params.get("sort") === "updated"}>更新順</option></select></label>
+    </div>
     <div class="article-list" data-article-list>
-      {articles.map((article) => {
-        const memberSeries = articleSeries.get(article.slug);
-        return (
-          <div
-            data-article-item
-            data-search-text={buildArticleSearchText({
-              authors: article.authors,
-              editorDisplayName: article.editorDisplayName,
-              description: article.description,
-              excerpt: article.excerpt,
-              seriesTitle: memberSeries?.title,
-              tags: article.tags,
-              title: article.title,
-              topicLabels: article.topics.map((topic) => topicLabels[topic]),
-            })}
-            data-series={memberSeries?.slug ?? ""}
-            data-topic={article.topics.join(" ")}
-            data-tags={article.tags.join("\n")}
-          >
-            <ArticleRow article={article} />
-          </div>
-        );
+      {orderedArticles.map((article) => {
+        const document = searchDocuments.find((item) => item.slug === article.slug)!;
+        return <div data-article-item data-search-document={JSON.stringify(document)} hidden={!visibleSlugs.has(article.slug)}><ArticleRow article={article} /></div>;
       })}
     </div>
     <nav class="article-pagination" data-pagination aria-label="記事一覧のページ" hidden>
@@ -132,7 +139,8 @@ const jsonLd = collectionPageJsonLd({
       <ol data-pagination-pages></ol>
       <button type="button" data-page-next>次のページ</button>
     </nav>
-    <div class="noema-empty-state" data-empty-state hidden={articles.length > 0}>
+    <noscript>{totalPages > 1 && <nav class="article-pagination" aria-label="記事一覧のページ">{Array.from({length: totalPages}, (_, index) => { const target = new URLSearchParams(params); target.set("page", String(index + 1)); return <a href={`?${target}`} aria-current={currentPage === index + 1 ? "page" : undefined}>{index + 1}</a>; })}</nav>}</noscript>
+    <div class="noema-empty-state" data-empty-state hidden={filtered.length > 0}>
       <h2>{articles.length > 0 ? "該当する記事はありません" : "記事はまだありません"}</h2>
       {articles.length > 0 && <p>条件を解除するか、別の言葉やテーマをお試しください。</p>}
     </div>
@@ -140,122 +148,96 @@ const jsonLd = collectionPageJsonLd({
 </BaseLayout>
 
 <script>
-  import { normalizeArticleSearchText } from "../../lib/article-search";
+  import { searchArticles, type SearchableArticle } from "../../lib/article-search";
 
-  const form = document.querySelector<HTMLFormElement>(".article-search");
-  const keyword = document.querySelector<HTMLInputElement>("#article-keyword");
-  const topic = document.querySelector<HTMLSelectElement>("#article-topic");
-  const series = document.querySelector<HTMLSelectElement>("#article-series");
-  const tag = document.querySelector<HTMLSelectElement>("#article-tag");
-  const items = [...document.querySelectorAll<HTMLElement>("[data-article-item]")];
-  const count = document.querySelector<HTMLElement>("[data-article-count]");
-  const empty = document.querySelector<HTMLElement>("[data-empty-state]");
-  const reset = document.querySelector<HTMLButtonElement>("[data-reset-search]");
-  const activeFilters = document.querySelector<HTMLElement>("[data-active-filters]");
-  const activeFilterList = document.querySelector<HTMLUListElement>("[data-active-filter-list]");
-  const filterDetails = document.querySelector<HTMLDetailsElement>("[data-filter-details]");
-  const pagination = document.querySelector<HTMLElement>("[data-pagination]");
-  const pageList = document.querySelector<HTMLOListElement>("[data-pagination-pages]");
-  const previousPage = document.querySelector<HTMLButtonElement>("[data-page-previous]");
-  const nextPage = document.querySelector<HTMLButtonElement>("[data-page-next]");
+  const form = document.querySelector<HTMLFormElement>("#search")!;
+  const list = document.querySelector<HTMLElement>("[data-article-list]")!;
+  const items = [...list.querySelectorAll<HTMLElement>("[data-article-item]")].map((element) => ({
+    ...JSON.parse(element.dataset.searchDocument!) as SearchableArticle, element,
+  }));
+  const count = document.querySelector<HTMLElement>("[data-article-count]")!;
+  const empty = document.querySelector<HTMLElement>("[data-empty-state]")!;
+  const active = document.querySelector<HTMLElement>("[data-active-filters]")!;
+  const activeList = document.querySelector<HTMLElement>("[data-active-filter-list]")!;
+  const pagination = document.querySelector<HTMLElement>("[data-pagination]")!;
+  const pageList = document.querySelector<HTMLElement>("[data-pagination-pages]")!;
+  const previous = document.querySelector<HTMLButtonElement>("[data-page-previous]")!;
+  const next = document.querySelector<HTMLButtonElement>("[data-page-next]")!;
+  const details = document.querySelector<HTMLDetailsElement>("[data-filter-details]")!;
   const pageSize = 12;
-  let currentPage = 1;
-
-  const applyFilters = (updateUrl = true) => {
-    const query = normalizeArticleSearchText(keyword?.value ?? "");
-    const selectedTopic = topic?.value ?? "";
-    const selectedSeries = series?.value ?? "";
-    const selectedTag = tag?.value ?? "";
-    const filteredItems = items.filter((item) => {
-      const matchesText = !query || (item.dataset.searchText ?? "").includes(query);
-      const matchesTopic = !selectedTopic || (item.dataset.topic ?? "").split(" ").includes(selectedTopic);
-      const matchesSeries = !selectedSeries || item.dataset.series === selectedSeries;
-      const matchesTag = !selectedTag || (item.dataset.tags ?? "").split("\n").includes(selectedTag);
-      return matchesText && matchesSeries && matchesTopic && matchesTag;
+  let page = 1;
+  const readParams = () => {
+    const params = new URLSearchParams();
+    new FormData(form).forEach((value, key) => {
+      if (typeof value === "string" && value.trim() && !(key === "sort" && value === "relevance")) params.append(key, value.trim());
     });
-    const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
-    currentPage = Math.min(Math.max(1, currentPage), totalPages);
-    const visibleItems = new Set(filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize));
-    for (const item of items) {
-      item.hidden = !visibleItems.has(item);
-    }
-    if (count) count.textContent = totalPages > 1
-      ? `${filteredItems.length}件の記事（${currentPage}/${totalPages}ページ）`
-      : `${filteredItems.length}件の記事`;
-    if (empty) empty.hidden = filteredItems.length > 0;
-    if (activeFilters && activeFilterList) {
-      activeFilterList.replaceChildren();
-      const filters = [
-        ...(query ? [`キーワード: ${keyword?.value.trim()}`] : []),
-        ...(selectedSeries && series ? [`シリーズ: ${series.options[series.selectedIndex]?.text ?? selectedSeries}`] : []),
-        ...(selectedTopic && topic ? [`テーマ: ${topic.options[topic.selectedIndex]?.text ?? selectedTopic}`] : []),
-        ...(selectedTag ? [`タグ: ${selectedTag}`] : [])
-      ];
-      for (const filter of filters) {
-        const item = document.createElement("li");
-        item.textContent = filter;
-        activeFilterList.append(item);
-      }
-      activeFilters.hidden = filters.length === 0;
-    }
-    if (pagination && pageList && previousPage && nextPage) {
-      pagination.hidden = totalPages <= 1;
-      previousPage.disabled = currentPage <= 1;
-      nextPage.disabled = currentPage >= totalPages;
-      pageList.replaceChildren();
-      for (let page = 1; page <= totalPages; page += 1) {
-        const item = document.createElement("li");
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = String(page);
-        button.dataset.page = String(page);
-        button.setAttribute("aria-label", `${page}ページ目`);
-        if (page === currentPage) button.setAttribute("aria-current", "page");
-        item.append(button);
-        pageList.append(item);
-      }
-    }
-    if (updateUrl) {
-      const params = new URLSearchParams();
-      if (keyword?.value.trim()) params.set("keyword", keyword.value.trim());
-      if (series?.value) params.set("series", series.value);
-      if (topic?.value) params.set("topic", topic.value);
-      if (tag?.value) params.set("tag", tag.value);
-      if (currentPage > 1) params.set("page", String(currentPage));
-      window.history.replaceState(null, "", `${window.location.pathname}${params.size ? `?${params}` : ""}#search`);
-    }
+    return params;
   };
-
-  const initialParams = new URLSearchParams(window.location.search);
-  if (keyword) keyword.value = initialParams.get("keyword") ?? "";
-  if (series) series.value = initialParams.get("series") ?? "";
-  if (topic) topic.value = initialParams.get("topic") ?? "";
-  if (tag) tag.value = initialParams.get("tag") ?? "";
-  if (filterDetails && (series?.value || topic?.value || tag?.value)) filterDetails.open = true;
-  currentPage = Number.parseInt(initialParams.get("page") ?? "1", 10) || 1;
-  applyFilters(false);
-
-  form?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    currentPage = 1;
-    applyFilters();
+  const apply = (history = true, restoredParams?: URLSearchParams) => {
+    const params = restoredParams ?? readParams();
+    const filtered = searchArticles(items, params);
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.max(1, Math.min(page, pages));
+    items.forEach(({ element }) => { element.hidden = true; });
+    filtered.forEach(({ element }, index) => {
+      element.hidden = index < (page - 1) * pageSize || index >= page * pageSize;
+      list.append(element);
+    });
+    count.textContent = `${filtered.length}件の記事${pages > 1 ? `（${page}/${pages}ページ）` : ""}`;
+    empty.hidden = filtered.length > 0;
+    activeList.replaceChildren();
+    params.forEach((value, name) => {
+      if (name === "sort" || name === "feature") return;
+      const control = form.elements.namedItem(name);
+      let label = value;
+      if (control instanceof HTMLSelectElement) label = control.selectedOptions[0]?.textContent ?? value;
+      if (name === "feature") label = [...form.querySelectorAll<HTMLInputElement>('input[name="feature"]')].find((input) => input.value === value)?.nextElementSibling?.textContent ?? value;
+      const li = document.createElement("li"); li.textContent = label; activeList.append(li);
+    });
+    active.hidden = !activeList.children.length;
+    pagination.hidden = pages <= 1;
+    previous.disabled = page === 1; next.disabled = page === pages;
+    pageList.replaceChildren();
+    for (let n = Math.max(1, Math.min(page - 2, pages - 4)); n <= Math.min(pages, Math.max(5, page + 2)); n++) {
+      const li = document.createElement("li"); const button = document.createElement("button");
+      button.type = "button"; button.textContent = String(n); button.dataset.page = String(n);
+      button.setAttribute("aria-label", `${n}ページ目`);
+      if (n === page) button.setAttribute("aria-current", "page");
+      li.append(button); pageList.append(li);
+    }
+    if (page > 1) params.set("page", String(page));
+    if (history) window.history.pushState(null, "", `${location.pathname}${params.size ? `?${params}` : ""}`);
+  };
+  const restore = () => {
+    const params = new URLSearchParams(location.search);
+    for (const control of [...form.elements]) {
+      if (control instanceof HTMLInputElement) {
+        if (control.type === "checkbox") control.checked = params.getAll(control.name).includes(control.value);
+        else control.value = params.get(control.name) ?? "";
+      } else if (control instanceof HTMLSelectElement) control.value = params.get(control.name) ?? (control.name === "sort" ? "relevance" : "");
+    }
+    details.open = ["intent", "series", "topic", "tag"].some((name) => Boolean(params.get(name)));
+    page = Number.parseInt(params.get("page") ?? "1", 10) || 1;
+    apply(false, params);
+  };
+  form.addEventListener("submit", (event) => { event.preventDefault(); page = 1; apply(); });
+  form.addEventListener("change", (event) => {
+    if (event.target instanceof HTMLSelectElement || (event.target instanceof HTMLInputElement && event.target.type === "checkbox")) { page = 1; apply(); }
   });
-  reset?.addEventListener("click", () => {
-    if (keyword) keyword.value = "";
-    if (series) series.value = "";
-    if (topic) topic.value = "";
-    if (tag) tag.value = "";
-    currentPage = 1;
-    applyFilters();
-    keyword?.focus();
+  document.querySelector("#article-sort")?.addEventListener("change", () => { page = 1; apply(); });
+  form.querySelector("[data-reset-search]")?.addEventListener("click", () => {
+    for (const control of [...form.elements]) {
+      if (control instanceof HTMLInputElement) { if (control.type === "checkbox") control.checked = false; else control.value = ""; }
+      else if (control instanceof HTMLSelectElement) control.value = control.name === "sort" ? "relevance" : "";
+    }
+    page = 1; apply(); document.querySelector<HTMLInputElement>("#article-keyword")?.focus();
   });
-  previousPage?.addEventListener("click", () => { currentPage -= 1; applyFilters(); });
-  nextPage?.addEventListener("click", () => { currentPage += 1; applyFilters(); });
-  pageList?.addEventListener("click", (event) => {
+  previous.addEventListener("click", () => { page--; apply(); count.focus(); });
+  next.addEventListener("click", () => { page++; apply(); count.focus(); });
+  pageList.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-page]");
-    if (!button) return;
-    currentPage = Number(button.dataset.page);
-    applyFilters();
-    count?.focus();
+    if (button) { page = Number(button.dataset.page); apply(); count.focus(); }
   });
+  window.addEventListener("popstate", restore);
+  restore();
 </script>
