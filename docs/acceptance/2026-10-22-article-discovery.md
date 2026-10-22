@@ -32,3 +32,24 @@ Preserve Studio editing and publication workflow. Make the published catalog dis
 - Run real Workers AI inference and inspect Japanese recommendation quality, empty-result behavior and article-grounded answers.
 - Verify the development deployment, database migration and CI. Local Cloudflare credentials currently cannot create a remote preview for the configured account; no real upstream success is claimed here.
 - Main/production release is outside this change.
+
+## Development verification (2026-10-22)
+
+PR #473 merged into develop as `faeefd4f548f73444c22bf7124476b9cbddd13f6`; final feature CI run 39764622371 passed. Deployment run 39765037949 applied the migration and deployed all three Workers. Its publication parity check matched all 50 public articles; image-dimension validation checked 197 rendered images and 156 unique assets.
+
+Real Workers AI calls on the development site:
+
+- Natural question about plausible AI mistakes: HTTP 200 in 5.9 seconds, first result was the directly relevant published article `why-ai-makes-plausible-mistakes`, followed by related reading with explanations.
+- Unrelated Mars probe design question: HTTP 200 in 1.1 seconds, empty article array; no invented result.
+- Git vs GitHub article question: HTTP 200 in 2.4 seconds, correct distinction and three valid article-heading references.
+- Browser submission also returned the directly relevant article and successfully navigated to it. Actual desktop/mobile homepage and AI result display were inspected.
+
+The deployment's final SEO crawl initially received one transient 503; a subsequent crawl passed page metadata but reported an unreadable series OG image. Both affected resources returned valid responses on direct retrieval. Full crawl revalidation is tracked below rather than treating deployment completion as proof of all checks.
+
+Follow-up: AI guidance is explicitly unavailable with JavaScript disabled (ordinary server search still works), and article answer instructions request plain text because the answer renderer intentionally uses textContent.
+
+### Resource-limit correction
+
+Captured failed crawl responses identify Cloudflare error 1102 (`Worker exceeded resource limits`), so the failures are not accepted as harmless deployment propagation. The feature detector had been building a full Markdown AST for every article on each listing request. On the 50-article / 727,540-byte local fixture, this took approximately 51 ms. A linear structural scanner took approximately 5 ms with identical feature counts (14 code, 9 commands, 9 calculations, 4 math). Additional tests cover longer example fences, tilde fences and multiline math.
+
+RSS, sitemap, series collection/navigation and post-inference visibility rechecks no longer retrieve article bodies unnecessarily. Article lists retain feature detection; individual series/editor cards still receive their feature data. Follow-up deployment must pass the unchanged six-concurrent-request public SEO crawler before acceptance.

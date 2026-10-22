@@ -1,7 +1,3 @@
-import MarkdownIt from "markdown-it";
-
-const markdownParser = new MarkdownIt({ html: false });
-
 export const articleFeatureLabels = {
   code: "コードあり",
   commands: "コマンド操作",
@@ -10,28 +6,40 @@ export const articleFeatureLabels = {
 } as const;
 export type ArticleFeature = keyof typeof articleFeatureLabels;
 
-/** Derived from the published body; never a judgement of the reader's ability. */
+const commandLanguage = /^(bash|sh|shell|zsh|powershell|ps1|cmd|console|terminal)$/u;
+const codeLanguage = /^(js|javascript|ts|typescript|jsx|tsx|python|py|html|css|sql|java|c|cpp|c\+\+|csharp|cs|go|rust|ruby|rb|php|swift|kotlin|r|vue|svelte)$/u;
+const codeContent = /(?:\b(?:def|function|const|let|import|class)\s+\w|<\/?(?:html|div|body)\b)/u;
+
+/** A linear structural scan, not a full Markdown render on every catalog request. */
 export function detectArticleFeatures(markdown: string, title = "", description = ""): ArticleFeature[] {
-  const tokens = markdownParser.parse(markdown, {});
   const features = new Set<ArticleFeature>();
-  const prose: string[] = [];
-  for (const token of tokens) {
-    if (token.type === "fence" || token.type === "code_block") {
-      const language = token.info.trim().split(/\s/u)[0].toLowerCase();
-      if (/^(bash|sh|shell|zsh|powershell|ps1|cmd|console|terminal)$/u.test(language)) {
-        // A console output block alone is not an instruction to run a command.
-        if (language !== "console" || /^\s*[$>]\s+\S/mu.test(token.content)) features.add("commands");
-      } else if (/^(js|javascript|ts|typescript|jsx|tsx|python|py|html|css|sql|java|c|cpp|c\+\+|csharp|cs|go|rust|ruby|rb|php|swift|kotlin|r|vue|svelte)$/u.test(language)
-        || (!language && /(?:\b(?:def|function|const|let|import|class)\s+\w|<\/?(?:html|div|body)\b)/u.test(token.content))) {
-        features.add("code");
-      }
-    } else if (token.type === "inline") {
-      // Preserve LaTeX escapes while excluding inline code examples.
-      prose.push(token.content.replace(/(`+)[\s\S]*?\1/gu, ""));
+  let fence: { character: string; length: number; language: string } | null = null;
+  let blockMath = false;
+  for (const line of markdown.split('\n')) {
+    const delimiter = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(line);
+    if (fence) {
+      if (delimiter && delimiter[1][0] === fence.character && delimiter[1].length >= fence.length && !delimiter[2].trim()) { fence = null; continue; }
+      if (!line.trim()) continue;
+      if (commandLanguage.test(fence.language)) {
+        if (fence.language !== 'console' || /^\s*[$>]\s+\S/u.test(line)) features.add('commands');
+      } else if (codeLanguage.test(fence.language) || (!fence.language && codeContent.test(line))) features.add('code');
+      continue;
     }
+    if (delimiter) {
+      fence = {character:delimiter[1][0],length:delimiter[1].length,language:delimiter[2].trim().split(/\s/u)[0].toLowerCase()};
+      continue;
+    }
+    if (/^(?: {4}|\t)/u.test(line)) {
+      if (codeContent.test(line)) features.add('code');
+      continue;
+    }
+    // Math-like text inside inline code is documentation, not an equation.
+    if (!line.includes('$') && !line.includes('\\')) continue;
+    const prose = line.replace(/(`+)[\s\S]*?\1/gu, '');
+    if (/\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$]*[=^_\\][^$]*\$/u.test(prose)) features.add('math');
+    if (blockMath && /\$\$|\\\]/u.test(prose)) { features.add('math'); blockMath = false; }
+    else if (/^\s*(?:\$\$|\\\[)\s*$/u.test(prose)) blockMath = true;
   }
-  const text = prose.join("\n");
-  if (/\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^\n$]*[=^_\\][^\n$]*\$/u.test(text)) features.add("math");
   if (/手計算|手で計算|計算を手で追/u.test(`${title} ${description}`) && markdown.trim()) features.add("calculation");
   return (Object.keys(articleFeatureLabels) as ArticleFeature[]).filter((feature) => features.has(feature));
 }

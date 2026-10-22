@@ -1,6 +1,7 @@
 <details class="article-guide">
   <summary><span>AIに記事を探してもらう</span></summary>
-  <form data-article-guide>
+  <noscript><p>AI記事案内にはJavaScriptが必要です。通常の記事検索はそのまま利用できます。</p></noscript>
+  <form data-article-guide hidden>
     <label for="guide-query">知りたいこと・やってみたいこと</label>
     <textarea id="guide-query" name="query" rows="2" maxlength="500" required placeholder="例：AIがもっともらしい間違いをする理由を知りたい"></textarea>
     <div class="article-guide__actions"><button type="submit" class="dads-button" data-size="sm" data-type="outline">記事を探してもらう</button><small>入力内容をCloudflare Workers AIへ送信します。</small></div>
@@ -11,6 +12,7 @@
 <script>
  const form=document.querySelector<HTMLFormElement>('[data-article-guide]');
  if(form){
+  form.hidden=false;
   const status=form.querySelector<HTMLElement>('[data-guide-status]')!;
   const results=form.querySelector<HTMLElement>('[data-guide-results]')!;
   const button=form.querySelector<HTMLButtonElement>('button[type="submit"]')!;

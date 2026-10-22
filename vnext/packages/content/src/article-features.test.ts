@@ -19,3 +19,9 @@ describe("published article format signals", () => {
     expect(detectArticleFeatures('', '確率を手計算する')).toEqual([]);
   });
 });
+
+it('ignores code-looking prose enclosed in a longer example fence', () => {
+  expect(detectArticleFeatures('````text\n```python\nprint(1)\n```\n````')).toEqual([]);
+  expect(detectArticleFeatures('~~~python\nprint(1)\n~~~')).toEqual(['code']);
+  expect(detectArticleFeatures('$$\nx^2\n$$')).toEqual(['math']);
+});
