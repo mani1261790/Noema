@@ -66,3 +66,10 @@
 .article-search__active > span { font-size:.75rem; margin-bottom:.25rem; }
 .article-pagination, .article-pagination ol { flex-wrap:wrap; }
 .article-pagination ol { justify-content:center; max-width:100%; }
+.article-question-entry { margin-block:2rem; }
+.article-question-entry p { font-size:.8125rem; color:var(--color-neutral-solid-gray-600); line-height:1.7; }
+@media(max-width:40rem) {
+  .listing-page { padding-top:1rem; }
+  .listing-page .page-heading { margin-block:1.25rem; }
+  .article-guide { margin-block:.5rem 1rem; }
+}

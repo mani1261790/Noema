@@ -64,6 +64,7 @@ const { preview = false, slug } = Astro.props;
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
   const resizeHandle = document.querySelector<HTMLElement>("[data-assistant-resize-handle]");
   const selectionChip = document.querySelector<HTMLButtonElement>("[data-assistant-selection-chip]");
+  const questionEntry = document.querySelector<HTMLButtonElement>("[data-ask-article]");
   const articleBody = document.querySelector<HTMLElement>(".article-body");
   const desktopAssistant = window.matchMedia("(min-width: 56.0625rem)");
   let selectedText = "";
@@ -114,6 +115,7 @@ const { preview = false, slug } = Astro.props;
     panel.removeAttribute("inert");
     panel.setAttribute("aria-hidden", "false");
     selectionChip?.setAttribute("aria-expanded", "true");
+    questionEntry?.setAttribute("aria-expanded", "true");
     document.body.classList.add("has-assistant-panel");
     requestAnimationFrame(() => {
       if (focusQuestion) panel.querySelector<HTMLTextAreaElement>("[data-question]")?.focus();
@@ -121,6 +123,11 @@ const { preview = false, slug } = Astro.props;
     });
     dispatchAssistantOpen();
   };
+  questionEntry?.addEventListener("click", () => {
+    selectedText = "";
+    syncSelectionContext();
+    openPanel(questionEntry, true);
+  });
   const closePanel = () => {
     if (!articlePage || !panel || !isPanelOpen()) return;
     if (panel.contains(document.activeElement)) {
@@ -130,6 +137,7 @@ const { preview = false, slug } = Astro.props;
     panel.setAttribute("inert", "");
     panel.setAttribute("aria-hidden", "true");
     selectionChip?.setAttribute("aria-expanded", "false");
+    questionEntry?.setAttribute("aria-expanded", "false");
     document.body.classList.remove("has-assistant-panel");
     document.body.classList.remove("is-resizing-assistant-panel");
     resizingPointerId = null;

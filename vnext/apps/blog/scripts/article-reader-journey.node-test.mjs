@@ -30,7 +30,7 @@ test("offers the next reading choice before share and update actions", async () 
   assert.match(relatedArticles, /data-analytics-navigation="related"/);
 });
 
-test("opens a resizable split chat panel only from a text-selection chip", async () => {
+test("opens a resizable split chat panel from selection or an article question entry", async () => {
   const [assistant, form, styles] = await Promise.all([
     readFile(articleAssistantUrl, "utf8"),
     readFile(assistantFormUrl, "utf8"),
@@ -39,6 +39,7 @@ test("opens a resizable split chat panel only from a text-selection chip", async
 
   assert.doesNotMatch(assistant, /data-open-assistant|assistant-trigger/);
   assert.match(assistant, /data-assistant-selection-chip/);
+  assert.match(assistant, /data-ask-article/);
   assert.match(assistant, /data-assistant-resize-handle/);
   assert.match(assistant, /role="separator"/);
   assert.match(assistant, /M7\.9 20A9 9 0 1 0 4 16\.1L2 22Z/);
