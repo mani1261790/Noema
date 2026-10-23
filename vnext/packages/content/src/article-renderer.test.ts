@@ -141,6 +141,9 @@ describe("renderArticlePresentation", () => {
     expect(html).toContain('<div class="article-presentation">');
     expect(html).toContain('<div class="article-lead"><header class="article-header">');
     expect(html).toContain("シリーズの記事一覧");
+    expect(html).toContain('<details class="article-series__contents"><summary>シリーズの記事一覧・紹介</summary><p class="article-series__description">共有シリーズ</p>');
+    expect(html).toContain('<details class="article-header__details"><summary>公開日・タグなど</summary>');
+    expect(html).toContain('aria-current="page"');
     expect(html).toContain('href="/series/renderer-test"');
     expect(html.indexOf("この記事でできるようになること")).toBeLessThan(html.indexOf("このシリーズの第2回"));
     expect(html).toContain("次の記事");

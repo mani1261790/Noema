@@ -73,3 +73,52 @@
   .listing-page .page-heading { margin-block:1.25rem; }
   .article-guide { margin-block:.5rem 1rem; }
 }
+
+/* Mobile lists should reveal the next destination, not fill a screen per card. */
+@media (max-width: 40rem) {
+  .article-page, .series-page { padding-block: 1rem 3rem; }
+  .section-heading-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; }
+  .section-heading-row .dads-link { margin-top: 0; }
+  .home-start, .home-series, .home-recent, .home-intents, .home-discovery { padding-block: 1.5rem; }
+  .article-row { min-height: 0; }
+  .article-row--illustrated { grid-template-columns: minmax(0, 1fr); }
+  .article-row__image { display: none; }
+  .article-row--illustrated .article-row__body { padding-right: 1rem; }
+  .article-row__body { gap: .5rem; }
+  .article-row__title { font-size: 1.0625rem; }
+  .series-grid { gap: .75rem; }
+  .series-card { min-height: 0; padding: .875rem 1rem; }
+  .series-card__title { font-size: 1.125rem; }
+  .series-card__description { margin-top: .5rem; font-size: .875rem; }
+  .series-card__link { margin-top: .75rem; }
+  .series-card__overview { margin-top: 0; }
+  .series-page__header { margin-block: 1rem 1.5rem; }
+  .series-page__header h1 { font-size: 1.5rem; }
+  .series-page__header > p:not(.series-page__count) { font-size: .9375rem; margin-top: .75rem; }
+  .series-page__count { margin-top: .75rem; font-size: .875rem; }
+  .series-page__articles { margin-top: 1.25rem; gap: 1rem; }
+  .series-page__articles > li { grid-template-columns: 1.5rem minmax(0, 1fr); gap: .5rem; }
+  .series-page__number { padding-top: .75rem; font-size: .875rem; }
+  .series-page .article-row__body { padding: .75rem; gap: .5rem; }
+  .series-page .article-row__excerpt { display: none; }
+  .series-share { margin-top: 2rem; }
+  .article-updates { padding: 1rem; border-radius: .5rem; }
+  .article-updates h2 { font-size: 1.125rem; }
+  .article-updates > p:not(.article-updates__eyebrow) { font-size: .875rem; margin-block: .5rem .75rem; }
+  .article-share p:empty { min-height: 0; margin: 0; }
+  .site-footer__links { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 1rem; }
+  .site-footer__links a { display: inline-flex; min-height: 2.75rem; align-items: center; }
+}
+@media (max-width: 40rem) {
+  .article-page__main { padding-inline: 1.5rem; }
+  /* The full current title immediately follows in h1; keep parent links usable. */
+  .article-page .dads-breadcrumb__item[aria-current="page"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .article-page .dads-breadcrumb__item:nth-last-child(2) .dads-breadcrumb__separator { display: none; }
+  .article-page .dads-breadcrumb__link { display: inline-flex; align-items: center; min-height: 2.75rem; }
+}
