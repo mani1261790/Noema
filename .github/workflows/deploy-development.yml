@@ -81,7 +81,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/blog
           packageManager: pnpm
-          wranglerVersion: "4.126.0"
+          wranglerVersion: "4.152.0"
           command: deploy --config dist/server/wrangler.json
 
       - name: Deploy Studio Worker
@@ -90,7 +90,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/studio
           packageManager: pnpm
-          wranglerVersion: "4.126.0"
+          wranglerVersion: "4.152.0"
           secrets: |
             BETTER_AUTH_SECRET
           command: deploy --config wrangler.jsonc
@@ -103,7 +103,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: vnext/apps/studio-mcp
           packageManager: pnpm
-          wranglerVersion: "4.126.0"
+          wranglerVersion: "4.152.0"
           command: deploy --config wrangler.jsonc
 
       - name: Verify development CMS publications
