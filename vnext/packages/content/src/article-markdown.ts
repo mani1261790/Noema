@@ -21,6 +21,7 @@ export type ArticleMarkdownIssueCode =
   | "heading-order"
   | "image-alt"
   | "unsafe-image"
+  | "relative-image"
   | "unsafe-link"
   | "relative-link"
   | "invalid-article-link"
@@ -226,14 +227,22 @@ export function extractArticleHeadingSlugs(source: string): string[] {
 }
 
 export function extractArticleHeadings(source: string): Array<Pick<ArticleHeading, "slug" | "text">> {
-  return collectHeadings(parser.parse(source, {}))
+  return headingsFromTokens(parser.parse(source, {}));
+}
+
+function headingsFromTokens(tokens: Token[]): Array<Pick<ArticleHeading, "slug" | "text">> {
+  return collectHeadings(tokens)
     .filter((heading) => heading.depth === 2)
     .map(({ slug, text }) => ({ slug, text }));
 }
 
 export function extractArticleLinkReferences(source: string): ArticleLinkReference[] {
+  return linksFromTokens(parser.parse(source, {}));
+}
+
+function linksFromTokens(tokens: Token[]): ArticleLinkReference[] {
   const references: ArticleLinkReference[] = [];
-  for (const token of parser.parse(source, {})) {
+  for (const token of tokens) {
     for (const child of token.children ?? []) {
       if (child.type !== "link_open") continue;
       const href = child.attrGet("href");
@@ -252,8 +261,12 @@ export function extractArticleLinkReferences(source: string): ArticleLinkReferen
 }
 
 export function extractArticleImageReferences(source: string): string[] {
+  return imagesFromTokens(parser.parse(source, {}));
+}
+
+function imagesFromTokens(tokens: Token[]): string[] {
   const references: string[] = [];
-  for (const token of parser.parse(source, {})) {
+  for (const token of tokens) {
     for (const child of token.children ?? []) {
       if (child.type !== "image") continue;
       const source = child.attrGet("src");
@@ -261,6 +274,16 @@ export function extractArticleImageReferences(source: string): string[] {
     }
   }
   return references;
+}
+
+/** Analyze once per request; callers share the immutable metadata, not parser state. */
+export function analyzeArticleMarkdown(source: string) {
+  const tokens = parser.parse(source, {});
+  return {
+    headings: headingsFromTokens(tokens),
+    links: linksFromTokens(tokens),
+    images: imagesFromTokens(tokens),
+  };
 }
 
 export function validateArticleMarkdown(
@@ -400,6 +423,14 @@ export function validateArticleMarkdown(
         }
 
         const source = child.attrGet("src");
+        if (source !== null && (!source.startsWith("/") && !/^[a-z][a-z0-9+.-]*:/i.test(source))) {
+          pushUnique(issues, {
+            code: "relative-image",
+            severity: "error",
+            message: "相対画像パスは公開先で画像切れになるため使用できません。画像ライブラリから挿入するか、/で始まる配信済みパスを指定してください。",
+            line: childLine,
+          });
+        }
         if (source !== null && !isSafeArticleMarkdownUrl(source, "image")) {
           pushUnique(issues, {
             code: "unsafe-image",

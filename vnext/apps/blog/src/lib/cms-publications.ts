@@ -12,7 +12,7 @@ import {
 } from "./cms-publication-repository";
 import { getCmsArticleAssetDimensions } from "./cms-publication-assets";
 
-export function listPublicArticleSummaries(options: { includeFeatures?: boolean } = {}) {
+export function listPublicArticleSummaries(options: { includeFeatures?: boolean; slugs?: readonly string[] } = {}) {
   return listCmsPublicArticleSummaries(env.CMS_DB, options);
 }
 

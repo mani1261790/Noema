@@ -8,6 +8,7 @@ export { articleMarkdownGuidance } from "./article-extensions";
 
 export {
   extractArticleHeadingSlugs,
+  analyzeArticleMarkdown,
   extractArticleHeadings,
   extractArticleImageReferences,
   extractArticleLinkReferences,

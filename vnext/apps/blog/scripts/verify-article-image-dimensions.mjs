@@ -31,6 +31,21 @@ export function parseCmsArticleImages(html) {
   return images;
 }
 
+// Include legacy/static references too; CMS-only checks missed broken relative SVGs.
+export function parseLocalImagePaths(html, pageUrl) {
+  const page = new URL(pageUrl);
+  const paths = new Set();
+  for (const match of html.matchAll(IMAGE_TAG_PATTERN)) {
+    const source = attribute(match[0], "src");
+    if (!source) continue;
+    try {
+      const url = new URL(source.replaceAll("&amp;", "&"), page);
+      if (url.origin === page.origin) paths.add(url.pathname + url.search);
+    } catch { /* Invalid sources are checked by content validation. */ }
+  }
+  return [...paths];
+}
+
 export async function verifyArticleImageDimensions(origin) {
   const normalizedOrigin = new URL(origin).origin;
   const listing = await fetchText(`${normalizedOrigin}/articles`);
@@ -41,6 +56,17 @@ export async function verifyArticleImageDimensions(origin) {
     html: await fetchText(`${normalizedOrigin}${path}?verify-image-dimensions=backfill`),
     path,
   }));
+  const localImagePaths = [...new Set(firstPages.flatMap(({ html, path }) =>
+    parseLocalImagePaths(html, `${normalizedOrigin}${path}`)
+  ))];
+  await mapWithConcurrency(localImagePaths.filter((path) => !CMS_IMAGE_PATH_PATTERN.test(path)), 4, async (path) => {
+    const response = await fetchOk(`${normalizedOrigin}${path}`);
+    if (!response.headers.get("content-type")?.startsWith("image/")) {
+      throw new Error(`${path} did not return an image.`);
+    }
+    await response.arrayBuffer();
+  });
+
   const imagePaths = [...new Set(firstPages.flatMap(({ html }) =>
     parseCmsArticleImages(html).map((image) => image.path)
   ))];
@@ -67,7 +93,7 @@ export async function verifyArticleImageDimensions(origin) {
   }
   console.log(
     `Verified ${renderedImageCount} rendered CMS image(s) across ${articlePaths.length} article(s); ` +
-    `${imagePaths.length} unique asset(s) have intrinsic dimensions.`,
+    `${imagePaths.length} unique asset(s) have intrinsic dimensions; ${localImagePaths.length} local image URL(s) checked.`,
   );
   return { articleCount: articlePaths.length, imageCount: renderedImageCount, uniqueImageCount: imagePaths.length };
 }

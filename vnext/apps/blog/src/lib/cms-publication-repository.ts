@@ -149,8 +149,10 @@ export function parseCmsPublishedArticleRow(
 
 export async function listCmsPublicArticleSummaries(
   db: CmsPublicationDatabase,
-  options: { includeFeatures?: boolean } = {},
+  options: { includeFeatures?: boolean; slugs?: readonly string[] } = {},
 ): Promise<Array<ArticleSummary & { editorDisplayName?: string }>> {
+  const slugs = options.slugs ? [...new Set(options.slugs)] : undefined;
+  if (slugs?.length === 0) return [];
   const result = await db.prepare(
     `SELECT ${publishedSummaryColumns}${options.includeFeatures === false ? "" : ", r.markdown"}
      FROM cms_articles a
@@ -158,8 +160,9 @@ export async function listCmsPublicArticleSummaries(
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
      WHERE a.publication_status = 'published'
        AND a.published_visibility = 'public'
+       ${slugs ? `AND a.published_slug IN (${slugs.map((_, index) => `?${index + 1}`).join(', ')})` : ''}
      ORDER BY a.published_at DESC, a.id ASC`,
-  ).all<CmsPublishedArticleRow>();
+  ).bind(...(slugs ?? [])).all<CmsPublishedArticleRow>();
 
   return result.results.map((row) => {
     const article = parseCmsPublishedArticleRow(row, "listing");
