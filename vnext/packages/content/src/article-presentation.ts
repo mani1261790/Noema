@@ -23,6 +23,7 @@ export interface ArticlePresentationSeries {
 export interface ArticlePresentationOptions {
   editor?: { href: string; name: string } | null;
   markdownRenderer?: MarkdownIt;
+  headings?: ReturnType<typeof extractArticleHeadings>;
   resolveImageDimensions?: (reference: string) => ImageDimensions | null | undefined;
   resolveImageReference?: (reference: string) => string;
   resolveLinkReference?: (reference: string) => string;
@@ -91,7 +92,7 @@ export function renderArticlePresentation(
   const renderedMarkdown = options.markdownRenderer
     ? renderArticleMarkdownWith(options.markdownRenderer, markdown)
     : renderArticleMarkdown(markdown);
-  const headings = extractArticleHeadings(markdown);
+  const headings = options.headings ?? extractArticleHeadings(markdown);
   const publishedAt = formatJapaneseDate(frontmatter.publishedAt);
   const updatedAt = formatJapaneseDate(frontmatter.updatedAt) ?? frontmatter.updatedAt;
   const tags = frontmatter.tags.length > 0

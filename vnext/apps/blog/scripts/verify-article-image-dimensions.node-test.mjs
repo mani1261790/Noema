@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  parseLocalImagePaths,
   parseArticlePaths,
   parseCmsArticleImages,
 } from "./verify-article-image-dimensions.mjs";
@@ -33,4 +34,13 @@ test("parseCmsArticleImages exposes a missing dimension", () => {
     path: "/media/articles/00000000-0000-4000-8000-000000000000.webp",
     width: null,
   }]);
+});
+
+test("static and relative images are resolved against the actual article URL", () => {
+  assert.deepEqual(parseLocalImagePaths([
+    '<img src="./images/diagram.svg">',
+    '<img src="/images/logo.svg">',
+    '<img src="https://external.example/image.png">',
+    '<img src="./images/diagram.svg">',
+  ].join(""), "https://noema.example/articles/first"), ["/articles/images/diagram.svg", "/images/logo.svg"]);
 });

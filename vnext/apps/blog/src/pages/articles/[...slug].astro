@@ -1,5 +1,5 @@
 ---
-import { extractArticleImageReferences, extractArticleLinkReferences } from "@noema/content";
+import { analyzeArticleMarkdown } from "@noema/content";
 import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
@@ -21,11 +21,12 @@ if (!article) {
   if (redirectSlug) return Astro.redirect(`/articles/${redirectSlug}`, 301);
   return Astro.rewrite("/404");
 }
-const articleLinkReferences = extractArticleLinkReferences(article.markdown);
-const articleImageReferences = extractArticleImageReferences(article.markdown);
+const analysis = analyzeArticleMarkdown(article.markdown);
+const articleLinkReferences = analysis.links;
+const articleImageReferences = analysis.images;
 if (article.data.heroImage) articleImageReferences.push(article.data.heroImage.src);
 const [summaries, series, articleLinkAvailability, articleImageDimensions] = await Promise.all([
-  listPublicArticleSummaries(),
+  listPublicArticleSummaries({ includeFeatures: false }),
   getPublishedSeriesByArticleSlug(slug),
   getArticleLinkAvailability(articleLinkReferences.map((reference) => reference.slug), article.visibility),
   getArticleAssetDimensions(articleImageReferences)
@@ -41,13 +42,19 @@ const markdownRenderer = createArticleMarkdownRenderer({
 });
 const currentSummary = toArticleSummary(article.data, article.markdown);
 const seriesSlugs = new Set(series?.items.map((item) => item.slug) ?? []);
-const relatedArticles = findRelatedArticles(
+const relatedCandidates = findRelatedArticles(
   currentSummary,
   summaries.filter((item) => !seriesSlugs.has(item.slug)),
 );
+// Fetch feature-detection bodies only for the few articles that will be shown.
+const relatedArticles = relatedCandidates.length
+  ? await listPublicArticleSummaries({ slugs: relatedCandidates.map((item) => item.slug) })
+  : [];
+relatedArticles.sort((a, b) => relatedCandidates.findIndex((item) => item.slug === a.slug) - relatedCandidates.findIndex((item) => item.slug === b.slug));
 const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
   editor: article.editor ? { href: article.editor.href, name: article.editor.displayName } : null,
   markdownRenderer,
+  headings: analysis.headings,
   resolveImageDimensions: (reference) => articleImageDimensions.get(reference),
   series: series ? {
     currentIndex: series.currentIndex,
