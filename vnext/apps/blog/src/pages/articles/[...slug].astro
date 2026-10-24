@@ -1,4 +1,5 @@
 ---
+import ArticleComments from "../../components/ArticleComments.astro";
 import { articleOgImagePath } from "../../lib/article-og";
 import { topicLabels } from "@noema/content";
 import { analyzeArticleMarkdown } from "@noema/content";
@@ -115,6 +116,7 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
       <RelatedArticles articles={relatedArticles} current={currentSummary} />
       <ShareArticle title={article.data.title} pathname={`/articles/${article.data.slug}`} />
       <ArticleUpdatesCta slug={article.data.slug} />
+      {article.visibility === "public" && <ArticleComments slug={article.data.slug} />}
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         {series && <a class="dads-link" data-analytics-discovery="series_index" href={series.href}>{`${series.title}の一覧を見る`}</a>}
         {narrowingTopic && (
