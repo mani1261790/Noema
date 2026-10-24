@@ -513,3 +513,5 @@ export function validateCmsArticleForReview(input: {
 }
 
 export { allowedPushEndpoint, parsePushSubscription, pushSubscriptionId, type ReaderPushSubscription } from "./push";
+
+export * from "./reader-comments";

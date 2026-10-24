@@ -1,3 +1,4 @@
+import { CmsReaderComments } from "./CmsReaderComments";
 import {
   useCallback,
   useDeferredValue,
@@ -1229,6 +1230,8 @@ export function App() {
         ? "studio-article-library-heading"
         : nextView === "assets"
           ? "studio-asset-library-heading"
+          : nextView === "comments"
+            ? "studio-comments-heading"
           : nextView === "analytics"
             ? "studio-analytics-heading"
           : nextView === "connection"
@@ -3108,6 +3111,7 @@ export function App() {
           <div>
             <a aria-current={studioView === "articles" ? "page" : undefined} href={studioViewHref("articles")} onClick={(event) => { event.preventDefault(); showArticleLibrary(); }}>記事</a>
             <a aria-current={studioView === "assets" ? "page" : undefined} href={studioViewHref("assets")} onClick={(event) => { event.preventDefault(); showAssetLibrary(); }}>画像</a>
+            <a aria-current={studioView === "comments" ? "page" : undefined} href={studioViewHref("comments")} onClick={(event) => { event.preventDefault(); pendingViewFocus.current = "studio-comments-heading"; changeStudioView("comments"); }}>コメント</a>
             <a aria-current={studioView === "analytics" ? "page" : undefined} href={studioViewHref("analytics")} onClick={(event) => { event.preventDefault(); showAnalytics(); }}>分析</a>
             <a aria-current={studioView === "connection" ? "page" : undefined} href={studioViewHref("connection")} onClick={(event) => { event.preventDefault(); pendingViewFocus.current = "studio-mcp-heading"; changeStudioView("connection"); }}>AIから接続</a>
             <a aria-current={studioView === "team" ? "page" : undefined} href={studioViewHref("team")} onClick={(event) => { event.preventDefault(); showTeamSettings(); }}>プロフィール</a>
@@ -3180,6 +3184,8 @@ export function App() {
         />
       ) : studioView === "connection" ? (
         <StudioMcpConnection />
+      ) : studioView === "comments" ? (
+        <CmsReaderComments connection={cmsLibraryConnection} />
       ) : studioView === "analytics" ? (
         <CmsAnalyticsDashboard connection={cmsLibraryConnection} />
       ) : studioView === "team" ? (

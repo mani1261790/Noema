@@ -21,9 +21,10 @@ async function publish(id: string) { await db.prepare("UPDATE cms_articles SET p
 const api = (method: string, body: unknown, requestOrigin = origin) => handleReaderPush(new Request(origin+'/api/push/subscription', {method,headers:{Origin:requestOrigin,'Content-Type':'application/json'},body:JSON.stringify(body)}), {CMS_DB:db,...keys,PUSH_RATE_LIMITER:{limit:async()=>({success:true})}});
 beforeAll(async()=>{
  const migrations=testEnv.CMS_TEST_MIGRATIONS;
- await applyD1Migrations(db,migrations.slice(0,-1));
+ const index=migrations.findIndex(m=>m.name.includes("0024"));
+ await applyD1Migrations(db,migrations.slice(0,index));
  await article('legacy', 'published');
- await applyD1Migrations(db,migrations.slice(-1));
+ await applyD1Migrations(db,migrations.slice(index));
  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
  const jwk=await crypto.subtle.exportKey('jwk',pair.privateKey);
  keys={PUSH_VAPID_PUBLIC_KEY:base64(await crypto.subtle.exportKey('raw',pair.publicKey)),PUSH_VAPID_PRIVATE_KEY:jwk.d!};
