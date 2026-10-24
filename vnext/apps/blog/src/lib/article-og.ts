@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { createOgBrand } from "./og-brand";
 import { fitSeriesOgLines } from "./series-og";
 
 export interface ArticleOgInput { title: string; topic: string }
@@ -8,7 +9,7 @@ export const ARTICLE_OG_HEIGHT = 630;
 export function articleOgImagePath(input: ArticleOgInput & { slug: string }): string {
   // Include the design revision as well as all displayed content in the cache key.
   let hash = 0x811c9dc5;
-  for (const c of JSON.stringify([3, input.title, input.topic])) {
+  for (const c of JSON.stringify([4, input.title, input.topic])) {
     hash = Math.imul(hash ^ (c.codePointAt(0) ?? 0), 0x01000193);
   }
   return `/og/articles/${encodeURIComponent(input.slug)}.png?v=${(hash >>> 0).toString(16)}`;
@@ -38,7 +39,7 @@ export function createArticleOgMarkup(input: ArticleOgInput): ReactElement {
   const lines = fitArticleTitle(input.title);
   return el({ width: 1200, height: 630, flexDirection: "column", padding: "54px 72px", background: "#faf9f5", color: "#1c2422", fontFamily: "Noto Sans JP" }, [
     el({ alignItems: "center", justifyContent: "space-between" }, [
-      el({ fontSize: 38, color: "#00645f" }, "Noema"),
+      createOgBrand(),
       el({ fontSize: 24, color: "#00645f", background: "#e4efeb", padding: "8px 24px", borderRadius: 8 }, "記事"),
     ]),
     el({ flex: 1, flexDirection: "column", justifyContent: "center", fontSize: 56, lineHeight: 1.35 },

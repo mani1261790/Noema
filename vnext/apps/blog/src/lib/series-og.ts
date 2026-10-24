@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { createOgBrand } from "./og-brand";
 
 export const SERIES_OG_IMAGE_HEIGHT = 630;
 export const SERIES_OG_IMAGE_WIDTH = 1200;
@@ -121,7 +122,7 @@ export function fitSeriesOgLines(
 }
 
 function contentVersion(input: SeriesOgInput): string {
-  const value = `${input.title}\u0000${input.description}\u0000${input.itemCount}`;
+  const value = `app-icon-v1\u0000${input.title}\u0000${input.description}\u0000${input.itemCount}`;
   let hash = 0x811c9dc5;
   for (const character of value) {
     hash ^= character.codePointAt(0) ?? 0;
@@ -157,7 +158,7 @@ export function createSeriesOgMarkup(input: SeriesOgInput): ReactElement {
       borderBottom: "3px solid #00645f",
       paddingBottom: 22,
     }, [
-      element("div", { display: "flex", fontSize: 40, color: "#00645f" }, "Noema"),
+      createOgBrand(),
       element("div", { display: "flex", fontSize: 24, color: "#44504d" }, "シリーズ"),
     ]),
     element("div", {
