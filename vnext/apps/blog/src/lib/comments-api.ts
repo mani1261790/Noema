@@ -16,7 +16,7 @@ export async function handleReaderComments(request:Request,env:CommentsEnvironme
  const offset=Math.max(0,Math.min(100000,Number(url.searchParams.get("offset"))||0));
  const roots=await db.prepare(`SELECT ${fields} FROM reader_comments WHERE article_id=? AND parent_id IS NULL AND status='published' ORDER BY created_at DESC,id DESC LIMIT 4 OFFSET ?`).bind(article.id,Math.floor(offset)).all<ReaderComment>();
  const page=roots.results.slice(0,3);
- const replies=page.length?await db.prepare(`SELECT ${fields} FROM reader_comments WHERE parent_id IN (${page.map(()=>"?").join(",")}) AND status='published' ORDER BY created_at,id`).bind(...page.map(c=>c.id)).all<ReaderComment>():{results:[]};
+ const replies=page.length?await db.prepare(`SELECT ${fields} FROM reader_comments WHERE parent_id IN (${page.map(()=>"?").join(",")}) AND status='published' ORDER BY created_at,id LIMIT 60`).bind(...page.map(c=>c.id)).all<ReaderComment>():{results:[]};
  const count=await db.prepare("SELECT count(*) n FROM reader_comments WHERE article_id=? AND parent_id IS NULL AND status='published'").bind(article.id).first<{n:number}>();
  return json({comments:page,replies:replies.results,total:count?.n??0,hasMore:roots.results.length>3});
  }

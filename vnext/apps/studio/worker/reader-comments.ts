@@ -38,9 +38,10 @@ export async function manageReaderComments(request:Request,db:D1Database,session
  }else{
  const updated=await db.prepare(`UPDATE reader_comments SET status=?,moderated_by=?,moderated_at=unixepoch() WHERE id=? AND status<>'deleted'
  AND (?='hidden' OR (EXISTS(SELECT 1 FROM cms_articles a WHERE a.id=reader_comments.article_id AND a.publication_status='published' AND a.published_visibility='public')
- AND (parent_id IS NULL OR EXISTS(SELECT 1 FROM reader_comments p WHERE p.id=reader_comments.parent_id AND p.status='published')))) RETURNING id`)
+ AND (parent_id IS NULL OR (EXISTS(SELECT 1 FROM reader_comments p WHERE p.id=reader_comments.parent_id AND p.status='published')
+ AND (SELECT count(*) FROM reader_comments sibling WHERE sibling.parent_id=reader_comments.parent_id AND sibling.id<>reader_comments.id AND sibling.status IN ('pending','published'))<20)))) RETURNING id`)
  .bind(data.action==="publish"?"published":"hidden",subject,data.id,data.action==="publish"?"published":"hidden").first();
- if(!updated)return json({error:{message:"記事または返信先が非公開のため公開できません。"}},409);
+ if(!updated)return json({error:{message:"記事・返信先が非公開、または返信上限に達しているため公開できません。"}},409);
  }
  return json({ok:true});
 }

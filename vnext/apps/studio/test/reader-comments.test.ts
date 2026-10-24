@@ -68,6 +68,10 @@ describe("reader comments",()=>{
   const parent=input();await api("POST",parent);await manage({id:parent.id,action:"publish"});
   for(let i=0;i<20;i++)expect((await api("POST",{...input(),parentId:parent.id})).status).toBe(201);
   expect((await api("POST",{...input(),parentId:parent.id})).status).toBe(409);
+  const hidden=await db.prepare("SELECT id FROM reader_comments WHERE parent_id=? LIMIT 1").bind(parent.id).first<{id:string}>();
+  await manage({id:hidden!.id,action:"hide"});
+  expect((await api("POST",{...input(),parentId:parent.id})).status).toBe(201);
+  expect((await manage({id:hidden!.id,action:"publish"})).status).toBe(409);
   for(let i=0;i<30;i++)await api("POST",input());
   expect((await api("POST",input())).status).toBe(409);
  });
