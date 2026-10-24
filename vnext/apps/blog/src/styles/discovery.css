@@ -43,7 +43,7 @@
   .article-row--illustrated { grid-template-columns: minmax(0,1fr) 5.5rem; }
   .article-row__image { padding: .75rem .75rem .75rem 0; }
   .article-row--illustrated .article-row__body { padding-right: .5rem; }
-  .reading-intents { grid-template-columns: minmax(0,1fr); gap: .5rem; }
+  .reading-intents { grid-template-columns: minmax(0,1fr); gap: .75rem; }
   .reading-intents a { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .25rem .5rem; }
   .reading-intents a p { grid-column: 1; margin: 0; }
   .reading-intents a small { grid-row: 1; grid-column: 2; align-self: center; }
@@ -79,14 +79,14 @@
   .article-page, .series-page { padding-block: 1rem 3rem; }
   .section-heading-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; }
   .section-heading-row .dads-link { margin-top: 0; }
-  .home-start, .home-series, .home-recent, .home-intents, .home-discovery { padding-block: 1.5rem; }
+  .home-start, .home-series, .home-recent, .home-intents, .home-topics, .home-discovery { padding-block: 1.5rem; }
   .article-row { min-height: 0; }
   .article-row--illustrated { grid-template-columns: minmax(0, 1fr); }
   .article-row__image { display: none; }
   .article-row--illustrated .article-row__body { padding-right: 1rem; }
   .article-row__body { gap: .5rem; }
   .article-row__title { font-size: 1.0625rem; }
-  .series-grid { gap: .75rem; }
+  .series-grid, .home-topic-list { gap: .75rem; }
   .series-card { min-height: 0; padding: .875rem 1rem; }
   .series-card__title { font-size: 1.125rem; }
   .series-card__description { margin-top: .5rem; font-size: .875rem; }
@@ -132,7 +132,7 @@
 .series-card:hover { box-shadow: none; border-color: transparent; }
 .series-card__title, .series-card:hover .series-card__title { text-decoration: none; color: var(--color-neutral-solid-gray-900); }
 .series-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin-top: .75rem; }
-.series-card__primary { flex: none; display: inline-flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: .5rem; min-height: 2.75rem; color: var(--color-key-900); font-size: .875rem; font-weight: 700; text-decoration: underline; text-underline-offset: .2em; }
+.series-card__primary { max-width: 100%; min-width: 0; flex: none; display: inline-flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: .5rem; min-height: 2.75rem; color: var(--color-key-900); font-size: .875rem; font-weight: 700; text-decoration: underline; text-underline-offset: .2em; }
 .series-card__primary::after { content: none; }
 .series-card__overview { margin: 0; align-self: auto; }
 .series-card__primary .dads-card-arrow { border: 0; background: transparent; }
@@ -140,13 +140,17 @@
 .navigation-link-action { display: block; font-size: .8125rem; font-weight: 400; margin-top: .25rem; }
 .home-topic-list > li { padding: 1rem; background: var(--color-key-50); border: 0; border-radius: .5rem; }
 .home-topic-list__heading a { display: block; }
-.recent-article-list__action { grid-column: 4; align-self: center; }
+/* Keep metadata above the title so a date and topic cannot squeeze it. */
+.recent-article-list a { grid-template-columns: minmax(0, 1fr) auto; gap: .5rem 1rem; }
+.recent-article-list__metadata { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .25rem 1rem; }
+.recent-article-list__title { grid-column: 1; grid-row: 2; }
+.recent-article-list__action { grid-column: 2; grid-row: 2; align-self: center; }
 @media (max-width: 40rem) {
   .article-card-action { margin-left: auto; }
   .series-card__actions { gap: 0 .75rem; margin-top: .5rem; }
   .reading-intents a { grid-template-columns: minmax(0,1fr); }
   .reading-intents a small { grid-column: 1; grid-row: auto; margin-top: .25rem; }
   .recent-article-list__title { grid-column: 1 / -1; }
-  .recent-article-list__action { grid-column: 1 / -1; grid-row: auto; justify-self: end; }
+  .recent-article-list__action { grid-column: 1 / -1; grid-row: 3; justify-self: end; }
   .recent-article-list__action .dads-section-arrow { grid-column: auto; grid-row: auto; }
 }
