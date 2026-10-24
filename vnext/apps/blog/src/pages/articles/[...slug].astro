@@ -107,7 +107,7 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
         ? [{ label: "ホーム", href: "/" }, { label: "シリーズ", href: "/series" }, { label: series.title, href: series.href }, { label: article.data.title }]
         : [{ label: "ホーム", href: "/" }, { label: "記事を探す", href: "/articles" }, { label: article.data.title }]} />
       <Fragment set:html={presentationHtml} />
-      <div class="article-question-entry"><button type="button" class="dads-button" data-size="sm" data-type="outline" data-ask-article aria-controls="article-assistant-panel" aria-expanded="false">この記事についてAIに質問する</button><p>気になる本文を選択して、その箇所について質問することもできます。</p></div>
+      <div class="article-question-entry"><button type="button" class="article-question-button" data-ask-article aria-controls="article-assistant-panel" aria-expanded="false">AIに質問</button><p>気になる本文を選択して、その箇所について質問することもできます。</p></div>
       <RelatedArticles articles={relatedArticles} current={currentSummary} />
       <ShareArticle />
       <ArticleUpdatesCta slug={article.data.slug} />

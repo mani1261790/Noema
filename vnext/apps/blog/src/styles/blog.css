@@ -1753,12 +1753,16 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-form-shell {
+  min-width: 0;
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
 .assistant-form-shell form {
+  min-width: 0;
+  width: 100%;
+  overflow-y: auto;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1768,7 +1772,9 @@ body.is-resizing-assistant-panel .article-page {
 
 .assistant-conversation {
   flex: 1;
-  min-height: 8rem;
+  min-height: 4rem;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
   margin: -1rem -1rem 1rem;
   padding: 1rem;
   overflow-y: auto;
@@ -1913,6 +1919,7 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-panel__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1924,6 +1931,8 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-panel__close {
+  flex: none;
+  color: var(--noema-text);
   display: grid;
   place-items: center;
   width: 3rem;
@@ -1945,6 +1954,8 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-composer {
+  flex-shrink: 0;
+  min-width: 0;
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
@@ -1980,8 +1991,8 @@ body.is-resizing-assistant-panel .article-page {
   display: grid;
   flex: none;
   place-items: center;
-  width: 2.375rem;
-  height: 2.375rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   background: var(--color-key-900);
   color: var(--color-neutral-white);
@@ -2065,7 +2076,7 @@ body.is-resizing-assistant-panel .article-page {
 
   .article-page__aside {
     position: fixed;
-    z-index: 35;
+    z-index: 100;
     inset: calc(4.5rem + 1px) 0 0;
     width: auto;
     background: transparent;
@@ -2082,9 +2093,17 @@ body.is-resizing-assistant-panel .article-page {
     overflow: hidden;
   }
 
+  .article-page[data-assistant-open="true"] {
+    grid-template-columns: minmax(0, 1fr) 0;
+  }
+
   .assistant-panel {
-    inset-block-start: calc(4.5rem + 1px);
-    width: min(100vw, 26rem);
+    z-index: 100;
+    inset-block: var(--assistant-viewport-top, 0) auto;
+    height: var(--assistant-viewport-height, 100dvh);
+    width: 100%;
+    max-width: 100%;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     transform: translateX(100%);
   }
 
@@ -2353,3 +2372,51 @@ body.is-resizing-assistant-panel .article-page {
 .site-search-form:focus-within,
 .article-search__input input:focus { border-color: var(--color-key-900); }
 .article-search [data-search-submit][hidden] { display: none; }
+
+/* Article AI controls have their own colors, independent of generic button hovers. */
+.article-question-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: .625rem 1rem;
+  border: 1px solid var(--color-key-900);
+  border-radius: 999px;
+  background: var(--color-neutral-white);
+  color: var(--color-key-900);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.5;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .article-question-button:hover {
+    color: var(--color-neutral-white);
+    background: var(--color-key-900);
+  }
+}
+.article-question-button:focus-visible,
+.assistant-panel :is(button, summary, a):focus-visible {
+  outline: 2px solid var(--color-key-900) !important;
+  outline-offset: 3px;
+}
+.assistant-composer:focus-within {
+  outline: 2px solid var(--color-key-900);
+  outline-offset: 2px;
+}
+.assistant-welcome {
+  margin: 0;
+  color: var(--noema-muted);
+  font-size: .875rem;
+  line-height: 1.8;
+}
+.assistant-welcome[hidden] { display: none; }
+.assistant-notice { flex: none; margin-top: .75rem; font-size: .75rem; }
+.assistant-notice summary { cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; gap: .5rem; }
+.assistant-notice .assistant-privacy { line-height: 1.7; }
+.assistant-panel .assistant-clear { min-height: 2.75rem; flex-shrink: 0; }
+.assistant-selection__header { flex-wrap: wrap; }
+.assistant-status:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .assistant-panel, .article-page { transition: none; }
+}

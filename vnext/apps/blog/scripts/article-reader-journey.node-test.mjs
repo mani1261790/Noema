@@ -57,7 +57,6 @@ test("opens a resizable split chat panel from selection or an article question e
   assert.doesNotMatch(assistant, /x-openai-api-key|apiKey =/);
   assert.match(form, /class="assistant-send" type="submit" aria-label="質問を送信"/);
   assert.match(styles, /\.assistant-composer \{[\s\S]*?border-radius: 999px;/);
-  assert.doesNotMatch(styles, /\.assistant-composer:focus-within/);
   assert.match(styles, /textarea\[data-multiline="true"\][\s\S]*?border-radius: 1\.25rem;/);
   assert.match(assistant, /assistant-message--user/);
   assert.match(assistant, /assistant-message--assistant/);
