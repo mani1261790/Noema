@@ -1,4 +1,6 @@
 ---
+import { articleOgImagePath } from "../../lib/article-og";
+import { topicLabels } from "@noema/content";
 import { analyzeArticleMarkdown } from "@noema/content";
 import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
@@ -68,6 +70,7 @@ const attributedAuthors = article.editor ? [article.editor.displayName] : articl
 const heroImageDimensions = article.data.heroImage
   ? articleImageDimensions.get(article.data.heroImage.src)
   : undefined;
+const socialImage = new URL(articleOgImagePath({ slug: article.data.slug, title: article.data.title, topic: topicLabels[article.data.topics[0]] ?? "AIと技術" }), Astro.url.origin).href;
 const jsonLd = articleJsonLd({
   authors: attributedAuthors.map((name: string) => ({
     name,
@@ -88,12 +91,13 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
 
 <BaseLayout
   title={`${article.data.title} | Noema`}
+  socialTitle={article.data.title}
   description={article.data.description}
   noindex={article.visibility === "unlisted"}
-  image={article.data.heroImage?.src}
-  imageAlt={article.data.heroImage?.alt ?? article.data.title}
-  imageHeight={heroImageDimensions?.height}
-  imageWidth={heroImageDimensions?.width}
+  image={socialImage}
+  imageAlt={`${article.data.title} — Noemaの記事`}
+  imageHeight={630}
+  imageWidth={1200}
   pageType="article"
   publishedAt={article.publishedAt}
   updatedAt={article.updatedAt}

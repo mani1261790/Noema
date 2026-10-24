@@ -18,8 +18,8 @@ if (config.assets?.binding !== "ASSETS") {
 }
 
 const workerFirstRoutes = config.assets?.run_worker_first ?? [];
-if (!Array.isArray(workerFirstRoutes) || !workerFirstRoutes.includes("/og/series/*")) {
-  throw new Error("The Blog bundle must route dynamic series Open Graph images through the Worker.");
+if (!Array.isArray(workerFirstRoutes) || !workerFirstRoutes.includes("/og/series/*") || !workerFirstRoutes.includes("/og/articles/*")) {
+  throw new Error("The Blog bundle must route dynamic article and series Open Graph images through the Worker.");
 }
 
 const permanentLegacyRedirects = [

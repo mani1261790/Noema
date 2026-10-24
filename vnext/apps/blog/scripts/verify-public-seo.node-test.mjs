@@ -231,3 +231,13 @@ test("validateOgImageAsset rejects a series fallback or malformed social image",
     "x-content-type-options": "nosniff",
   }), truncated).some((error) => error.includes("not a readable PNG")));
 });
+
+test("article OG images use the serving environment without weakening canonical URLs", () => {
+  const source = "https://noema-learn.mani1261790.workers.dev";
+  const html = articleHtml().replaceAll("https://noema-learn.uk/og/example.png", `${source}/og/articles/example.png?v=1234abcd`);
+  const document = inspectSeoDocument(html, articleUrl);
+  assert.deepEqual(validateSeoDocument(document, articleUrl, source), []);
+  assert.ok(validateSeoDocument(document, articleUrl).some(error => error.includes("og:image")));
+  const foreign = inspectSeoDocument(html.replaceAll(source, "https://unrelated.example"), articleUrl);
+  assert.ok(validateSeoDocument(foreign, articleUrl, source).some(error => error.includes("og:image")));
+});
