@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { reserveReaderAiRequest, readAiOutput, readAiRequest } from './reader-ai';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { reserveReaderAiRequest, readAiOutput, readAiRequest, runReaderAi } from './reader-ai';
 import type { CmsPublicationDatabase } from './cms-publication-repository';
 
 describe('reader AI bounded usage', () => {
@@ -29,5 +29,59 @@ describe('reader AI bounded usage', () => {
   expect(await readAiRequest(make('{"query":"AI"}'),'https://noema.test')).toEqual({query:'AI'});
   await expect(readAiRequest(make('{}','https://other.test'),'https://noema.test')).rejects.toThrow('origin');
   await expect(readAiRequest(make(JSON.stringify({query:'あ'.repeat(12000)})),'https://noema.test')).rejects.toThrow('size');
+ });
+});
+
+// Exercise the actual provider boundary: refused requests must never invoke AI.run.
+const bindings = vi.hoisted(() => ({
+ AI: {run: vi.fn()},
+ READER_AI_RATE_LIMITER: {limit: vi.fn()},
+ CMS_DB: {prepare: vi.fn()},
+ READER_AI_DAILY_LIMIT: '100'
+}));
+vi.mock('cloudflare:workers', () => ({env: bindings}));
+
+describe('reader AI provider gate', () => {
+ beforeEach(() => {
+  vi.resetAllMocks();
+  bindings.READER_AI_DAILY_LIMIT = '100';
+  bindings.READER_AI_RATE_LIMITER.limit.mockResolvedValue({success:true});
+  bindings.CMS_DB.prepare.mockReturnValue({bind:()=>({first:async()=>({requests:1})})});
+  bindings.AI.run.mockResolvedValue({response:'ok'});
+ });
+ const request = () => new Request('https://noema.test/api/chat',{headers:{'cf-connecting-ip':'192.0.2.1'}});
+ it('refuses bursts before reserving daily allowance or invoking AI', async () => {
+  bindings.READER_AI_RATE_LIMITER.limit.mockResolvedValue({success:false});
+  const result = await runReaderAi(request(),'system','question',{});
+  expect(result).toBeInstanceOf(Response);
+  expect((result as Response).status).toBe(429);
+  expect((result as Response).headers.get('retry-after')).toBe('60');
+  expect(bindings.CMS_DB.prepare).not.toHaveBeenCalled();
+  expect(bindings.AI.run).not.toHaveBeenCalled();
+ });
+ it('refuses exhausted daily allowance on both reader endpoints', async () => {
+  bindings.CMS_DB.prepare.mockReturnValue({bind:()=>({first:async()=>null})});
+  for (const endpoint of ['chat','discover']) {
+   const result = await runReaderAi(new Request(`https://noema.test/api/${endpoint}`),'system','question',{});
+   expect((result as Response).status).toBe(429);
+   expect(Number((result as Response).headers.get('retry-after'))).toBeGreaterThan(0);
+  }
+  expect(bindings.AI.run).not.toHaveBeenCalled();
+ });
+ it('fails closed on database failure and invalid limit configuration', async () => {
+  bindings.CMS_DB.prepare.mockImplementation(()=>{throw new Error('unavailable')});
+  expect((await runReaderAi(request(),'s','q',{}) as Response).status).toBe(503);
+  bindings.READER_AI_DAILY_LIMIT = 'invalid';
+  expect((await runReaderAi(request(),'s','q',{}) as Response).status).toBe(503);
+  expect(bindings.AI.run).not.toHaveBeenCalled();
+ });
+ it('bounds input and output, and never retries failed inference', async () => {
+  expect((await runReaderAi(request(),'s','x'.repeat(24000),{}) as Response).status).toBe(400);
+  expect(bindings.AI.run).not.toHaveBeenCalled();
+  expect(await runReaderAi(request(),'s','q',{})).toBe('ok');
+  expect(bindings.AI.run.mock.calls[0][1].max_tokens).toBe(900);
+  bindings.AI.run.mockRejectedValue(new Error('provider unavailable'));
+  expect((await runReaderAi(request(),'s','q',{}) as Response).status).toBe(503);
+  expect(bindings.AI.run).toHaveBeenCalledTimes(2);
  });
 });

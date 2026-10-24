@@ -13,8 +13,8 @@ export async function reserveReaderAiRequest(db: CmsPublicationDatabase, limit: 
   return row !== null;
 }
 
-export function aiJson(payload: unknown, status = 200): Response {
-  return Response.json(payload, { status, headers: { 'cache-control': 'no-store' } });
+export function aiJson(payload: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return Response.json(payload, { status, headers: { 'cache-control': 'no-store', ...headers } });
 }
 
 export async function readAiRequest(request: Request, origin: string): Promise<unknown> {
@@ -45,12 +45,19 @@ export function readAiOutput(payload: unknown): string {
 export async function runReaderAi(request: Request, system: string, input: string, schema: Record<string, unknown>): Promise<string | Response> {
   const { env } = await import('cloudflare:workers');
   try {
-    if (!env.AI || !env.READER_AI_RATE_LIMITER) return aiJson({error:'AI案内は現在利用できません。通常の記事検索をご利用ください。'},503);
+    if (!env.AI || !env.READER_AI_RATE_LIMITER || !env.CMS_DB) return aiJson({error:'AI案内は現在利用できません。通常の記事検索をご利用ください。'},503);
+    const dailyLimit = Number(env.READER_AI_DAILY_LIMIT);
+    if (!Number.isInteger(dailyLimit) || dailyLimit < 1 || dailyLimit > 200) return aiJson({error:'AI案内は現在利用できません。'},503);
     const ip = request.headers.get('cf-connecting-ip') ?? 'local';
-    if (!(await env.READER_AI_RATE_LIMITER.limit({key: ip})).success) return aiJson({error:'続けて利用されています。1分ほど待ってからお試しください。'},429);
+    if (!(await env.READER_AI_RATE_LIMITER.limit({key: ip})).success) return aiJson({error:'続けて利用されています。1分ほど待ってからお試しください。'},429, {'retry-after':'60'});
     // Bound input and output independently of the daily request count. Never retry upstream automatically.
     if (system.length + input.length > 24_000) return aiJson({error:'内容が長すぎるためAI案内を実行できませんでした。'},400);
-    if (!await reserveReaderAiRequest(env.CMS_DB, Number(env.READER_AI_DAILY_LIMIT))) return aiJson({error:'本日のAI利用上限に達しました。記事検索や本文は引き続き利用できます。'},429);
+    const now = new Date();
+    if (!await reserveReaderAiRequest(env.CMS_DB, dailyLimit, now)) {
+      const resetAt = Date.parse(now.toISOString().slice(0, 10)) + 86_400_000;
+      return aiJson({error:'本日のAI利用上限に達しました。日本時間の午前9時に再開します。記事検索や本文は引き続き利用できます。'},429,
+        {'retry-after':String(Math.max(1, Math.ceil((resetAt - now.getTime()) / 1000)))});
+    }
     const result = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [{role:'system',content: system}, {role:'user',content: input + '\n/no_think'}],
       max_tokens: 900,
