@@ -12,7 +12,8 @@
     "binding": "ASSETS",
     "html_handling": "drop-trailing-slash",
     "run_worker_first": [
-      "/og/series/*"
+      "/og/series/*",
+      "/og/articles/*"
     ]
   },
   "ratelimits": [

@@ -169,7 +169,7 @@ export function inspectSeoDocument(html, canonicalUrl) {
   };
 }
 
-export function validateSeoDocument(document, canonicalUrl) {
+export function validateSeoDocument(document, canonicalUrl, sourceOrigin = CANONICAL_ORIGIN) {
   const errors = [];
   const pathname = new URL(canonicalUrl).pathname;
   if (document.htmlLanguage !== "ja") errors.push(`html lang must be ja, received ${document.htmlLanguage || "empty"}.`);
@@ -211,7 +211,10 @@ export function validateSeoDocument(document, canonicalUrl) {
     errors.push(`twitter:card is ${document.twitter.card || "empty"}.`);
   }
   try {
-    if (new URL(document.openGraph.image).origin !== CANONICAL_ORIGIN) errors.push("og:image must use the canonical origin.");
+    const image = new URL(document.openGraph.image);
+    const isArticleImage = image.pathname === `/og/articles/${pathname.split("/").at(-1)}.png` && pathname.startsWith("/articles/");
+    const allowedOrigin = isArticleImage ? sourceOrigin : CANONICAL_ORIGIN;
+    if (image.origin !== allowedOrigin) errors.push("og:image must use the canonical origin or the article serving origin.");
   } catch {
     errors.push("og:image must be an absolute URL.");
   }
@@ -403,7 +406,7 @@ export async function verifyPublicSeo(sourceOrigin, options = {}) {
     const errors = [];
     if (!contentType.includes("text/html")) errors.push(`content-type is ${contentType || "empty"}.`);
     const document = inspectSeoDocument(await response.text(), entry.url);
-    errors.push(...validateSeoDocument(document, entry.url));
+    errors.push(...validateSeoDocument(document, entry.url, normalizedSourceOrigin));
     return { document, errors, url: entry.url };
   });
 
