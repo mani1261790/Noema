@@ -10,7 +10,7 @@ export interface ArticleShareData {
   url: string;
 }
 
-export type ArticleShareMethod = "native" | "copy";
+export type ArticleShareMethod = "native" | "copy" | "x" | "discord";
 
 export interface NativeShareNavigator {
   share?: (data: ArticleShareData) => Promise<void>;
@@ -124,4 +124,12 @@ export async function shareArticle(
   } catch (error) {
     return isShareDismissal(error) ? "dismissed" : "failed";
   }
+}
+
+/** A composer link only: opening it never publishes a post. */
+export function createXShareUrl(data: ArticleShareData): string {
+  const intent = new URL("https://x.com/intent/tweet");
+  intent.searchParams.set("text", data.title);
+  intent.searchParams.set("url", data.url);
+  return intent.toString();
 }

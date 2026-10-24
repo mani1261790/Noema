@@ -113,7 +113,7 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
       <Fragment set:html={presentationHtml} />
       <div class="article-question-entry"><button type="button" class="article-question-button" data-ask-article aria-controls="article-assistant-panel" aria-expanded="false">AIに質問</button><p>気になる本文を選択して、その箇所について質問することもできます。</p></div>
       <RelatedArticles articles={relatedArticles} current={currentSummary} />
-      <ShareArticle />
+      <ShareArticle title={article.data.title} pathname={`/articles/${article.data.slug}`} />
       <ArticleUpdatesCta slug={article.data.slug} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         {series && <a class="dads-link" data-analytics-discovery="series_index" href={series.href}>{`${series.title}の一覧を見る`}</a>}
