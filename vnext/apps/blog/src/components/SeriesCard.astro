@@ -12,14 +12,14 @@ const firstArticle = series.items[0];
 ---
 
 <article class="series-card">
-  <a class="series-card__primary" href={firstArticle?.href ?? series.href}>
-    <div class="series-card__body">
-      {headingLevel === 2
-        ? <h2 class="series-card__title">{series.title}</h2>
-        : <h3 class="series-card__title">{series.title}</h3>}
-      <p class="series-card__description">{series.description}</p>
-    </div>
-    <span class="series-card__link"><span>全{series.items.length}本 · {firstArticle ? "1本目から読む" : "シリーズを見る"}</span> <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span></span>
-  </a>
-  {firstArticle && <a class="series-card__overview dads-link" href={series.href} aria-label={`${series.title}の概要・目次`}>概要・目次を見る</a>}
+  <div class="series-card__body">
+    {headingLevel === 2
+      ? <h2 class="series-card__title">{series.title}</h2>
+      : <h3 class="series-card__title">{series.title}</h3>}
+    <p class="series-card__description">{series.description}</p>
+  </div>
+  <div class="series-card__actions">
+    {firstArticle && <a class="series-card__primary" href={firstArticle.href} aria-label={`${series.title}の1本目「${firstArticle.title}」を読む`}>1本目の記事を読む <span class="dads-card-arrow" aria-hidden="true"><ArrowIcon /></span></a>}
+    <a class="series-card__overview dads-link" href={series.href} aria-label={`${series.title}：全${series.items.length}本の目次を見る`}>全{series.items.length}本の目次を見る</a>
+  </div>
 </article>

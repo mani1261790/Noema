@@ -20,7 +20,7 @@ const { articles } = Astro.props;
           <time datetime={article.publishedAt}>{formatJapaneseDate(article.publishedAt)}</time>
           <span class="recent-article-list__topic">{topicLabel}</span>
           <span class="recent-article-list__title">{article.title}</span>
-          <span class="dads-section-arrow" aria-hidden="true"><ArrowIcon /></span>
+          <span class="recent-article-list__action article-card-action">記事を読む <span class="dads-section-arrow" aria-hidden="true"><ArrowIcon /></span></span>
         </a>
       </li>
     );

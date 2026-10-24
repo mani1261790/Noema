@@ -122,3 +122,31 @@
   .article-page .dads-breadcrumb__item:nth-last-child(2) .dads-breadcrumb__separator { display: none; }
   .article-page .dads-breadcrumb__link { display: inline-flex; align-items: center; min-height: 2.75rem; }
 }
+
+/* Article links read; navigation groups collect. Wording carries the distinction
+   even without color, and a group container never masquerades as one big link. */
+.article-card-action { display: inline-flex; align-items: center; gap: .4rem; flex: none; white-space: nowrap; color: var(--color-key-900); font-size: .75rem; font-weight: 600; }
+.article-row__meta, .featured-article-card__meta { flex-wrap: wrap; gap: .5rem 1rem; }
+.article-card-action .dads-card-arrow { width: 1.125rem; height: 1.125rem; border: 0; background: transparent; }
+.series-card { background: var(--color-key-50); border-color: transparent; border-radius: .5rem; }
+.series-card:hover { box-shadow: none; border-color: transparent; }
+.series-card__title, .series-card:hover .series-card__title { text-decoration: none; color: var(--color-neutral-solid-gray-900); }
+.series-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin-top: .75rem; }
+.series-card__primary { flex: none; display: inline-flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: .5rem; min-height: 2.75rem; color: var(--color-key-900); font-size: .875rem; font-weight: 700; text-decoration: underline; text-underline-offset: .2em; }
+.series-card__primary::after { content: none; }
+.series-card__overview { margin: 0; align-self: auto; }
+.series-card__primary .dads-card-arrow { border: 0; background: transparent; }
+.reading-intents a { padding: 1rem; background: var(--color-key-50); border-top: 0; border-radius: .5rem; }
+.navigation-link-action { display: block; font-size: .8125rem; font-weight: 400; margin-top: .25rem; }
+.home-topic-list > li { padding: 1rem; background: var(--color-key-50); border: 0; border-radius: .5rem; }
+.home-topic-list__heading a { display: block; }
+.recent-article-list__action { grid-column: 4; align-self: center; }
+@media (max-width: 40rem) {
+  .article-card-action { margin-left: auto; }
+  .series-card__actions { gap: 0 .75rem; margin-top: .5rem; }
+  .reading-intents a { grid-template-columns: minmax(0,1fr); }
+  .reading-intents a small { grid-column: 1; grid-row: auto; margin-top: .25rem; }
+  .recent-article-list__title { grid-column: 1 / -1; }
+  .recent-article-list__action { grid-column: 1 / -1; grid-row: auto; justify-self: end; }
+  .recent-article-list__action .dads-section-arrow { grid-column: auto; grid-row: auto; }
+}
