@@ -33,3 +33,44 @@ self.addEventListener("fetch", (event) => {
     }
   })());
 });
+
+// Notification payloads never control a cross-origin navigation.
+function notificationUrl(value) {
+  try {
+    const url = new URL(value, self.location.origin);
+    if (url.origin === self.location.origin && /^\/articles\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(url.pathname)) {
+      return self.location.origin + url.pathname;
+    }
+  } catch { /* use the updates page for an invalid payload */ }
+  return self.location.origin + "/updates";
+}
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data?.json() ?? {}; } catch { /* show a visible fallback */ }
+  if (!data || typeof data !== "object") data = {};
+  event.waitUntil(self.registration.showNotification(typeof data.title === "string" ? data.title.slice(0, 120) : "Noemaの新着記事", {
+    body: typeof data.body === "string" ? data.body.slice(0, 160) : "新しい記事が公開されました。",
+    icon: "/icons/v2/icon-192.png",
+    badge: "/icons/v2/icon-192.png",
+    tag: typeof data.tag === "string" ? data.tag.slice(0, 120) : "noema-new-article",
+    data: { url: notificationUrl(data.url) },
+  }));
+});
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = notificationUrl(event.notification.data?.url);
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({type:"window", includeUncontrolled:true});
+    for (const client of windows) {
+      if (new URL(client.url).origin === self.location.origin && "navigate" in client) {
+        const opened = await client.navigate(url);
+        if (opened) return opened.focus();
+      }
+    }
+    return self.clients.openWindow(url);
+  })());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "ACTIVATE_PUSH") event.waitUntil(self.skipWaiting());
+});

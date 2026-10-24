@@ -622,7 +622,7 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
                   <small>{state.summary.totals.updatesClick}クリック ÷ {state.summary.totals.articleEnd}読了</small>
                 </article>
                 <article>
-                  <span>RSS行動率</span><strong>{formatPercent(state.summary.totals.updatesActionRate)}</strong>
+                  <span>通知登録率</span><strong>{formatPercent(state.summary.totals.updatesActionRate)}</strong>
                   <small className="studio-analytics__comparison">{describeRateComparison(state.summary.totals.updatesActionRate, state.summary.comparison.totals?.updatesActionRate ?? null, days)}</small>
                   <small>{state.summary.totals.updatesAction}コピー・開く ÷ {state.summary.totals.updatesClick}更新案内クリック</small>
                 </article>
@@ -662,8 +662,8 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
               {state.summary.articles.length === 0 ? <p>この期間の読者行動はまだありません。</p> : (
                 <div className="studio-analytics__table-wrap">
                   <table>
-                    <caption className="sr-only">公開revision別の記事到達、読了、次記事移動、発見導線、更新案内、RSS行動、共有、アシスタント利用</caption>
-                    <thead><tr><th scope="col">記事</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">シリーズ次</th><th scope="col">関連記事</th><th scope="col">移動率</th><th scope="col">シリーズ一覧</th><th scope="col">テーマ</th><th scope="col">全記事</th><th scope="col">発見率</th><th scope="col">更新案内率</th><th scope="col">RSS行動率</th><th scope="col">共有</th><th scope="col">AI開始</th><th scope="col">AI成功率</th></tr></thead>
+                    <caption className="sr-only">公開revision別の記事到達、読了、次記事移動、発見導線、更新案内、通知登録、共有、アシスタント利用</caption>
+                    <thead><tr><th scope="col">記事</th><th scope="col">到達</th><th scope="col">50%率</th><th scope="col">読了率</th><th scope="col">シリーズ次</th><th scope="col">関連記事</th><th scope="col">移動率</th><th scope="col">シリーズ一覧</th><th scope="col">テーマ</th><th scope="col">全記事</th><th scope="col">発見率</th><th scope="col">更新案内率</th><th scope="col">通知登録率</th><th scope="col">共有</th><th scope="col">AI開始</th><th scope="col">AI成功率</th></tr></thead>
                     <tbody>{state.summary.articles.map((article) => (
                       <tr key={`${article.articleId}:${article.revisionNumber}`}>
                         <th scope="row"><strong>{article.title}</strong><small>{article.slug}・rev.{article.revisionNumber}</small></th>
@@ -729,8 +729,8 @@ export function CmsAnalyticsDashboard({ connection }: CmsAnalyticsDashboardProps
               <summary>日別集計を見る</summary>
               <div className="studio-analytics__table-wrap">
                 <table>
-                  <caption className="sr-only">日別の記事到達、読了、次記事移動、発見導線、更新案内、RSS行動</caption>
-                  <thead><tr><th scope="col">日付</th><th scope="col">到達</th><th scope="col">読了</th><th scope="col">次記事</th><th scope="col">発見導線</th><th scope="col">更新案内</th><th scope="col">RSS行動</th></tr></thead>
+                  <caption className="sr-only">日別の記事到達、読了、次記事移動、発見導線、更新案内、通知登録</caption>
+                  <thead><tr><th scope="col">日付</th><th scope="col">到達</th><th scope="col">読了</th><th scope="col">次記事</th><th scope="col">発見導線</th><th scope="col">更新案内</th><th scope="col">通知登録</th></tr></thead>
                   <tbody>{state.summary.daily.map((day) => <tr key={day.date}><th scope="row">{day.date}</th><td>{day.landing}</td><td>{day.articleEnd}</td><td>{day.navigationClick}</td><td>{day.discoveryClick}</td><td>{day.updatesClick}</td><td>{day.updatesAction}</td></tr>)}</tbody>
                 </table>
               </div>
