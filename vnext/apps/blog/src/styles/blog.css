@@ -212,8 +212,12 @@ astro-dev-toolbar {
 .site-search-form {
   display: grid;
   grid-template-columns: 2.75rem minmax(0, 1fr);
-  align-items: end;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0;
+  padding-inline: .25rem .75rem;
+  border: 1px solid var(--color-neutral-solid-gray-420);
+  border-radius: 999px;
+  background: var(--color-neutral-white);
   margin-inline-start: auto;
   max-width: 36rem;
 }
@@ -245,7 +249,9 @@ astro-dev-toolbar {
 
 .article-search__input input {
   width: 100%;
-  padding-inline-start: 2.25rem;
+  min-height: 2.75rem;
+  padding-inline: 2.5rem 1rem;
+  border-radius: 999px;
   border-color: var(--color-neutral-solid-gray-420);
 }
 
@@ -290,14 +296,13 @@ body.noema-public :focus-visible {
   background: transparent;
   color: var(--color-neutral-solid-gray-900);
   border: 0;
-  border-bottom: 1px solid var(--color-neutral-solid-gray-900);
+
   border-radius: 0;
   font: inherit;
 }
 
 .site-search-form__input input:hover {
-  border-bottom-color: var(--color-key-1000);
-  border-bottom-width: 2px;
+  border: 0;
 }
 
 .site-search-form__input input::placeholder {
@@ -2341,3 +2346,10 @@ body.is-resizing-assistant-panel .article-page {
   align-items: baseline;
   gap: 0.25rem 1rem;
 }
+
+/* Live filtering keeps one quiet field; the submit fallback remains without JS. */
+.article-search[data-live-search="true"] .article-search__primary { grid-template-columns: minmax(0, 1fr); }
+.site-search-form__submit { border-radius: 999px; }
+.site-search-form:focus-within,
+.article-search__input input:focus { border-color: var(--color-key-900); }
+.article-search [data-search-submit][hidden] { display: none; }

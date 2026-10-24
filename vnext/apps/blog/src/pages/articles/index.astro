@@ -73,7 +73,7 @@ const jsonLd = collectionPageJsonLd({
         <datalist id="article-search-suggestions">
           {suggestions.map((suggestion) => <option value={suggestion}></option>)}
         </datalist>
-        <button class="dads-button" data-size="sm" data-type="outline" type="submit">検索</button>
+        <button class="dads-button" data-size="sm" data-type="outline" type="submit" data-search-submit>検索</button>
       </div>
       {availableFeatures.length > 0 && <fieldset class="search-features"><legend>記事の特徴</legend>{availableFeatures.map((feature) => <label><input type="checkbox" name="feature" value={feature} checked={params.getAll("feature").includes(feature)} /><span>{articleFeatureLabels[feature]}</span></label>)}</fieldset>}
       <details open={Boolean(params.get("intent") || params.get("series") || params.get("topic") || params.get("tag"))} class="article-search__detail dads-disclosure" data-filter-details>
@@ -173,7 +173,8 @@ const jsonLd = collectionPageJsonLd({
     });
     return params;
   };
-  const apply = (history = true, restoredParams?: URLSearchParams) => {
+  const apply = (history: boolean | "replace" = true, restoredParams?: URLSearchParams) => {
+    cancelInput();
     const params = restoredParams ?? readParams();
     const filtered = searchArticles(items, params);
     const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -206,9 +207,26 @@ const jsonLd = collectionPageJsonLd({
       li.append(button); pageList.append(li);
     }
     if (page > 1) params.set("page", String(page));
-    if (history) window.history.pushState(null, "", `${location.pathname}${params.size ? `?${params}` : ""}`);
+    if (history) window.history[history === "replace" ? "replaceState" : "pushState"](null, "", `${location.pathname}${params.size ? `?${params}` : ""}`);
   };
+  const keyword = form.querySelector<HTMLInputElement>("#article-keyword")!;
+  let composing = false;
+  let inputTimer: ReturnType<typeof setTimeout> | undefined;
+  const cancelInput = () => { clearTimeout(inputTimer); };
+  const scheduleInput = () => {
+    cancelInput();
+    if (composing) return;
+    inputTimer = setTimeout(() => { page = 1; apply("replace"); }, 200);
+  };
+  keyword.addEventListener("compositionstart", () => { composing = true; cancelInput(); });
+  keyword.addEventListener("compositionend", () => { composing = false; scheduleInput(); });
+  keyword.addEventListener("input", (event) => {
+    if (!(event instanceof InputEvent && event.isComposing)) scheduleInput();
+  });
+  form.querySelector<HTMLElement>("[data-search-submit]")!.hidden = true;
+  form.dataset.liveSearch = "true";
   const restore = () => {
+    cancelInput();
     const params = new URLSearchParams(location.search);
     for (const control of [...form.elements]) {
       if (control instanceof HTMLInputElement) {
@@ -220,7 +238,7 @@ const jsonLd = collectionPageJsonLd({
     page = Number.parseInt(params.get("page") ?? "1", 10) || 1;
     apply(false, params);
   };
-  form.addEventListener("submit", (event) => { event.preventDefault(); page = 1; apply(); });
+  form.addEventListener("submit", (event) => { event.preventDefault(); cancelInput(); if (!composing) { page = 1; apply("replace"); } });
   form.addEventListener("change", (event) => {
     if (event.target instanceof HTMLSelectElement || (event.target instanceof HTMLInputElement && event.target.type === "checkbox")) { page = 1; apply(); }
   });
