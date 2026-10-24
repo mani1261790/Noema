@@ -1,7 +1,7 @@
 <details class="article-guide">
   <summary><span>AIに記事を探してもらう</span></summary>
   <noscript><p>AI記事案内にはJavaScriptが必要です。通常の記事検索はそのまま利用できます。</p></noscript>
-  <form data-article-guide hidden>
+  <form data-article-guide hidden novalidate>
     <label for="guide-query">知りたいこと・やってみたいこと</label>
     <textarea id="guide-query" name="query" rows="2" maxlength="500" required placeholder="例：AIがもっともらしい間違いをする理由を知りたい"></textarea>
     <div class="article-guide__actions"><button type="submit" class="dads-button" data-size="sm" data-type="outline">記事を探してもらう</button><small>入力内容をCloudflare Workers AIへ送信します。</small></div>
@@ -13,11 +13,14 @@
  const form=document.querySelector<HTMLFormElement>('[data-article-guide]');
  if(form){
   form.hidden=false;
+  const query = form.querySelector<HTMLTextAreaElement>('textarea')!;
+  query.addEventListener('input', () => { query.removeAttribute('aria-invalid'); query.style.height = 'auto'; query.style.height = `${query.scrollHeight}px`; });
   const status=form.querySelector<HTMLElement>('[data-guide-status]')!;
   const results=form.querySelector<HTMLElement>('[data-guide-results]')!;
   const button=form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   form.addEventListener('submit',async(event)=>{
    event.preventDefault(); if(button.disabled)return;
+   if (!query.value.trim()) { status.textContent = '知りたいこと・やってみたいことを入力してください。'; query.setAttribute('aria-invalid', 'true'); query.focus(); return; }
    results.replaceChildren();status.textContent='公開記事から探しています。';button.disabled=true;form.setAttribute('aria-busy','true');
    try{
     const response=await fetch('/api/discover',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query:new FormData(form).get('query')}),signal:AbortSignal.timeout(45_000)});
