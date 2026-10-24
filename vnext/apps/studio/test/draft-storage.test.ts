@@ -385,3 +385,13 @@ describe("clearDraft", () => {
     });
   });
 });
+
+it("keeps optional reference comments when restoring browser drafts", () => {
+  const storage = new MemoryStorage();
+  const draft = incompleteDraft();
+  draft.frontmatter.sources = [{title:'資料',url:'https://example.com',checkedAt:'2026-10-24',comment:'説明\n参照箇所'}];
+  saveDraft(storage,draft);
+  const restored = loadDraft(storage);
+  expect(restored.status).toBe('restored');
+  if (restored.status === 'restored') expect(restored.draft.frontmatter.sources).toEqual(draft.frontmatter.sources);
+});

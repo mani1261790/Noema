@@ -27,6 +27,7 @@ import {
   type ImageDimensions,
   type SupportedImageContentType
 } from "@noema/content/image-metadata";
+import { validateArticleMarkdown } from "@noema/content/article-markdown";
 import { articleMarkdownGuidance } from "@noema/content";
 import { z } from "zod";
 import {
@@ -866,7 +867,7 @@ export function createStudioMcpServer(
     },
     async ({ frontmatter, markdown }) => {
       const issues = validateCmsArticleForReview({ frontmatter, markdown });
-      return toolSuccess({ issues, valid: issues.length === 0 });
+      return toolSuccess({ issues, warnings: validateArticleMarkdown(markdown).filter((issue) => issue.severity === "warning"), valid: issues.length === 0 });
     }
   );
 
@@ -897,6 +898,7 @@ export function createStudioMcpServer(
       return {
         html,
         issues,
+        warnings: validateArticleMarkdown(markdown).filter((issue) => issue.severity === "warning"),
         mediaType: "text/html",
         title: frontmatter.title,
         valid: issues.length === 0,
@@ -914,6 +916,7 @@ export function createStudioMcpServer(
       annotations: writeAnnotations(true)
     },
     async ({ requestId, ...content }) => executeTool(async () => ({
+      warnings: validateArticleMarkdown(content.markdown).filter((issue) => issue.severity === "warning"),
       article: await createCmsArticle(
         db,
         session.identity,
@@ -937,6 +940,7 @@ export function createStudioMcpServer(
       annotations: writeAnnotations(true)
     },
     async ({ articleId, expectedVersion, requestId, ...content }) => executeTool(async () => ({
+      warnings: validateArticleMarkdown(content.markdown).filter((issue) => issue.severity === "warning"),
       article: await updateCmsArticle(
         db,
         session.identity,

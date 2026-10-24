@@ -407,10 +407,12 @@ function parseSources(value: unknown): ArticleFrontmatter["sources"] | null {
     if (!isBoundedString(source.title, MAX_LIST_ITEM_CHARACTERS)) return null;
     if (!isBoundedString(source.url, MAX_URL_CHARACTERS)) return null;
     if (!isBoundedString(source.checkedAt, MAX_DATE_CHARACTERS)) return null;
+    if (source.comment !== undefined && !isBoundedString(source.comment, 1000)) return null;
     sources.push({
       title: source.title,
       url: source.url,
-      checkedAt: source.checkedAt
+      checkedAt: source.checkedAt,
+      ...(typeof source.comment === "string" ? { comment: source.comment } : {})
     });
   }
   return sources;

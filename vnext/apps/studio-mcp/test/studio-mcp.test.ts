@@ -1306,6 +1306,27 @@ describe("Studio MCP tools", () => {
     await Promise.all([firstEditor.close(), secondEditor.close()]);
   });
 
+  it("returns nonblocking reference warnings and persists source comments", async () => {
+    const connection = await connectClient();
+    const original = validArticle("reference-warning");
+    const source = {title:"公式資料",url:"https://example.com",checkedAt:"2026-10-24",comment:"資料の説明\n参照した箇所"};
+    const input = {...original, frontmatter:{...original.frontmatter,sources:[source]},markdown: original.markdown + "\n\n## 参考にした資料\n\n資料の説明"};
+    for (const name of ["studio_validate_draft","studio_preview_draft"]) {
+      const result = await connection.client.callTool({name,arguments:input});
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({valid:true,issues:[],warnings:expect.arrayContaining([expect.objectContaining({code:"reference-heading",severity:"warning",line:5})])});
+      if(name === "studio_preview_draft") expect(result.structuredContent).toHaveProperty("html",expect.stringContaining('class="article-source-comment"'));
+    }
+    const created = await connection.client.callTool({name:"studio_create_draft",arguments:{...input,requestId:"70000000-0000-4000-8000-000000000001"}});
+    const article = articleFrom(created.structuredContent);
+    expect(created.structuredContent).toMatchObject({article:{currentRevision:{frontmatter:{sources:[source]}}}});
+    expect(created.structuredContent).toHaveProperty("warnings",expect.arrayContaining([expect.objectContaining({code:"reference-heading"})]));
+    const updated = await connection.client.callTool({name:"studio_update_draft",arguments:{...input,articleId:article.id,expectedVersion:article.lockVersion,requestId:"70000000-0000-4000-8000-000000000002"}});
+    expect(updated.structuredContent).toMatchObject({article:{currentRevision:{frontmatter:{sources:[source]}}}});
+    expect(updated.structuredContent).toHaveProperty("warnings",expect.arrayContaining([expect.objectContaining({code:"reference-heading"})]));
+    await connection.close();
+  });
+
   it("validates without mutating and creates or updates once across retries", async () => {
     const connection = await connectClient();
     const input = validArticle("mcp-draft");

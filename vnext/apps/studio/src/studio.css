@@ -5313,3 +5313,7 @@ textarea.studio-control {
   .studio-primary-nav > div { flex-wrap: wrap; }
   .studio-mcp { padding: 1rem; }
 }
+
+.studio-source textarea {
+  resize: none;
+}

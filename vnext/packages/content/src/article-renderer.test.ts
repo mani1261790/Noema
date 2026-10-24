@@ -192,3 +192,21 @@ describe("renderArticlePresentation", () => {
     expect(html).toContain('alt="記事の図" width="1200" height="675"');
   });
 });
+
+it("warns only on actual reference headings and preserves their source lines", () => {
+  const markdown = '## 本文\n\n参考という本文。\n\n```md\n## 参考資料\n```\n\n## **参考**にした資料\n\n参考文献\n--------\n';
+  const issues = validateArticleMarkdown(markdown,{minimumCharacters:0});
+  expect(issues.filter(issue=>issue.code==='reference-heading')).toMatchObject([
+    {severity:'warning',line:9}, {severity:'warning',line:11}
+  ]);
+  expect(issues.filter(issue=>issue.severity==='error')).toEqual([]);
+});
+
+it("renders optional source comments as escaped text without changing article content", () => {
+  const sources = [{title:'資料',url:'https://example.com',checkedAt:'2026-10-24',comment:'説明\n<script>alert(1)</script>'}];
+  const html = renderArticlePresentation({...frontmatter,sources},'## 参考にした資料\n\n本文を残す');
+  expect(html).toContain('class="article-source-comment">説明\n&lt;script&gt;alert(1)&lt;/script&gt;');
+  expect(html).not.toContain('<script>');
+  expect(html).toContain('本文を残す');
+  expect(renderArticlePresentation({...frontmatter,sources:[{...sources[0],comment:''}]},'## 本文')).not.toContain('article-source-comment');
+});

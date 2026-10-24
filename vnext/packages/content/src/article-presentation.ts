@@ -122,7 +122,7 @@ export function renderArticlePresentation(
         const link = isSafeHttpUrl(source.url)
           ? `<a class="dads-link" href="${attribute(source.url)}" target="_blank" rel="noreferrer">${label}<span class="noema-visually-hidden">（新しいタブで開きます）</span></a>`
           : `<span>${label}</span>`;
-        return `<li>${link}<span>（${escapeHtml(formatJapaneseDate(source.checkedAt) ?? source.checkedAt)}確認）</span></li>`;
+        return `<li>${link}<span>（${escapeHtml(formatJapaneseDate(source.checkedAt) ?? source.checkedAt)}確認）</span>${source.comment?.trim() ? `<p class="article-source-comment">${escapeHtml(source.comment)}</p>` : ""}</li>`;
       }).join("")}</ul></section>`
     : "";
   const seriesIntro = options.series ? renderSeriesIntro(options.series, options.resolveLinkReference) : "";
