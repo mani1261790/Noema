@@ -10,7 +10,7 @@ const {slug}=Astro.props;
  <button type="button" data-comments-more hidden>続きを表示</button>
  <button type="button" data-comments-retry hidden>読み込み直す</button>
  <button type="button" data-comments-open aria-expanded="false" aria-controls="reader-comment-form">コメントを書く</button>
- <form id="reader-comment-form" data-comments-form hidden>
+ <form id="reader-comment-form" data-comments-form hidden novalidate>
   <p data-reply-label></p>
   <label>表示名（40文字まで）<input name="name" required maxlength="40" autocomplete="nickname" /></label>
   <label>コメント（2,000文字まで）<textarea name="body" required maxlength="2000" rows="4"></textarea></label>

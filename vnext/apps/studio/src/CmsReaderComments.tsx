@@ -39,7 +39,7 @@ export function CmsReaderComments({connection}:{connection:CmsLibraryConnection}
      {c.status!=="hidden"&&<button type="button" disabled={busy} onClick={()=>void action(c.id,"hide")}>非表示にする</button>}
      {c.status==="published"&&<button type="button" disabled={busy} onClick={()=>setReply({id:c.id,replyId:crypto.randomUUID(),body:""})}>返信する</button>}
     </div>
-    {reply?.id===c.id&&<form onSubmit={e=>{e.preventDefault();void action(c.id,"reply");}}><label>運営からの返信<textarea required maxLength={2000} rows={4} value={reply.body} onChange={e=>setReply({...reply,body:e.target.value})}/></label><p>送信するとすぐに公開されます。</p><div className="comment-actions"><button disabled={busy||!reply.body.trim()} type="submit">返信を公開</button><button type="button" disabled={busy} onClick={()=>setReply(null)}>キャンセル</button></div></form>}
+    {reply?.id===c.id&&<form noValidate onSubmit={e=>{e.preventDefault();void action(c.id,"reply");}}><label>運営からの返信<textarea required maxLength={2000} rows={4} value={reply.body} onChange={e=>setReply({...reply,body:e.target.value})}/></label><p>送信するとすぐに公開されます。</p><div className="comment-actions"><button disabled={busy||!reply.body.trim()} type="submit">返信を公開</button><button type="button" disabled={busy} onClick={()=>setReply(null)}>キャンセル</button></div></form>}
    </article>)}
    <div className="comment-actions"><button type="button" disabled={busy||loading||offset===0} onClick={()=>setOffset(v=>Math.max(0,v-20))}>前の20件</button><button type="button" disabled={busy||loading||!more} onClick={()=>setOffset(v=>v+20)}>次の20件</button></div>
   </>}
