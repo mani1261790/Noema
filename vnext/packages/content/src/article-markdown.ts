@@ -19,6 +19,7 @@ export type ArticleMarkdownIssueCode =
   | "empty-heading"
   | "heading-start"
   | "heading-order"
+  | "reference-heading"
   | "image-alt"
   | "unsafe-image"
   | "relative-image"
@@ -323,6 +324,14 @@ export function validateArticleMarkdown(
 
   let previousDepth: number | null = null;
   for (const heading of headings) {
+    if (heading.text.includes("参考")) {
+      issues.push({
+        code: "reference-heading",
+        severity: "warning",
+        message: `見出し「${heading.text}」に「参考」が含まれています。参考資料欄と重複していないか確認してください。資料の説明は各資料のコメント欄に登録できます。本文に残す必要がある場合は、そのままレビューへ送れます。`,
+        line: heading.line,
+      });
+    }
     if (!heading.text) {
       issues.push({
         code: "empty-heading",

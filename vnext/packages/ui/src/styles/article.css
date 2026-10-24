@@ -676,3 +676,11 @@
   .article-series-end > p { margin-bottom: .5rem; }
   .article-series-end a { min-height: 2.75rem; padding: .75rem; }
 }
+
+.article-source-comment {
+  margin-block: .375rem 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: .875rem;
+  line-height: 1.8;
+}
