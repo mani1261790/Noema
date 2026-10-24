@@ -15,7 +15,7 @@
 
 ## 検証
 
-- Studio Worker 250 tests passed（コメント7件を追加）。実D1で非公開、承認、返信、権限、削除キー、非表示、重複排除、ページング、受付上限を検証。
+- Studio Worker 250 tests passed（初回通過）。その後、コメント8件のテストで管理API障害時のJSONエラー応答も検証。実D1で非公開、承認、返信、権限、削除キー、非表示、重複排除、ページング、受付上限を検証。
 - Blog 158 tests + 39 Node tests passed。
 - Blog / Studio の型チェックとビルドを実施。
 - Chromium 320 / 390 / 1280 px: 投稿、返信、削除確認、送信失敗・再送、HTMLが文字として表示されること、横はみ出しなし。HTTP APIはモック。

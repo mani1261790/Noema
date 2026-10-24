@@ -91,7 +91,7 @@ export async function handleCmsApiRequest(
     );
     const { pathname } = new URL(request.url);
 
-    if (pathname === `${CMS_API_PREFIX}/reader-comments`) return manageReaderComments(request, env.CMS_DB, session);
+    if (pathname === `${CMS_API_PREFIX}/reader-comments`) return await manageReaderComments(request, env.CMS_DB, session);
 
     if (pathname === `${CMS_API_PREFIX}/session`) {
       if (request.method !== "GET") return methodNotAllowed("GET");

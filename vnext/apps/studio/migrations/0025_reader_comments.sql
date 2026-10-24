@@ -15,3 +15,4 @@ CREATE TABLE reader_comments (
 CREATE INDEX reader_comments_article ON reader_comments(article_id, status, created_at, id);
 CREATE INDEX reader_comments_moderation ON reader_comments(status, created_at);
 CREATE INDEX reader_comments_parent ON reader_comments(parent_id);
+CREATE INDEX reader_comments_reader_created ON reader_comments(author_kind, created_at);

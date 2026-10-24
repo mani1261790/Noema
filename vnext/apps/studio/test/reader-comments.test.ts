@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { applyD1Migrations, type D1Migration } from "cloudflare:test";
 import { beforeAll,beforeEach,describe,expect,it } from "vitest";
 import { handleReaderComments } from "../../blog/src/lib/comments-api";
+import { handleCmsApiRequest } from "../worker/cms-api";
 import { manageReaderComments } from "../worker/reader-comments";
 import type { CmsSession } from "@noema/cms";
 const testEnv=env as Env&{CMS_TEST_MIGRATIONS:D1Migration[]},db=testEnv.CMS_DB;
@@ -16,6 +17,18 @@ beforeEach(async()=>{
  await db.prepare(`INSERT INTO cms_articles(id,slug,review_status,publication_status,draft_visibility,published_visibility,published_slug,current_revision_id,current_revision_number,created_by_subject,updated_by_subject,created_at,updated_at) VALUES('article','article','approved','published','public','public','article','r',1,'test','test','2026-01-01','2026-01-01')`).run();
 });
 describe("reader comments",()=>{
+ it("returns a retryable JSON error when comment storage fails",async()=>{
+  const failingDb=new Proxy(db,{get(target,property){
+   if(property==="prepare")return (sql:string)=>{
+    if(sql.includes("FROM reader_comments c"))throw new Error("simulated comment storage failure");
+    return target.prepare(sql);
+   };
+   const value=Reflect.get(target,property);return typeof value==="function"?value.bind(target):value;
+  }});
+  const response=await handleCmsApiRequest(new Request("https://studio.noema-learn.uk/api/cms/reader-comments"),{CMS_DB:failingDb,CMS_BOOTSTRAP_ADMIN_EMAIL:admin.identity.email},admin.identity);
+  expect(response.status).toBe(503);
+  expect(await response.json()).toMatchObject({error:{code:"cms_unavailable",retryable:true}});
+ });
  it("keeps submissions private until approved and exposes no ownership or identity secrets",async()=>{
   const data=input();expect((await api("POST",data)).status).toBe(201);
   expect((await (await api()).json() as {total:number}).total).toBe(0);
