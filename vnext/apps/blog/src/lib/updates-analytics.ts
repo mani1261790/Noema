@@ -58,7 +58,7 @@ export function createUpdatesActionTracker(
       try {
         await send();
       } catch {
-        // RSS actions must never be interrupted by analytics availability.
+        // Notification registration must never be interrupted by analytics availability.
       }
     }
   };
