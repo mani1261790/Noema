@@ -1,0 +1,67 @@
+---
+interface Props {
+  name: string;
+  label: string;
+  options: { value: string; label: string }[];
+  value?: string | null;
+  form?: string;
+  compact?: boolean;
+}
+const { name, label, options, value, form, compact = false } = Astro.props;
+const selected = options.find((option) => option.value === value) ?? options[0];
+---
+<fieldset class="reader-choice" data-reader-choice>
+  <legend class:list={{ "noema-visually-hidden": compact }}>{label}</legend>
+  <details>
+    <summary><span data-choice-value>{selected.label}</span><noscript><style>[data-choice-value] { display: none; }</style>選択肢を開く</noscript></summary>
+    <div class="reader-choice__options">
+      {options.map((option) => <label>
+        <input type="radio" name={name} value={option.value} checked={option.value === selected.value} form={form} data-choice-label={option.label} />
+        <span>{option.label}</span>
+      </label>)}
+    </div>
+  </details>
+</fieldset>
+<script>
+  const choices = [...document.querySelectorAll<HTMLElement>('[data-reader-choice]')];
+  const sync = () => choices.forEach((choice) => {
+    const input = choice.querySelector<HTMLInputElement>('input:checked');
+    const label = choice.querySelector<HTMLElement>('[data-choice-value]');
+    if (input && label) label.textContent = input.dataset.choiceLabel ?? input.value;
+  });
+  const place = (choice: HTMLElement) => {
+    const details = choice.querySelector('details')!;
+    if (!details.open) return;
+    const summary = choice.querySelector('summary')!;
+    const panel = choice.querySelector<HTMLElement>('.reader-choice__options')!;
+    const rect = summary.getBoundingClientRect();
+    const headerBottom = document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0;
+    const below = window.innerHeight - rect.bottom - 12;
+    const above = rect.top - Math.max(0, headerBottom) - 12;
+    const up = below < Math.min(panel.scrollHeight, 288) && above > below;
+    details.dataset.placement = up ? 'above' : 'below';
+    panel.style.maxHeight = `${Math.max(44, Math.min(288, up ? above : below))}px`;
+  };
+  window.addEventListener('resize', () => choices.forEach(place));
+  window.addEventListener('scroll', () => choices.forEach(place), { passive: true });
+  choices.forEach((choice) => {
+    const details = choice.querySelector('details')!;
+    const summary = choice.querySelector('summary')!;
+    choice.addEventListener('change', sync);
+    choice.addEventListener('click', (event) => {
+      if (event.target instanceof HTMLInputElement) { details.open = false; summary.focus(); }
+    });
+    details.addEventListener('toggle', () => {
+      if (details.open) { choices.forEach((other) => { if (other !== choice) other.querySelector('details')!.open = false; }); place(choice); }
+    });
+    choice.addEventListener('keydown', (event) => {
+      if (event.target === summary && ['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); details.open = true; requestAnimationFrame(() => choice.querySelector<HTMLInputElement>('input:checked')?.focus()); }
+      if (event.key === 'Escape' && details.open) { event.preventDefault(); details.open = false; summary.focus(); }
+    });
+  });
+  document.addEventListener('click', (event) => {
+    choices.forEach((choice) => { if (event.target instanceof Node && !choice.contains(event.target)) choice.querySelector('details')!.open = false; });
+  });
+  document.addEventListener('reader-controls-sync', sync);
+  sync();
+</script>

@@ -2,6 +2,8 @@
 import { articleFeatureLabels, type ArticleFeature } from "@noema/content/article-features";
 import { articleIntent, readingIntents } from "../../lib/article-discovery";
 import { topicLabels } from "@noema/content";
+import ReaderChoice from "../../components/ReaderChoice.astro";
+import SearchClear from "../../components/SearchClear.astro";
 import ArticleGuide from "../../components/ArticleGuide.astro";
 import ArticleRow from "../../components/ArticleRow.astro";
 import Breadcrumbs from "../../components/Breadcrumbs.astro";
@@ -10,7 +12,7 @@ import { buildArticleSearchText, searchArticles } from "../../lib/article-search
 import { sortArticlesByDate } from "../../lib/articles";
 import { listPublicArticleSummaries, listPublishedSeries } from "../../lib/cms-publications";
 import { collectionPageJsonLd } from "../../lib/seo";
-import { listActiveTopics, listNarrowingTopics } from "../../lib/topics";
+import { listNarrowingTopics } from "../../lib/topics";
 
 const [articleResults, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
 const articles = sortArticlesByDate(articleResults);
@@ -18,17 +20,8 @@ const articleSeries = new Map(seriesList.flatMap((series) => series.items.map((a
   slug: series.slug,
   title: series.title,
 }] as const)));
-const activeTopics = listActiveTopics(articles);
 const narrowingTopics = listNarrowingTopics(articles);
 const tags = [...new Set(articles.flatMap((article) => article.tags))].sort((a, b) => a.localeCompare(b, "ja"));
-const suggestions = [...new Set([
-  ...articles.map((article) => article.title),
-  ...articles.flatMap((article) => article.authors),
-  ...articles.flatMap((article) => article.editorDisplayName ? [article.editorDisplayName] : []),
-  ...seriesList.map((series) => series.title),
-  ...activeTopics.map((topic) => topic.label),
-  ...tags,
-])];
 const availableFeatures = (Object.keys(articleFeatureLabels) as ArticleFeature[]).filter((feature) => articles.some((article) => article.features?.includes(feature)));
 const searchDocuments = articles.map((article) => ({
   slug: article.slug, title: article.title,
@@ -63,16 +56,14 @@ const jsonLd = collectionPageJsonLd({
 
     <form id="search" class="article-search" role="search">
       <div class="article-search__primary">
-        <label class="article-search__input">
+        <div class="article-search__input reader-search-field">
           <svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" />
           </svg>
-          <span class="noema-visually-hidden">記事を検索</span>
-          <input class="dads-input-text__input" data-size="sm" placeholder="記事名・執筆者で検索" id="article-keyword" name="keyword" type="search" value={params.get("keyword") ?? ""} list="article-search-suggestions" autocomplete="off" />
-        </label>
-        <datalist id="article-search-suggestions">
-          {suggestions.map((suggestion) => <option value={suggestion}></option>)}
-        </datalist>
+          <label class="noema-visually-hidden" for="article-keyword">記事を検索</label>
+          <input class="dads-input-text__input" data-size="sm" placeholder="記事名・執筆者で検索" id="article-keyword" name="keyword" type="text" role="searchbox" inputmode="search" enterkeyhint="search" spellcheck="false" autocapitalize="none" value={params.get("keyword") ?? ""} autocomplete="off" />
+          <SearchClear />
+        </div>
         <button class="dads-button" data-size="sm" data-type="outline" type="submit" data-search-submit>検索</button>
       </div>
       {availableFeatures.length > 0 && <fieldset class="search-features"><legend>記事の特徴</legend>{availableFeatures.map((feature) => <label><input type="checkbox" name="feature" value={feature} checked={params.getAll("feature").includes(feature)} /><span>{articleFeatureLabels[feature]}</span></label>)}</fieldset>}
@@ -85,31 +76,10 @@ const jsonLd = collectionPageJsonLd({
         </summary>
         <div class="article-search__detail-content dads-disclosure__content">
           <div class="article-search__filters">
-            <div class="dads-form-control-label" data-size="md">
-              <label class="dads-form-control-label__label" for="article-intent">読み方</label>
-              <select id="article-intent" name="intent"><option value="">すべて</option>{Object.entries(readingIntents).map(([id, intent]) => <option value={id} selected={params.get("intent") === id}>{intent.label}</option>)}</select>
-            </div>
-            <div class="dads-form-control-label" data-size="md">
-              <label class="dads-form-control-label__label" for="article-series">シリーズ</label>
-              <select id="article-series" name="series">
-                <option value="">すべてのシリーズ</option>
-                {seriesList.map((series) => <option value={series.slug} selected={params.get("series") === series.slug}>{series.title}</option>)}
-              </select>
-            </div>
-            <div class="dads-form-control-label" data-size="md">
-              <label class="dads-form-control-label__label" for="article-topic">テーマ</label>
-              <select id="article-topic" name="topic">
-                <option value="">すべてのテーマ</option>
-                {narrowingTopics.map((topic) => <option value={topic.slug} selected={params.get("topic") === topic.slug}>{topic.label}（{topic.articleCount}）</option>)}
-              </select>
-            </div>
-            <div class="dads-form-control-label" data-size="md">
-              <label class="dads-form-control-label__label" for="article-tag">タグ</label>
-              <select id="article-tag" name="tag">
-                <option value="">すべてのタグ</option>
-                {tags.map((tag) => <option value={tag} selected={params.get("tag") === tag}>{tag}</option>)}
-              </select>
-            </div>
+            <ReaderChoice name="intent" label="読み方" value={params.get("intent")} options={[{value: "", label: "すべて"}, ...Object.entries(readingIntents).map(([value, intent]) => ({value, label: intent.label}))]} />
+            <ReaderChoice name="series" label="シリーズ" value={params.get("series")} options={[{value: "", label: "すべてのシリーズ"}, ...seriesList.map((series) => ({value: series.slug, label: series.title}))]} />
+            <ReaderChoice name="topic" label="テーマ" value={params.get("topic")} options={[{value: "", label: "すべてのテーマ"}, ...narrowingTopics.map((topic) => ({value: topic.slug, label: `${topic.label}（${topic.articleCount}）`}))]} />
+            <ReaderChoice name="tag" label="タグ" value={params.get("tag")} options={[{value: "", label: "すべてのタグ"}, ...tags.map((tag) => ({value: tag, label: tag}))]} />
           </div>
           <div class="article-search__detail-actions">
             <button class="dads-button" data-size="md" data-type="solid-fill" type="submit">この条件で絞り込む</button>
@@ -126,7 +96,7 @@ const jsonLd = collectionPageJsonLd({
     <ArticleGuide />
     <div class="article-results-bar">
     <p class="article-count" data-article-count role="status" aria-live="polite" tabindex="-1">{filtered.length}件の記事</p>
-    <label class="article-sort">並び順 <select name="sort" form="search" id="article-sort"><option value="relevance" selected={!params.get("sort") || params.get("sort") === "relevance"}>関連度順</option><option value="published" selected={params.get("sort") === "published"}>新着順</option><option value="updated" selected={params.get("sort") === "updated"}>更新順</option></select></label>
+    <div class="article-sort"><span aria-hidden="true">並び順</span><ReaderChoice compact name="sort" label="並び順" form="search" value={params.get("sort") ?? "relevance"} options={[{value: "relevance", label: "関連度順"}, {value: "published", label: "新着順"}, {value: "updated", label: "更新順"}]} /></div>
     </div>
     <div class="article-list" data-article-list>
       {orderedArticles.map((article) => {
@@ -191,7 +161,10 @@ const jsonLd = collectionPageJsonLd({
       if (name === "sort" || name === "feature") return;
       const control = form.elements.namedItem(name);
       let label = value;
-      if (control instanceof HTMLSelectElement) label = control.selectedOptions[0]?.textContent ?? value;
+      if (control instanceof RadioNodeList) {
+        const selected = [...control].find((node) => node instanceof HTMLInputElement && node.checked) as HTMLInputElement | undefined;
+        label = selected?.dataset.choiceLabel ?? value;
+      }
       if (name === "feature") label = [...form.querySelectorAll<HTMLInputElement>('input[name="feature"]')].find((input) => input.value === value)?.nextElementSibling?.textContent ?? value;
       const li = document.createElement("li"); li.textContent = label; activeList.append(li);
     });
@@ -207,6 +180,7 @@ const jsonLd = collectionPageJsonLd({
       li.append(button); pageList.append(li);
     }
     if (page > 1) params.set("page", String(page));
+    document.dispatchEvent(new Event("reader-controls-sync"));
     if (history) window.history[history === "replace" ? "replaceState" : "pushState"](null, "", `${location.pathname}${params.size ? `?${params}` : ""}`);
   };
   const keyword = form.querySelector<HTMLInputElement>("#article-keyword")!;
@@ -231,6 +205,7 @@ const jsonLd = collectionPageJsonLd({
     for (const control of [...form.elements]) {
       if (control instanceof HTMLInputElement) {
         if (control.type === "checkbox") control.checked = params.getAll(control.name).includes(control.value);
+        else if (control.type === "radio") control.checked = control.value === (params.get(control.name) ?? (control.name === "sort" ? "relevance" : ""));
         else control.value = params.get(control.name) ?? "";
       } else if (control instanceof HTMLSelectElement) control.value = params.get(control.name) ?? (control.name === "sort" ? "relevance" : "");
     }
@@ -240,12 +215,12 @@ const jsonLd = collectionPageJsonLd({
   };
   form.addEventListener("submit", (event) => { event.preventDefault(); cancelInput(); if (!composing) { page = 1; apply("replace"); } });
   form.addEventListener("change", (event) => {
-    if (event.target instanceof HTMLSelectElement || (event.target instanceof HTMLInputElement && event.target.type === "checkbox")) { page = 1; apply(); }
+    if (event.target instanceof HTMLSelectElement || (event.target instanceof HTMLInputElement && ["checkbox", "radio"].includes(event.target.type))) { page = 1; apply(); }
   });
-  document.querySelector("#article-sort")?.addEventListener("change", () => { page = 1; apply(); });
+  document.querySelector('.article-sort')?.addEventListener("change", () => { page = 1; apply(); });
   form.querySelector("[data-reset-search]")?.addEventListener("click", () => {
     for (const control of [...form.elements]) {
-      if (control instanceof HTMLInputElement) { if (control.type === "checkbox") control.checked = false; else control.value = ""; }
+      if (control instanceof HTMLInputElement) { if (control.type === "checkbox") control.checked = false; else if (control.type === "radio") control.checked = control.value === (control.name === "sort" ? "relevance" : ""); else control.value = ""; }
       else if (control instanceof HTMLSelectElement) control.value = control.name === "sort" ? "relevance" : "";
     }
     page = 1; apply(); document.querySelector<HTMLInputElement>("#article-keyword")?.focus();
