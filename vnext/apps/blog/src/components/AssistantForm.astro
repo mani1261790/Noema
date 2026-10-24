@@ -10,7 +10,7 @@ const { idPrefix, headingId, hideHeading = false } = Astro.props;
 
 <div class="assistant-form-shell">
   {!hideHeading && <h2 id={headingId}>この記事について質問</h2>}
-  <form data-assistant-form>
+  <form data-assistant-form novalidate>
     <div class="assistant-conversation">
       <div class="assistant-selection" data-assistant-selection hidden>
         <div class="assistant-selection__header">
@@ -19,19 +19,23 @@ const { idPrefix, headingId, hideHeading = false } = Astro.props;
         </div>
         <blockquote data-selected-text></blockquote>
       </div>
+      <p class="assistant-welcome" data-assistant-welcome>この記事のわからない言葉や、気になる箇所を質問できます。本文を選択すると、その部分について聞けます。</p>
       <div class="assistant-answer" data-assistant-answer aria-live="polite"></div>
       <p class="assistant-status" data-assistant-status role="status" aria-live="polite"></p>
     </div>
     <div class="assistant-composer">
-      <label class="noema-visually-hidden" for={`${idPrefix}-question`} data-composer-label>OpenAI APIキー</label>
-      <textarea id={`${idPrefix}-question`} data-question data-mode="api-key" rows="1" maxlength="1000" autocomplete="off" spellcheck="false" aria-label="OpenAI APIキー" placeholder="最初にOpenAI APIキーを入力してください"></textarea>
-      <button class="assistant-send" type="submit" aria-label="APIキーを設定">
+      <label class="noema-visually-hidden" for={`${idPrefix}-question`} data-composer-label>質問</label>
+      <textarea id={`${idPrefix}-question`} data-question data-mode="question" rows="1" maxlength="1000" autocomplete="off" spellcheck="false" aria-label="質問" placeholder="この記事について、知りたいことを入力"></textarea>
+      <button class="assistant-send" type="submit" aria-label="質問を送信">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m12 19V5m-6 6 6-6 6 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
         </svg>
       </button>
     </div>
-    <p class="assistant-privacy">APIキーはこのページ内だけで保持され、質問時にOpenAIへ送信されます。Noemaには保存されません。</p>
+    <details class="assistant-notice"><summary>利用上限・データの送信について</summary>
+    <p class="assistant-privacy">質問と記事の内容をCloudflare Workers AIへ送信します。AIの回答には誤りが含まれることがあります。</p>
+    <p class="assistant-privacy">AIの利用にはサイト全体で1日あたりの上限があります。上限に達すると、次の日本時間午前9時まで利用できません。</p>
+    </details>
     <button class="assistant-clear" type="button" data-clear-conversation>会話を消去</button>
   </form>
 </div>

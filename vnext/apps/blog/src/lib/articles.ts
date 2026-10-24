@@ -1,9 +1,11 @@
+import { detectArticleFeatures } from "@noema/content/article-features";
 import type { ArticleFrontmatter, ArticleSummary } from "@noema/content";
 
-export function toArticleSummary(data: ArticleFrontmatter): ArticleSummary {
+export function toArticleSummary(data: ArticleFrontmatter, markdown?: string): ArticleSummary {
   return {
     ...data,
     excerpt: data.description,
+    ...(markdown !== undefined ? { features: detectArticleFeatures(markdown, data.title, data.description) } : {}),
     href: `/articles/${data.slug}`
   };
 }
@@ -48,13 +50,15 @@ export function findRelatedArticles<T extends ArticleSummary>(
   limit = 3
 ): T[] {
   const currentTopics = new Set(current.topics);
-  const currentTags = new Set(current.tags);
+  const normalizeTag = (tag: string) => tag.normalize("NFKC").toLowerCase();
+  const genericTags = new Set(["ai", "初学者", "初心者", "入門", "基本", "基礎"]);
+  const currentTags = new Set(current.tags.map(normalizeTag).filter(tag => !genericTags.has(tag)));
 
   return candidates
     .filter((candidate) => candidate.slug !== current.slug)
     .map((candidate) => {
       const sharedTopicCount = candidate.topics.filter((topic) => currentTopics.has(topic)).length;
-      const sharedTagCount = candidate.tags.filter((tag) => currentTags.has(tag)).length;
+      const sharedTagCount = candidate.tags.filter((tag) => currentTags.has(normalizeTag(tag))).length;
       // One topic is a broad shelf; a shared tag or two shared topics indicate a useful next read.
       const hasMeaningfulRelationship = sharedTagCount > 0 || sharedTopicCount > 1;
 

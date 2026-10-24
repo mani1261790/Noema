@@ -4,7 +4,15 @@
   --font-family-mono: "Noto Sans Mono Variable", monospace;
 }
 
+/* Text enlargement must not turn the shared 20rem minimum into horizontal scrolling. */
+body.noema-public {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .site-header {
+  max-height: 100dvh;
+  overflow-y: auto;
   position: sticky;
   z-index: 40;
   inset-block-start: 0;
@@ -22,6 +30,7 @@ astro-dev-toolbar {
   max-width: 90rem;
   min-height: 5rem;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -203,8 +212,12 @@ astro-dev-toolbar {
 .site-search-form {
   display: grid;
   grid-template-columns: 2.75rem minmax(0, 1fr);
-  align-items: end;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0;
+  padding-inline: .25rem .75rem;
+  border: 1px solid var(--color-neutral-solid-gray-420);
+  border-radius: 999px;
+  background: var(--color-neutral-white);
   margin-inline-start: auto;
   max-width: 36rem;
 }
@@ -213,7 +226,8 @@ astro-dev-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  max-width: 30rem;
 }
 
 .article-search__input {
@@ -226,22 +240,19 @@ astro-dev-toolbar {
 .article-search__input .noema-icon {
   position: absolute;
   z-index: 1;
-  inset-inline-start: 1rem;
-  width: 1.5rem;
-  height: 1.5rem;
+  inset-inline-start: 0.75rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--color-neutral-solid-gray-600);
   pointer-events: none;
 }
 
 .article-search__input input {
   width: 100%;
-  padding-inline-start: 3.25rem;
-}
-
-.article-search__support {
-  margin: 0.5rem 0 0;
-  color: var(--color-neutral-solid-gray-600);
-  font-size: calc(14 / 16 * 1rem);
-  line-height: 1.7;
+  min-height: 2.75rem;
+  padding-inline: 2.5rem 1rem;
+  border-radius: 999px;
+  border-color: var(--color-neutral-solid-gray-420);
 }
 
 .site-search-form__submit {
@@ -285,14 +296,13 @@ body.noema-public :focus-visible {
   background: transparent;
   color: var(--color-neutral-solid-gray-900);
   border: 0;
-  border-bottom: 1px solid var(--color-neutral-solid-gray-900);
+
   border-radius: 0;
   font: inherit;
 }
 
 .site-search-form__input input:hover {
-  border-bottom-color: var(--color-key-1000);
-  border-bottom-width: 2px;
+  border: 0;
 }
 
 .site-search-form__input input::placeholder {
@@ -318,10 +328,10 @@ body.noema-public :focus-visible {
 
 .home-hero__inner {
   display: grid;
-  grid-template-columns: minmax(18rem, 0.8fr) minmax(28rem, 1.2fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   align-items: center;
   gap: 2rem;
-  padding-block: 3.5rem 3rem;
+  padding-block: 2rem 1.5rem;
 }
 
 .home-hero__copy {
@@ -331,14 +341,14 @@ body.noema-public :focus-visible {
 .home-hero__copy h1 {
   max-width: 18ch;
   margin: 0;
-  font-size: clamp(2.25rem, 4vw, 3rem);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0;
 }
 
 .home-hero__copy p {
-  margin: 2rem 0 0;
+  margin: 1rem 0 0;
   font-size: calc(17 / 16 * 1rem);
   line-height: 1.7;
   letter-spacing: 0.02em;
@@ -358,15 +368,12 @@ body.noema-public :focus-visible {
   background: var(--color-neutral-white);
 }
 
-.home-start,
-.home-recent {
-  padding-block: 4.5rem;
+.home-start {
+  padding-block: 1.5rem 3rem;
 }
 
-.home-start__lead {
-  max-width: 42rem;
-  margin: 1rem 0 2rem;
-  color: var(--color-neutral-solid-gray-700);
+.home-recent {
+  padding-block: 4.5rem;
 }
 
 .home-topics {
@@ -383,7 +390,7 @@ body.noema-public :focus-visible {
 .home-topic-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
-  gap: 0 2rem;
+  gap: 1.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -397,6 +404,7 @@ body.noema-public :focus-visible {
 
 .home-topic-list__heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
@@ -445,6 +453,7 @@ body.noema-public :focus-visible {
 }
 
 .series-card {
+  position: relative;
   display: flex;
   min-height: 100%;
   flex-direction: column;
@@ -455,6 +464,33 @@ body.noema-public :focus-visible {
   border: 1px solid var(--noema-border);
   border-radius: 0.75rem;
   text-decoration: none;
+}
+
+.series-card__primary {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  color: inherit;
+  text-decoration: none;
+}
+
+.series-card__primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.series-card__overview {
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
 }
 
 .series-card:hover {
@@ -961,17 +997,18 @@ body.noema-public :focus-visible {
 }
 
 .article-search {
-  max-width: 52rem;
-  margin-bottom: 2rem;
+  max-width: 44rem;
+  margin-bottom: 1.25rem;
 }
 
 .article-search__detail {
-  margin-top: 1.25rem;
+  margin-top: 0.375rem;
 }
 
 .article-search__detail .dads-disclosure__summary {
-  color: var(--color-neutral-solid-gray-800);
-  font-weight: 700;
+  color: var(--color-neutral-solid-gray-600);
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 
 .article-search__detail-content {
@@ -1482,7 +1519,7 @@ body.noema-public :focus-visible {
 
 .series-share {
   max-width: 52rem;
-  margin-top: 0;
+  margin-top: 2rem;
 }
 
 .article-updates {
@@ -1716,12 +1753,16 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-form-shell {
+  min-width: 0;
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
 .assistant-form-shell form {
+  min-width: 0;
+  width: 100%;
+  overflow-y: auto;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1731,7 +1772,9 @@ body.is-resizing-assistant-panel .article-page {
 
 .assistant-conversation {
   flex: 1;
-  min-height: 8rem;
+  min-height: 4rem;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
   margin: -1rem -1rem 1rem;
   padding: 1rem;
   overflow-y: auto;
@@ -1876,6 +1919,7 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-panel__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1887,6 +1931,8 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-panel__close {
+  flex: none;
+  color: var(--noema-text);
   display: grid;
   place-items: center;
   width: 3rem;
@@ -1908,6 +1954,8 @@ body.is-resizing-assistant-panel .article-page {
 }
 
 .assistant-composer {
+  flex-shrink: 0;
+  min-width: 0;
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
@@ -1938,16 +1986,13 @@ body.is-resizing-assistant-panel .article-page {
   line-height: 1.5;
 }
 
-.assistant-composer textarea[data-mode="api-key"] {
-  -webkit-text-security: disc;
-}
 
 .assistant-send {
   display: grid;
   flex: none;
   place-items: center;
-  width: 2.375rem;
-  height: 2.375rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   background: var(--color-key-900);
   color: var(--color-neutral-white);
@@ -2023,9 +2068,7 @@ body.is-resizing-assistant-panel .article-page {
     padding-inline: 2rem;
   }
 
-  .home-hero__inner {
-    grid-template-columns: 1fr;
-  }
+
 
   .home-hero__illustration {
     max-width: 42rem;
@@ -2033,7 +2076,7 @@ body.is-resizing-assistant-panel .article-page {
 
   .article-page__aside {
     position: fixed;
-    z-index: 35;
+    z-index: 100;
     inset: calc(4.5rem + 1px) 0 0;
     width: auto;
     background: transparent;
@@ -2050,9 +2093,17 @@ body.is-resizing-assistant-panel .article-page {
     overflow: hidden;
   }
 
+  .article-page[data-assistant-open="true"] {
+    grid-template-columns: minmax(0, 1fr) 0;
+  }
+
   .assistant-panel {
-    inset-block-start: calc(4.5rem + 1px);
-    width: min(100vw, 26rem);
+    z-index: 100;
+    inset-block: var(--assistant-viewport-top, 0) auto;
+    height: var(--assistant-viewport-height, 100dvh);
+    width: 100%;
+    max-width: 100%;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     transform: translateX(100%);
   }
 
@@ -2070,12 +2121,12 @@ body.is-resizing-assistant-panel .article-page {
 
   .home-hero__inner {
     gap: 1rem;
-    padding-block: 2rem 2.5rem;
+    padding-block: 1.5rem 0.75rem;
+    grid-template-columns: 1fr;
   }
 
   .home-hero__illustration {
-    max-width: 24rem;
-    margin-top: 0;
+    display: none;
   }
 
   .home-hero__copy h1 {
@@ -2277,7 +2328,6 @@ body.is-resizing-assistant-panel .article-page {
     padding-inline: 1.5rem;
   }
 
-  .home-hero__inner,
   .series-grid,
   .featured-article-grid {
     grid-template-columns: 1fr;
@@ -2314,4 +2364,59 @@ body.is-resizing-assistant-panel .article-page {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.25rem 1rem;
+}
+
+/* Live filtering keeps one quiet field; the submit fallback remains without JS. */
+.article-search[data-live-search="true"] .article-search__primary { grid-template-columns: minmax(0, 1fr); }
+.site-search-form__submit { border-radius: 999px; }
+.site-search-form:focus-within,
+.article-search__input input:focus { border-color: var(--color-key-900); }
+.article-search [data-search-submit][hidden] { display: none; }
+
+/* Article AI controls have their own colors, independent of generic button hovers. */
+.article-question-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: .625rem 1rem;
+  border: 1px solid var(--color-key-900);
+  border-radius: 999px;
+  background: var(--color-neutral-white);
+  color: var(--color-key-900);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.5;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .article-question-button:hover {
+    color: var(--color-neutral-white);
+    background: var(--color-key-900);
+  }
+}
+.article-question-button:focus-visible,
+.assistant-panel :is(button, summary, a):focus-visible {
+  outline: 2px solid var(--color-key-900) !important;
+  outline-offset: 3px;
+}
+.assistant-composer:focus-within {
+  outline: 2px solid var(--color-key-900);
+  outline-offset: 2px;
+}
+.assistant-welcome {
+  margin: 0;
+  color: var(--noema-muted);
+  font-size: .875rem;
+  line-height: 1.8;
+}
+.assistant-welcome[hidden] { display: none; }
+.assistant-notice { flex: none; margin-top: .75rem; font-size: .75rem; }
+.assistant-notice summary { cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; gap: .5rem; }
+.assistant-notice .assistant-privacy { line-height: 1.7; }
+.assistant-panel .assistant-clear { min-height: 2.75rem; flex-shrink: 0; }
+.assistant-selection__header { flex-wrap: wrap; }
+.assistant-status:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .assistant-panel, .article-page { transition: none; }
 }

@@ -8,6 +8,7 @@ import {
   getCmsPublishedArticleRedirect,
   isCmsPublicationVisible,
   listCmsPublishedEditors,
+  listCmsPublicArticleSummaries,
   listCmsPublishedSeries,
   parseCmsPublishedArticleRow,
   type CmsPublicationDatabase,
@@ -364,4 +365,59 @@ describe("published article series", () => {
     expect(prepared).toBe(false);
     expect(await getCmsPublishedSeriesByArticleSlug(db, "not-a-member")).toBeNull();
   });
+});
+
+
+describe("public listing search metadata", () => {
+  it("retains credited authors and includes only a published editor profile name", async () => {
+    const rows = [true, false].map((hasPublicProfile) => ({
+      frontmatter_json: JSON.stringify(validFrontmatter),
+      editor_display_name: "公開名",
+      editor_public_id: hasPublicProfile ? "0123456789abcdef0123456789abcdef" : null,
+      published_at: "2026-10-22T00:00:00.000Z",
+      published_slug: validFrontmatter.slug,
+      published_visibility: "public",
+      revision_created_at: "2026-10-22T00:00:00.000Z",
+      revision_number: 1,
+    }));
+    const db = {
+      prepare() {
+        const statement: CmsPublicationStatement = {
+          bind() { return statement; },
+          async first<T>() { return null as T | null; },
+          async all<T>() { return { results: rows as T[] }; },
+        };
+        return statement;
+      },
+    } satisfies CmsPublicationDatabase;
+    const articles = await listCmsPublicArticleSummaries(db);
+    expect(articles[0].authors).toEqual(["Noema編集部"]);
+    expect(articles[0].editorDisplayName).toBe("公開名");
+    expect(articles[1].editorDisplayName).toBeUndefined();
+  });
+});
+
+it("loads feature bodies only for selected public summaries", async () => {
+  const queries: Array<{ sql: string; values: unknown[] }> = [];
+  const db = {
+    prepare(sql: string) {
+      const query = { sql, values: [] as unknown[] };
+      queries.push(query);
+      const statement: CmsPublicationStatement = {
+        bind(...values: unknown[]) { query.values = values; return statement; },
+        async first<T>() { return null as T | null; },
+        async all<T>() { return { results: [] as T[] }; },
+      };
+      return statement;
+    },
+  } satisfies CmsPublicationDatabase;
+  await listCmsPublicArticleSummaries(db, { includeFeatures: false });
+  expect(queries[0].sql).not.toContain("r.markdown");
+  await listCmsPublicArticleSummaries(db, { slugs: ["first", "second", "first"] });
+  expect(queries[1].sql).toContain("r.markdown");
+  expect(queries[1].sql).toContain("a.published_slug IN (?1, ?2)");
+  expect(queries[1].sql).toContain("a.published_visibility = 'public'");
+  expect(queries[1].values).toEqual(["first", "second"]);
+  await listCmsPublicArticleSummaries(db, { slugs: [] });
+  expect(queries).toHaveLength(2);
 });

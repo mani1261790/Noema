@@ -149,20 +149,28 @@ export function parseCmsPublishedArticleRow(
 
 export async function listCmsPublicArticleSummaries(
   db: CmsPublicationDatabase,
-): Promise<ArticleSummary[]> {
+  options: { includeFeatures?: boolean; slugs?: readonly string[] } = {},
+): Promise<Array<ArticleSummary & { editorDisplayName?: string }>> {
+  const slugs = options.slugs ? [...new Set(options.slugs)] : undefined;
+  if (slugs?.length === 0) return [];
   const result = await db.prepare(
-    `SELECT ${publishedSummaryColumns}
+    `SELECT ${publishedSummaryColumns}${options.includeFeatures === false ? "" : ", r.markdown"}
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
      WHERE a.publication_status = 'published'
        AND a.published_visibility = 'public'
+       ${slugs ? `AND a.published_slug IN (${slugs.map((_, index) => `?${index + 1}`).join(', ')})` : ''}
      ORDER BY a.published_at DESC, a.id ASC`,
-  ).all<CmsPublishedArticleRow>();
+  ).bind(...(slugs ?? [])).all<CmsPublishedArticleRow>();
 
-  return result.results.map((row) =>
-    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data),
-  );
+  return result.results.map((row) => {
+    const article = parseCmsPublishedArticleRow(row, "listing");
+    return {
+      ...toArticleSummary(article.data, row.markdown),
+      editorDisplayName: article.editor?.displayName,
+    };
+  });
 }
 
 export async function getCmsPublishedArticleBySlug(
@@ -172,8 +180,7 @@ export async function getCmsPublishedArticleBySlug(
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
 
   const row = await db.prepare(
-    `SELECT ${publishedSummaryColumns},
-       r.markdown
+    `SELECT ${publishedSummaryColumns}, r.markdown
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
@@ -300,7 +307,7 @@ export async function getCmsPublishedSeriesByArticleSlug(
      ORDER BY item.position`,
   ).bind(series.id).all<CmsPublishedArticleRow>();
   const items = result.results.map((row) =>
-    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data),
+    toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data, row.markdown),
   );
   const currentIndex = items.findIndex((item) => item.slug === articleSlug);
   if (currentIndex < 0) return null;
@@ -348,7 +355,7 @@ export async function getCmsPublishedSeriesBySlug(
        sr.title AS series_title,
        sr.description AS series_description,
        sr.created_at AS series_updated_at,
-       ${publishedSummaryColumns}
+       ${publishedSummaryColumns}, r.markdown
      FROM cms_series s
      JOIN cms_series_revisions sr ON sr.id = s.published_revision_id
      JOIN cms_series_revision_items item ON item.revision_id = s.published_revision_id
@@ -379,7 +386,7 @@ export async function getCmsPublishedEditorProfile(
   if (!editor) return null;
 
   const result = await db.prepare(
-    `SELECT ${publishedSummaryColumns}
+    `SELECT ${publishedSummaryColumns}, r.markdown
      FROM cms_articles a
      JOIN cms_article_revisions r ON r.id = a.published_revision_id
      LEFT JOIN cms_members m ON m.subject = r.created_by_subject
@@ -390,7 +397,7 @@ export async function getCmsPublishedEditorProfile(
   ).bind(editor.subject).all<CmsPublishedArticleRow>();
 
   return {
-    articles: result.results.map((row) => toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data)),
+    articles: result.results.map((row) => toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data, row.markdown)),
     displayName: editor.display_name,
     href: `/editors/${editor.public_id}`,
     publicId: editor.public_id,
@@ -449,7 +456,7 @@ function groupPublishedSeries(rows: CmsPublishedSeriesRow[]): CmsPublishedSeries
       };
       grouped.set(row.series_id, series);
     }
-    series.items.push(toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data));
+    series.items.push(toArticleSummary(parseCmsPublishedArticleRow(row, "listing").data, row.markdown));
   }
   return [...grouped.values()];
 }

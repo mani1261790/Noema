@@ -3,19 +3,18 @@ import ArticleRow from "../components/ArticleRow.astro";
 import RecentArticleList from "../components/RecentArticleList.astro";
 import SeriesCard from "../components/SeriesCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { selectStandaloneArticles, sortArticlesByDate } from "../lib/articles";
+import { sortArticlesByDate } from "../lib/articles";
+import { selectEntryArticles, readingIntents, articleIntent } from "../lib/article-discovery";
 import { listPublicArticleSummaries, listPublishedSeries } from "../lib/cms-publications";
 import { canonicalUrl, organizationJsonLd, websiteJsonLd } from "../lib/seo";
 import { listNarrowingTopics } from "../lib/topics";
 
 const [articles, seriesList] = await Promise.all([listPublicArticleSummaries(), listPublishedSeries()]);
-const recentArticles = sortArticlesByDate(articles).slice(0, 5);
-const recentArticleSlugs = new Set(recentArticles.map((article) => article.slug));
-const standaloneArticles = selectStandaloneArticles(
-  articles.filter((article) => !recentArticleSlugs.has(article.slug)),
-  seriesList,
-  3,
-);
+const startArticles = selectEntryArticles(articles, seriesList);
+const startArticleSlugs = new Set(startArticles.map((article) => article.slug));
+const recentArticles = sortArticlesByDate(articles)
+  .filter((article) => !startArticleSlugs.has(article.slug)).slice(0, 5);
+const intentCounts = Object.entries(readingIntents).map(([id, intent]) => ({ id, ...intent, count: articles.filter((article) => articleIntent(article) === id).length })).filter((intent) => intent.count > 0);
 const narrowingTopics = listNarrowingTopics(articles);
 const title = "AIでできることと、その仕組みを学ぶ | Noema";
 const description = "コーディングエージェントやローカルLLMなど、AIでできることと、その仕組みを、初めての人にもわかる具体例から解説する技術メディアです。";
@@ -47,26 +46,15 @@ const jsonLd = {
     </div>
   </section>
 
-  {seriesList.length > 0 && (
-    <section class="home-series" aria-labelledby="series-heading">
-      <div class="noema-container">
-        <div class="section-heading-row">
-          <h2 id="series-heading" class="noema-section-heading">シリーズから読む</h2>
-          <a class="dads-link" href="/series">すべてのシリーズを見る</a>
-        </div>
-        <p class="home-series__lead">ひとつのテーマを、記事をたどりながら少しずつ深められます。</p>
-        <div class="series-grid series-grid--home">{seriesList.slice(0, 4).map((series) => <SeriesCard series={series} />)}</div>
-      </div>
-    </section>
-  )}
-
-  {standaloneArticles.length > 0 && (
+  {startArticles.length > 0 && (
     <section class="home-start" aria-labelledby="start-heading">
       <div class="noema-container">
-        <h2 id="start-heading" class="noema-section-heading">まず、1本から読む</h2>
-        <p class="home-start__lead">シリーズをたどらず、気になった題名の記事から始められます。</p>
+        <div class="section-heading-row">
+          <h2 id="start-heading" class="noema-section-heading">気になる1本から</h2>
+          <a class="dads-link" href="/articles">すべての記事を見る</a>
+        </div>
         <div class="article-list home-start__articles">
-          {standaloneArticles.map((article) => <ArticleRow article={article} headingLevel={3} />)}
+          {startArticles.map((article) => <ArticleRow article={article} headingLevel={3} reason={readingIntents[articleIntent(article)].label} />)}
         </div>
       </div>
     </section>
@@ -80,6 +68,28 @@ const jsonLd = {
           <a class="dads-link" href="/articles">すべての記事を見る</a>
         </div>
         <RecentArticleList articles={recentArticles} />
+      </div>
+    </section>
+  )}
+
+  {intentCounts.length > 0 && (
+    <section class="home-intents" aria-labelledby="intent-heading">
+      <div class="noema-container">
+        <h2 id="intent-heading" class="noema-section-heading">今日は、何を読もう。</h2>
+        <div class="reading-intents">{intentCounts.map((intent) => <a href={`/articles?intent=${intent.id}`}><span>{intent.label}</span><p>{intent.description}</p><small>{intent.count}本の一覧を見る →</small></a>)}</div>
+      </div>
+    </section>
+  )}
+
+  {seriesList.length > 0 && (
+    <section class="home-series" aria-labelledby="series-heading">
+      <div class="noema-container">
+        <div class="section-heading-row">
+          <h2 id="series-heading" class="noema-section-heading">シリーズから読む</h2>
+          <a class="dads-link" href="/series">すべてのシリーズを見る</a>
+        </div>
+        <p class="home-series__lead">ひとつのテーマを、記事をたどりながら少しずつ深められます。</p>
+        <div class="series-grid series-grid--home">{seriesList.slice(0, 3).map((series) => <SeriesCard series={series} />)}</div>
       </div>
     </section>
   )}
@@ -101,7 +111,7 @@ const jsonLd = {
           {narrowingTopics.map((topic) => (
             <li>
               <div class="home-topic-list__heading">
-                <h3><a class="dads-link" href={`/topics/${topic.slug}`}>{topic.label}</a></h3>
+                <h3><a class="dads-link" href={`/topics/${topic.slug}`}>{topic.label}<span class="navigation-link-action">記事一覧を見る →</span></a></h3>
                 <p>{topic.articleCount}件の記事</p>
               </div>
               <p class="home-topic-list__description">{topic.description}</p>
@@ -115,7 +125,7 @@ const jsonLd = {
   <section class="home-discovery" aria-labelledby="discovery-heading">
     <div class="noema-container">
       <h2 id="discovery-heading" class="noema-section-heading">気になる言葉から探す</h2>
-      <p>タイトルや概要、テーマ、タグを横断して検索できます。</p>
+      <p>記事名や執筆者、テーマに加えて、コードや手計算のある記事も探せます。</p>
       <a class="dads-link" href="/articles#search">記事を探す</a>
     </div>
   </section>

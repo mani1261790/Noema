@@ -622,3 +622,65 @@
     display: none;
   }
 }
+
+/* Supporting context stays available without delaying the reading flow. */
+.article-header__details {
+  margin-top: .75rem;
+  font-size: .875rem;
+}
+.article-header__details summary {
+  width: fit-content;
+  min-height: 2.75rem;
+  padding-block: .625rem;
+  cursor: pointer;
+  color: var(--color-neutral-solid-gray-700);
+}
+.article-header__details .article-meta { margin-top: .5rem; }
+.article-series__heading { grid-template-columns: minmax(0, 1fr); }
+.article-series__description { margin: .75rem 0; }
+
+@container noema-article (max-width: 40rem) {
+  .article-header {
+    margin-block: 1rem;
+    padding-bottom: 1rem;
+  }
+  .article-header h1 { font-size: 1.5rem; line-height: 1.5; }
+  .article-header > p { margin-block: .75rem; font-size: .9375rem; }
+  .article-meta { gap: .35rem 1rem; font-size: .8125rem; }
+  .article-meta dt { font-size: inherit; }
+  .article-header__tags { gap: .25rem .5rem; }
+  .article-header__tags a { min-height: 2.75rem; align-items: center; }
+  .article-lead:has(.article-hero-image) { margin-block: 1rem; padding-bottom: 1rem; }
+  .article-lead .article-hero-image img { height: 6rem; }
+  .article-outcome {
+    margin-block: 1rem;
+    padding: .75rem 1rem;
+    border-radius: .5rem;
+    font-size: .9375rem;
+  }
+  .article-outcome h2 { font-size: 1rem; }
+  .article-series {
+    margin: 1rem 0;
+    padding: .75rem 1rem;
+    border-radius: .5rem;
+  }
+  .article-series__heading h2 { font-size: 1.125rem; }
+  .article-series__heading > div > p { font-size: .75rem; }
+  .article-series__contents { margin-top: .5rem; font-size: .875rem; }
+  .article-series__contents summary { padding-block: .625rem; }
+  .article-series__contents ol { margin-top: .5rem; }
+  .article-series__contents a, .article-series__contents li > span { padding: .5rem; }
+  .article-toc { margin-block: 1rem; }
+  .article-body > :first-child { margin-top: 1.5rem; }
+  .article-series-end { margin-top: 2rem; padding-top: 1rem; font-size: .9375rem; }
+  .article-series-end > p { margin-bottom: .5rem; }
+  .article-series-end a { min-height: 2.75rem; padding: .75rem; }
+}
+
+.article-source-comment {
+  margin-block: .375rem 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: .875rem;
+  line-height: 1.8;
+}

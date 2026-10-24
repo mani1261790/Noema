@@ -42,7 +42,7 @@ const { preview = false, slug } = Astro.props;
     <span aria-hidden="true"></span>
   </div>
   <div class="assistant-panel__header">
-    <h2 id="assistant-panel-heading">この記事について質問</h2>
+    <h2 id="assistant-panel-heading">AIに質問</h2>
     <button type="button" class="assistant-panel__close" data-close-assistant aria-label="質問パネルを閉じる">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" fill="none" stroke="currentColor" stroke-width="2" /></svg>
     </button>
@@ -64,6 +64,7 @@ const { preview = false, slug } = Astro.props;
   const closeButton = document.querySelector<HTMLButtonElement>("[data-close-assistant]");
   const resizeHandle = document.querySelector<HTMLElement>("[data-assistant-resize-handle]");
   const selectionChip = document.querySelector<HTMLButtonElement>("[data-assistant-selection-chip]");
+  const questionEntry = document.querySelector<HTMLButtonElement>("[data-ask-article]");
   const articleBody = document.querySelector<HTMLElement>(".article-body");
   const desktopAssistant = window.matchMedia("(min-width: 56.0625rem)");
   let selectedText = "";
@@ -96,7 +97,6 @@ const { preview = false, slug } = Astro.props;
       if (selectedTextElement) selectedTextElement.textContent = selectedText;
     });
     document.querySelectorAll<HTMLTextAreaElement>("[data-question]").forEach((questionInput) => {
-      if (questionInput.dataset.mode === "api-key") return;
       questionInput.placeholder = selectedText
         ? "選択した本文について質問してください"
         : "この記事の内容について質問してください";
@@ -107,22 +107,47 @@ const { preview = false, slug } = Astro.props;
     selectionChip.hidden = true;
     selectionCandidate = "";
   };
+  const syncMobilePanel = () => {
+    if (!panel) return;
+    if (desktopAssistant.matches) {
+      panel.removeAttribute("role");
+      panel.removeAttribute("aria-modal");
+      panel.style.removeProperty("--assistant-viewport-height");
+      panel.style.removeProperty("--assistant-viewport-top");
+    } else {
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "true");
+      const viewport = window.visualViewport;
+      panel.style.setProperty("--assistant-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
+      panel.style.setProperty("--assistant-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+    }
+  };
+  window.visualViewport?.addEventListener("resize", syncMobilePanel);
+  window.visualViewport?.addEventListener("scroll", syncMobilePanel);
+  desktopAssistant.addEventListener("change", syncMobilePanel);
   const openPanel = (opener: HTMLButtonElement | null, focusQuestion = false) => {
     if (!articlePage || !panel || isPanelOpen()) return;
     lastOpener = opener;
     syncPanelWidth();
+    syncMobilePanel();
     articlePage.dataset.assistantOpen = "true";
     panel.removeAttribute("inert");
     panel.setAttribute("aria-hidden", "false");
     selectionChip?.setAttribute("aria-expanded", "true");
+    questionEntry?.setAttribute("aria-expanded", "true");
     document.body.classList.add("has-assistant-panel");
     requestAnimationFrame(() => {
-      if (focusQuestion) panel.querySelector<HTMLTextAreaElement>("[data-question]")?.focus();
+      if (focusQuestion && desktopAssistant.matches) panel.querySelector<HTMLTextAreaElement>("[data-question]")?.focus();
       else closeButton?.focus();
     });
     dispatchAssistantOpen();
   };
-  const closePanel = () => {
+  questionEntry?.addEventListener("click", () => {
+    selectedText = "";
+    syncSelectionContext();
+    openPanel(questionEntry, true);
+  });
+  const closePanel = (restoreFocus = true) => {
     if (!articlePage || !panel || !isPanelOpen()) return;
     if (panel.contains(document.activeElement)) {
       (document.activeElement as HTMLElement).blur();
@@ -131,6 +156,7 @@ const { preview = false, slug } = Astro.props;
     panel.setAttribute("inert", "");
     panel.setAttribute("aria-hidden", "true");
     selectionChip?.setAttribute("aria-expanded", "false");
+    questionEntry?.setAttribute("aria-expanded", "false");
     document.body.classList.remove("has-assistant-panel");
     document.body.classList.remove("is-resizing-assistant-panel");
     resizingPointerId = null;
@@ -142,11 +168,11 @@ const { preview = false, slug } = Astro.props;
         chip.hidden = false;
         requestAnimationFrame(() => chip.focus());
       }, 260);
-    } else {
+    } else if (restoreFocus) {
       requestAnimationFrame(() => lastOpener?.focus());
     }
   };
-  closeButton?.addEventListener("click", closePanel);
+  closeButton?.addEventListener("click", () => closePanel());
   resizeHandle?.addEventListener("pointerdown", (event) => {
     if (!desktopAssistant.matches || !isPanelOpen()) return;
     resizingPointerId = event.pointerId;
@@ -191,6 +217,16 @@ const { preview = false, slug } = Astro.props;
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && isPanelOpen()) closePanel();
+    if (event.key === "Tab" && isPanelOpen() && !desktopAssistant.matches && panel) {
+      const controls = [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), textarea, a[href], summary')].filter(el => el.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+        event.preventDefault(); last?.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+        event.preventDefault(); first?.focus();
+      }
+    }
   });
   document.addEventListener("pointerdown", (event) => {
     const target = event.target;
@@ -253,22 +289,18 @@ const { preview = false, slug } = Astro.props;
     const clearSelection = form.querySelector<HTMLButtonElement>("[data-clear-selection]");
     const conversation = form.querySelector<HTMLElement>(".assistant-conversation");
     const composerLabel = form.querySelector<HTMLLabelElement>("[data-composer-label]");
+    let sending = false;
+    const welcome = form.querySelector<HTMLElement>("[data-assistant-welcome]");
     const history: Array<{ role: "user" | "assistant"; content: string }> = [];
-    let apiKey = "";
 
     if (!questionInput || !status || !answer || !submit) return;
 
     const syncComposerMode = () => {
-      const enteringApiKey = !apiKey;
-      questionInput.dataset.mode = enteringApiKey ? "api-key" : "question";
-      questionInput.placeholder = enteringApiKey
-        ? "最初にOpenAI APIキーを入力してください"
-        : selectedText
-          ? "選択した本文について質問してください"
-          : "この記事の内容について質問してください";
-      questionInput.setAttribute("aria-label", enteringApiKey ? "OpenAI APIキー" : "質問");
-      submit.setAttribute("aria-label", enteringApiKey ? "APIキーを設定" : "質問を送信");
-      if (composerLabel) composerLabel.textContent = enteringApiKey ? "OpenAI APIキー" : "質問";
+      questionInput.dataset.mode = "question";
+      questionInput.placeholder = selectedText ? "選択した本文について質問してください" : "この記事の内容について質問してください";
+      questionInput.setAttribute("aria-label", "質問");
+      submit.setAttribute("aria-label", "質問を送信");
+      if (composerLabel) composerLabel.textContent = "質問";
     };
 
     const resizeQuestionInput = () => {
@@ -283,7 +315,7 @@ const { preview = false, slug } = Astro.props;
     };
     questionInput.addEventListener("input", resizeQuestionInput);
     questionInput.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+      if (!desktopAssistant.matches || event.key !== "Enter" || event.shiftKey || event.isComposing) return;
       event.preventDefault();
       form.requestSubmit();
     });
@@ -291,13 +323,14 @@ const { preview = false, slug } = Astro.props;
     syncComposerMode();
 
     clear?.addEventListener("click", () => {
+      if (sending) return;
       history.length = 0;
-      apiKey = "";
+      if (welcome) welcome.hidden = false;
       answer.replaceChildren();
       questionInput.value = "";
       syncComposerMode();
       resizeQuestionInput();
-      status.textContent = "会話とAPIキーを消去しました。";
+      status.textContent = "会話を消去しました。";
     });
 
     clearSelection?.addEventListener("click", () => {
@@ -310,21 +343,8 @@ const { preview = false, slug } = Astro.props;
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (sending) return;
       const input = questionInput.value.trim();
-      if (!apiKey && input.length < 20) {
-        status.textContent = "有効なOpenAI APIキーを入力してください。";
-        questionInput.focus();
-        return;
-      }
-      if (!apiKey) {
-        apiKey = input;
-        questionInput.value = "";
-        syncComposerMode();
-        resizeQuestionInput();
-        status.textContent = "APIキーを設定しました。質問を入力してください。";
-        questionInput.focus();
-        return;
-      }
       const question = input;
       if (!question) {
         status.textContent = "質問を入力してください。";
@@ -332,6 +352,10 @@ const { preview = false, slug } = Astro.props;
         return;
       }
 
+      sending = true;
+      if (welcome) welcome.hidden = true;
+      if (clear) clear.disabled = true;
+      questionInput.readOnly = true;
       status.textContent = "回答を作成しています。";
       submit.disabled = true;
       form.setAttribute("aria-busy", "true");
@@ -347,9 +371,9 @@ const { preview = false, slug } = Astro.props;
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
+          signal: AbortSignal.timeout(45_000),
           headers: {
-            "content-type": "application/json",
-            "x-openai-api-key": apiKey
+            "content-type": "application/json"
           },
           body: JSON.stringify({
             slug: articleSlug,
@@ -361,12 +385,6 @@ const { preview = false, slug } = Astro.props;
         });
         const payload = await response.json();
         if (!response.ok) {
-          if (response.status === 401) {
-            apiKey = "";
-            questionInput.value = "";
-            syncComposerMode();
-            resizeQuestionInput();
-          }
           throw new Error(payload.error || "回答を作成できませんでした。");
         }
 
@@ -388,6 +406,13 @@ const { preview = false, slug } = Astro.props;
             const link = document.createElement("a");
             link.href = `#${encodeURIComponent(id)}`;
             link.textContent = text;
+            link.addEventListener("click", () => {
+              if (desktopAssistant.matches) return;
+              closePanel(false);
+              const heading = document.getElementById(id);
+              heading?.setAttribute("tabindex", "-1");
+              requestAnimationFrame(() => heading?.focus({ preventScroll: true }));
+            });
             item.append(link);
             referenceList.append(item);
           });
@@ -406,11 +431,14 @@ const { preview = false, slug } = Astro.props;
       } catch (error) {
         userMessage.remove();
         status.textContent = error instanceof Error ? error.message : "回答を作成できませんでした。";
-        if (!apiKey) questionInput.focus();
+        conversation?.scrollTo({ top: conversation.scrollHeight });
         document.dispatchEvent(new CustomEvent("noema:analytics", {
           detail: { eventType: "assistant_error" }
         }));
       } finally {
+        sending = false;
+        questionInput.readOnly = false;
+        if (clear) clear.disabled = false;
         submit.disabled = false;
         form.removeAttribute("aria-busy");
       }

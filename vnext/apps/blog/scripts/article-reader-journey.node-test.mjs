@@ -30,7 +30,7 @@ test("offers the next reading choice before share and update actions", async () 
   assert.match(relatedArticles, /data-analytics-navigation="related"/);
 });
 
-test("opens a resizable split chat panel only from a text-selection chip", async () => {
+test("opens a resizable split chat panel from selection or an article question entry", async () => {
   const [assistant, form, styles] = await Promise.all([
     readFile(articleAssistantUrl, "utf8"),
     readFile(assistantFormUrl, "utf8"),
@@ -39,6 +39,7 @@ test("opens a resizable split chat panel only from a text-selection chip", async
 
   assert.doesNotMatch(assistant, /data-open-assistant|assistant-trigger/);
   assert.match(assistant, /data-assistant-selection-chip/);
+  assert.match(assistant, /data-ask-article/);
   assert.match(assistant, /data-assistant-resize-handle/);
   assert.match(assistant, /role="separator"/);
   assert.match(assistant, /M7\.9 20A9 9 0 1 0 4 16\.1L2 22Z/);
@@ -49,16 +50,13 @@ test("opens a resizable split chat panel only from a text-selection chip", async
   assert.match(assistant, /result\.shouldClose\)[\s\S]*?closePanel\(\)/);
   assert.match(styles, /\.assistant-selection \{[\s\S]*?border: 0;/);
   assert.doesNotMatch(styles, /\.assistant-selection \{[\s\S]*?border-inline-start/);
-  assert.match(form, /data-question data-mode="api-key" rows="1"/);
-  assert.match(form, /placeholder="最初にOpenAI APIキーを入力してください"/);
+  assert.match(form, /data-question data-mode="question" rows="1"/);
+  assert.match(form, /placeholder="この記事について、知りたいことを入力"/);
   assert.doesNotMatch(form, /data-api-key|assistant-field--key|assistant-suggestions|data-question-suggestion/);
   assert.doesNotMatch(assistant, /data-api-key|data-toggle-key|data-question-suggestion/);
-  assert.match(assistant, /if \(!apiKey\)[\s\S]*?apiKey = input;[\s\S]*?syncComposerMode\(\)/);
-  assert.match(assistant, /response\.status === 401[\s\S]*?apiKey = "";[\s\S]*?syncComposerMode\(\)/);
-  assert.match(form, /class="assistant-send" type="submit" aria-label="APIキーを設定"/);
+  assert.doesNotMatch(assistant, /x-openai-api-key|apiKey =/);
+  assert.match(form, /class="assistant-send" type="submit" aria-label="質問を送信"/);
   assert.match(styles, /\.assistant-composer \{[\s\S]*?border-radius: 999px;/);
-  assert.doesNotMatch(styles, /\.assistant-composer:focus-within/);
-  assert.match(styles, /textarea\[data-mode="api-key"\][\s\S]*?-webkit-text-security: disc;/);
   assert.match(styles, /textarea\[data-multiline="true"\][\s\S]*?border-radius: 1\.25rem;/);
   assert.match(assistant, /assistant-message--user/);
   assert.match(assistant, /assistant-message--assistant/);

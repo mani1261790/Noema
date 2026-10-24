@@ -4,6 +4,7 @@ import type Token from "markdown-it/lib/token.mjs";
 
 export const articleAccordionName = "accordion";
 export const articleMarkdownGuidance = [
+  "参考資料はfrontmatter.sourcesに登録します。資料の説明や参照箇所は各資料の任意のcomment（プレーンテキスト・1000文字以内）に記入し、本文末尾に参考資料の一覧を重複して作らないでください。「参考」を含む見出しは重複の可能性を注意として返します。必要な本文の見出しであれば残せます。",
   "記事本文はMarkdownで記述し、raw HTMLは使用しません。",
   "折りたたみ補足は `:::accordion タイトル` で開始し、通常のMarkdown本文を書いた後、単独行の `:::` で閉じます。",
   "アコーディオンは入れ子にせず、タイトルを必ず指定してください。",

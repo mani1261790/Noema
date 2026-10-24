@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  analyzeArticleMarkdown,
+  extractArticleHeadings,
+  extractArticleImageReferences,
+  extractArticleLinkReferences,
   extractArticleHeadingSlugs,
   validateArticleMarkdown,
 } from "./article-markdown";
@@ -86,7 +90,7 @@ describe("validateArticleMarkdown", () => {
       "",
       "## Copyright (c) 2026",
       "",
-      "## A ![B](x.png) C",
+      "## A ![B](/x.png) C",
       "",
       "## Foo -- bar",
       "",
@@ -236,5 +240,24 @@ describe("validateArticleMarkdown", () => {
         expect.objectContaining({ code: "short-body", severity: "warning" }),
       ]),
     );
+  });
+});
+
+
+describe("shared article analysis", () => {
+  it("preserves headings, reference images and links while excluding code examples", () => {
+    const source = "## **説明** と `コード`\n\n[次へ](/articles/next#section) ![図][image]\n\n[image]: /media/example.png\n\n```md\n![例](./missing.png)\n## 見出しではない\n```";
+    expect(analyzeArticleMarkdown(source)).toEqual({
+      headings: extractArticleHeadings(source),
+      links: extractArticleLinkReferences(source),
+      images: extractArticleImageReferences(source),
+    });
+    expect(analyzeArticleMarkdown(source).images).toEqual(["/media/example.png"]);
+  });
+  it("rejects relative image URLs before publication but allows deployed URLs", () => {
+    expect(errorCodes("![図](./images/missing.svg)")).toContain("relative-image");
+    expect(errorCodes("![図](/articles/images/diagram.svg)")).not.toContain("relative-image");
+    expect(errorCodes("![図](https://example.com/diagram.svg)")).not.toContain("relative-image");
+    expect(errorCodes("```md\n![例](./missing.svg)\n```")).not.toContain("relative-image");
   });
 });

@@ -71,7 +71,6 @@ const jsonLd = series ? {
           <p>{series.description}</p>
           <p class="series-page__count">全{series.items.length}本</p>
         </header>
-        <ShareSeries />
         <ol class="series-page__articles" aria-label={`${series.title}の記事`} data-series-articles>
           {series.items.map((article, index) => (
             <li>
@@ -80,6 +79,7 @@ const jsonLd = series ? {
             </li>
           ))}
         </ol>
+        <ShareSeries />
       </>
     ) : (
       <div class="not-found-page">

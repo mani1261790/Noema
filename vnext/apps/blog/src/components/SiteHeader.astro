@@ -1,4 +1,5 @@
 ---
+import SearchClear from "./SearchClear.astro";
 const pathname = Astro.url.pathname;
 const isCurrent = (href: string) => pathname.startsWith(href);
 const links = [
@@ -32,7 +33,7 @@ const links = [
     <div class="site-search-panel__clip"><div class="noema-container site-search-panel__inner">
       <form class="site-search-form" action="/articles" method="get" role="search">
         <button class="site-search-form__submit" type="submit" aria-label="検索"><svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" /></svg></button>
-        <label class="site-search-form__input"><span class="noema-visually-hidden">記事を検索</span><input data-site-search-input type="search" name="keyword" placeholder="記事を検索" autocomplete="off" /></label>
+        <div class="site-search-form__input reader-search-field"><label class="noema-visually-hidden" for="site-search-keyword">記事を検索</label><input data-site-search-input id="site-search-keyword" type="text" role="searchbox" inputmode="search" enterkeyhint="search" spellcheck="false" autocapitalize="none" name="keyword" placeholder="記事名・執筆者で検索" autocomplete="off" /><SearchClear /></div>
       </form>
     </div></div>
   </div>
@@ -42,7 +43,7 @@ const links = [
       <nav aria-label="モバイルメニュー"><ul>{links.map((link) => <li><a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>{link.label}</a></li>)}</ul></nav>
       <form class="site-search-form site-search-form--mobile" action="/articles" method="get" role="search">
         <button class="site-search-form__submit" type="submit" aria-label="検索"><svg class="noema-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21 20.5-6-6a7.4 7.4 0 0 0 1.9-5A7.4 7.4 0 0 0 9.5 2 7.5 7.5 0 1 0 14 15.5l6 6 1-1ZM3.5 9.5a6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6 6 6 0 0 1-6-6Z" fill="currentColor" /></svg></button>
-        <label class="site-search-form__input"><span class="noema-visually-hidden">記事を検索</span><input type="search" name="keyword" placeholder="記事を検索" autocomplete="off" /></label>
+        <div class="site-search-form__input reader-search-field"><label class="noema-visually-hidden" for="mobile-search-keyword">記事を検索</label><input id="mobile-search-keyword" type="text" role="searchbox" inputmode="search" enterkeyhint="search" spellcheck="false" autocapitalize="none" name="keyword" placeholder="記事名・執筆者で検索" autocomplete="off" /><SearchClear /></div>
       </form>
     </div></div>
   </div>

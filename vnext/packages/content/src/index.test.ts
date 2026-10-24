@@ -29,3 +29,11 @@ describe("articleFrontmatterSchema URL policy", () => {
     expect(articleFrontmatterSchema.safeParse(article).success).toBe(true);
   });
 });
+
+it("round-trips optional reference comments through article Markdown", async () => {
+  const { serializeArticle, parseArticle } = await import('./index');
+  const source = {title:'公式資料',url:'https://example.com',checkedAt:'2026-10-24',comment:'式の説明を参照。\n「引用」や <tag> も本文として扱う。'};
+  const article = articleFrontmatterSchema.parse({...previewArticles[0],sources:[source]});
+  expect((await parseArticle(serializeArticle(article,'## 本文\n\n説明'))).frontmatter.sources).toEqual([source]);
+  expect(articleFrontmatterSchema.safeParse({...article,sources:[{...source,comment:'a'.repeat(1001)}]}).success).toBe(false);
+});

@@ -247,7 +247,9 @@ function issueControlId(issue: CmsEditorialIssue): string | null {
       ? "title"
       : path[2] === "url"
         ? "url"
-        : path[2] === "checkedAt"
+        : path[2] === "comment"
+          ? "comment"
+          : path[2] === "checkedAt"
           ? "date"
           : null;
     if (sourceField) return `article-source-${sourceField}-${path[1]}`;
@@ -343,6 +345,7 @@ function japaneseIssueMessage(issue: CmsEditorialIssue): string {
   let label = issueFieldLabels[field] ?? "入力内容";
   if (field === "sources" && path[2] === "title") label = "参考資料の名前";
   if (field === "sources" && path[2] === "url") label = "参考資料のURL";
+  if (field === "sources" && path[2] === "comment") label = "参考資料のコメント";
   if (field === "sources" && path[2] === "checkedAt") label = "参考資料の確認日";
   if (field === "heroImage" && path[1] === "alt") label = "画像の代替テキスト";
   if (field === "heroImage" && path[1] === "src") label = "画像パス";
@@ -418,7 +421,7 @@ function fieldError(
 function sourceFieldError(
   issues: CmsEditorialIssue[],
   index: number,
-  key: "checkedAt" | "title" | "url",
+  key: "checkedAt" | "title" | "url" | "comment",
   visible: boolean
 ): string | undefined {
   if (!visible) return undefined;
@@ -2759,7 +2762,7 @@ export function App() {
     }
   };
 
-  const updateSource = (index: number, key: "checkedAt" | "title" | "url", value: string) => {
+  const updateSource = (index: number, key: "checkedAt" | "title" | "url" | "comment", value: string) => {
     update("sources", frontmatter.sources.map((source, sourceIndex) =>
       sourceIndex === index ? { ...source, [key]: value } : source
     ));
@@ -3393,6 +3396,11 @@ export function App() {
                     : "レンダリングされた記事本文で該当箇所を選択してコメントし、未対応の指摘をまとめて差し戻します。"}
                 </p>
               </div>
+              {bodyIssues.filter((issue) => issue.code === "reference-heading").map((issue) => (
+                <button className="studio-validation__issue is-warning" key={`reference-${issue.line}`} type="button" onClick={() => focusBodyIssue(issue)}>
+                  注意 — 本文{issue.line}行: {issue.message}
+                </button>
+              ))}
               {cmsArticle?.reviewNote ? (
                 <p className="studio-cms__review-note"><strong>直近の判断:</strong> {cmsArticle.reviewNote}</p>
               ) : null}
@@ -3496,7 +3504,7 @@ export function App() {
                 <div><dt>タグ</dt><dd>{frontmatter.tags.length > 0 ? frontmatter.tags.join("、") : "なし"}</dd></div>
                 <div><dt>記事画像</dt><dd>{frontmatter.heroImage ? <><code>{frontmatter.heroImage.src}</code><br />{frontmatter.heroImage.alt}</> : "なし"}</dd></div>
                 <div><dt>参考資料</dt><dd>{frontmatter.sources.length > 0 ? (
-                  <ul>{frontmatter.sources.map((source, index) => <li key={`${source.url}-${index}`}>{source.title} — {source.url}（{source.checkedAt}確認）</li>)}</ul>
+                  <ul>{frontmatter.sources.map((source, index) => <li key={`${source.url}-${index}`}>{source.title} — {source.url}（{source.checkedAt}確認）{source.comment && <p className="article-source-comment">{source.comment}</p>}</li>)}</ul>
                 ) : "なし"}</dd></div>
               </dl>
             </section>
@@ -3653,10 +3661,12 @@ export function App() {
             <details className="studio-disclosure" open={sourcesOpen} onToggle={(event) => setSourcesOpen(event.currentTarget.open)}>
               <summary>参考資料（{frontmatter.sources.length}件）{fieldError(visibleReviewIssues, "sources", validationVisible) ? "・要確認" : ""}</summary>
               <div className="studio-disclosure__content" id="article-sources" tabIndex={-1}>
-                <p className="studio-field__support">レビューへ送る資料URLにはhttpsを使用します。</p>
+                <p className="studio-field__support">レビューへ送る資料URLにはhttpsを使用します。資料の説明はコメント欄に記入できます。</p>
+                {bodyIssues.some((issue) => issue.code === "reference-heading") && <p className="studio-validation__warning">注意 — 本文に「参考」を含む見出しがあります。参考資料欄と重複していないか確認してください。この注意だけでレビュー依頼が止まることはありません。</p>}
                 {frontmatter.sources.map((source, index) => {
                   const titleError = sourceFieldError(visibleReviewIssues, index, "title", validationVisible);
                   const urlError = sourceFieldError(visibleReviewIssues, index, "url", validationVisible);
+                  const commentError = sourceFieldError(visibleReviewIssues, index, "comment", validationVisible);
                   const checkedAtError = sourceFieldError(visibleReviewIssues, index, "checkedAt", validationVisible);
                   return (
                     <div className="studio-source" key={index}>
@@ -3665,6 +3675,9 @@ export function App() {
                       </Field>
                       <Field id={`article-source-url-${index}`} label="URL" error={urlError}>
                         <input id={`article-source-url-${index}`} className="dads-input-text__input" type="url" required {...inputA11y(`article-source-url-${index}`, false, urlError)} value={source.url} onChange={(event) => updateSource(index, "url", event.target.value)} />
+                      </Field>
+                      <Field id={`article-source-comment-${index}`} label="コメント" required={false} support="資料の説明や、参照した箇所を1000文字以内で記入できます。記事の参考資料に表示されます。" error={commentError}>
+                        <textarea id={`article-source-comment-${index}`} className="dads-textarea__textarea" rows={3} maxLength={1000} {...inputA11y(`article-source-comment-${index}`, true, commentError, false, false)} value={source.comment ?? ""} onChange={(event) => updateSource(index, "comment", event.target.value)} />
                       </Field>
                       <Field id={`article-source-date-${index}`} label="確認日" error={checkedAtError}>
                         <input id={`article-source-date-${index}`} className="dads-input-text__input" type="date" required {...inputA11y(`article-source-date-${index}`, false, checkedAtError)} value={source.checkedAt} onChange={(event) => updateSource(index, "checkedAt", event.target.value)} />
@@ -3714,9 +3727,10 @@ export function App() {
                   エラー — 本文: {issue.message}
                 </button>
               ))}
+              {bodyIssues.some((issue) => issue.severity === "warning") && <p>注意事項があります。内容を確認のうえ、そのままレビューへ送ることもできます。</p>}
               {bodyIssues.map((issue) => (
                 <button className={`studio-validation__issue ${issue.severity === "warning" ? "is-warning" : ""}`} key={`${issue.code}-${issue.line}-${issue.message}`} type="button" onClick={() => focusBodyIssue(issue)}>
-                  {issue.severity === "error" ? "エラー" : "確認"} — 本文{issue.line}行: {issue.message}
+                  {issue.severity === "error" ? "エラー" : "注意"} — 本文{issue.line}行: {issue.message}
                 </button>
               ))}
               {editorialWarnings.map((warning) => <p className="studio-validation__warning" key={warning}>確認 — {warning}</p>)}

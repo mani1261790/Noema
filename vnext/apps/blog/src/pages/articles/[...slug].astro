@@ -1,5 +1,5 @@
 ---
-import { extractArticleImageReferences, extractArticleLinkReferences } from "@noema/content";
+import { analyzeArticleMarkdown } from "@noema/content";
 import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
 import ArticleAnalytics from "../../components/ArticleAnalytics.astro";
@@ -21,11 +21,12 @@ if (!article) {
   if (redirectSlug) return Astro.redirect(`/articles/${redirectSlug}`, 301);
   return Astro.rewrite("/404");
 }
-const articleLinkReferences = extractArticleLinkReferences(article.markdown);
-const articleImageReferences = extractArticleImageReferences(article.markdown);
+const analysis = analyzeArticleMarkdown(article.markdown);
+const articleLinkReferences = analysis.links;
+const articleImageReferences = analysis.images;
 if (article.data.heroImage) articleImageReferences.push(article.data.heroImage.src);
 const [summaries, series, articleLinkAvailability, articleImageDimensions] = await Promise.all([
-  listPublicArticleSummaries(),
+  listPublicArticleSummaries({ includeFeatures: false }),
   getPublishedSeriesByArticleSlug(slug),
   getArticleLinkAvailability(articleLinkReferences.map((reference) => reference.slug), article.visibility),
   getArticleAssetDimensions(articleImageReferences)
@@ -39,15 +40,21 @@ const markdownRenderer = createArticleMarkdownRenderer({
   resolveImageDimensions: (reference) => articleImageDimensions.get(reference),
   resolveLinkAvailability: (href) => unavailableArticleHrefs.has(href) ? "unavailable" : "available"
 });
-const currentSummary = toArticleSummary(article.data);
+const currentSummary = toArticleSummary(article.data, article.markdown);
 const seriesSlugs = new Set(series?.items.map((item) => item.slug) ?? []);
-const relatedArticles = findRelatedArticles(
+const relatedCandidates = findRelatedArticles(
   currentSummary,
   summaries.filter((item) => !seriesSlugs.has(item.slug)),
 );
+// Fetch feature-detection bodies only for the few articles that will be shown.
+const relatedArticles = relatedCandidates.length
+  ? await listPublicArticleSummaries({ slugs: relatedCandidates.map((item) => item.slug) })
+  : [];
+relatedArticles.sort((a, b) => relatedCandidates.findIndex((item) => item.slug === a.slug) - relatedCandidates.findIndex((item) => item.slug === b.slug));
 const presentationHtml = renderArticlePresentation(article.data, article.markdown, {
   editor: article.editor ? { href: article.editor.href, name: article.editor.displayName } : null,
   markdownRenderer,
+  headings: analysis.headings,
   resolveImageDimensions: (reference) => articleImageDimensions.get(reference),
   series: series ? {
     currentIndex: series.currentIndex,
@@ -100,7 +107,8 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
         ? [{ label: "ホーム", href: "/" }, { label: "シリーズ", href: "/series" }, { label: series.title, href: series.href }, { label: article.data.title }]
         : [{ label: "ホーム", href: "/" }, { label: "記事を探す", href: "/articles" }, { label: article.data.title }]} />
       <Fragment set:html={presentationHtml} />
-      <RelatedArticles articles={relatedArticles} />
+      <div class="article-question-entry"><button type="button" class="article-question-button" data-ask-article aria-controls="article-assistant-panel" aria-expanded="false">AIに質問</button><p>気になる本文を選択して、その箇所について質問することもできます。</p></div>
+      <RelatedArticles articles={relatedArticles} current={currentSummary} />
       <ShareArticle />
       <ArticleUpdatesCta slug={article.data.slug} />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">

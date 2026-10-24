@@ -20,7 +20,7 @@
     "@noema/ui": "workspace:*",
     "better-auth": "^1.7.1",
     "diff": "^8.0.4",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.16",
     "highlight.js": "^11.11.1",
     "jose": "^6.2.3",
     "markdown-it": "^14.3.3",
@@ -36,6 +36,6 @@
     "@vitejs/plugin-react": "^6.0.3",
     "typescript": "^5.9.3",
     "vite": "^8.1.6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }

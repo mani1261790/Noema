@@ -8,6 +8,7 @@ export { articleMarkdownGuidance } from "./article-extensions";
 
 export {
   extractArticleHeadingSlugs,
+  analyzeArticleMarkdown,
   extractArticleHeadings,
   extractArticleImageReferences,
   extractArticleLinkReferences,
@@ -39,7 +40,8 @@ export const articleSourceSchema = z.object({
     .string()
     .url()
     .refine(isSafeHttpUrl, "URLはhttpまたはhttpsで入力してください"),
-  checkedAt: z.string().date()
+  checkedAt: z.string().date(),
+  comment: z.string().trim().max(1000).optional().describe("資料の説明や参照した箇所。任意のプレーンテキスト（1000文字以内）。")
 });
 export const articleImageSchema = z.object({
   src: z
@@ -92,6 +94,8 @@ export type ArticleSummary = Pick<
   ArticleFrontmatter,
   "title" | "description" | "slug" | "publishedAt" | "updatedAt" | "topics" | "tags" | "approach" | "authors" | "heroImage"
 > & {
+  features?: import("./article-features").ArticleFeature[];
+  editorDisplayName?: string;
   excerpt: string;
   href: string;
 };
@@ -274,7 +278,8 @@ export function serializeArticle(frontmatter: ArticleFrontmatter, markdown: stri
           ...frontmatter.sources.flatMap((source) => [
             `  - title: ${quote(source.title)}`,
             `    url: ${quote(source.url)}`,
-            `    checkedAt: ${quote(source.checkedAt)}`
+            `    checkedAt: ${quote(source.checkedAt)}`,
+            ...(source.comment ? [`    comment: ${quote(source.comment)}`] : [])
           ])
         ]
       : ["sources: []"]),
