@@ -958,6 +958,13 @@ body.noema-public :focus-visible {
   text-decoration: none;
 }
 
+.site-footer__menus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 1rem 2rem;
+}
+
 .site-footer__links {
   display: flex;
   flex-wrap: wrap;

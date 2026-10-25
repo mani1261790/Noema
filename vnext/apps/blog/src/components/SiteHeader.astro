@@ -1,11 +1,11 @@
 ---
 import SearchClear from "./SearchClear.astro";
 const pathname = Astro.url.pathname;
-const isCurrent = (href: string) => pathname.startsWith(href);
+const isCurrent = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 const links = [
+  { href: "/", label: "ホーム" },
   { href: "/series", label: "シリーズ" },
-  { href: "/articles", label: "記事を探す" },
-  { href: "/about", label: "Noemaについて" }
+  { href: "/articles", label: "記事を探す" }
 ];
 ---
 

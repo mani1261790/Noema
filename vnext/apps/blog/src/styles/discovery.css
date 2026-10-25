@@ -106,7 +106,8 @@
   .article-updates h2 { font-size: 1.125rem; }
   .article-updates > p:not(.article-updates__eyebrow) { font-size: .875rem; margin-block: .5rem .75rem; }
   .article-share p:empty { min-height: 0; margin: 0; }
-  .site-footer__links { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 1rem; }
+  .site-footer__menus { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .site-footer__links { grid-template-columns: minmax(0, 1fr); gap: .25rem; }
   .site-footer__links a { display: inline-flex; min-height: 2.75rem; align-items: center; }
 }
 @media (max-width: 40rem) {
