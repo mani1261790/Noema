@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   addSeriesShareAttributionToArticleUrl,
   createArticleShareData,
+  createXShareUrl,
   createSeriesShareData,
   shareArticle,
   supportsNativeSharing,
@@ -96,5 +97,23 @@ describe("article sharing", () => {
       share: vi.fn().mockRejectedValue(new Error("share failed")),
     }, shareData)).resolves.toBe("failed");
     await expect(shareArticle({}, shareData)).resolves.toBe("unavailable");
+  });
+});
+
+describe("service sharing links", () => {
+  it("encodes the complete Japanese title and URL without carrying incoming parameters", () => {
+    const data = createArticleShareData({ canonicalUrl: "https://noema-learn.uk/articles/example", fallbackUrl: "https://preview.example/articles/example?secret=private#section", title: "AI & X：100%から考える | Noema", method: "x" });
+    const intent = new URL(createXShareUrl(data));
+    expect(intent.origin + intent.pathname).toBe("https://x.com/intent/tweet");
+    expect(intent.searchParams.get("text")).toBe("AI & X：100%から考える");
+    const shared = new URL(intent.searchParams.get("url")!);
+    expect(shared.origin).toBe("https://noema-learn.uk");
+    expect(shared.searchParams.get("utm_content")).toBe("x");
+    expect(shared.searchParams.has("secret")).toBe(false);
+    expect(shared.hash).toBe("");
+  });
+  it("identifies copied Discord links separately from generic clipboard links", () => {
+    const data = createArticleShareData({ fallbackUrl: "https://noema-learn.uk/articles/example", title: "記事", method: "discord" });
+    expect(new URL(data.url).searchParams.get("utm_content")).toBe("discord");
   });
 });

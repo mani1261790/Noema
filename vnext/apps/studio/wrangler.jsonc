@@ -14,6 +14,7 @@
     }
   ],
   "vars": {
+    "PUSH_VAPID_PUBLIC_KEY": "BNdcOPow5Kevt-F6dbJqPvD3vPdkRWx1R7gixIR-uU0b6uAQLju8KwuD3TypzWaXDvvpiO-2Aol5iHQL1-mwidQ",
     "ACCESS_TEAM_DOMAIN": "falling-smoke-5c0f.cloudflareaccess.com",
     "ACCESS_POLICY_AUD": "882b7c1d2c863c9223f84857969a0bdb36b9979272e6af645d087473e0c18de9",
     "CMS_BOOTSTRAP_ADMIN_EMAIL": "mani1261790@gmail.com",
@@ -58,6 +59,6 @@
     }
   },
   "triggers": {
-    "crons": ["17 3 * * *"]
+    "crons": ["17 3 * * *", "* * * * *"]
   }
 }

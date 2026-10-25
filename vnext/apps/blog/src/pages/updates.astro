@@ -1,75 +1,40 @@
 ---
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
-
 export const prerender = true;
-
-const feedUrl = new URL("/rss.xml", Astro.site ?? "https://noema-learn.uk").toString();
 ---
-
-<BaseLayout
-  title="Noemaの更新を受け取る | Noema"
-  description="Noemaの新着記事をRSSで受け取る方法を説明します。登録やメールアドレスは必要ありません。"
->
+<BaseLayout title="新着記事の通知 | Noema" description="Noemaの新着記事をプッシュ通知で受け取れます。通知はいつでも解除できます。">
   <div class="noema-reading-container prose-page updates-page">
-    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "更新を受け取る" }]} />
-    <h1>Noemaの更新を受け取る</h1>
-    <p class="prose-page__lead">RSSを使うと、Noemaの新しい記事をフィードリーダーでまとめて確認できます。登録やメールアドレスは必要ありません。</p>
-
-    <section class="updates-feed" aria-labelledby="updates-feed-heading">
-      <h2 id="updates-feed-heading">フィードを追加する</h2>
-      <p>次のURLを、お使いのフィードリーダーに追加してください。</p>
-      <p class="updates-feed__url"><a class="dads-link" href="/rss.xml" data-feed-url data-feed-action>{feedUrl}</a></p>
-      <div class="updates-feed__actions">
-        <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-feed-url hidden>URLをコピー</button>
-        <a class="dads-button" data-size="md" data-type="outline" href="/rss.xml" data-feed-action>フィードを開く</a>
-      </div>
-      <p class="updates-feed__status" data-feed-status role="status" aria-live="polite"></p>
+    <Breadcrumbs items={[{ label: "ホーム", href: "/" }, { label: "新着記事の通知" }]} />
+    <h1>新しい記事を、通知で受け取る</h1>
+    <p class="prose-page__lead">記事が新しく公開されたときにお知らせします。アカウントやメールアドレスの登録は不要です。</p>
+    <section class="updates-push" aria-labelledby="push-heading" data-push-settings>
+      <h2 id="push-heading">この端末の通知</h2>
+      <p data-push-status role="status" aria-live="polite">通知の設定を確認しています。</p>
+      <button class="dads-button" data-size="md" data-type="solid-fill" type="button" data-enable-push hidden>新着記事の通知を受け取る</button>
+      <button class="dads-button" data-size="md" data-type="outline" type="button" data-disable-push hidden>この端末の通知を解除</button>
+      <p data-push-help></p>
+      <noscript><p>通知の登録にはJavaScriptを有効にしてください。</p></noscript>
     </section>
-
-    <h2>フィードリーダーで読む手順</h2>
-    <ol>
-      <li>使っているフィードリーダーで、フィードやサイトを追加する画面を開きます。</li>
-      <li>上のRSS URLを貼り付けて追加します。</li>
-      <li>新しい記事が公開されると、フィードリーダーの一覧に表示されます。</li>
-    </ol>
-
-    <h2>RSSで届くもの</h2>
-    <p>公開された記事のタイトル、概要、公開日、記事へのリンクを配信します。記事の本文はNoemaのサイトで読めます。</p>
-
-    <h2>知っておいてほしいこと</h2>
-    <ul>
-      <li>RSSの確認間隔や通知の有無は、フィードリーダーによって異なります。</li>
-      <li>Noemaは、誰がフィードを登録したか、継続して読んでいるかを把握しません。</li>
-      <li>RSS URLは公開情報です。アカウントや個別の認証情報は含みません。</li>
-    </ul>
+    <h2>iPhone・iPadで使う場合</h2>
+    <p>まずNoemaを<a href="/install">ホーム画面に追加</a>し、そのアイコンから開いてください。このページの「通知を受け取る」を押すと、通知を許可する画面が表示されます。</p>
+    <h2>届く通知</h2>
+    <p>新しく一般公開された記事のタイトルと短い説明が届きます。通知を押すと記事が開きます。記事の修正や限定公開の記事では通知しません。</p>
+    <p>通常は公開から数分以内に配信を始めます。端末の通信状況や集中モードなどによって、届くまで時間がかかる場合があります。</p>
+    <h2>通知を止めるには</h2>
+    <p>登録した端末・ブラウザでこのページを開き、「この端末の通知を解除」を押してください。端末やブラウザの通知設定からも停止できます。</p>
+    <p>登録時に通知先と暗号化用の情報を保存します。詳しくは<a href="/privacy">プライバシー</a>をご覧ください。</p>
   </div>
 </BaseLayout>
-
 <script>
-  import { createUpdatesActionTracker } from "../lib/updates-analytics";
-
-  const copyButton = document.querySelector<HTMLButtonElement>("[data-copy-feed-url]");
-  const feedLink = document.querySelector<HTMLAnchorElement>("[data-feed-url]");
-  const status = document.querySelector<HTMLElement>("[data-feed-status]");
-  const trackUpdatesAction = createUpdatesActionTracker(new URL(window.location.href));
-
-  document.querySelectorAll<HTMLAnchorElement>("[data-feed-action]").forEach((link) => {
-    link.addEventListener("click", () => {
-      void trackUpdatesAction?.();
-    });
-  });
-
-  if (copyButton && feedLink && navigator.clipboard) {
-    copyButton.hidden = false;
-    copyButton.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(feedLink.href);
-        void trackUpdatesAction?.();
-        if (status) status.textContent = "RSS URLをコピーしました。";
-      } catch {
-        if (status) status.textContent = "コピーできませんでした。表示されているURLを選んでコピーしてください。";
-      }
-    });
-  }
+  import { initializePushSettings } from "../lib/push-settings";
+  void initializePushSettings();
 </script>
+<style>
+  .updates-push { margin: 1.5rem 0; padding: 1.25rem; border: 1px solid var(--noema-border); border-radius: 12px; }
+  .updates-push h2 { margin-top: 0; }
+  .updates-push button { max-width: 100%; white-space: normal; cursor: pointer; }
+  .updates-push button[hidden] { display: none; }
+  .updates-push button:disabled { cursor: wait; }
+  .updates-push [data-push-help]:empty { display: none; }
+</style>

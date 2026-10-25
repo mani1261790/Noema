@@ -2175,7 +2175,9 @@ export async function transitionCmsArticle(
     throw error;
   }
 
-  if (result[0]?.meta.changes !== 1 || result[1]?.meta.changes !== 1) {
+  // D1 includes the publication outbox trigger's inserted row in meta.changes.
+  // This UPDATE targets one primary key and still requires the expected lock version.
+  if (result[0]?.meta.changes !== 1 || (result[1]?.meta.changes ?? 0) < 1) {
     const replay = await findIdempotentArticle(
       db,
       identity,

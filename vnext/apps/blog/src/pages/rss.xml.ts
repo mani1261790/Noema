@@ -1,16 +1,4 @@
-import rss from "@astrojs/rss";
 import type { APIRoute } from "astro";
-import { listPublicArticleSummaries } from "../lib/cms-publications";
-import { createNoemaRssItems } from "../lib/rss";
-
-export const GET: APIRoute = async ({ site }) => {
-  const articles = await listPublicArticleSummaries({ includeFeatures: false });
-  const canonicalSite = site ?? new URL("https://noema-learn.uk");
-  return rss({
-    title: "Noema",
-    description: "AIでできることと、その仕組みを、直感と具体例からひもとく技術メディアです。",
-    site: canonicalSite,
-    items: createNoemaRssItems(articles, canonicalSite),
-    customData: "<language>ja</language>"
-  });
-};
+export const GET: APIRoute = () => new Response("RSSの配信は終了しました。新着記事のプッシュ通知は https://noema-learn.uk/updates から登録できます。", {
+  status: 410, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+});

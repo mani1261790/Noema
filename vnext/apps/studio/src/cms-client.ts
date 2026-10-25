@@ -606,10 +606,10 @@ type RawCmsResult =
   | { ok: true; status: number; value: unknown }
   | { error: CmsClientError; ok: false };
 
-async function cmsRequest(
+export async function cmsRequest(
   path: string,
   init: RequestInit,
-  options: CmsRequestOptions
+  options: CmsRequestOptions = {}
 ): Promise<RawCmsResult> {
   try {
     const response = await (options.fetchFn ?? fetch)(path, {

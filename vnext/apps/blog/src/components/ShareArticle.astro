@@ -1,69 +1,66 @@
-<div class="article-share">
-  <h2>この記事を共有</h2>
+---
+import { createArticleShareData, createXShareUrl } from "../lib/article-sharing";
+interface Props { title: string; pathname: string }
+const input = { title: Astro.props.title, canonicalUrl: new URL(Astro.props.pathname, Astro.site).href, fallbackUrl: Astro.url.href };
+const xShareUrl = createXShareUrl(createArticleShareData({ ...input, method: "x" }));
+const discordUrl = createArticleShareData({ ...input, method: "discord" }).url;
+const copyUrl = createArticleShareData({ ...input, method: "copy" }).url;
+---
+<section class="article-share" aria-labelledby="article-share-heading" data-article-social-share data-copy-url={copyUrl} data-discord-url={discordUrl}>
+  <h2 id="article-share-heading">この記事を共有</h2>
   <div class="article-share__actions">
-    <button class="dads-button" data-size="md" data-type="outline" type="button" data-share-article hidden>記事を共有</button>
-    <button class="dads-button" data-size="md" data-type="outline" type="button" data-copy-article-url>URLをコピー</button>
+    <a class="article-social" href={xShareUrl} target="_blank" rel="noopener noreferrer" aria-label="Xで共有（新しいタブで投稿画面を開く）">
+      <span class="article-social__icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.64 7.584H.47l8.6-9.835L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></span>
+      <span>X</span>
+    </a>
+    <a class="article-social article-social--discord" href="https://discord.com/channels/@me" target="_blank" rel="noopener noreferrer" data-share-discord aria-label="URLをコピーしてDiscordを開く（新しいタブ）" aria-describedby="discord-share-help">
+      <span class="article-social__icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></span>
+      <span>Discord</span>
+    </a>
+    <button class="article-social" type="button" data-copy-article-url aria-label="記事のURLをコピー" hidden>
+      <span class="article-social__icon"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="m10 13 4-4M8 16l-1 1a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m2 8a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-1 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" transform="translate(0 -1)"/></svg></span>
+      <span>コピー</span>
+    </button>
   </div>
+  <p id="discord-share-help">Discordでは、開いた共有先にリンクを貼り付けてください。</p>
   <p data-share-status role="status" aria-live="polite"></p>
-</div>
+  <div class="article-share__fallback" data-share-fallback hidden>
+    <label for="article-share-url">共有するURL</label>
+    <input id="article-share-url" type="text" readonly value={copyUrl} />
+  </div>
+  <noscript><p>Discordへの共有は、次のURLをコピーして貼り付けてください。</p><a href={copyUrl}>{copyUrl}</a></noscript>
+</section>
 
 <script>
-  import { createArticleShareData, shareArticle, supportsNativeSharing } from "../lib/article-sharing";
+  const region = document.querySelector<HTMLElement>("[data-article-social-share]");
+  const copyButton = region?.querySelector<HTMLButtonElement>("[data-copy-article-url]");
+  const discordLink = region?.querySelector<HTMLAnchorElement>("[data-share-discord]");
+  const status = region?.querySelector<HTMLElement>("[data-share-status]");
+  const fallback = region?.querySelector<HTMLElement>("[data-share-fallback]");
+  const fallbackInput = fallback?.querySelector<HTMLInputElement>("input");
 
-  const shareRegion = document.querySelector<HTMLElement>(".article-share");
-  const shareButton = shareRegion?.querySelector<HTMLButtonElement>("[data-share-article]");
-  const copyButton = shareRegion?.querySelector<HTMLButtonElement>("[data-copy-article-url]");
-  const shareStatus = shareRegion?.querySelector<HTMLElement>("[data-share-status]");
-  const canonicalUrl = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
-  const shareDataInput = {
-    canonicalUrl,
-    fallbackUrl: window.location.href,
-    title: document.title,
-  };
-  const nativeShareData = createArticleShareData({
-    ...shareDataInput,
-    method: "native",
-  });
-  const copiedShareData = createArticleShareData({
-    ...shareDataInput,
-    method: "copy",
-  });
-
-  const recordSuccessfulShare = () => {
-    document.dispatchEvent(new CustomEvent("noema:analytics", {
-      detail: { eventType: "share" }
-    }));
-  };
-
-  if (shareButton && supportsNativeSharing(navigator)) {
-    shareButton.hidden = false;
-    shareButton.addEventListener("click", async () => {
-      shareButton.disabled = true;
-      shareButton.setAttribute("aria-busy", "true");
-      if (shareStatus) shareStatus.textContent = "";
-
-      const outcome = await shareArticle(navigator, nativeShareData);
-
-      shareButton.disabled = false;
-      shareButton.removeAttribute("aria-busy");
-      if (outcome === "shared") {
-        if (shareStatus) shareStatus.textContent = "共有しました。";
-        recordSuccessfulShare();
-      } else if (outcome === "failed") {
-        if (shareStatus) shareStatus.textContent = "共有できませんでした。URLをコピーして共有できます。";
-      } else if (outcome === "unavailable") {
-        shareButton.hidden = true;
-      }
-    });
-  }
-
-  copyButton?.addEventListener("click", async () => {
+  async function copyUrl(url: string, discord = false) {
     try {
-      await navigator.clipboard.writeText(copiedShareData.url);
-      if (shareStatus) shareStatus.textContent = "URLをコピーしました。";
-      recordSuccessfulShare();
+      await navigator.clipboard.writeText(url);
+      if (fallback) fallback.hidden = true;
+      if (status) status.textContent = discord
+        ? "リンクをコピーしました。Discordの共有先に貼り付けてください。"
+        : "URLをコピーしました。";
+      document.dispatchEvent(new CustomEvent("noema:analytics", { detail: { eventType: "share" } }));
     } catch {
-      if (shareStatus) shareStatus.textContent = "URLをコピーできませんでした。アドレスバーからコピーしてください。";
+      if (status) status.textContent = "コピーできませんでした。下のURLを選択してコピーしてください。";
+      if (fallback) fallback.hidden = false;
+      if (fallbackInput) { fallbackInput.value = url; fallbackInput.focus(); fallbackInput.select(); }
     }
+  }
+  if (copyButton) {
+    copyButton.hidden = false;
+    copyButton.addEventListener("click", () => { void copyUrl(region?.dataset.copyUrl ?? ""); });
+  }
+  discordLink?.addEventListener("click", (event) => {
+    // Start clipboard access inside the user gesture; let the anchor open the tab
+    // synchronously so it does not depend on an async popup being permitted.
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    void copyUrl(region?.dataset.discordUrl ?? "", true);
   });
 </script>

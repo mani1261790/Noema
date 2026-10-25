@@ -1,3 +1,4 @@
+import { manageReaderComments } from "./reader-comments";
 import {
   cmsAssetMutationSchema,
   cmsAnalyticsDaysSchema,
@@ -89,6 +90,8 @@ export async function handleCmsApiRequest(
       env.CMS_BOOTSTRAP_ADMIN_EMAIL
     );
     const { pathname } = new URL(request.url);
+
+    if (pathname === `${CMS_API_PREFIX}/reader-comments`) return await manageReaderComments(request, env.CMS_DB, session);
 
     if (pathname === `${CMS_API_PREFIX}/session`) {
       if (request.method !== "GET") return methodNotAllowed("GET");

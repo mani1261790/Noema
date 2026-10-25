@@ -958,6 +958,13 @@ body.noema-public :focus-visible {
   text-decoration: none;
 }
 
+.site-footer__menus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 1rem 2rem;
+}
+
 .site-footer__links {
   display: flex;
   flex-wrap: wrap;
@@ -2420,3 +2427,55 @@ body.is-resizing-assistant-panel .article-page {
 @media (prefers-reduced-motion: reduce) {
   .assistant-panel, .article-page { transition: none; }
 }
+
+/* Service-specific sharing actions; no embedded third-party widgets. */
+.article-social {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 72px;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--noema-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+}
+.article-social[hidden], .article-share__fallback[hidden] { display: none; }
+.article-social__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--noema-border);
+  border-radius: 50%;
+  background: var(--noema-surface, #fff);
+  color: #1c2422;
+}
+.article-social__icon svg { width: 23px; height: 23px; fill: currentColor; }
+.article-social__icon svg[fill="none"] { fill: none; }
+.article-social--discord .article-social__icon { color: #5865f2; }
+.article-social:hover { color: var(--noema-text); text-decoration: none; }
+.article-social:hover .article-social__icon { background: #e8eeeb; border-color: #657773; }
+.article-social:focus-visible { outline: 3px solid #00645f; outline-offset: 3px; }
+.article-share__fallback { display: grid; gap: 8px; margin-top: 12px; }
+.article-share__fallback input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--noema-border);
+  border-radius: 8px;
+  background: #fff;
+  color: #1c2422;
+  font: inherit;
+}
+.article-share [data-share-status]:empty { min-height: 0; margin: 0; }

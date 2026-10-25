@@ -65,6 +65,11 @@ jobs:
         working-directory: vnext
         run: pnpm run deploy:dry-run
 
+      - name: Validate Web Push signing configuration
+        env:
+          PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
+        run: test -n "$PUSH_VAPID_PRIVATE_KEY"
+
       - name: Apply CMS database migrations
         working-directory: vnext
         env:
@@ -162,9 +167,11 @@ jobs:
           wranglerVersion: "4.152.0"
           secrets: |
             BETTER_AUTH_SECRET
+            PUSH_VAPID_PRIVATE_KEY
           command: deploy --config wrangler.jsonc
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          PUSH_VAPID_PRIVATE_KEY: ${{ secrets.PUSH_VAPID_PRIVATE_KEY }}
 
       - name: Deploy Studio MCP Worker
         uses: cloudflare/wrangler-action@v3

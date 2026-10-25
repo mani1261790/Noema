@@ -12,10 +12,13 @@
     "binding": "ASSETS",
     "html_handling": "drop-trailing-slash",
     "run_worker_first": [
-      "/og/series/*"
+      "/og/series/*",
+      "/og/articles/*"
     ]
   },
   "ratelimits": [
+    { "name": "COMMENTS_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 5, "period": 60 } },
+    { "name": "PUSH_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } },
     {
       "name": "ANALYTICS_RATE_LIMITER",
       "namespace_id": "1001",
@@ -61,6 +64,7 @@
     "binding": "AI"
   },
   "vars": {
+    "PUSH_VAPID_PUBLIC_KEY": "BNdcOPow5Kevt-F6dbJqPvD3vPdkRWx1R7gixIR-uU0b6uAQLju8KwuD3TypzWaXDvvpiO-2Aol5iHQL1-mwidQ",
     "READER_AI_DAILY_LIMIT": "100"
   }
 }

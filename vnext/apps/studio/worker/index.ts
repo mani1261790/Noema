@@ -1,3 +1,4 @@
+import { dispatchReaderPush } from "./push";
 import { handleStudioRequest } from "./app";
 import { cleanupCmsAnalyticsRetention } from "./analytics-repository";
 
@@ -6,6 +7,8 @@ export default {
     return handleStudioRequest(request, env, ctx);
   },
   scheduled(controller, env): Promise<void> {
-    return cleanupCmsAnalyticsRetention(env.CMS_DB, new Date(controller.scheduledTime));
+    return controller.cron === "17 3 * * *"
+      ? cleanupCmsAnalyticsRetention(env.CMS_DB, new Date(controller.scheduledTime))
+      : dispatchReaderPush(env);
   }
 } satisfies ExportedHandler<Env>;

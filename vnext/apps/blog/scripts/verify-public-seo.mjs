@@ -37,61 +37,6 @@ export function parseSitemap(xml, canonicalOrigin = CANONICAL_ORIGIN) {
   return entries;
 }
 
-export function parseRssFeed(xml) {
-  const channel = elementText(xml, "channel");
-  if (!channel) throw new Error("The RSS feed does not contain a channel.");
-
-  const items = [...channel.matchAll(/<item>(?<body>[\s\S]*?)<\/item>/giu)].map((match) => {
-    const guidTag = match.groups.body.match(/<guid\b(?<attributes>[^>]*)>/iu);
-    const guidAttributes = parseAttributes(guidTag?.groups?.attributes ?? "");
-    return {
-      guid: decodeEntities(elementText(match.groups.body, "guid")),
-      guidIsPermaLink: guidAttributes.ispermalink?.toLowerCase() === "true",
-      link: decodeEntities(elementText(match.groups.body, "link")),
-    };
-  });
-
-  return {
-    channelLink: decodeEntities(elementText(channel, "link")),
-    items,
-  };
-}
-
-export function validateRssFeed(feed, sitemapEntries, canonicalOrigin = CANONICAL_ORIGIN) {
-  const errors = [];
-  if (feed.channelLink !== `${canonicalOrigin}/`) {
-    errors.push(`channel link is ${feed.channelLink || "empty"}.`);
-  }
-
-  const expectedArticleUrls = sitemapEntries
-    .map((entry) => entry.url)
-    .filter((url) => new URL(url).pathname.startsWith("/articles/"));
-  const expected = new Set(expectedArticleUrls);
-  const observed = new Set();
-
-  for (const item of feed.items) {
-    let url;
-    try {
-      url = new URL(item.link);
-    } catch {
-      errors.push(`item link is invalid: ${item.link || "empty"}.`);
-      continue;
-    }
-    if (url.origin !== canonicalOrigin) errors.push(`${item.link}: item link is outside ${canonicalOrigin}.`);
-    if (url.search || url.hash) errors.push(`${item.link}: item link must not contain a query or fragment.`);
-    if (observed.has(item.link)) errors.push(`${item.link}: duplicate RSS item link.`);
-    observed.add(item.link);
-    if (!expected.has(item.link)) errors.push(`${item.link}: item link is not a canonical public article URL.`);
-    if (item.guid !== item.link) errors.push(`${item.link}: GUID does not match the item link.`);
-    if (!item.guidIsPermaLink) errors.push(`${item.link}: GUID must declare isPermaLink=true.`);
-  }
-
-  for (const expectedUrl of expectedArticleUrls) {
-    if (!observed.has(expectedUrl)) errors.push(`${expectedUrl}: public article is missing from RSS.`);
-  }
-  return errors;
-}
-
 export function inspectSeoDocument(html, canonicalUrl) {
   const tags = [...html.matchAll(HTML_TAG_PATTERN)].map((match) => ({
     attributes: parseAttributes(match.groups.attributes),
@@ -169,7 +114,7 @@ export function inspectSeoDocument(html, canonicalUrl) {
   };
 }
 
-export function validateSeoDocument(document, canonicalUrl) {
+export function validateSeoDocument(document, canonicalUrl, sourceOrigin = CANONICAL_ORIGIN) {
   const errors = [];
   const pathname = new URL(canonicalUrl).pathname;
   if (document.htmlLanguage !== "ja") errors.push(`html lang must be ja, received ${document.htmlLanguage || "empty"}.`);
@@ -183,9 +128,7 @@ export function validateSeoDocument(document, canonicalUrl) {
   if (!robots.has("index") || !robots.has("follow")) errors.push(`robots must include index,follow, received ${document.robots || "empty"}.`);
   if (robots.has("noindex") || robots.has("nofollow")) errors.push(`robots blocks indexing: ${document.robots}.`);
   if (document.missingImageAltCount > 0) errors.push(`${document.missingImageAltCount} image(s) omit alt.`);
-  if (document.rssCount !== 1 || document.rss !== `${CANONICAL_ORIGIN}/rss.xml`) {
-    errors.push(`expected one canonical RSS alternate, received ${document.rss || "empty"}.`);
-  }
+  if (document.rssCount !== 0) errors.push("RSS alternate links must be removed.");
 
   const expectedSocialValues = [
     ["og:title", document.openGraph.title],
@@ -211,7 +154,10 @@ export function validateSeoDocument(document, canonicalUrl) {
     errors.push(`twitter:card is ${document.twitter.card || "empty"}.`);
   }
   try {
-    if (new URL(document.openGraph.image).origin !== CANONICAL_ORIGIN) errors.push("og:image must use the canonical origin.");
+    const image = new URL(document.openGraph.image);
+    const isArticleImage = image.pathname === `/og/articles/${pathname.split("/").at(-1)}.png` && pathname.startsWith("/articles/");
+    const allowedOrigin = isArticleImage ? sourceOrigin : CANONICAL_ORIGIN;
+    if (image.origin !== allowedOrigin) errors.push("og:image must use the canonical origin or the article serving origin.");
   } catch {
     errors.push("og:image must be an absolute URL.");
   }
@@ -388,12 +334,6 @@ export async function verifyPublicSeo(sourceOrigin, options = {}) {
   const sitemapContentType = sitemapResponse.headers.get("content-type") ?? "";
   if (!sitemapContentType.includes("xml")) throw new Error(`sitemap.xml returned ${sitemapContentType || "no content-type"}.`);
   const entries = parseSitemap(await sitemapResponse.text(), canonicalOrigin);
-  const rssResponse = await fetchOk(new URL("/rss.xml", normalizedSourceOrigin), fetcher);
-  const rssContentType = rssResponse.headers.get("content-type") ?? "";
-  if (!rssContentType.includes("xml")) throw new Error(`rss.xml returned ${rssContentType || "no content-type"}.`);
-  const rssFeed = parseRssFeed(await rssResponse.text());
-  const rssErrors = validateRssFeed(rssFeed, entries, canonicalOrigin);
-  if (rssErrors.length > 0) throw new Error(`Invalid RSS feed:\n${rssErrors.join("\n")}`);
 
   const pages = await mapWithConcurrency(entries, MAX_CONCURRENCY, async (entry) => {
     const canonicalUrl = new URL(entry.url);
@@ -403,7 +343,7 @@ export async function verifyPublicSeo(sourceOrigin, options = {}) {
     const errors = [];
     if (!contentType.includes("text/html")) errors.push(`content-type is ${contentType || "empty"}.`);
     const document = inspectSeoDocument(await response.text(), entry.url);
-    errors.push(...validateSeoDocument(document, entry.url));
+    errors.push(...validateSeoDocument(document, entry.url, normalizedSourceOrigin));
     return { document, errors, url: entry.url };
   });
 
@@ -426,8 +366,8 @@ export async function verifyPublicSeo(sourceOrigin, options = {}) {
   const imageErrors = imageResults.flat();
   if (imageErrors.length > 0) throw new Error(`Public OG image verification failed:\n${imageErrors.join("\n")}`);
 
-  console.log(`Verified SEO metadata for ${pages.length} sitemap URL(s), ${ogImages.length} OG image(s), and ${rssFeed.items.length} canonical RSS item(s).`);
-  return { ogImageCount: ogImages.length, pageCount: pages.length, rssItemCount: rssFeed.items.length };
+  console.log(`Verified SEO metadata for ${pages.length} sitemap URL(s), ${ogImages.length} OG image(s).`);
+  return { ogImageCount: ogImages.length, pageCount: pages.length };
 }
 
 function parseAttributes(source) {

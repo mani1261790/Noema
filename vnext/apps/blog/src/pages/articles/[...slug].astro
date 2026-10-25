@@ -1,4 +1,7 @@
 ---
+import ArticleComments from "../../components/ArticleComments.astro";
+import { articleOgImagePath } from "../../lib/article-og";
+import { topicLabels } from "@noema/content";
 import { analyzeArticleMarkdown } from "@noema/content";
 import { createArticleMarkdownRenderer } from "@noema/content/article-renderer";
 import ArticleAssistant from "../../components/ArticleAssistant.astro";
@@ -68,6 +71,7 @@ const attributedAuthors = article.editor ? [article.editor.displayName] : articl
 const heroImageDimensions = article.data.heroImage
   ? articleImageDimensions.get(article.data.heroImage.src)
   : undefined;
+const socialImage = new URL(articleOgImagePath({ slug: article.data.slug, title: article.data.title, topic: topicLabels[article.data.topics[0]] ?? "AIと技術" }), Astro.url.origin).href;
 const jsonLd = articleJsonLd({
   authors: attributedAuthors.map((name: string) => ({
     name,
@@ -88,12 +92,13 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
 
 <BaseLayout
   title={`${article.data.title} | Noema`}
+  socialTitle={article.data.title}
   description={article.data.description}
   noindex={article.visibility === "unlisted"}
-  image={article.data.heroImage?.src}
-  imageAlt={article.data.heroImage?.alt ?? article.data.title}
-  imageHeight={heroImageDimensions?.height}
-  imageWidth={heroImageDimensions?.width}
+  image={socialImage}
+  imageAlt={`${article.data.title} — Noemaの記事`}
+  imageHeight={630}
+  imageWidth={1200}
   pageType="article"
   publishedAt={article.publishedAt}
   updatedAt={article.updatedAt}
@@ -109,8 +114,9 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
       <Fragment set:html={presentationHtml} />
       <div class="article-question-entry"><button type="button" class="article-question-button" data-ask-article aria-controls="article-assistant-panel" aria-expanded="false">AIに質問</button><p>気になる本文を選択して、その箇所について質問することもできます。</p></div>
       <RelatedArticles articles={relatedArticles} current={currentSummary} />
-      <ShareArticle />
+      <ShareArticle title={article.data.title} pathname={`/articles/${article.data.slug}`} />
       <ArticleUpdatesCta slug={article.data.slug} />
+      {article.visibility === "public" && <ArticleComments slug={article.data.slug} />}
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
         {series && <a class="dads-link" data-analytics-discovery="series_index" href={series.href}>{`${series.title}の一覧を見る`}</a>}
         {narrowingTopic && (
