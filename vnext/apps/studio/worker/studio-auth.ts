@@ -55,7 +55,14 @@ export function createStudioAuth(
   configuration: Extract<StudioAuthConfiguration, { ok: true }>
 ) {
   return betterAuth({
-    account: { modelName: "studio_auth_account" },
+    account: {
+      modelName: "studio_auth_account",
+      // Keep the legacy required column for the only enabled provider: password.
+      // The caller cannot supply this value.
+      additionalFields: {
+        issuer: { type: "string", required: true, defaultValue: "credential", input: false }
+      }
+    },
     advanced: {
       cookiePrefix: "noema_studio",
       useSecureCookies: configuration.origin.startsWith("https://")

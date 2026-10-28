@@ -19,7 +19,7 @@
     "@noema/cms": "workspace:*",
     "@noema/content": "workspace:*",
     "@noema/ui": "workspace:*",
-    "better-auth": "^1.7.1",
+    "better-auth": "1.7.14",
     "diff": "^8.0.4",
     "dompurify": "^3.4.16",
     "highlight.js": "^11.11.1",
