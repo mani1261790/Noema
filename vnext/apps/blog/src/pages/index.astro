@@ -15,6 +15,14 @@ const startArticleSlugs = new Set(startArticles.map((article) => article.slug));
 const recentArticles = sortArticlesByDate(articles)
   .filter((article) => !startArticleSlugs.has(article.slug)).slice(0, 5);
 const intentCounts = Object.entries(readingIntents).map(([id, intent]) => ({ id, ...intent, count: articles.filter((article) => articleIntent(article) === id).length })).filter((intent) => intent.count > 0);
+const mobileIntents = [
+  { id: "try", description: "AIや道具に、まず触れてみる" },
+  { id: "explore", description: "身近な疑問から、内側へ" },
+  { id: "build", description: "コードや画面を、自分の手で" }
+].flatMap((entry) => {
+  const intent = intentCounts.find((intent) => intent.id === entry.id);
+  return intent ? [{ ...intent, description: entry.description }] : [];
+});
 const narrowingTopics = listNarrowingTopics(articles);
 const title = "AIでできることと、その仕組みを学ぶ | Noema";
 const description = "コーディングエージェントやローカルLLMなど、AIでできることと、その仕組みを、初めての人にもわかる具体例から解説する技術メディアです。";
@@ -43,6 +51,20 @@ const jsonLd = {
       <div class="home-hero__illustration" aria-hidden="true">
         <img src="/images/brand/noema-curiosity-hero.webp" alt="" width="1800" height="1021" fetchpriority="high" />
       </div>
+      {mobileIntents.length > 0 && (
+        <nav class="home-hero__mobile-entry" aria-labelledby="mobile-intent-heading">
+          <h2 id="mobile-intent-heading">今日は、何を読もう。</h2>
+          <p>いま気になることから選べます。</p>
+          <ul>
+            {mobileIntents.map((intent) => (
+              <li><a href={`/articles?intent=${intent.id}`}>
+                <span><strong>{intent.label}</strong><small>{intent.description}</small></span>
+                <span aria-hidden="true">→</span>
+              </a></li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </div>
   </section>
 
@@ -130,3 +152,34 @@ const jsonLd = {
     </div>
   </section>
 </BaseLayout>
+
+<style>
+  .home-hero__mobile-entry { display: none; }
+  @media (max-width: 40rem) {
+    .home-hero__inner { gap: 0; padding-block: 1.375rem 1.875rem; }
+    .home-hero__copy h1 { font-size: 1.75rem; line-height: 1.5; }
+    .home-hero__copy p { margin-top: .75rem; font-size: .875rem; line-height: 1.9; letter-spacing: 0; }
+    .home-hero__illustration { display: block; max-width: none; margin: .75rem -1.5rem 1.25rem; }
+    .home-hero__illustration img { width: 100%; height: 11.25rem; object-fit: contain; mask-image: none; -webkit-mask-image: none; }
+    .home-hero__mobile-entry { display: block; min-width: 0; }
+    .home-hero__mobile-entry h2 { margin: 0 0 .375rem; font-size: 1.25rem; line-height: 1.5; }
+    .home-hero__mobile-entry > p { margin: 0 0 1rem; font-size: .8125rem; line-height: 1.8; color: var(--color-neutral-solid-gray-600); }
+    .home-hero__mobile-entry ul { display: grid; gap: .5625rem; margin: 0; padding: 0; list-style: none; }
+    .home-hero__mobile-entry a { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 4.375rem; padding: .75rem 1rem; border: 1px solid var(--noema-border); border-radius: .75rem; background: #ffffffa6; color: var(--color-key-900); text-decoration: none; }
+    .home-hero__mobile-entry a > span:first-child { min-width: 0; }
+    .home-hero__mobile-entry strong { display: block; font-size: 1rem; font-weight: 600; line-height: 1.5; }
+    .home-hero__mobile-entry small { display: block; margin-top: .1875rem; font-size: .75rem; line-height: 1.5; color: var(--color-neutral-solid-gray-600); }
+    .home-hero__mobile-entry a:hover { background: var(--color-key-50); }
+    .home-hero__mobile-entry a:focus-visible { outline: 3px solid var(--color-key-800); outline-offset: 3px; }
+    .home-intents { display: none; }
+    .home-start { border-top: 1px solid var(--noema-border); }
+    .home-start .section-heading-row { display: flex; align-items: center; justify-content: space-between; gap: .625rem; margin-bottom: 1.125rem; }
+    .home-start .section-heading-row h2 { margin: 0; font-size: 1.3125rem; line-height: 1.5; }
+    .home-start .section-heading-row a { margin: 0; font-size: .75rem; white-space: nowrap; }
+  }
+  @media (max-width: 22rem) {
+    .home-hero__copy h1 { font-size: 1.5625rem; }
+    .home-start .section-heading-row h2 { font-size: 1.1875rem; }
+    .home-start .section-heading-row a { font-size: .6875rem; }
+  }
+</style>
