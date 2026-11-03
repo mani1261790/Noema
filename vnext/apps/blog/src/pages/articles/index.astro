@@ -105,9 +105,9 @@ const jsonLd = collectionPageJsonLd({
       })}
     </div>
     <nav class="article-pagination" data-pagination aria-label="記事一覧のページ" hidden>
-      <button type="button" data-page-previous>前のページ</button>
+      <button type="button" data-page-previous aria-label="前のページ"><span class="article-pagination__label">前のページ</span><span class="article-pagination__arrow" aria-hidden="true">←</span></button>
       <ol data-pagination-pages></ol>
-      <button type="button" data-page-next>次のページ</button>
+      <button type="button" data-page-next aria-label="次のページ"><span class="article-pagination__label">次のページ</span><span class="article-pagination__arrow" aria-hidden="true">→</span></button>
     </nav>
     <noscript>{totalPages > 1 && <nav class="article-pagination" aria-label="記事一覧のページ">{Array.from({length: totalPages}, (_, index) => { const target = new URLSearchParams(params); target.set("page", String(index + 1)); return <a href={`?${target}`} aria-current={currentPage === index + 1 ? "page" : undefined}>{index + 1}</a>; })}</nav>}</noscript>
     <div class="noema-empty-state" data-empty-state hidden={filtered.length > 0}>
