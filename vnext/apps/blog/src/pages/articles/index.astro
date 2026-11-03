@@ -225,11 +225,21 @@ const jsonLd = collectionPageJsonLd({
     }
     page = 1; apply(); document.querySelector<HTMLInputElement>("#article-keyword")?.focus();
   });
-  previous.addEventListener("click", () => { page--; apply(); count.focus(); });
-  next.addEventListener("click", () => { page++; apply(); count.focus(); });
+  const changePage = (targetPage: number) => {
+    page = targetPage;
+    apply();
+    count.focus({ preventScroll: true });
+    const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height ?? 0;
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + count.getBoundingClientRect().top - headerHeight - 16),
+      behavior: "instant"
+    });
+  };
+  previous.addEventListener("click", () => changePage(page - 1));
+  next.addEventListener("click", () => changePage(page + 1));
   pageList.addEventListener("click", (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-page]");
-    if (button) { page = Number(button.dataset.page); apply(); count.focus(); }
+    if (button) changePage(Number(button.dataset.page));
   });
   window.addEventListener("popstate", restore);
   restore();
