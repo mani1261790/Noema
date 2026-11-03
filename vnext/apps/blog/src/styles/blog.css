@@ -1141,7 +1141,11 @@ body.noema-public :focus-visible {
   list-style: none;
 }
 
+.article-pagination__arrow { display: none; }
+
 .article-pagination button {
+  flex-shrink: 0;
+  white-space: nowrap;
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
@@ -1151,6 +1155,14 @@ body.noema-public :focus-visible {
   border-radius: 0.25rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+@media (max-width: 40rem) {
+  .article-pagination { gap: 0.25rem; }
+  .article-pagination ol { gap: 0.25rem; }
+  .article-pagination button { min-width: 2rem; padding-inline: 0.25rem; }
+  .article-pagination__label { display: none; }
+  .article-pagination__arrow { display: inline; }
 }
 
 .article-pagination button[aria-current="page"] {
@@ -1641,7 +1653,7 @@ body.noema-public :focus-visible {
 .article-end-navigation {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem 2rem;
+  gap: .5rem .75rem;
   margin-top: 3rem;
 }
 
@@ -2479,3 +2491,11 @@ body.is-resizing-assistant-panel .article-page {
   font: inherit;
 }
 .article-share [data-share-status]:empty { min-height: 0; margin: 0; }
+
+/* Short navigation labels stay intact; enlarged text may move whole links. */
+.article-end-navigation a { display: inline-flex; align-items: center; min-height: 2.75rem; font-size: .875rem; white-space: nowrap; }
+.series-share .article-share__actions { gap: .5rem; }
+.series-share .article-share__actions button { white-space: nowrap; }
+@media (max-width: 40rem) {
+  .series-share .article-share__actions button { padding-inline: .75rem; }
+}

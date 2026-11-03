@@ -118,11 +118,11 @@ const narrowingTopic = findNarrowingTopicForArticle(currentSummary, summaries);
       <ArticleUpdatesCta slug={article.data.slug} />
       {article.visibility === "public" && <ArticleComments slug={article.data.slug} />}
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
-        {series && <a class="dads-link" data-analytics-discovery="series_index" href={series.href}>{`${series.title}の一覧を見る`}</a>}
+        {series && <a class="dads-link" data-analytics-discovery="series_index" href={series.href} aria-label={`${series.title}：シリーズの一覧を見る`}>シリーズ</a>}
         {narrowingTopic && (
-          <a class="dads-link" data-analytics-discovery="topic" href={`/topics/${narrowingTopic.slug}`}>{`${narrowingTopic.label}の記事を見る`}</a>
+          <a class="dads-link" data-analytics-discovery="topic" href={`/topics/${narrowingTopic.slug}`} aria-label={`${narrowingTopic.label}：同じテーマの記事を見る`}>同じテーマ</a>
         )}
-        <a class="dads-link" data-analytics-discovery="article_index" href="/articles">すべての記事を見る</a>
+        <a class="dads-link" data-analytics-discovery="article_index" href="/articles">記事一覧</a>
       </nav>
     </div>
     <div class="article-page__aside"><ArticleAssistant slug={article.data.slug} /></div>
