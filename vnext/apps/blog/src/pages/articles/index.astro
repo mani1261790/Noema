@@ -105,11 +105,11 @@ const jsonLd = collectionPageJsonLd({
       })}
     </div>
     <nav class="article-pagination" data-pagination aria-label="記事一覧のページ" hidden>
-      <button type="button" data-page-previous>前のページ</button>
+      <button type="button" data-page-previous aria-label="前のページ"><span class="article-pagination__label">前のページ</span><span class="article-pagination__arrow" aria-hidden="true">←</span></button>
       <ol data-pagination-pages></ol>
-      <button type="button" data-page-next>次のページ</button>
+      <button type="button" data-page-next aria-label="次のページ"><span class="article-pagination__label">次のページ</span><span class="article-pagination__arrow" aria-hidden="true">→</span></button>
     </nav>
-    <noscript>{totalPages > 1 && <nav class="article-pagination" aria-label="記事一覧のページ">{Array.from({length: totalPages}, (_, index) => { const target = new URLSearchParams(params); target.set("page", String(index + 1)); return <a href={`?${target}`} aria-current={currentPage === index + 1 ? "page" : undefined}>{index + 1}</a>; })}</nav>}</noscript>
+    <noscript>{totalPages > 1 && <nav class="article-pagination" aria-label="記事一覧のページ">{Array.from({length: Math.min(3, totalPages)}, (_, index) => { const number = Math.max(1, Math.min(currentPage - 1, totalPages - 2)) + index; const target = new URLSearchParams(params); target.set("page", String(number)); return <a href={`?${target}`} aria-current={currentPage === number ? "page" : undefined}>{number}</a>; })}</nav>}</noscript>
     <div class="noema-empty-state" data-empty-state hidden={filtered.length > 0}>
       <h2>{articles.length > 0 ? "該当する記事はありません" : "記事はまだありません"}</h2>
       {articles.length > 0 && <p>条件を解除するか、別の言葉やテーマをお試しください。</p>}
@@ -172,7 +172,8 @@ const jsonLd = collectionPageJsonLd({
     pagination.hidden = pages <= 1;
     previous.disabled = page === 1; next.disabled = page === pages;
     pageList.replaceChildren();
-    for (let n = Math.max(1, Math.min(page - 2, pages - 4)); n <= Math.min(pages, Math.max(5, page + 2)); n++) {
+    const firstPage = Math.max(1, Math.min(page - 1, pages - 2));
+    for (let n = firstPage; n <= Math.min(pages, firstPage + 2); n++) {
       const li = document.createElement("li"); const button = document.createElement("button");
       button.type = "button"; button.textContent = String(n); button.dataset.page = String(n);
       button.setAttribute("aria-label", `${n}ページ目`);

@@ -1141,7 +1141,11 @@ body.noema-public :focus-visible {
   list-style: none;
 }
 
+.article-pagination__arrow { display: none; }
+
 .article-pagination button {
+  flex-shrink: 0;
+  white-space: nowrap;
   min-width: 2.75rem;
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
@@ -1151,6 +1155,14 @@ body.noema-public :focus-visible {
   border-radius: 0.25rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+@media (max-width: 40rem) {
+  .article-pagination { gap: 0.25rem; }
+  .article-pagination ol { gap: 0.25rem; }
+  .article-pagination button { min-width: 2rem; padding-inline: 0.25rem; }
+  .article-pagination__label { display: none; }
+  .article-pagination__arrow { display: inline; }
 }
 
 .article-pagination button[aria-current="page"] {
