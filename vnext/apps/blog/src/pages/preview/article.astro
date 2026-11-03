@@ -34,8 +34,8 @@ const relatedArticles = findRelatedArticles(article, previewArticles);
       <ShareArticle title={article.title} pathname={Astro.url.pathname} />
       <ArticleUpdatesCta />
       <nav class="article-end-navigation" aria-label="記事を読み終えた後のリンク">
-        <a class="dads-link" href={`/topics/${topic}`}>{`${topicLabel}の記事を見る`}</a>
-        <a class="dads-link" href="/articles">すべての記事を見る</a>
+        <a class="dads-link" href={`/topics/${topic}`} aria-label={`${topicLabel}：同じテーマの記事を見る`}>同じテーマ</a>
+        <a class="dads-link" href="/articles">記事一覧</a>
       </nav>
     </div>
     <div class="article-page__aside">
