@@ -100,7 +100,6 @@
   .series-page__articles > li { grid-template-columns: 1.5rem minmax(0, 1fr); gap: .5rem; }
   .series-page__number { padding-top: .75rem; font-size: .875rem; }
   .series-page .article-row__body { padding: .75rem; gap: .5rem; }
-  .series-page .article-row__excerpt { display: none; }
   .series-share { margin-top: 2rem; }
   .article-updates { padding: 1rem; border-radius: .5rem; }
   .article-updates h2 { font-size: 1.125rem; }
