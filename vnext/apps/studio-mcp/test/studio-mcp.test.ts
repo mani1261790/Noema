@@ -1,3 +1,5 @@
+import { proofreadingFixture } from "../../studio/test/proofreading-fixture";
+import type { ArticleFrontmatter } from "@noema/content";
 import { env } from "cloudflare:workers";
 import {
   applyD1Migrations,
@@ -1699,7 +1701,7 @@ describe("Studio MCP HTTP boundary", () => {
   });
 });
 
-async function connectClient(session: CmsSession = SESSION) {
+async function connectClient(session: CmsSession = SESSION, attachTestProofreading = true) {
   const server = createStudioMcpServer(
     testEnv.CMS_DB,
     testEnv.ARTICLE_ASSETS,
@@ -1712,6 +1714,26 @@ async function connectClient(session: CmsSession = SESSION) {
     server.connect(serverTransport),
     client.connect(clientTransport)
   ]);
+  // Existing workflow tests supply synthetic receipts. Enforcement tests disable this helper.
+  const rawCallTool = client.callTool.bind(client);
+  if (attachTestProofreading) {
+    client.callTool = async (...args: Parameters<Client["callTool"]>) => {
+      const [request, ...rest] = args;
+      if (["studio_create_draft", "studio_update_draft", "studio_restore_article_version"].includes(request.name) && request.arguments && !("proofreading" in request.arguments)) {
+        let content = request.arguments;
+        if (request.name === "studio_restore_article_version") {
+          const result = await rawCallTool({ name: "studio_get_article_version", arguments: { articleId: content.articleId, revisionId: content.revisionId } });
+          const revision = (result.structuredContent as { version?: { revision?: { frontmatter: ArticleFrontmatter; markdown: string } } } | undefined)?.version?.revision;
+          if (revision) content = { ...content, ...revision };
+        }
+        if (content.frontmatter && typeof content.markdown === "string") {
+          const proofreading = await proofreadingFixture({ frontmatter: content.frontmatter as ArticleFrontmatter, markdown: content.markdown });
+          return rawCallTool({ ...request, arguments: { ...request.arguments, proofreading } }, ...rest);
+        }
+      }
+      return rawCallTool(request, ...rest);
+    };
+  }
   return {
     client,
     async close() {
@@ -1873,3 +1895,43 @@ function validArticle(slug: string) {
     visibility: "internal" as const
   };
 }
+
+it("requires both skill records and binds them to the draft returned by validation", async () => {
+  const connection = await connectClient(SESSION, false);
+  try {
+    const input = validArticle("proof-enforcement");
+    const validation = await connection.client.callTool({ name: "studio_validate_draft", arguments: input });
+    const target = (validation.structuredContent as { proofreadingTarget: { text: string; sha256: string } }).proofreadingTarget;
+    expect(target.text).toContain(input.markdown);
+    const missing = await connection.client.callTool({ name: "studio_create_draft", arguments: { ...input, requestId: crypto.randomUUID() } });
+    expect(missing.isError).toBe(true);
+    const proofreading = await proofreadingFixture(input);
+    expect(proofreading.yomiyasu.finalSha256).toBe(target.sha256);
+    const invalid = await connection.client.callTool({ name: "studio_create_draft", arguments: { ...input, markdown: input.markdown + "変更", proofreading, requestId: crypto.randomUUID() } });
+    expect(toolErrorCode(invalid)).toBe("invalid_article");
+    const partial = await connection.client.callTool({ name: "studio_create_draft", arguments: { ...input, proofreading: { ...proofreading, yomiyasu: { ...proofreading.yomiyasu, checks: ["lint", "diff", "materials"] } }, requestId: crypto.randomUUID() } });
+    expect(partial.isError).toBe(true);
+    const created = await connection.client.callTool({ name: "studio_create_draft", arguments: { ...input, proofreading, requestId: crypto.randomUUID() } });
+    expect(created.isError).not.toBe(true);
+    const article = articleFrom(created.structuredContent);
+    const noProofUpdate = await connection.client.callTool({ name: "studio_update_draft", arguments: { ...input, articleId: article.id, expectedVersion: article.lockVersion, requestId: crypto.randomUUID() } });
+    expect(noProofUpdate.isError).toBe(true);
+    const noProofRestore = await connection.client.callTool({ name: "studio_restore_article_version", arguments: { articleId: article.id, expectedVersion: article.lockVersion, revisionId: crypto.randomUUID(), requestId: crypto.randomUUID() } });
+    expect(noProofRestore.isError).toBe(true);
+  } finally { await connection.close(); }
+});
+
+it("returns math, title and existing reference warnings in validation and preview", async () => {
+  const connection = await connectClient();
+  try {
+    const input = validArticle("editorial-warnings");
+    input.frontmatter.title = "統計①";
+    input.markdown = "## 計算\n\nx₁ = 2\n\n## 参考資料\n\n資料の説明です。";
+    for (const name of ["studio_validate_draft", "studio_preview_draft"]) {
+      const result = await connection.client.callTool({ name, arguments: input });
+      const data = result.structuredContent as { valid: boolean; warnings: Array<{ code: string }> };
+      expect(data.valid).toBe(true);
+      expect(data.warnings.map(w => w.code)).toEqual(expect.arrayContaining(["plain-math", "title-numbering", "reference-heading"]));
+    }
+  } finally { await connection.close(); }
+});

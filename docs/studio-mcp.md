@@ -524,3 +524,7 @@ pnpm run deploy:dry-run
 ```
 
 `develop`へのmerge後は、ActionsのmigrationとStudio MCP Worker deployが成功したことを確認します。その後、Access認証、`studio_whoami`、記事・シリーズ・Asset一覧、検証、テスト用下書きとシリーズの作成・更新・空状態・統合・空シリーズ削除・履歴復元、レビューコメントと状態遷移を順に確認します。管理者ではメンバー一覧、未使用のテスト画像では削除も確認します。公開、公開終了、再公開のツールが一覧に存在しないことを受入条件にします。
+
+## 校正記録と自動警告
+
+記事の作成・更新・復元にはhuman-writingとyomiyasuの校正記録が必要です。対象原稿の取得、記録の形式、再校正が必要になる条件は[記事の自動警告とMCP校正記録](./editorial-review-checks.md)を参照してください。

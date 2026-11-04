@@ -1,3 +1,4 @@
+import { articleEditorialWarnings, type ArticleEditorialWarning } from "@noema/content/article-editorial";
 import { CmsReaderComments } from "./CmsReaderComments";
 import {
   useCallback,
@@ -812,6 +813,7 @@ export function App() {
     [deferredBody, frontmatter, previewEditor, previewSeries]
   );
   const bodyIssues = useMemo(() => validateArticleMarkdown(deferredBody), [deferredBody]);
+  const automatedWarnings = useMemo(() => articleEditorialWarnings({ title: frontmatter.title, markdown: deferredBody }), [frontmatter.title, deferredBody]);
   const bodyErrors = bodyIssues.filter((issue) => issue.severity === "error");
   const reviewValidation = useMemo(
     () => validateCmsArticleForReview({ frontmatter, markdown: deferredBody }),
@@ -846,6 +848,8 @@ export function App() {
     [body, cmsVisibility, frontmatter]
   );
   const cmsDirty = cmsArticle !== null && cmsFingerprint !== lastCmsFingerprint;
+  const proofreadingMissing = Boolean(cmsArticle?.proofreadingRequired && (!cmsArticle.proofreading || cmsDirty));
+
 
 
   useEffect(() => {
@@ -2592,7 +2596,7 @@ export function App() {
     });
   };
 
-  const focusBodyIssue = (issue?: ArticleMarkdownIssue) => {
+  const focusBodyIssue = (issue?: Pick<ArticleMarkdownIssue, "line">) => {
     setSettingsOpen(false);
     setPreviewFullscreen(false);
     window.requestAnimationFrame(() => {
@@ -2694,6 +2698,15 @@ export function App() {
     const safeAlt = asset.alt.trim().replace(/[\[\]]/g, "");
     if (!safeAlt) return;
     insertMarkdownAtCursor(`![${safeAlt}](${asset.markdownUrl})`);
+  };
+
+  const focusAutomatedWarning = (issue: ArticleEditorialWarning) => {
+    if (issue.path[0] === "markdown") {
+      focusBodyIssue({ line: Number(issue.path[1]) });
+    } else {
+      setSettingsMode("metadata");
+      focusReviewIssue(issue);
+    }
   };
 
   const focusReviewIssue = (issue: CmsEditorialIssue) => {
@@ -3402,11 +3415,17 @@ export function App() {
                     : "レンダリングされた記事本文で該当箇所を選択してコメントし、未対応の指摘をまとめて差し戻します。"}
                 </p>
               </div>
-              {bodyIssues.filter((issue) => issue.code === "reference-heading").map((issue) => (
+              {bodyIssues.filter((issue) => issue.severity === "warning").map((issue) => (
                 <button className="studio-validation__issue is-warning" key={`reference-${issue.line}`} type="button" onClick={() => focusBodyIssue(issue)}>
                   注意 — 本文{issue.line}行: {issue.message}
                 </button>
               ))}
+              {automatedWarnings.map((issue) => (
+                <button className="studio-validation__issue is-warning" key={`${issue.code}-${issue.path.join(".")}`} type="button" onClick={() => focusAutomatedWarning(issue)}>
+                  注意 — {issue.path[0] === "markdown" ? `本文${issue.path[1]}行: ` : "タイトル: "}{issue.message}
+                </button>
+              ))}
+              {cmsArticle?.proofreadingRequired && <p className="studio-cms__pending-message" role="status">{proofreadingMissing ? "最新版の校正記録が必要です。human-writingとyomiyasuで校正し、MCPから記録付きで保存するとレビューへ送れます。" : "human-writing・yomiyasuの校正記録があります（実行はクライアントの申告）。"}</p>}
               {cmsArticle?.reviewNote ? (
                 <p className="studio-cms__review-note"><strong>直近の判断:</strong> {cmsArticle.reviewNote}</p>
               ) : null}
@@ -3432,7 +3451,7 @@ export function App() {
               ) : null}
               <h3 className="studio-cms__next-action">{cmsReviewResponseMode ? "次の操作" : "レビューの操作"}</h3>
               <div className="studio-cms__actions">
-                {cmsCanRequestReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || cmsOpenReviewCommentCount > 0} onClick={() => void runCmsAction("request_review")} type="button">{cmsReviewResponseMode ? "再レビューを依頼" : "レビューを依頼"}</button> : null}
+                {cmsCanRequestReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={proofreadingMissing || editorLocked || cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || cmsOpenReviewCommentCount > 0} onClick={() => void runCmsAction("request_review")} type="button">{cmsReviewResponseMode ? "再レビューを依頼" : "レビューを依頼"}</button> : null}
                 {cmsCanReview ? <button className="dads-button" data-size="md" data-type="solid-fill" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("approve")} type="button">承認する</button> : null}
                 {cmsCanRequestChanges ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict || cmsOpenReviewCommentCount === 0} onClick={() => void runCmsAction("request_changes")} type="button">未対応{cmsOpenReviewCommentCount}件の修正を依頼</button> : null}
                 {cmsCanWithdrawReview ? <button className="dads-button" data-size="md" data-type="outline" disabled={cmsOperationBusy || cmsSaveState === "saving" || cmsAutosavePaused || cmsConflict} onClick={() => void runCmsAction("withdraw_review")} type="button">レビューを取り下げて編集へ戻す</button> : null}
@@ -3739,6 +3758,7 @@ export function App() {
                   {issue.severity === "error" ? "エラー" : "注意"} — 本文{issue.line}行: {issue.message}
                 </button>
               ))}
+              {automatedWarnings.map((issue) => <button className="studio-validation__issue is-warning" key={`${issue.code}-${issue.path.join(".")}`} type="button" onClick={() => focusAutomatedWarning(issue)}>注意 — {issue.path[0] === "markdown" ? `本文${issue.path[1]}行: ` : "タイトル: "}{issue.message}</button>)}
               {editorialWarnings.map((warning) => <p className="studio-validation__warning" key={warning}>確認 — {warning}</p>)}
             </section>
           ) : null}

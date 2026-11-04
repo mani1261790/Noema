@@ -25,6 +25,8 @@ function article(lockVersion: number): CmsArticleDetail {
     updatedAt: "2026-07-18T00:00:00.000Z",
     updatedByEmail: "editor@example.com",
     visibility: "public",
+    proofreadingRequired: false,
+    proofreading: null,
     currentRevision: {
       createdAt: "2026-07-18T00:00:00.000Z",
       createdByEmail: "editor@example.com",

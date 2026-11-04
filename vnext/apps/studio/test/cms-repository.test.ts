@@ -1,3 +1,4 @@
+import { proofreadingFixture } from "./proofreading-fixture";
 import { env } from "cloudflare:workers";
 import {
   applyD1Migrations,
@@ -1593,3 +1594,47 @@ async function sha256(value: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
+
+describe("MCP proofreading enforcement", () => {
+  it("rejects missing and mismatched records without creating an article", async () => {
+    const { identity } = await bootstrapAdmin();
+    const input = validArticle("proof-required");
+    await expect(createCmsArticle(testEnv.CMS_DB, identity, input, NOW, { channel: "mcp" })).rejects.toMatchObject({ code: "invalid_article" });
+    const proofreading = await proofreadingFixture(input);
+    await expect(createCmsArticle(testEnv.CMS_DB, identity, { ...input, markdown: input.markdown + "変更", proofreading }, NOW, { channel: "mcp" })).rejects.toMatchObject({ code: "invalid_article" });
+    expect(await listCmsArticles(testEnv.CMS_DB, identity)).toHaveLength(0);
+  });
+
+  it("invalidates records on web edits and restores, retaining the requirement", async () => {
+    const { identity } = await bootstrapAdmin();
+    const input = validArticle("proof-invalidation");
+    const proofreading = await proofreadingFixture(input);
+    let article = await createCmsArticle(testEnv.CMS_DB, identity, { ...input, proofreading }, NOW, { channel: "mcp" });
+    const sourceRevisionId = article.currentRevision.id;
+    expect(article.proofreadingRequired).toBe(true);
+    expect(article.proofreading).toEqual(proofreading);
+    article = await updateCmsArticle(testEnv.CMS_DB, identity, article.id, article.lockVersion, { ...input, markdown: input.markdown + "\n\n編集しました。" }, NOW, { channel: "web" });
+    expect(article.proofreadingRequired).toBe(true);
+    expect(article.proofreading).toBeNull();
+    await expect(transitionCmsArticle(testEnv.CMS_DB, identity, article.id, "request_review", article.lockVersion, {}, NOW)).rejects.toMatchObject({ code: "invalid_article" });
+    article = await updateCmsArticle(testEnv.CMS_DB, identity, article.id, article.lockVersion, input, NOW, { channel: "web" }, { saveReason: "restored", sourceRevisionId });
+    expect(article.proofreading).toBeNull();
+    await expect(transitionCmsArticle(testEnv.CMS_DB, identity, article.id, "request_review", article.lockVersion, {}, NOW)).rejects.toMatchObject({ code: "invalid_article" });
+    article = await updateCmsArticle(testEnv.CMS_DB, identity, article.id, article.lockVersion, { ...input, proofreading: await proofreadingFixture(input) }, NOW, { channel: "mcp" });
+    article = await transitionCmsArticle(testEnv.CMS_DB, identity, article.id, "request_review", article.lockVersion, {}, NOW);
+    expect(article.reviewStatus).toBe("in_review");
+    // A record cannot be reused when title, summary or reference comments change.
+    const changed = { ...input, frontmatter: { ...input.frontmatter, title: "別のタイトル" }, proofreading };
+    await expect(createCmsArticle(testEnv.CMS_DB, identity, changed, NOW, { channel: "mcp" })).rejects.toMatchObject({ code: "invalid_article" });
+  });
+
+  it("checks again at approval and publication, including migrated in-review articles", async () => {
+    const { identity } = await bootstrapAdmin();
+    let article = await createCmsArticle(testEnv.CMS_DB, identity, validArticle("proof-workflow"), NOW);
+    article = await transitionCmsArticle(testEnv.CMS_DB, identity, article.id, "request_review", article.lockVersion, {}, NOW);
+    await testEnv.CMS_DB.prepare("UPDATE cms_articles SET proofreading_required = 1 WHERE id = ?1").bind(article.id).run();
+    await expect(transitionCmsArticle(testEnv.CMS_DB, identity, article.id, "approve", article.lockVersion, {}, NOW)).rejects.toMatchObject({ code: "invalid_article" });
+    await testEnv.CMS_DB.prepare("UPDATE cms_articles SET review_status = 'approved', approved_revision_id = current_revision_id WHERE id = ?1").bind(article.id).run();
+    await expect(transitionCmsArticle(testEnv.CMS_DB, identity, article.id, "publish", article.lockVersion, { visibility: "public" }, NOW)).rejects.toMatchObject({ code: "invalid_article" });
+  });
+});
