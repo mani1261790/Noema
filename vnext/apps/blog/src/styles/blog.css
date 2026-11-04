@@ -721,25 +721,12 @@ body.noema-public :focus-visible {
   }
 }
 
-.featured-article-card__excerpt,
-.article-row__excerpt {
-  grid-column: 1 / -1;
-  margin: 0;
-  text-decoration: none;
-}
-
-.series-card__description,
-.article-row__excerpt,
-.featured-article-card__excerpt {
+.series-card__description {
   display: -webkit-box;
   margin-bottom: 0;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.featured-article-card--compact .featured-article-card__excerpt {
-  -webkit-line-clamp: 1;
 }
 
 .featured-article-card__meta,
@@ -816,6 +803,25 @@ body.noema-public :focus-visible {
   gap: 1rem;
 }
 
+@media (min-width: 64rem) {
+  main .noema-container.listing-page--browse:not(.article-page) {
+    max-width: 68rem;
+  }
+
+  .article-list--browse {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .article-list--browse > [data-article-item] {
+    min-width: 0;
+  }
+
+  .article-list--browse .article-row--illustrated {
+    grid-template-columns: minmax(0, 1fr) 5.5rem;
+  }
+}
+
 .series-index {
   min-height: 60vh;
 }
@@ -871,10 +877,6 @@ body.noema-public :focus-visible {
   grid-template-rows: repeat(5, auto);
   gap: 0.625rem 1rem;
   padding: 1.25rem 1.5rem;
-}
-
-.series-page .article-row__excerpt {
-  margin-bottom: 0;
 }
 
 .series-page .article-row__tags {
@@ -1641,7 +1643,6 @@ body.noema-public :focus-visible {
   font-size: calc(17 / 16 * 1rem);
 }
 
-.article-row--compact .article-row__excerpt,
 .article-row--compact .article-row__tags {
   display: none;
 }
