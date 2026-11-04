@@ -76,7 +76,7 @@ const jsonLd = {
           <a class="dads-link" href="/articles">すべての記事を見る</a>
         </div>
         <div class="article-list home-start__articles">
-          {startArticles.map((article) => <ArticleRow article={article} headingLevel={3} showExcerpt={false} reason={readingIntents[articleIntent(article)].label} />)}
+          {startArticles.map((article) => <ArticleRow article={article} headingLevel={3} reason={readingIntents[articleIntent(article)].label} />)}
         </div>
       </div>
     </section>
