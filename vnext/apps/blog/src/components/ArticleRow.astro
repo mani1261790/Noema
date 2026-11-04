@@ -9,10 +9,11 @@ interface Props {
   headingLevel?: 2 | 3;
   compact?: boolean;
   showImage?: boolean;
+  showExcerpt?: boolean;
   reason?: string;
 }
 
-const { article, headingLevel = 2, compact = false, showImage = true, reason } = Astro.props;
+const { article, headingLevel = 2, compact = false, showImage = true, showExcerpt = true, reason } = Astro.props;
 const topic = article.topics[0];
 const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
 ---
@@ -24,7 +25,7 @@ const topicLabel = topicLabels[topic as keyof typeof topicLabels] ?? topic;
     {headingLevel === 3
       ? <h3 class="article-row__title">{article.title}</h3>
       : <h2 class="article-row__title">{article.title}</h2>}
-    <p class="article-row__excerpt">{article.excerpt}</p>
+    {showExcerpt && <p class="article-row__excerpt">{article.excerpt}</p>}
     <ArticleFeatures features={article.features} />
     <div class="article-row__meta">
       <div class="article-row__details">
