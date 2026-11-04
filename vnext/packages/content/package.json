@@ -11,7 +11,8 @@
     "./article-presentation": "./src/article-presentation.ts",
     "./image-metadata": "./src/image-metadata.ts",
     "./indexnow": "./src/indexnow.ts",
-    "./article-features": "./src/article-features.ts"
+    "./article-features": "./src/article-features.ts",
+    "./article-editorial": "./src/article-editorial.ts"
   },
   "scripts": {
     "test": "vitest run"

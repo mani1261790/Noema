@@ -1,3 +1,4 @@
+import { cmsProofreadingSchema } from "@noema/cms";
 import {
   CMS_ANALYTICS_ACQUISITION_CHANNEL_VERSION,
   CMS_CLOUDFLARE_WEB_ANALYTICS_URL,
@@ -883,6 +884,8 @@ function parseCmsArticleDetail(value: unknown): CmsArticleDetail | null {
   const summary = parseCmsArticleSummary(value);
   if (!summary || !isRecord(value) || !isRecord(value.currentRevision)) return null;
   const revision = value.currentRevision;
+  const proofreading = value.proofreading == null ? null : cmsProofreadingSchema.safeParse(value.proofreading);
+  if (proofreading && !proofreading.success) return null;
   const editor = revision.editor === null
     ? null
     : isRecord(revision.editor) &&
@@ -912,6 +915,8 @@ function parseCmsArticleDetail(value: unknown): CmsArticleDetail | null {
   ) return null;
   return {
     ...summary,
+    proofreadingRequired: value.proofreadingRequired === true,
+    proofreading: proofreading?.data ?? null,
     currentRevision: {
       createdAt: revision.createdAt,
       createdByEmail: revision.createdByEmail,

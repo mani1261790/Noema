@@ -1,3 +1,5 @@
+import { cmsProofreadingSchema, type CmsProofreading } from "./proofreading";
+export { cmsProofreadingSchema, cmsProofreadingText, cmsProofreadingTarget, type CmsProofreading } from "./proofreading";
 import {
   articleApproachSchema,
   articleFrontmatterSchema,
@@ -102,7 +104,8 @@ export const cmsDraftFrontmatterSchema = z.object({
 export const cmsArticleContentSchema = z.object({
   frontmatter: cmsDraftFrontmatterSchema,
   markdown: z.string().max(1_048_576).describe(articleMarkdownGuidance),
-  visibility: cmsVisibilitySchema
+  visibility: cmsVisibilitySchema,
+  proofreading: cmsProofreadingSchema.optional()
 }).strict();
 
 const cmsRevisionWriteContextSchema = z.object({
@@ -368,6 +371,8 @@ export interface CmsArticleVersionCheckpointPage {
 }
 
 export interface CmsArticleDetail extends CmsArticleSummary {
+  proofreadingRequired: boolean;
+  proofreading: CmsProofreading | null;
   currentRevision: CmsArticleRevision;
   publishedRevisionNumber: number | null;
   publishedSlug: string | null;
