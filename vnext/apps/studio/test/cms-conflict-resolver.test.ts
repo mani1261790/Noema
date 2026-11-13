@@ -22,6 +22,8 @@ const article: CmsArticleDetail = {
   updatedAt: "2026-08-20T01:00:00.000Z",
   updatedByEmail: "editor@example.com",
   visibility: "public",
+  proofreadingRequired: false,
+  proofreading: null,
   currentRevision: {
     createdAt: "2026-08-20T01:00:00.000Z",
     createdByEmail: "editor@example.com",

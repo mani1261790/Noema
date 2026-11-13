@@ -1,3 +1,5 @@
+import { articleEditorialWarnings } from "@noema/content/article-editorial";
+import { cmsProofreadingSchema, cmsProofreadingTarget } from "@noema/cms";
 import { createMcpHandler } from "agents/mcp/server";
 import { McpServer } from "@modelcontextprotocol/server";
 import { Buffer } from "node:buffer";
@@ -202,16 +204,19 @@ const assetStatusSchema = z.object({
 }).strict();
 
 const createDraftSchema = cmsCreateArticleRequestSchema.extend({
+  proofreading: cmsProofreadingSchema,
   requestId: REQUEST_ID_SCHEMA
 }).strict();
 
 const updateDraftSchema = cmsArticleContentSchema.extend({
+  proofreading: cmsProofreadingSchema,
   articleId: z.string().uuid(),
   expectedVersion: z.number().int().nonnegative(),
   requestId: REQUEST_ID_SCHEMA
 }).strict();
 
 const restoreArticleVersionSchema = z.object({
+  proofreading: cmsProofreadingSchema,
   articleId: z.string().uuid(),
   expectedVersion: z.number().int().nonnegative(),
   requestId: REQUEST_ID_SCHEMA,
@@ -340,7 +345,7 @@ export function createStudioMcpServer(
     name: "noema-studio",
     version: "0.1.0"
   }, {
-    instructions: `Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。レビュー修正ではstudio_list_review_commentsでstatus=openの指摘とanchorの引用・オフセット・前後文脈を確認し、studio_get_articleで現在本文を取得して該当箇所を修正します。本文更新後にstudio_resolve_review_commentで各指摘を対応済みにし、未対応が0件になってからレビューを再依頼してください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。既存シリーズはarticleIdsを空にでき、空のシリーズだけstudio_delete_seriesで削除できます。2シリーズをまとめる場合は、両方の全記事を重複なく並べたarticleIdsと最新lockVersionをstudio_merge_seriesへ渡します。統合元シリーズは削除されるため、実行前に統合先と記事順を利用者へ明示してください。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
+    instructions: `MCPでの記事作成・更新・復元にはhuman-writingとyomiyasuによる校正記録が必須です。studio_validate_draftが返すproofreadingTarget.textをUTF-8で保存して両スキルで校正し、変更を原稿へ反映して再検証してください。最終的なtextをyomiyasu runとverifyに渡し、完全なSHA-256、実行ID、スキルの版、確認した指摘をproofreadingとして保存時に送ってください。検査件数0は合格条件ではありません。記録はクライアントの申告でありサーバーによる実行証明ではありません。Noemaの記事を作成・更新する前にstudio_validate_draftとstudio_preview_draftを使ってください。レビュー修正ではstudio_list_review_commentsでstatus=openの指摘とanchorの引用・オフセット・前後文脈を確認し、studio_get_articleで現在本文を取得して該当箇所を修正します。本文更新後にstudio_resolve_review_commentで各指摘を対応済みにし、未対応が0件になってからレビューを再依頼してください。履歴を戻すときはstudio_list_article_versionsとstudio_get_article_versionで内容を確認し、studio_get_articleのlockVersionをexpectedVersionとしてstudio_restore_article_versionを実行してください。シリーズはstudio_list_seriesまたはstudio_get_seriesで最新版とlockVersionを確認してから更新し、並び順はarticleIdsの順序で指定します。既存シリーズはarticleIdsを空にでき、空のシリーズだけstudio_delete_seriesで削除できます。2シリーズをまとめる場合は、両方の全記事を重複なく並べたarticleIdsと最新lockVersionをstudio_merge_seriesへ渡します。統合元シリーズは削除されるため、実行前に統合先と記事順を利用者へ明示してください。復元は過去の履歴を変更・削除せず、新しいimmutable revisionを追加します。公開、公開取り下げ、公開記事のアーカイブはMCPでは実行できません。${articleMarkdownGuidance}`
   });
 
   server.registerTool(
@@ -867,7 +872,7 @@ export function createStudioMcpServer(
     },
     async ({ frontmatter, markdown }) => {
       const issues = validateCmsArticleForReview({ frontmatter, markdown });
-      return toolSuccess({ issues, warnings: validateArticleMarkdown(markdown).filter((issue) => issue.severity === "warning"), valid: issues.length === 0 });
+      return toolSuccess({ issues, proofreadingTarget: await cmsProofreadingTarget({ frontmatter, markdown }), warnings: [...validateArticleMarkdown(markdown).filter((issue) => issue.severity === "warning"), ...articleEditorialWarnings({ title: frontmatter.title, markdown })], valid: issues.length === 0 });
     }
   );
 
@@ -898,7 +903,7 @@ export function createStudioMcpServer(
       return {
         html,
         issues,
-        warnings: validateArticleMarkdown(markdown).filter((issue) => issue.severity === "warning"),
+        proofreadingTarget: await cmsProofreadingTarget({ frontmatter, markdown }), warnings: [...validateArticleMarkdown(markdown).filter((issue) => issue.severity === "warning"), ...articleEditorialWarnings({ title: frontmatter.title, markdown })],
         mediaType: "text/html",
         title: frontmatter.title,
         valid: issues.length === 0,
@@ -916,7 +921,7 @@ export function createStudioMcpServer(
       annotations: writeAnnotations(true)
     },
     async ({ requestId, ...content }) => executeTool(async () => ({
-      warnings: validateArticleMarkdown(content.markdown).filter((issue) => issue.severity === "warning"),
+      warnings: [...validateArticleMarkdown(content.markdown).filter((issue) => issue.severity === "warning"), ...articleEditorialWarnings({ title: content.frontmatter.title, markdown: content.markdown })],
       article: await createCmsArticle(
         db,
         session.identity,
@@ -940,7 +945,7 @@ export function createStudioMcpServer(
       annotations: writeAnnotations(true)
     },
     async ({ articleId, expectedVersion, requestId, ...content }) => executeTool(async () => ({
-      warnings: validateArticleMarkdown(content.markdown).filter((issue) => issue.severity === "warning"),
+      warnings: [...validateArticleMarkdown(content.markdown).filter((issue) => issue.severity === "warning"), ...articleEditorialWarnings({ title: content.frontmatter.title, markdown: content.markdown })],
       article: await updateCmsArticle(
         db,
         session.identity,
@@ -966,7 +971,7 @@ export function createStudioMcpServer(
       inputSchema: restoreArticleVersionSchema,
       annotations: writeAnnotations(true)
     },
-    async ({ articleId, expectedVersion, requestId, revisionId }) => executeTool(async () => {
+    async ({ articleId, expectedVersion, requestId, revisionId, proofreading }) => executeTool(async () => {
       const version = await getCmsArticleVersion(db, session.identity, articleId, revisionId);
       const visibility = version.visibility
         ?? (await getCmsArticle(db, session.identity, articleId)).visibility;
@@ -978,6 +983,7 @@ export function createStudioMcpServer(
         {
           frontmatter: { ...version.revision.frontmatter, status: "draft" },
           markdown: version.revision.markdown,
+          proofreading,
           visibility
         },
         new Date(),
@@ -1004,8 +1010,8 @@ export function createStudioMcpServer(
       inputSchema: requestReviewSchema,
       annotations: writeAnnotations(true)
     },
-    async ({ articleId, expectedVersion, note, requestId }) => executeTool(async () => ({
-      article: await transitionCmsArticle(
+    async ({ articleId, expectedVersion, note, requestId }) => executeTool(async () => {
+      const article = await transitionCmsArticle(
         db,
         session.identity,
         articleId,
@@ -1018,8 +1024,13 @@ export function createStudioMcpServer(
           client,
           idempotency: { requestId, toolName: "studio_request_review" }
         }
-      )
-    }))
+      );
+      const { frontmatter, markdown } = article.currentRevision;
+      return { article, warnings: [
+        ...validateArticleMarkdown(markdown).filter(issue => issue.severity === "warning"),
+        ...articleEditorialWarnings({ title: frontmatter.title, markdown })
+      ] };
+    })
   );
 
   registerArticleWorkflowTool(server, db, session, client, {

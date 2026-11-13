@@ -1,5 +1,8 @@
 import {
   canCms,
+  cmsProofreadingSchema,
+  cmsProofreadingTarget,
+  type CmsProofreading,
   cmsCapabilitiesFor,
   cmsAssetMutationSchema,
   cmsAssetStatusSchema,
@@ -72,6 +75,8 @@ interface ArticleListRow {
 }
 
 interface ArticleDetailRow extends ArticleListRow {
+  proofreading_required: number;
+  proofreading_json: string | null;
   approved_revision_id: string | null;
   created_at: string;
   created_by_subject: string;
@@ -264,6 +269,7 @@ export class CmsRepositoryError extends Error {
 }
 
 export interface CmsArticleContentInput {
+  proofreading?: CmsProofreading;
   frontmatter: ArticleFrontmatter;
   markdown: string;
   visibility: CmsVisibility;
@@ -1617,13 +1623,14 @@ export async function createCmsArticle(
   requirePermission(identity.role, "edit");
   const requestedContent = parseDraftContent(input);
   const content = withCmsManagedMetadata(requestedContent, now);
+  await validateProofreading(content, context.channel === "mcp");
   const articleId = crypto.randomUUID();
   const revisionId = crypto.randomUUID();
   const auditId = crypto.randomUUID();
   const timestamp = now.toISOString();
   const slug = canonicalDraftSlug(content.frontmatter.slug, articleId);
   const frontmatterJson = JSON.stringify(content.frontmatter);
-  const checksum = await contentChecksum(requestedContent);
+  const checksum = await sha256(JSON.stringify(requestedContent));
   const contentSha256 = await contentChecksum(content);
   const replayArticleId = await findIdempotentArticle(
     db,
@@ -1648,9 +1655,9 @@ export async function createCmsArticle(
           id, slug, review_status, publication_status, draft_visibility,
           published_visibility, lock_version, current_revision_id,
           current_revision_number, created_by_subject, updated_by_subject,
-          created_at, updated_at
+          created_at, updated_at, proofreading_required
         ) VALUES (
-          ?1, ?2, 'draft', 'unpublished', ?3, NULL, 1, ?4, 1, ?5, ?5, ?6, ?6
+          ?1, ?2, 'draft', 'unpublished', ?3, NULL, 1, ?4, 1, ?5, ?5, ?6, ?6, ?7
         )`
       ).bind(
         articleId,
@@ -1658,14 +1665,15 @@ export async function createCmsArticle(
         content.visibility,
         revisionId,
         identity.subject,
-        timestamp
+        timestamp,
+        context.channel === "mcp" ? 1 : 0
       ),
       db.prepare(
         `INSERT INTO cms_article_revisions (
           id, article_id, revision_number, frontmatter_json, markdown,
           content_sha256, created_by_subject, created_at, edit_session_id,
-          save_reason, draft_visibility
-        ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, ?8, 'created', ?9)`
+          save_reason, draft_visibility, proofreading_json
+        ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, ?8, 'created', ?9, ?10)`
       ).bind(
         revisionId,
         articleId,
@@ -1675,7 +1683,8 @@ export async function createCmsArticle(
         identity.subject,
         timestamp,
         revisionContext.editSessionId ?? null,
-        content.visibility
+        content.visibility,
+        content.proofreading ? JSON.stringify(content.proofreading) : null
       ),
       db.prepare(
         `INSERT INTO cms_audit_events
@@ -1744,6 +1753,7 @@ export async function updateCmsArticle(
   requirePermission(identity.role, "edit");
   const requestedContent = parseDraftContent(input);
   const content = withCmsManagedMetadata(requestedContent, now);
+  await validateProofreading(content, context.channel === "mcp");
   const checksum = await operationChecksum({
     articleId,
     content: requestedContent,
@@ -1797,9 +1807,9 @@ export async function updateCmsArticle(
         `INSERT INTO cms_article_revisions (
           id, article_id, revision_number, frontmatter_json, markdown,
           content_sha256, created_by_subject, created_at, edit_session_id,
-          save_reason, source_revision_id, draft_visibility
+          save_reason, source_revision_id, draft_visibility, proofreading_json
         )
-        SELECT ?1, id, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
+        SELECT ?1, id, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?14
         FROM cms_articles
         WHERE id = ?12 AND lock_version = ?13`
       ).bind(
@@ -1815,7 +1825,8 @@ export async function updateCmsArticle(
         revisionContext.sourceRevisionId ?? null,
         content.visibility,
         articleId,
-        expectedVersion
+        expectedVersion,
+        content.proofreading ? JSON.stringify(content.proofreading) : null
       ),
       db.prepare(
         `UPDATE cms_articles
@@ -1830,7 +1841,8 @@ export async function updateCmsArticle(
              reviewed_at = NULL,
              reviewed_by_subject = NULL,
              updated_by_subject = ?6,
-             updated_at = ?7
+             updated_at = ?7,
+             proofreading_required = MAX(proofreading_required, ?10)
          WHERE id = ?8 AND lock_version = ?9`
       ).bind(
         slug,
@@ -1841,7 +1853,8 @@ export async function updateCmsArticle(
         identity.subject,
         timestamp,
         articleId,
-        expectedVersion
+        expectedVersion,
+        context.channel === "mcp" ? 1 : 0
       ),
       db.prepare(
         `INSERT INTO cms_audit_events
@@ -1982,6 +1995,9 @@ export async function transitionCmsArticle(
   const detail = await getCmsArticle(db, identity, articleId);
   const timestamp = now.toISOString();
   const transition = buildTransition(current, detail, identity, action, transitionOptions, timestamp);
+  if (["request_review", "approve", "publish"].includes(action) && (detail.proofreadingRequired || context.channel === "mcp")) {
+    await validateProofreading({ ...detail.currentRevision, visibility: detail.visibility, proofreading: detail.proofreading ?? undefined }, true);
+  }
   if (action === "request_review" || action === "publish") {
     const outboundIssues = await validateArticleLinkTargets(
       db,
@@ -2523,6 +2539,8 @@ function articleListColumns(): string {
 function articleDetailSelect(): string {
   return `SELECT ${articleListColumns()},
     a.approved_revision_id,
+    a.proofreading_required,
+    r.proofreading_json,
     a.created_at,
     a.created_by_subject,
     a.current_revision_id,
@@ -2652,6 +2670,8 @@ function parseArticleDetail(row: ArticleDetailRow): CmsArticleDetail {
 
   return {
     ...summary,
+    proofreadingRequired: row.proofreading_required === 1,
+    proofreading: row.proofreading_json ? cmsProofreadingSchema.parse(JSON.parse(row.proofreading_json)) : null,
     currentRevision: {
       createdAt: row.current_revision_created_at,
       createdByEmail: row.current_revision_created_by_email,
@@ -2744,6 +2764,18 @@ function parseArticleVersionCheckpoint(row: ArticleVersionCheckpointRow): CmsArt
   };
 }
 
+async function validateProofreading(content: CmsArticleContentInput, required: boolean): Promise<void> {
+  if (!content.proofreading) {
+    if (required) throw new CmsRepositoryError("invalid_article", "human-writingとyomiyasuの校正記録が必要です。最新版を校正し、MCPから記録付きで保存してください。", [{ message: "最新版の校正記録がありません。", path: ["proofreading"] }]);
+    return;
+  }
+  const parsed = cmsProofreadingSchema.safeParse(content.proofreading);
+  const target = await cmsProofreadingTarget(content);
+  if (!parsed.success || parsed.data.yomiyasu.finalSha256 !== target.sha256) {
+    throw new CmsRepositoryError("invalid_article", "校正記録と原稿が一致しません。studio_validate_draftのproofreadingTarget.textを校正し、最終稿の記録を渡してください。", [{ message: "校正記録と原稿のハッシュが一致しません。", path: ["proofreading"] }]);
+  }
+}
+
 function parseDraftContent(input: CmsArticleContentInput): CmsArticleContentInput {
   const frontmatter = cmsDraftFrontmatterSchema.safeParse(input.frontmatter);
   const visibility = cmsVisibilitySchema.safeParse(input.visibility);
@@ -2753,7 +2785,8 @@ function parseDraftContent(input: CmsArticleContentInput): CmsArticleContentInpu
   return {
     frontmatter: frontmatter.data,
     markdown: input.markdown,
-    visibility: visibility.data
+    visibility: visibility.data,
+    ...(input.proofreading ? { proofreading: input.proofreading } : {})
   };
 }
 
